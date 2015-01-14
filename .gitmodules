@@ -1,0 +1,6 @@
+[submodule "sonLib"]
+	path = sonLib
+	url = https://github.com/benedictpaten/sonLib.git
+[submodule "jobTree"]
+	path = jobTree
+	url = https://github.com/benedictpaten/jobTree.git
