@@ -34,7 +34,7 @@ from src.alignment_abuts_left import AlignmentAbutsLeft
 
 #classifiers we are currently working with
 classifiers = [EndStop, UnknownBases, BeginStart, InFrameStop, BadFrame, NoCds, CdsMult3Gap, 
-        UtrGap, CdsUnknownSplice, CdsNonCanonSplice, UtrUnknownSplice, UtrNonCanonSplice,
+        UtrGap, CdsGap, CdsUnknownSplice, CdsNonCanonSplice, UtrUnknownSplice, UtrNonCanonSplice,
         NumberScaffoldGap, AlignmentIdentity, AlignmentCoverage, AlignmentPartialMap, 
         AlignmentAbutsRight, AlignmentAbutsLeft]
 
@@ -127,11 +127,9 @@ def main():
             if os.path.exists(os.path.join(args.outDir, g + ".db")):
                 os.remove(os.path.join(args.outDir, g + ".db"))
 
-    logger.info("Building paths to the required files")
     alnPslDict = parse_dir(args.genomes, args.dataDir, alignment_ext)
     seqTwoBitDict = parse_dir(args.genomes, args.dataDir, sequence_ext)
     geneCheckBedDict = parse_dir(args.genomes, args.dataDir, gene_check_ext)
-    #geneCheckBedDetailsDict = parse_dir(args.genomes, args.geneCheckDir, gene_check_details_ext)
 
     refSequence = os.path.join(args.dataDir, args.refGenome + ".2bit")
     if not os.path.exists(refSequence):

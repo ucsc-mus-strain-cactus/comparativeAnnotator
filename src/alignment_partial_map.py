@@ -23,7 +23,7 @@ class AlignmentPartialMap(AbstractClassifier):
 
         s_dict = defaultdict(int)
         for a_id, aln in self.alignment_dict.iteritems():
-            if aln.qSize != aln.qEnd - aln.qStart:
+            if aln.qSize != aln.qEnd - aln.qStart
                 s_dict[a_id] = 1
 
         self.upsert_dict_wrapper(s_dict)
