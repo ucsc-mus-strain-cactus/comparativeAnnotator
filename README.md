@@ -2,6 +2,15 @@
 
 This program takes as input files from the `gene-check` pipeline and produces a `sqlite3` database. This database is constructed so that each column represents one **feature** found in the data. Each row represents one alignment, and is uniquely keyed on the alignment ID number. The database contains a table for each 1-to-1 comparison between a reference transcriptome and the target genome.
 
+To run this program, you need to have cython installed. This is required for the `twobit` python library, which will be automatically compiled and installed by the makefile. This also means you need to have ability to add modules to your python installation. If you want to do this manually, look in `lib/twobit/` for the pyx file.
+
+Once this is setup, run the following commands:
+
+```git submodule update --init
+make all```
+
+Then to run the program, you need to modify the makefile to point to the right files, then run either `make run` to run the annotation pipeline. You can also use `make details` to build the secondary database from the gene-check-details files.
+
 The features currently represented in this are:
 
 1. geneID - the Gencode ID for the gene this transcript is from.
