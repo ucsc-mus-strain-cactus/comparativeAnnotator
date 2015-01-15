@@ -12,22 +12,35 @@ import argparse
 
 
 class FullPaths(argparse.Action):
-        """
-        Expand user- and relative-paths
-        https://gist.github.com/brantfaircloth/1443543
-        """
-        def __call__(self, parser, namespace, values, option_string=None):
-                setattr(namespace, self.dest, os.path.abspath(os.path.expanduser(values)))
+    """
+    Expand user- and relative-paths
+    https://gist.github.com/brantfaircloth/1443543
+    """
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, os.path.abspath(os.path.expanduser(values)))
+
+
+def classesInModule(module):
+    """
+    http://stackoverflow.com/questions/5520580/how-do-you-get-all-classes-defined-in-a-module-but-not-imported
+    """
+    md = module.__dict__
+    return [
+        md[c] for c in md if (
+            isinstance(md[c], type) and md[c].__module__ == module.__name__
+        )
+    ]
 
 
 def formatRatio(numerator, denominator):
-        if denominator == 0:
-                return float("nan")
-        return float(numerator)/denominator
+    if denominator == 0:
+        return float("nan")
+    return float(numerator)/denominator
 
 
 def DirType(d):
-    """ given a string path to a directory, D, verify it can be used.
+    """
+    Given a string path to a directory, D, verify it can be used.
     """
     d = os.path.abspath(d)
     if not os.path.exists(d):
@@ -41,7 +54,8 @@ def DirType(d):
 
 
 def FileType(f):
-    """ given a string path to a file, F, verify it can be used.
+    """
+    Given a string path to a file, F, verify it can be used.
     """
     f = os.path.abspath(f)
     if not os.path.exists(f):
