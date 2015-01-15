@@ -11,7 +11,7 @@ import sqlite3 as sql
 class ExclusiveSqlConnection(object):
     """meant to be used with a with statement to ensure proper closure"""
 
-    def __init__(self, path, timeout=6000):
+    def __init__(self, path, timeout=600):
         self.path = path
         self.timeout = timeout
 
@@ -75,8 +75,28 @@ def numberOfRows(cur, table):
     return cur.fetchone()[0]
 
 
-def insertRow(cur, table, primary_key_column, primary_key):
-    cmd = """INSERT INTO '{}' ({}) VALUES ('{}')""".format(table, primary_key_column, primary_key)
+def insertRow(cur, table, primary_key_column, primary_key, columns, values):
+    """
+    Inserts a new row into the table.
+    table = table name to be inserted into.
+    primary_key_column = column name of primary key
+    primary_key = unique row id for this row
+    columns = list of columns to be inserted
+    values = list of values to be inserted into columns
+    """
+    assert len(columns) == len(values)
+    #need to format values
+    valString = ["'{}'".format(primary_key)]
+    for v in values:
+        if type(v) == str:
+            valString.append("'{}'".format(v))
+        elif v == None:
+            valString.append("NULL")
+        else:
+            valString.append(str(v))
+    values = ", ".join(valString)
+    columns = ", ".join([primary_key_column] + columns)
+    cmd = """INSERT INTO '{}' ({}) VALUES ({})""".format(table, columns, values)
     cur.execute(cmd)
 
 
