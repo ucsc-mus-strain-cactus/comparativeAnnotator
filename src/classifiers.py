@@ -140,7 +140,7 @@ class BadFrame(object):
 
     def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict):
         if aId not in transcriptDict:
-            return 0      
+            return None      
         t = transcriptDict[aId]
         if t.getCdsLength() % 3 != 0:
             return 1
@@ -224,7 +224,7 @@ class BeginStart(object):
 
     def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict):
         if aId not in transcriptDict:
-            return 0      
+            return None      
         t = transcriptDict[aId]
         s = t.getCds(seqDict)
         #ATG is the only start codon
@@ -249,7 +249,7 @@ class CdsGap(object):
     def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict, 
                 short_intron_size = 30):
         if aId not in transcriptDict:
-            return 0      
+            return None      
         t = transcriptDict[aId]
         for i in xrange(len(t.intronIntervals)):
             if t.exons[i].containsCds() is True and t.exons[i+1].containsCds() is True:
@@ -273,7 +273,7 @@ class CdsMult3Gap(object):
     def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict, 
                 short_intron_size = 30):
         if aId not in transcriptDict:
-            return 0      
+            return None      
         t = transcriptDict[aId]
         for i in xrange(len(t.intronIntervals)):
             if t.exons[i].containsCds() is True and t.exons[i+1].containsCds() is True:
@@ -310,7 +310,7 @@ class CdsNonCanonSplice(object):
     def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict, 
                 short_intron_size = 30):
         if aId not in transcriptDict:
-            return 0              
+            return None              
         t = transcriptDict[aId]
         chromSeq = seqDict[t.chromosomeInterval.chromosome]
         for i in xrange(len(t.intronIntervals)):
@@ -351,7 +351,7 @@ class CdsUnknownSplice(object):
     def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict, 
                 short_intron_size = 30):
         if aId not in transcriptDict:
-            return 0      
+            return None      
         t = transcriptDict[aId]
         chromSeq = seqDict[t.chromosomeInterval.chromosome]
         for i in xrange(len(t.intronIntervals)):
@@ -379,7 +379,7 @@ class EndStop(object):
 
     def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict):
         if aId not in transcriptDict:
-            return 0
+            return None
         t = transcriptDict[aId]
         s = t.getProteinSequence(seqDict)
         if len(s) > 0 and s[-1] != "*":
@@ -404,7 +404,7 @@ class InFrameStop(object):
 
     def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict):
         if aId not in transcriptDict:
-            return 0        
+            return None        
         t = transcriptDict[aId]
         #make sure this transcript has CDS
         #and more than 2 codons - can't have in frame stop without that
@@ -431,7 +431,7 @@ class NoCds(object):
 
     def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict):
         if aId not in transcriptDict:
-            return 0
+            return None
         t = transcriptDict[aId]
         if t.getCdsLength() < 3:
             return 1
@@ -628,7 +628,7 @@ class UtrGap(object):
     def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict,
                 short_intron_size=30):
         if aId not in transcriptDict:
-            return 0      
+            return None      
         t = transcriptDict[aId]
         for i in xrange(len(t.intronIntervals)):
             if t.exons[i].containsCds() is False and t.exons[i+1].containsCds() is False:
@@ -665,7 +665,7 @@ class UtrNonCanonSplice(object):
     def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict,
                 short_intron_size=30):
         if aId not in transcriptDict:
-            return 0    
+            return None    
         t = transcriptDict[aId]
         chromSeq = seqDict[t.chromosomeInterval.chromosome]
         for i in xrange(len(t.intronIntervals)):
@@ -706,7 +706,7 @@ class UtrUnknownSplice(object):
     def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict,
                 short_intron_size=30):
         if aId not in transcriptDict:
-            return 0        
+            return None        
         t = transcriptDict[aId]
         chromSeq = seqDict[t.chromosomeInterval.chromosome]
         for i in xrange(len(t.intronIntervals)):
