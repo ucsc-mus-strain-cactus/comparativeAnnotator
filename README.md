@@ -6,8 +6,10 @@ To run this program, you need to have cython installed. This is required for the
 
 Once this is setup, run the following commands:
 
-```git submodule update --init
-make all```
+```
+git submodule update --init
+make all
+```
 
 Then to run the program, you need to modify the makefile to point to the right files, then run either `make run` to run the annotation pipeline. You can also use `make details` to build the secondary database from the gene-check-details files.
 
