@@ -1,11 +1,13 @@
 """
-Convenience library for interfacting with a sqlite database. Designed to handle concurrency
-issues when writing tons of stuff.
+Convenience library for interfacting with a sqlite database.
+
+Designed to handle concurrency issues when writing tons of stuff as fast as possible.
 
 Author: Ian Fiddes
 """
 
 import sqlite3 as sql
+from itertools import izip
 
 
 class ExclusiveSqlConnection(object):
@@ -61,8 +63,10 @@ def initializeTable(cur, table, columns, primary_key):
 
     This breaks a big no-no of SQL and allows injection attacks. But, who cares?
     This isn't a web application.
+
+    created without an index for speed of insertions.
     """
-    cur.execute("""CREATE TABLE '{}' ({} TEXT PRIMARY KEY)""".format(table, primary_key))
+    cur.execute("""CREATE TABLE '{}' ({} TEXT PRIMARY KEY) WITHOUT ROWID""".format(table, primary_key))
     for n, t in columns:
         cur.execute("""ALTER TABLE '{}' ADD COLUMN {} {} """.format(table, n, t))
 
@@ -81,23 +85,24 @@ def insertRow(cur, table, primary_key_column, primary_key, columns, values):
     table = table name to be inserted into.
     primary_key_column = column name of primary key
     primary_key = unique row id for this row
-    columns = list of columns to be inserted
+    columns = sql formatted string of columns to be inserted (a, b, c) comma separated
     values = list of values to be inserted into columns
     """
-    assert len(columns) == len(values)
-    #need to format values
-    valString = ["'{}'".format(primary_key)]
-    for v in values:
-        if type(v) == str:
-            valString.append("'{}'".format(v))
-        elif v == None:
-            valString.append("NULL")
-        else:
-            valString.append(str(v))
-    values = ", ".join(valString)
     columns = ", ".join([primary_key_column] + columns)
-    cmd = """INSERT INTO '{}' ({}) VALUES ({})""".format(table, columns, values)
-    cur.execute(cmd)
+    cmd = """INSERT INTO '{}' ({}) VALUES ({})""".format(table, columns, ", ".join(["?"] * len(values)))
+    cur.execute(cmd, values)
+
+
+def insertRows(cur, table, column_string, num_columns, valueIter):
+    """
+    Inserts n new rows in a table with executemany. Faster than one at a time.
+    table = table name to be inserted into.
+    column_string = sql formatted string of columns to be inserted (a, b, c) comma separated
+    num_columns = number of ? to insert into string
+    valueIter: a iterable of iterables that contain values to be inserted.
+    """
+    cmd = """INSERT INTO '{}' ({}) VALUES ({})""".format(table, column_string, ", ".join(["?"] * num_columns))
+    cur.executemany(cmd, valueIter)
 
 
 def upsert(cur, table, primary_key_column, primary_key, col_to_change, value):

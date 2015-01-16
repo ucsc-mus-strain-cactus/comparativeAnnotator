@@ -63,18 +63,35 @@ class ClassifierMaster(Target):
         #find all column definitions
         column_definitions = [[x.__name__, x._getType()] for x in classifiers]
         initialize_sql_table(self.db, self.genome, column_definitions, self.primaryKey)
-        #columns for use when adding rows
-        columns = [x.__name__ for x in classifiers]
 
         ################
-        # begin classifying, one alignment at a time
+        # begin classifying
+        # write SQL every 5000 records
         ################
-        with sql_lib.ExclusiveSqlConnection(self.db) as cur:
+        
+        vd = {}
+        with sql_lib.ExclusiveSqlConnection(self.db) as cur:    
             for aId in self.alnIds:
-                values = [x().classify(aId, self.alignmentDict, self.refSeqDict, self.seqDict, 
+                vd[aId] = [x().classify(aId, self.alignmentDict, self.refSeqDict, self.seqDict, 
                         self.attributeDict, self.transcriptDict, self.annotationDict) 
-                        for x in classifiers]        
-                sql_lib.insertRow(cur, self.genome, self.primaryKey, aId, columns, values)
+                        for x in classifiers]
+                if len(vd) % 5000 == 0:
+                    insert_row_dict_wrapper(cur, self.genome, self.primaryKey, classifiers, vd)
+                    vd = {}
+
+
+def insert_row_dict_wrapper(cur, genome, primaryKeyColumn, classifiers, value_dict):
+    """
+    wrapper for sql_lib insertRows where the values are a dict keyed on the primary key.
+    classifiers is a list of columns to be filled out.
+    """
+    column_string = ", ".join([primaryKeyColumn] + [x.__name__ for x in classifiers])
+
+    def value_iter(value_dict):
+        for aId, vals in value_dict.iteritems():
+            yield [aId] + vals
+
+    sql_lib.insertRows(cur, genome, column_string, len(classifiers) + 1, value_iter(value_dict))
 
 
 def get_transcript_attributes(gencodeAttributeMap):
