@@ -12,9 +12,9 @@ refGenome = C57B6J
 
 rootDir := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
-annotationBed = ${rootDir}/wgEncodeGencodeBasicVM2.coding.gene-check.bed
 dataDir = ${rootDir}/datafiles
-gencodeAttributeMap = ${rootDir}/wgEncodeGencodeAttrsVM2.attrs
+annotationBed = ${dataDir}/wgEncodeGencodeBasicVM2.coding.gene-check.bed
+gencodeAttributeMap = ${dataDir}/wgEncodeGencodeAttrsVM2.attrs
 
 all :
 	cd sonLib && make

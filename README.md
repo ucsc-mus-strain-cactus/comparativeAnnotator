@@ -1,6 +1,6 @@
 # annotation-database-constructor
 
-This program takes as input files from the `gene-check` pipeline and produces a `sqlite3` database. This database is constructed so that each column represents one **feature** found in the data. Each row represents one alignment, and is uniquely keyed on the alignment ID number. The database contains a table for each 1-to-1 comparison between a reference transcriptome and the target genome.
+This program takes as input files from the `gene-check` pipeline and produces a `sqlite3` database. This database is constructed so that each column represents one **feature** found in the data. Each row represents one alignment, and is uniquely keyed on the alignment ID number. The database contains a table for each 1-to-1 comparison between a reference transcriptome and a target genome.
 
 To run this program, you need to have cython installed. This is required for the `twobit` python library, which will be automatically compiled and installed by the makefile. This also means you need to have ability to add modules to your python installation. If you want to do this manually, look in `lib/twobit/` for the pyx file.
 

@@ -38,9 +38,20 @@ def formatRatio(numerator, denominator):
     return float(numerator)/denominator
 
 
+def classesInModule(module):
+    """
+    finds all user-defined classes in a module
+    """
+    md = module.__dict__
+    return [
+        md[c] for c in md if (
+            isinstance(md[c], type) and md[c].__module__ == module.__name__
+        )
+    ]
+
 def DirType(d):
     """
-    Given a string path to a directory, D, verify it can be used.
+    given a string path to a directory, D, verify it can be used.
     """
     d = os.path.abspath(d)
     if not os.path.exists(d):
@@ -55,7 +66,7 @@ def DirType(d):
 
 def FileType(f):
     """
-    Given a string path to a file, F, verify it can be used.
+    given a string path to a file, F, verify it can be used.
     """
     f = os.path.abspath(f)
     if not os.path.exists(f):
