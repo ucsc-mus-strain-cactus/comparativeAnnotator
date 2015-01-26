@@ -6,6 +6,128 @@ import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
 
 
+class CodingInsertions(object):
+    """
+
+    Does the alignment introduce insertions to the target genome?
+    Reports the target chromosome-based position of the first such insertion
+    that is present in the CDS (likely point of nonsense mutation)
+
+    Target insertion:
+
+    query:   AATTAT--GCATGGA
+    target:  AATTATAAGCATGGA
+
+    """
+
+    @staticmethod
+    def _getType():
+        return "INTEGER"
+
+    def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict):
+        if aId not in transcriptDict:
+            return None
+        aln = alignmentDict[aId]
+        #annotated transcript coordinates are the same as query coordinates (they are the query)
+        annotatedTranscript = annotationDict[psl_lib.removeAlignmentNumber(aId)]
+
+        for exon in annotatedTranscript.exons:
+            for i in xrange(exon.start, exon.stop):
+                #we have found an insertion
+                if aln.queryCoordinateToTarget(i) == None:
+                    #make sure it is a coding insertion
+                    if annotatedTranscript.transcriptCoordinateToCds(i) is not None:
+                        return aln.queryCoordinateToTarget(cdsPos - 1)
+
+        return None
+
+
+class CodingMult3Insertions(object):
+    """
+
+    Does the alignment introduce insertions to the target genome?
+    Reports the number of insertions that exist and are a multiple of 3.
+    These indicate likely evolutionary insertions.
+
+    Target insertion:
+
+    query:   AATTAT---GCATGGA
+    target:  AATTATAAAGCATGGA
+
+    retVal = 1
+
+    """
+
+    @staticmethod
+    def _getType():
+        return "INTEGER"
+
+    def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict):
+        if aId not in transcriptDict:
+            return None
+
+        aln = alignmentDict[aId]
+        annotatedTranscript = annotationDict[psl_lib.removeAlignmentNumber(aId)]
+        #annotated transcript coordinates are the same as query coordinates (they are the query)
+
+        insertFlag = False
+        num3MerInserts = 0
+
+        for exon in annotatedTranscript.exons:
+            for i in xrange(exon.start, exon.stop):
+                #we have found an insertion
+                if insertFlag is False and aln.queryCoordinateToTarget(i) == None:
+                    insertSize = 1
+                #insertion continues
+                elif insertFlag is True and aln.queryCoordinateToTarget(i) == None:
+                    insertSize += 1
+                #exiting insertion
+                elif insertFlag is True and aln.queryCoordinateToTarget(i) == None:
+                    insertFlag = False
+                    #this insertion is a multiple of 3
+                    if insertSize % 3 == 0:
+                        #make sure at least one base of this insertion is coding
+                        for j in xrange(i, i - insertSize, -1):
+                            if annotatedTranscript.transcriptCoordinateToCds(j) is not None:
+                                num3MerInserts += 1
+                    insertSize = 0
+
+        return num3MerInserts
+
+
+class CodingDeletions(object):
+    """
+
+    Does the alignment introduce deletions to the target genome?
+    Reports the target chromosome-based position of the first such deletion
+    that is present in the CDS (likely point of nonsense mutation)
+
+    """
+
+    @staticmethod
+    def _getType():
+        return "INTEGER"
+
+    def classify(self, aId, alignmentDict, refSeqDict, seqDict, attributeDict, transcriptDict, annotationDict):
+        if aId not in transcriptDict:
+            return None
+
+        aln = alignmentDict[aId]
+        transcript = transcriptDict[aId]
+
+        for exon in transcript.exons:
+            for i in xrange(exon.start, exon.stop):
+                chrom_i = transcript.transcriptCoordinateToChromosome(i)
+                if aln.targetCoordinateToQuery(chrom_i) == None:
+                    if transcript.chromosomeCoordinateToCds(chrom_i) is not None:
+                        if transcript.strand is True:
+                            return chrom_i - 1
+                        else:
+                            return chrom_i + 1
+
+        return None
+
+
 class AlignmentAbutsLeft(object):
     """
 

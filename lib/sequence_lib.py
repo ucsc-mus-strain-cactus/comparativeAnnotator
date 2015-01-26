@@ -288,6 +288,30 @@ class Transcript(object):
                 l += self.thickStop - e.start
         return l
 
+    def getTranscriptCoordinateCdsStart(self):
+        """
+        Returns the transcript-relative position of the CDS start
+        """
+        return self.chromosomeCoordinateToTranscript(self.thickStart)
+
+    def getTranscriptCoordinateCdsStop(self):
+        """
+        Returns the transcript-relative position of the CDS stop
+        """
+        return self.chromosomeCoordinateToTranscript(self.thickStop)
+
+    def getChromosomeCoordinateCdsStart(self):
+        """
+        Returns the chromosome-relative position of the CDS start
+        """
+        return self.thickStart
+
+    def getChromosomeCoordinateCdsStop(self):
+        """
+        Returns the chromosome-relative position of the CDS stop
+        """
+        return self.thickStop
+
     def getProteinSequence(self, twoBitFileObj):
         """
         Returns the translated protein sequence for this transcript in single
