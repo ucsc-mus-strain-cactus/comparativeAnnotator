@@ -66,32 +66,14 @@ class ClassifierMaster(Target):
 
         ################
         # begin classifying
-        # write SQL every 5000 records
         ################
-        
-        vd = {}
+
         with sql_lib.ExclusiveSqlConnection(self.db) as cur:    
             for aId in self.alnIds:
-                vd[aId] = [x().classify(aId, self.alignmentDict, self.refSeqDict, self.seqDict, 
+                result = [x().classify(aId, self.alignmentDict, self.refSeqDict, self.seqDict, 
                         self.attributeDict, self.transcriptDict, self.annotationDict) 
                         for x in classifiers]
-                if len(vd) % 5000 == 0:
-                    insert_row_dict_wrapper(cur, self.genome, self.primaryKey, classifiers, vd)
-                    vd = {}
-
-
-def insert_row_dict_wrapper(cur, genome, primaryKeyColumn, classifiers, value_dict):
-    """
-    wrapper for sql_lib insertRows where the values are a dict keyed on the primary key.
-    classifiers is a list of columns to be filled out.
-    """
-    column_string = ", ".join([primaryKeyColumn] + [x.__name__ for x in classifiers])
-
-    def value_iter(value_dict):
-        for aId, vals in value_dict.iteritems():
-            yield [aId] + vals
-
-    sql_lib.insertRows(cur, genome, column_string, len(classifiers) + 1, value_iter(value_dict))
+                sql_lib.insertRow(cur, self.genome, self.primaryKey, classifiers, result)
 
 
 def get_transcript_attributes(gencodeAttributeMap):
