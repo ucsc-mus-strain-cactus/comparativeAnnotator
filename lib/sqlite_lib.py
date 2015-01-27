@@ -89,6 +89,7 @@ def insertRow(cur, table, primary_key_column, primary_key, columns, values):
     values = list of values to be inserted into columns
     """
     columns = ", ".join([primary_key_column] + columns)
+    values = [primary_key] + values
     cmd = """INSERT INTO '{}' ({}) VALUES ({})""".format(table, columns, ", ".join(["?"] * len(values)))
     cur.execute(cmd, values)
 

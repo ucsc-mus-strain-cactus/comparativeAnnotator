@@ -68,12 +68,14 @@ class ClassifierMaster(Target):
         # begin classifying
         ################
 
+        classifier_names = [x.__name__ for x in classifiers]
+
         with sql_lib.ExclusiveSqlConnection(self.db) as cur:    
             for aId in self.alnIds:
                 result = [x().classify(aId, self.alignmentDict, self.refSeqDict, self.seqDict, 
                         self.attributeDict, self.transcriptDict, self.annotationDict) 
                         for x in classifiers]
-                sql_lib.insertRow(cur, self.genome, self.primaryKey, classifiers, result)
+                sql_lib.insertRow(cur, self.genome, self.primaryKey, aId, classifier_names, result)
 
 
 def get_transcript_attributes(gencodeAttributeMap):

@@ -37,7 +37,7 @@ class CodingInsertions(object):
                 if aln.queryCoordinateToTarget(i) == None:
                     #make sure it is a coding insertion
                     if annotatedTranscript.transcriptCoordinateToCds(i) is not None:
-                        return aln.queryCoordinateToTarget(cdsPos - 1)
+                        return aln.queryCoordinateToTarget(i - 1)
 
         return None
 
