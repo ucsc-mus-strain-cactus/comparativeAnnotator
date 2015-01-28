@@ -33,7 +33,7 @@ class Transcript(object):
     
     __slots__ = ('chromosomeInterval', 'name', 'strand', 'score', 'thickStart', 'rgb',
             'thickStop', 'start', 'stop', 'intronIntervals', 'exonIntervals', 'exons',
-            'cds', 'mRna')
+            'cds', 'mRna', '_bedTokens')
     
     def __init__(self, bed_tokens):
         # Text BED fields
@@ -59,6 +59,8 @@ class Transcript(object):
         #build Exons mapping transcript space coordinates to chromosome
         self.exons = self._getExons(bed_tokens)
 
+        self._bedTokens = bed_tokens
+
     def __len__(self):
         return  sum(x.stop-x.start for x in self.exonIntervals)
 
@@ -82,6 +84,12 @@ class Transcript(object):
         """
         return '%s_%s_%d_%d' % (self.name, self.chromosomeInterval.chromosome, 
                 self.chromosomeInterval.start, self.chromosomeInterval.stop)
+
+    def getBed(self):
+        """
+        Returns the original BED tokens that generated this Transcript object
+        """
+        return self._bedTokens
 
     def _getExonIntervals(self, bed_tokens):
         """
@@ -772,13 +780,13 @@ class Attribute(object):
     Stores attributes from the gencode attribute file.
     """
     
-    __slots__ = ("geneID", "geneName", "geneType", "transcriptID", "transcriptType")
+    __slots__ = ("geneId", "geneName", "geneType", "transcriptId", "transcriptType")
     
-    def __init__(self, geneID, geneName, geneType, transcriptID, transcriptType):
-        self.geneID = geneID
+    def __init__(self, geneId, geneName, geneType, transcriptId, transcriptType):
+        self.geneId = geneId
         self.geneName = geneName
         self.geneType = geneType
-        self.transcriptID = transcriptID
+        self.transcriptId = transcriptId
         self.transcriptType = transcriptType
 
 

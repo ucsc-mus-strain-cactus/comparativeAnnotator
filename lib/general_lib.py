@@ -36,18 +36,7 @@ def formatRatio(numerator, denominator):
     if denominator == 0:
         return float("nan")
     return float(numerator)/denominator
-
-
-def classesInModule(module):
-    """
-    finds all user-defined classes in a module
-    """
-    md = module.__dict__
-    return [
-        md[c] for c in md if (
-            isinstance(md[c], type) and md[c].__module__ == module.__name__
-        )
-    ]
+    
 
 def DirType(d):
     """

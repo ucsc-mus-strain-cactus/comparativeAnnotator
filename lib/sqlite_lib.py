@@ -7,7 +7,7 @@ Author: Ian Fiddes
 """
 
 import sqlite3 as sql
-from itertools import izip
+from itertools import izip, izip_longest
 
 
 class ExclusiveSqlConnection(object):
@@ -85,24 +85,47 @@ def insertRow(cur, table, primary_key_column, primary_key, columns, values):
     table = table name to be inserted into.
     primary_key_column = column name of primary key
     primary_key = unique row id for this row
-    columns = sql formatted string of columns to be inserted (a, b, c) comma separated
+    columns = list of columns to be inserted
     values = list of values to be inserted into columns
     """
     columns = ", ".join([primary_key_column] + columns)
     values = [primary_key] + values
-    cmd = """INSERT INTO '{}' ({}) VALUES ({})""".format(table, columns, ", ".join(["?"] * len(values)))
+    cmd = """INSERT INTO '{}' ({}) VALUES ({})""".format(table, column_string, ", ".join(["?"] * len(values)))
     cur.execute(cmd, values)
 
 
-def insertRows(cur, table, column_string, num_columns, valueIter):
+def insertRows(cur, table, primary_key_column, columns, valueIter):
     """
     Inserts n new rows in a table with executemany. Faster than one at a time.
     table = table name to be inserted into.
-    column_string = sql formatted string of columns to be inserted (a, b, c) comma separated
-    num_columns = number of ? to insert into string
-    valueIter: a iterable of iterables that contain values to be inserted.
+    columns = list of columns to be inserted
+    valueIter = list of lists of values to be inserted.
+
+    The first item of each sublist in valueIter should be the primary key for this row.
     """
+    num_columns = len(columns) + 1
+    column_string = ", ".join([primary_key_column] + columns)
     cmd = """INSERT INTO '{}' ({}) VALUES ({})""".format(table, column_string, ", ".join(["?"] * num_columns))
+    cur.executemany(cmd, valueIter)
+
+
+def updateRow(cur, table, primary_key_column, primary_key, col_to_change, value):
+    """
+    Updates a row keyed by primary_key to change the value at col_to_change to
+    the passed value.
+    """
+    cmd = """UPDATE '{}' SET {}=? WHERE {}=?""".format(table, col_to_change,
+            primary_key_column)
+    cur.execute(cmd, (value, primary_key))
+
+
+def updateRows(cur, table, primary_key_column, col_to_change, valueIter):
+    """
+    Updates a row keyed by primary_key to change the value at col_to_change to
+    the passed value.
+    """
+    cmd = """UPDATE '{}' SET {}=? WHERE {}=?""".format(table, col_to_change,
+            primary_key_column)
     cur.executemany(cmd, valueIter)
 
 
@@ -119,6 +142,4 @@ def upsert(cur, table, primary_key_column, primary_key, col_to_change, value):
     cmd = """INSERT OR IGNORE INTO '{}' ({}, {}) VALUES (?, ?)""".format(table, 
             primary_key_column, col_to_change)
     cur.execute(cmd, (primary_key, value))
-    cmd = """UPDATE '{}' SET {}=? WHERE {}=?""".format(table, col_to_change,
-            primary_key_column)
-    cur.execute(cmd, (value, primary_key))
+    updateRow(cur, table, primary_key_column, primary_key, col_to_change, value)
