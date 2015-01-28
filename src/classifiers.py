@@ -199,9 +199,11 @@ class CodingDeletions(AbstractClassifier):
 
         with sql_lib.ExclusiveSqlConnection(self.db) as cur:
             if self.details is False:
-                sql_lib.updateRows(cur, self.genome, self.getColumn(), self.classifyEntryIter(valueDict))
+                sql_lib.updateRows(cur, self.genome, self.primaryKey,
+                        self.getColumn(), self.classifyEntryIter(valueDict))
             else:
-                sql_lib.updateRows(cur, self.genome, self.getColumn(), self.bedEntryIter(valueDict))
+                sql_lib.updateRows(cur, self.genome, self.primaryKey,
+                        self.getColumn(), self.bedEntryIter(valueDict))
 
 
 class CodingMult3Deletions(CodingDeletions):
