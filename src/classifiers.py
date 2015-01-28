@@ -77,9 +77,10 @@ class CodingInsertions(AbstractClassifier):
         for aId, positions in valueDict.iteritems():
             t = self.transcriptDict[aId]
             chrom = t.chromosomeInterval.chromosome
-            for chromStart, chromStop in positions:
-                tmp.append([chrom, chromStart, chromStop, psl_lib.removeAlignmentNumber(aId),
-                        0, seq_lib.convertStrand(t.strand)])
+            if positions is not None:
+                for chromStart, chromStop in positions:
+                    tmp.append([chrom, chromStart, chromStop, psl_lib.removeAlignmentNumber(aId),
+                            0, seq_lib.convertStrand(t.strand)])
         return self.detailsEntryIter(tmp)
 
     def run(self, mult3=False):
@@ -96,9 +97,11 @@ class CodingInsertions(AbstractClassifier):
 
         with sql_lib.ExclusiveSqlConnection(self.db) as cur:
             if self.details is False:
-                sql_lib.updateRows(cur, self.genome, self.getColumn(), self.classifyEntryIter(valueDict))
+                sql_lib.updateRows(cur, self.genome, self.primaryKey,
+                        self.getColumn(), self.classifyEntryIter(valueDict))
             else:
-                sql_lib.updateRows(cur, self.genome, self.getColumn(), self.bedEntryIter(valueDict))
+                sql_lib.updateRows(cur, self.genome, self.primaryKey,
+                        self.getColumn(), self.bedEntryIter(valueDict))
 
 
 class CodingMult3Insertions(CodingInsertions):
