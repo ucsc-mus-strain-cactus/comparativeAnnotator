@@ -1019,15 +1019,17 @@ def transcriptCoordinateToBed(t, start, stop, rgb, name):
     """
     if t.strand is True:
         #special case - we want to slice the very last base
-        if len(t) == stop:
+        if t.getCdsLength() == stop:
             chromStop = t.transcriptCoordinateToChromosome(stop - 1) + 1
         else:
-            chromStop = t.transcriptCoordinateToChromosome(stop)            
+            chromStop = t.transcriptCoordinateToChromosome(stop)
         chromStart = t.transcriptCoordinateToChromosome(start)
-        chromStop = t.cdsCoordinateToChromosome(stop)
     else:
-        chromStart = t.transcriptCoordinateToChromosome(stop + 1)
-        chromStop = t.transcriptCoordinateToChromosome(start + 1)
+        if t.getCdsLength() == stop:
+            chromStart = t.transcriptCoordinateToChromosome(stop - 1)
+        else:
+            chromStart = t.transcriptCoordinateToChromosome(stop) + 1
+        chromStop = t.transcriptCoordinateToChromosome(start) + 1
     return chromosomeCoordinateToBed(t, chromStart, chromStop, rgb, name)
 
 def cdsCoordinateToBed(t, start, stop, rgb, name):
@@ -1046,7 +1048,7 @@ def cdsCoordinateToBed(t, start, stop, rgb, name):
         if t.getCdsLength() == stop:
             chromStart = t.cdsCoordinateToChromosome(stop - 1)
         else:
-            chromStart = t.cdsCoordinateToChromosome(stop)
+            chromStart = t.cdsCoordinateToChromosome(stop) + 1
         chromStop = t.cdsCoordinateToChromosome(start) + 1
     return chromosomeCoordinateToBed(t, chromStart, chromStop, rgb, name)
 
