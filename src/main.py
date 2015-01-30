@@ -8,7 +8,7 @@ from jobTree.src.bioio import setLoggingFromOptions, system
 from lib.general_lib import FileType, DirType, FullPaths, classesInModule
 import lib.sqlite_lib as sql_lib
 
-import src.classifiers
+import src.classifiers, src.details, src.attributes
 
 
 #hard coded file extension types that we are looking for
@@ -27,11 +27,7 @@ def build_parser():
     parser.add_argument('--dataDir', type=DirType, action=FullPaths)
     parser.add_argument('--gencodeAttributeMap', type=FileType)
     parser.add_argument('--outDir', type=str, default="./output/", action=FullPaths)
-    parser.add_argument('--primaryKey', type=str, default="AlignmentID")
-    parser.add_argument('--classify', action="store_true",
-            help="Should this run build the high-level classification databases?")
-    parser.add_argument('--details', action="store_true",
-            help="Should this run build the detailed databases?")
+    parser.add_argument('--primaryKey', type=str, default="AlignmentId")
     return parser
 
 
@@ -45,42 +41,43 @@ def parseDir(genomes, targetDir, ext):
     return pathDict
 
 
-def buildAnalyses(target, classify, details, alnPslDict, seqTwoBitDict, refSeqTwoBit, 
-            geneCheckBedDict, gencodeAttributeMap, genomes, annotationBed, outDir, 
-            primaryKeyColumn, refGenome):
+def buildAnalyses(target, alnPslDict, seqTwoBitDict, refSeqTwoBit, geneCheckBedDict, 
+            gencodeAttributeMap, genomes, annotationBed, outDir, primaryKeyColumn, refGenome):
     for genome in genomes:
         alnPsl = alnPslDict[genome]
         geneCheckBed = geneCheckBedDict[genome]
         seqTwoBit = seqTwoBitDict[genome]
+
         #find all user-defined classes in the classifiers module
-        classifiers = classesInModule(src.classifiers)        
-        
-        if classify is True:
-            outDb = os.path.join(outDir, "classify.db")
-            initializeDb(outDb, genome, classifiers, alnPsl, primaryKeyColumn)
-            
-            for c in classifiers:
-                target.addChildTarget(c(genome, alnPsl, seqTwoBit, refSeqTwoBit,
-                    annotationBed, gencodeAttributeMap, geneCheckBed, outDb, 
-                    refGenome, primaryKeyColumn))
-        
-        if details is True:
-            #find all user-defined classes in the classifiers module with a details mode
-            detailedClassifiers = [x for x in classifiers if hasattr(x, "_getDetailsType")]
-            outDb = os.path.join(outDir, "details.db")
-            initializeDb(outDb, genome, detailedClassifiers, alnPsl, primaryKeyColumn, details)            
-            
-            for d in detailedClassifiers:
-                target.addChildTarget(d(genome, alnPsl, seqTwoBit, refSeqTwoBit,
-                    annotationBed, gencodeAttributeMap, geneCheckBed, outDb, 
-                    refGenome, primaryKeyColumn, details))
+        classifiers = classesInModule(src.classifiers)
+        outClassify = os.path.join(outDir, "classify.db")
+        initializeDb(outClassify, genome, classifiers, alnPsl, primaryKeyColumn)
+        for c in classifiers:
+            target.addChildTarget(c(genome, alnPsl, seqTwoBit, refSeqTwoBit,
+                annotationBed, gencodeAttributeMap, geneCheckBed, outClassify, 
+                refGenome, primaryKeyColumn))
+
+        #find all user-defined classes in the details module
+        details = classesInModule(src.details)        
+        outDetails = os.path.join(outDir, "details.db")
+        initializeDb(outDetails, genome, details, alnPsl, primaryKeyColumn)        
+        for d in details:
+            target.addChildTarget(d(genome, alnPsl, seqTwoBit, refSeqTwoBit,
+                annotationBed, gencodeAttributeMap, geneCheckBed, outDetails, 
+                refGenome, primaryKeyColumn))
+
+        #find all user-defined classes in the attributes module     
+        attributes = classesInModule(src.attributes)
+        outAttributes = os.path.join(outDir, "attributes.db")
+        initializeDb(outAttributes, genome, attributes, alnPsl, primaryKeyColumn)        
+        for a in attributes:
+            target.addChildTarget(a(genome, alnPsl, seqTwoBit, refSeqTwoBit,
+                annotationBed, gencodeAttributeMap, geneCheckBed, outAttributes, 
+                refGenome, primaryKeyColumn))
 
 
-def initializeDb(dbPath, genome, classifiers, alnPsl, primaryKeyColumn, details=False):
-    if details is True:
-        columnDefinitions = [[x.__name__, x._getDetailsType()] for x in classifiers]
-    else:
-        columnDefinitions = [[x.__name__, x._getClassifierType()] for x in classifiers]
+def initializeDb(dbPath, genome, classifiers, alnPsl, primaryKeyColumn):
+    columnDefinitions = [[x.__name__, x._getType()] for x in classifiers]
     #find alignment IDs from PSLs (primary key for database)
     aIds = set(x.split()[9] for x in open(alnPsl))
     initializeSqlTable(dbPath, genome, columnDefinitions, primaryKeyColumn)
@@ -119,8 +116,8 @@ def main():
     if not os.path.exists(refSeqTwoBit):
         raise RuntimeError("Reference genome 2bit not present at {}".format(refSeqTwoBit))
 
-    i = Stack(Target.makeTargetFn(buildAnalyses, args=(args.classify, args.details, alnPslDict, seqTwoBitDict, 
-            refSeqTwoBit, geneCheckBedDict, args.gencodeAttributeMap, args.genomes, args.annotationBed, 
+    i = Stack(Target.makeTargetFn(buildAnalyses, args=(alnPslDict, seqTwoBitDict, refSeqTwoBit, 
+            geneCheckBedDict, args.gencodeAttributeMap, args.genomes, args.annotationBed, 
             args.outDir, args.primaryKey, args.refGenome))).startJobTree(args)
 
     if i != 0:

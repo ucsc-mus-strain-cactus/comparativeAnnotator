@@ -6,12 +6,9 @@ import lib.sqlite_lib as sql_lib
 
 class AbstractClassifier(Target):
     def __init__(self, genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed,   
-                gencodeAttributeMap, geneCheckBed, outDb, refGenome, primaryKey, details=False):
+                gencodeAttributeMap, geneCheckBed, outDb, refGenome, primaryKey):
         #initialize the Target
         Target.__init__(self)
-
-        #flag to turn on details mode for classifiers that have it
-        self.details = details
 
         #primary key this will be keyed on (alignmentID usually)
         self.primaryKey = primaryKey
@@ -29,6 +26,13 @@ class AbstractClassifier(Target):
         #alignment IDs
         self.aIds = alnIds = set(x.split()[9] for x in open(alnPsl))
 
+        #for details classifiers, color codes for types of names for BED record
+        self.colors = {'input': '219,220,222',  # grey
+            'mutation': '132,35,27',  # red-ish
+            'assembly': '167,206,226',  # l blue
+            'alignment': '35,125,191',  # blue
+            'generic': '163,116,87',  # l brown
+            'ok': '181,216,139'}  # avocado
 
     def getAttributeDict(self):
         self.attributeDict = seq_lib.getTranscriptAttributeDict(self.gencodeAttributeMap)
@@ -48,27 +52,12 @@ class AbstractClassifier(Target):
         self.annotations = seq_lib.getTranscripts(self.annotationBed)
         self.annotationDict = seq_lib.transcriptListToDict(self.annotations, noDuplicates=True)
 
-    def detailsEntryIter(self, valueIter):
-        """
-        General case for converting a valueIter to a string entry representing 1 or more BED records
-        valueIters are generally lists of lists where each sublist represents a BED record
-        """
-        for aId, entry in valueIter:
-            if entry is None:
-                yield [None, aId]
-            elif type(entry[0]) != list:
-                #only one entry
-                bedEntries = ["\t".join(map(str,entry))]
-            else:
-                bedEntries = ["\t".join(map(str, x)) for x in entry]
-                yield ["\n".join(bedEntries), aId]
-
     def getColumn(self):
         return self.__class__.__name__
 
     def invertDict(self, d):
-        for x in d.iteritems():
-            yield x[::-1]
+        for a, b in d.iteritems():
+            yield b, a
 
     def simpleUpdateWrapper(self, valueDict):
         """
@@ -86,15 +75,17 @@ class AbstractClassifier(Target):
             sql_lib.updateRows(cur, self.genome, self.primaryKey, self.getColumn(), 
                     self.detailsEntryIter(valueDict.iteritems()))     
 
-    def parseInterval(self, interval, t):
+    def detailsEntryIter(self, valueIter):
         """
-        If you are turning interval objects into BED records, look here. t is a transcript object.
+        General case for converting a valueIter to a string entry representing 1 or more BED records
+        valueIters are generally lists of lists where each sublist represents a BED record
         """
-        return [interval.chromosome, interval.start, interval.stop, 
-                t.name, 0, seq_lib.convertStrand(interval.strand)]
-
-    def transcriptToBed(self, t):
-        """
-        Convenience function for pulling BED tokens from a Transcript object.
-        """
-        return t.getBed()
+        for aId, entry in valueIter:
+            if entry is None:
+                yield None, aId
+            elif type(entry[0]) != list:
+                #only one entry
+                yield "\t".join(map(str,entry)), aId
+            else:
+                bedEntries = ["\t".join(map(str, x)) for x in entry]
+                yield "\n".join(bedEntries), aId

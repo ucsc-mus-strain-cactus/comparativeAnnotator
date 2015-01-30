@@ -9,6 +9,7 @@ With contributions from Dent Earl
 
 import os
 import argparse
+import gzip
 
 
 class FullPaths(argparse.Action):
@@ -18,6 +19,17 @@ class FullPaths(argparse.Action):
     """
     def __call__(self, parser, namespace, values, option_string=None):
         setattr(namespace, self.dest, os.path.abspath(os.path.expanduser(values)))
+
+
+def opener(filename):
+    """opens files that may be gzip files"""
+    f = open(filename, 'rb')
+    if (f.read(2) == '\x1f\x8b'):
+        f.seek(0)
+        return gzip.GzipFile(fileobj=f)
+    else:
+        f.close()
+        return open(filename, 'r')
 
 
 def classesInModule(module):

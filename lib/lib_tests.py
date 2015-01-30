@@ -13,6 +13,7 @@ import sys
 import unittest
 import sequence_lib as seq_lib
 import psl_lib as psl_lib
+import random
 
 def makeTempDirParent():
     """ 
@@ -80,7 +81,7 @@ def which(program):
 
 def runCommands(cmds, localTempDir, inPipes=None, outPipes=None, errPipes=None):
     """ 
-    Run commands from CMDS lisself.t.
+    Run commands from CMDS list
     """
     if inPipes is None:
         inPipes = [None] * len(cmds)
@@ -144,8 +145,8 @@ def createSequenceFile(sequences, tmpDir, filename='seq.fa'):
     """
     seqfile = os.path.join(tmpDir, filename)
     with open(seqfile, 'w') as f:
-        for (name, comment), sequence in sequences.iteritems():
-            f.write(">{} {}\n{}\n".format(name, comment, sequence))
+        for name, sequence in sequences.iteritems():
+            f.write(">{}\n{}\n".format(name, sequence))
     return seqfile
 
 
@@ -215,26 +216,6 @@ def simplePsl(strand, qSize, qStart, qEnd, tSize, tStart, tEnd,
 ##############################################################################
 ##############################################################################
 
-class SequenceGetterTests(unittest.TestCase):
-    """
-    Tests Sequence getting part of sequence_lib.
-    """
-
-    def test_getSequences(self):
-        seqs = {("ChrN", "test") : "ATGCTAAAAAAAAAAAANNNNNAAAAAACCCG\nTTAAAATTGGGCCCCC",
-                ("1", "") : "GACGACGACGGGGAAA\nTTAAAAAAAA\n"}
-        makeTempDirParent()
-        tmpDir = os.path.abspath(makeTempDir('getSequences'))
-        testFile = createSequenceFile(seqs, tmpDir)
-        seqDict = seq_lib.getFastaDict(testFile)
-        for (name, comment), seq in seqs.iteritems():
-            seq = seq.replace("\n", "")
-            self.assertTrue(name in seqDict)
-            self.assertEqual(seqDict[name].getComments(), [comment])
-            self.assertEqual(seq, seqDict[name].getSequence())
-            self.assertEqual(len(seq), len(seqDict[name]))
-        self.addCleanup(removeDir, tmpDir)
-
 
 class NegativeStrandTranscriptTests(unittest.TestCase):
     """
@@ -258,7 +239,11 @@ class NegativeStrandTranscriptTests(unittest.TestCase):
         self.cds_seq = "GCCAGA"
         self.amino_acid = "AR"
         self.introns = ["GT", "A"]
-        self.chrom_seq = seq_lib.Sequence("chr1", "", "GTATTCTTGGACCTAA")     
+        tmp = os.path.abspath(makeTempDir())
+        createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
+        runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
+        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
         """
@@ -375,7 +360,7 @@ class NegativeStrandTranscriptTests(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
     def test_amino_acid_slicing(self):
         """
@@ -415,7 +400,11 @@ class PositiveStrandTranscriptTests(unittest.TestCase):
         self.cds_seq = "TCTGGC"
         self.amino_acid = "SG"
         self.introns = ["T", "AC"]
-        self.chrom_seq = seq_lib.Sequence("chr1", "", "GTATTCTTGGACCTAA")
+        tmp = os.path.abspath(makeTempDir())
+        createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
+        runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
+        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
         """
@@ -532,7 +521,7 @@ class PositiveStrandTranscriptTests(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
     def test_amino_acid_slicing(self):
         """
@@ -571,7 +560,11 @@ class SingleExonTranscript1(unittest.TestCase):
         self.cds_seq = "TAT"
         self.amino_acid = "Y"
         self.introns = []
-        self.chrom_seq = seq_lib.Sequence("chr1", "", "GTATTCTTGGACCTAA")
+        tmp = os.path.abspath(makeTempDir())
+        createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
+        runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
+        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
         """
@@ -678,7 +671,7 @@ class SingleExonTranscript1(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
     def test_amino_acid_slicing(self):
         """
@@ -716,7 +709,11 @@ class SingleExonTranscript2(unittest.TestCase):
         self.cds_seq = self.transcript_seq
         self.amino_acid = "VF"
         self.introns = []
-        self.chrom_seq = seq_lib.Sequence("chr1", "", "GTATTCTTGGACCTAA")
+        tmp = os.path.abspath(makeTempDir())
+        createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
+        runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
+        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
         """
@@ -801,7 +798,7 @@ class SingleExonTranscript2(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
 
 class SingleExonTranscript3(unittest.TestCase):
@@ -824,7 +821,11 @@ class SingleExonTranscript3(unittest.TestCase):
         self.cds_seq = "AATAC"
         self.amino_acid = "N"
         self.introns = []
-        self.chrom_seq = seq_lib.Sequence("chr1", "", "GTATTCTTGGACCTAA")
+        tmp = os.path.abspath(makeTempDir())
+        createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
+        runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
+        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
         """
@@ -912,7 +913,42 @@ class SingleExonTranscript3(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
+
+
+class SingleExonTranscript4(unittest.TestCase):
+    """
+    Tests the Transcript functionality part of sequence_lib.
+
+    Tests the example single exon transcript below:
+
+    chrom    0  1  2  3  4  5  6  7  8  9  10
+    seq      G  T  A  T  T  C  T  T  G  G  A
+    tx       G  T  A  T  T  C  t  t  g  g  a
+    tx.pos   10 9  8  7  6  5  4  3  2  1  0
+    cds.pos  5  4  3  2  1  0  
+
+    """
+
+    def setUp(self):
+        self.t = seq_lib.Transcript(['chr1', '0', '11', 'A', '0', '-', '0', '6', '0,128,0', '1', '11', '0'])
+        self.transcript_seq = "TCCAAGAATAC"
+        self.cds_seq = "GAATAC"
+        tmp = os.path.abspath(makeTempDir())
+        createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
+        runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
+        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.addCleanup(removeDir, tmp)
+
+    def test_cds_coordinate_translations(self):
+        """
+        Check all possible transcript translations for correct result
+        """
+        chrom_result = [5, 4, 3, 2, 1, 0]
+        transcript_result = [5, 6, 7, 8, 9, 10]
+        for i in xrange(6):
+            self.assertEqual(self.t.cdsCoordinateToChromosome(i), chrom_result[i])
+            self.assertEqual(self.t.cdsCoordinateToTranscript(i), transcript_result[i])
 
 
 class NoncodingTranscript(unittest.TestCase):
@@ -934,7 +970,11 @@ class NoncodingTranscript(unittest.TestCase):
         self.cds_seq = ""
         self.amino_acid = ""
         self.introns = ["TC", "T"]
-        self.chrom_seq = seq_lib.Sequence("chr1", "", "GTATTCTTGGACCTAA")
+        tmp = os.path.abspath(makeTempDir())
+        createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
+        runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
+        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
         """
@@ -1021,7 +1061,7 @@ class NoncodingTranscript(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
 
 class ComplicatedTranscript1(unittest.TestCase):
@@ -1044,7 +1084,11 @@ class ComplicatedTranscript1(unittest.TestCase):
         self.cds_seq = "GGTAA"
         self.amino_acid = "G"
         self.introns = ["TC", "ACC", "G"]
-        self.chrom_seq = seq_lib.Sequence("chr1", "", "GTATTCTTGGACCTAAGCCTG")
+        tmp = os.path.abspath(makeTempDir())
+        createSequenceFile({"chr1":"GTATTCTTGGACCTAAGCCTG"}, tmp)
+        runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
+        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
         """
@@ -1132,7 +1176,7 @@ class ComplicatedTranscript1(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
 
 class ComplicatedTranscript2(unittest.TestCase):
@@ -1155,7 +1199,12 @@ class ComplicatedTranscript2(unittest.TestCase):
         self.cds_seq = "TTACCA"
         self.amino_acid = "LP"
         self.introns = ["C", "GGT", "GA"]
-        self.chrom_seq = seq_lib.Sequence("chr1", "", "GTATTCTTGGACCTAAGCCTG")
+        tmp = os.path.abspath(makeTempDir())
+        createSequenceFile({"chr1":"GTATTCTTGGACCTAAGCCTG"}, tmp)
+        runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
+        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.addCleanup(removeDir, tmp)
+
 
     def test_sizes(self):
         """
@@ -1164,7 +1213,7 @@ class ComplicatedTranscript2(unittest.TestCase):
         self.assertEqual(len(self.t), len(self.transcript_seq))
         self.assertEqual(len(self.t.getCds(self.chrom_seq)), len(self.cds_seq))
         self.assertEqual(len(self.t.getProteinSequence(self.chrom_seq)), len(self.amino_acid))
-        self.assertEqual(len(self.t.getCds(self.chrom_seq), self.t.getCdsLength()))
+        self.assertEqual(len(self.t.getCds(self.chrom_seq)), self.t.getCdsLength())
     
     def test_chromosome_coordinate_translations(self):
         """
@@ -1244,7 +1293,7 @@ class ComplicatedTranscript2(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
 
 if __name__ == '__main__':
