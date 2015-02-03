@@ -16,18 +16,10 @@ alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
 seqDict = seq_lib.readTwoBit("datafiles/Rattus.2bit")
 
 
-aId = 'ENSMUST00000071807.1-3'
+aId = 'ENSMUST00000062557.3-1'
+stopCodons = ('TAA', 'TGA', 'TAG')
 
+t = transcriptDict[aId]
 
+cds = t.getCds(seqDict)
 
-
-valueDict = {}
-for aId in alignmentDict.keys():
-    if aId not in transcriptDict:
-            continue
-    t = transcriptDict[aId]
-    if t.thickStart == t.thickStop == 0 or t.thickStop - t.thickStart < 3:
-            continue
-    s = t.getCds(seqDict)
-    if not s.startswith("ATG"):
-        valueDict[aId] = a.transcriptCoordinateToBed(t, 0, 2, "128,0,0", "BeginStart")

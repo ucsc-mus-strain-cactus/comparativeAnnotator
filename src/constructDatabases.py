@@ -29,32 +29,33 @@ class ConstructDatabases(Target):
         self.initializeDb(attributesDb)
         for classifier, genome in product(self.classifiers, self.genomes):
             valueDict = pickle.load(open(self.globalTempDir(), classifier.__name__ + genome, "rb"))
-            self.simpleUpdateWrapper(valueDict, classifier, genome)
+            self.simpleUpdateWrapper(valueDict)
         for detail, genome in product(self.details, self.genomes):
             valueDict = pickle.load(open(self.globalTempDir(), detail.__name__ + genome, "rb"))
-            self.simpleBedUpdateWrapper(valueDict, classifier, genome)
+            self.simpleBedUpdateWrapper(valueDict)
         for attribute, genome in product(self.attributes, self.genomes):
             valueDict = pickle.load(open(self.globalTempDir(), attribute.__name__ + genome, "rb"))
-            self.simpleUpdateWrapper(valueDict, classifier, genome)
+            self.simpleUpdateWrapper(valueDict)
 
     def invertDict(self, d):
         for a, b in d.iteritems():
             yield b, a
 
-    def simpleUpdateWrapper(self, valueDict, classifier, genome):
+    def simpleUpdateWrapper(self, valueDict):
         """
         If your classifier is going to do a simple 1-1 update with a valueDict, use this.
         """
-        column = classifier.__name__
         with sql_lib.ExclusiveSqlConnection(self.db) as cur:
-            sql_lib.updateRows(cur, genome, self.primaryKeyColumn, column, self.invertDict(valueDict))
+            sql_lib.updateRows(cur, self.genome, self.primaryKey, self.getColumn(), 
+                    self.invertDict(valueDict))
 
     def simpleBedUpdateWrapper(self, valueDict):
         """
         If your details-mode classifier has BED records for values in its valueDict, use this.
         """
         with sql_lib.ExclusiveSqlConnection(self.db) as cur:
-            sql_lib.updateRows(cur, genome, self.primaryKeyColumn, column, self.detailsEntryIter(valueDict.iteritems()))     
+            sql_lib.updateRows(cur, self.genome, self.primaryKey, self.getColumn(), 
+                    self.detailsEntryIter(valueDict.iteritems()))     
 
     def detailsEntryIter(self, valueIter):
         """
@@ -76,13 +77,13 @@ class ConstructDatabases(Target):
         #find alignment IDs from PSLs (primary key for database)
         for genome in self.genomes:
             aIds = set(x.split()[9] for x in open(self.alnPslDict[aId]))
-            initializeSqlTable(dbPath, genome, columnDefinitions)
-            initializeSqlRows(dbPath, genome, aIds)
+            self.initializeSqlTable(dbPath, genome, columnDefinitions, self.primaryKeyColumn)
+            self.initializeSqlRows(dbPath, genome, aIds, self.primaryKeyColumn)
 
-    def initializeSqlTable(self, db, genome, columns):
+    def initializeSqlTable(self, db, genome, columns, primaryKey):
         with sql_lib.ExclusiveSqlConnection(db) as cur:
-            sql_lib.initializeTable(cur, genome, columns, self.primaryKeyColumn)
+            sql_lib.initializeTable(cur, genome, columns, primaryKey)
 
-    def initializeSqlRows(self, db, genome, aIds):
+    def initializeSqlRows(self, db, genome, aIds, primaryKey):
         with sql_lib.ExclusiveSqlConnection(db) as cur:
-            sql_lib.insertRows(cur, genome, self.primaryKeyColumn, [self.primaryKeyColumn], izip_longest(aIds, [None]))
+            sql_lib.insertRows(cur, genome, primaryKey, [primaryKey], izip_longest(aIds, [None]))

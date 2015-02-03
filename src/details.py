@@ -53,11 +53,11 @@ class CodingInsertions(AbstractClassifier):
                     if (t.transcriptCoordinateToCds(i) is not None or 
                             t.transcriptCoordinateToCds(i + insertSize) is not None):
                         if insertSize % 3 == 0 and mult3 == True:
-                            records.append(seq_lib.transcriptCoordinateToBed(t, i, 
-                                    i - insertSize, self.rgb(), self.getColumn()))
+                            records.append(seq_lib.transcriptCoordinateToBed(t, i - insertSize, 
+                                    i, self.rgb(), self.getColumn()))
                         elif insertSize % 3 != 0 and mult3 == False:
-                            records.append(seq_lib.transcriptCoordinateToBed(t, i,  
-                                    i - insertSize, self.rgb(), self.getColumn()))
+                            records.append(seq_lib.transcriptCoordinateToBed(t, i - insertSize,  
+                                    i, self.rgb(), self.getColumn()))
                     insertSize = 0
                     insertFlag = False
         if len(records) > 0:
@@ -525,8 +525,7 @@ class EndStop(AbstractClassifier):
                 continue
             cds = t.getCds(self.seqDict)
             if cds[-3:].upper() not in stopCodons:
-                valueDict[aId] = seq_lib.cdsCoordinateToBed(t, len(cds) - 3, len(cds), 
-                    self.rgb, self.getColumn())
+                valueDict[aId] = seq_lib.cdsCoordinateToBed(t, len(cds) - 3, len(cds), self.rgb(), self.getColumn())
         logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
@@ -563,8 +562,7 @@ class InFrameStop(AbstractClassifier):
                 for i in xrange(9, t.getCdsLength() - 3, 3):
                     c = t.cdsCoordinateToAminoAcid(i, self.seqDict)
                     if c == "*":
-                        valueDict[aId] = seq_lib.cdsCoordinateToBed(t, i, i + 3, 
-                                self.rgb(), self.getColumn())
+                        valueDict[aId] = seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn())
         logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 

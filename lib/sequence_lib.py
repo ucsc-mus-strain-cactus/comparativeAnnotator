@@ -1029,6 +1029,7 @@ def transcriptCoordinateToBed(t, start, stop, rgb, name):
         else:
             chromStart = t.transcriptCoordinateToChromosome(stop) + 1
         chromStop = t.transcriptCoordinateToChromosome(start) + 1
+    assert chromStop >= chromStart
     return chromosomeCoordinateToBed(t, chromStart, chromStop, rgb, name)
 
 def cdsCoordinateToBed(t, start, stop, rgb, name):
