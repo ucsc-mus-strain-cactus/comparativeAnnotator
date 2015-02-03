@@ -28,13 +28,13 @@ class ConstructDatabases(Target):
         self.initializeDb(detailsDb)
         self.initializeDb(attributesDb)
         for classifier, genome in product(self.classifiers, self.genomes):
-            valueDict = pickle.load(open(self.globalTempDir(), classifier.__name__ + genome))
+            valueDict = pickle.load(open(self.globalTempDir(), classifier.__name__ + genome, "rb"))
             self.simpleUpdateWrapper(valueDict)
         for detail, genome in product(self.details, self.genomes):
-            valueDict = pickle.load(open(self.globalTempDir(), detail.__name__ + genome))
+            valueDict = pickle.load(open(self.globalTempDir(), detail.__name__ + genome, "rb"))
             self.simpleBedUpdateWrapper(valueDict)
         for attribute, genome in product(self.attributes, self.genomes):
-            valueDict = pickle.load(open(self.globalTempDir(), attribute.__name__ + genome))
+            valueDict = pickle.load(open(self.globalTempDir(), attribute.__name__ + genome, "rb"))
             self.simpleUpdateWrapper(valueDict)
 
     def invertDict(self, d):

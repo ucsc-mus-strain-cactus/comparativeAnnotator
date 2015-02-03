@@ -9,7 +9,7 @@ import lib.sqlite_lib as sql_lib
 
 class AbstractClassifier(Target):
     def __init__(self, genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed,   
-                gencodeAttributeMap, geneCheckBed, out, refGenome, primaryKey):
+                gencodeAttributeMap, geneCheckBed, refGenome, primaryKey):
         #initialize the Target
         Target.__init__(self)
 
@@ -24,7 +24,6 @@ class AbstractClassifier(Target):
         self.gencodeAttributeMap = gencodeAttributeMap
         self.geneCheckBed = geneCheckBed
         self.annotationBed = annotationBed
-        self.db = out + self.genome + ".db"
 
         #alignment IDs
         self.aIds = alnIds = set(x.split()[9] for x in open(alnPsl))
@@ -58,13 +57,9 @@ class AbstractClassifier(Target):
     def getColumn(self):
         return self.__class__.__name__
 
-    def invertDict(self, d):
-        for a, b in d.iteritems():
-            yield b, a
-
     def dumpValueDict(self, valueDict):
         """
         Dumps a valueDict to disk in the globalTempDir for later merging.
         """
-        with open(os.path.join(self.globalTempDir(), self.getColumn() + self.genome), "w") as outf:
+        with open(os.path.join(self.getGlobalTempDir(), self.getColumn() + self.genome), "wb") as outf:
             pickle.dump(valueDict, outf)

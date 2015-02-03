@@ -58,13 +58,13 @@ def buildAnalyses(target, alnPslDict, seqTwoBitDict, refSeqTwoBit, geneCheckBedD
         seqTwoBit = seqTwoBitDict[genome]
         #set child targets for every classifier-genome pair
         for c in classifiers:
-            target.addChildTarget(c(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, primaryKeyColumn))
+            target.addChildTarget(c(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome, primaryKeyColumn))
         for d in details:
-            target.addChildTarget(d(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, primaryKeyColumn))
+            target.addChildTarget(d(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome, primaryKeyColumn))
         for a in attributes:
-            target.addChildTarget(a(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, primaryKeyColumn))
+            target.addChildTarget(a(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome, primaryKeyColumn))
         #merge the resulting pickled files into sqlite databases
-    target.setFollowOnTarget(ConstructDatabases, args=(outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn))
+    target.setFollowOnTarget(ConstructDatabases(outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn))
 
 
 def main():
