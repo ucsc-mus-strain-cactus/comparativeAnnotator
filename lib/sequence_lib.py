@@ -164,11 +164,9 @@ class Transcript(object):
             #calculate transcript relative coordinates
             this_start = t_pos
             this_stop = t_pos + block_size
-
             #calculate chromosome relative coordinates
             this_chrom_start = chrom_start + block_start
             this_chrom_stop = chrom_start + block_start + block_size
-
             #calculate transcript-relative CDS positions
             #cds_pos is pos of first coding base in CDS coordinates
             this_cds_start, this_cds_stop, this_cds_pos = None, None, None
@@ -211,15 +209,15 @@ class Transcript(object):
                     this_cds_pos = 0
                     this_cds_start = this_start + this_chrom_stop - thick_stop
                 #is this the stop codon containing exon?
-                elif thick_start > this_chrom_start and thick_start < this_chrom_stop:
+                elif thick_start >= this_chrom_start and thick_start < this_chrom_stop:
                     this_cds_pos = cds_pos
-                    cds_pos += this_chrom_stop - thick_start
-                    this_cds_stop = cds_pos + this_chrom_stop - thick_start
+                    this_cds_stop = this_start + this_chrom_stop - thick_start
+                    #cds_pos += this_chrom_stop - thick_start
                 #is this exon all coding?
                 elif (this_cds_stop == None and this_cds_start == None and thick_stop >= 
                         this_chrom_stop and thick_start < this_chrom_start):
                     this_cds_pos = cds_pos
-                    cds_pos += block_size                
+                    cds_pos += block_size
             exons.append( Exon(this_start, this_stop, strand, this_chrom_start, 
                     this_chrom_stop, this_cds_start, this_cds_stop, this_cds_pos) )
             t_pos += block_size
@@ -1002,6 +1000,7 @@ def intervalToBed(t, interval, rgb, name):
     If you are turning interval objects into BED records, look here. t is a transcript object.
     Interval objects should always have start <= stop (+ strand chromosome ordering)
     """
+    assert interval.stop >= interval.start
     return [interval.chromosome, interval.start, interval.stop, name, 0, 
             convertStrand(interval.strand), interval.start, interval.stop, rgb,
             1, interval.stop - interval.start, 0]
@@ -1060,4 +1059,5 @@ def chromosomeCoordinateToBed(t, start, stop, rgb, name):
     strand = convertStrand(t.chromosomeInterval.strand)
     chrom = t.chromosomeInterval.chromosome
     assert start != None and stop != None
-    return [chrom, start, stop, name, 0, strand, start, stop, rgb, 1, start - stop, 0]
+    assert stop >= start
+    return [chrom, start, stop, name, 0, strand, start, stop, rgb, 1, stop - start, 0]

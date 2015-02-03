@@ -1,5 +1,5 @@
-batchSystem = parasol
-maxThreads = 10
+batchSystem = singleMachine
+maxThreads = 20
 maxCpus = 1024
 defaultMemory = 8589934592
 jobTree = .jobTree

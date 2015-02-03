@@ -75,7 +75,7 @@ class CodingInsertions(AbstractClassifier):
             #annotated transcript coordinates are the same as query coordinates (they are the query)
             annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             valueDict[aId] = self.analyzeExons(annotatedTranscript, aln, mult3)
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -145,7 +145,7 @@ class CodingDeletions(AbstractClassifier):
                 continue
             transcript = self.transcriptDict[aId]
             valueDict[aId] = self.analyzeExons(transcript, aln, mult3)
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -195,7 +195,7 @@ class AlignmentAbutsLeft(AbstractClassifier):
             elif aln.strand == "-" and aln.tEnd == aln.tSize and aln.qEnd != aln.qSize:
                 valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
                         self.getColumn())
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -234,7 +234,7 @@ class AlignmentAbutsRight(AbstractClassifier):
             elif aln.strand == "-" and aln.tStart == 0 and aln.qStart != 0:
                 valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
                         self.getColumn())
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -270,7 +270,7 @@ class AlignmentPartialMap(AbstractClassifier):
             else:
                 valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
                         self.getColumn())
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -302,7 +302,7 @@ class BadFrame(AbstractClassifier):
             if t.getCdsLength() % 3 != 0:
                 valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
                         self.getColumn())
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -336,7 +336,7 @@ class BeginStart(AbstractClassifier):
             if not s.startswith("ATG"):
                 valueDict[aId] = seq_lib.transcriptCoordinateToBed(t, 0, 2, self.rgb(),
                         self.getColumn())
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -394,7 +394,7 @@ class CdsGap(AbstractClassifier):
                 valueDict[aId] = self.mult3(self.transcriptDict[aId], shortIntronSize)
             else:
                 valueDict[aId] = self.notMult3(self.transcriptDict[aId], shortIntronSize)
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
         
 
@@ -459,7 +459,7 @@ class CdsNonCanonSplice(AbstractClassifier):
                 if t.exons[i].containsCds() and t.exons[i+1].containsCds():
                     if self.badSplice(seq[:2], seq[-2:]) == True:
                         valueDict[aId].append(self.makeBed(t, t.intronIntervals[i]))
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -527,7 +527,7 @@ class EndStop(AbstractClassifier):
             if cds[-3:].upper() not in stopCodons:
                 valueDict[aId] = seq_lib.cdsCoordinateToBed(t, len(cds) - 3, len(cds), 
                     self.rgb, self.getColumn())
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -565,7 +565,7 @@ class InFrameStop(AbstractClassifier):
                     if c == "*":
                         valueDict[aId] = seq_lib.cdsCoordinateToBed(t, i, i + 3, 
                                 self.rgb(), self.getColumn())
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -600,7 +600,7 @@ class NoCds(AbstractClassifier):
                 a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
                 if a.getCdsLength() > cdsCutoff:
                     valueDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn())
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -650,7 +650,7 @@ class ScaffoldGap(AbstractClassifier):
             if re.search(r, destSeq) is not None:
                 t = self.transcriptDict[aId]
                 valueDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn())
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -686,7 +686,7 @@ class UnknownBases(AbstractClassifier):
                 s = t.getMRna(self.seqDict)
             if "N" in s:
                 valueDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn())
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -732,7 +732,7 @@ class UtrGap(AbstractClassifier):
                     if len(t.intronIntervals[i]) <= shortIntronSize:
                         valueDict[aId].append(seq_lib.intervalToBed(t, t.intronIntervals[i], 
                                 self.rgb(), self.getColumn()))
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -788,7 +788,7 @@ class UtrNonCanonSplice(AbstractClassifier):
                 if not (t.exons[i].containsCds() and t.exons[i+1].containsCds()):
                     if self.badSplice(seq[:2], seq[-2:]) is True:
                         valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
-        logger.info("Details {} on {} is finished.".format(self.genome, self.getColumn()))
+        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
