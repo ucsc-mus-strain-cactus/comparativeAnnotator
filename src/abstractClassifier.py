@@ -1,4 +1,5 @@
 import os
+import cPickle as pickle
 
 from jobTree.scriptTree.target import Target
 
@@ -61,33 +62,9 @@ class AbstractClassifier(Target):
         for a, b in d.iteritems():
             yield b, a
 
-    def simpleUpdateWrapper(self, valueDict):
+    def dumpValueDict(self, valueDict):
         """
-        If your classifier is going to do a simple 1-1 update with a valueDict, use this.
+        Dumps a valueDict to disk in the globalTempDir for later merging.
         """
-        with sql_lib.ExclusiveSqlConnection(self.db) as cur:
-            sql_lib.updateRows(cur, self.genome, self.primaryKey, self.getColumn(), 
-                    self.invertDict(valueDict))
-
-    def simpleBedUpdateWrapper(self, valueDict):
-        """
-        If your details-mode classifier has BED records for values in its valueDict, use this.
-        """
-        with sql_lib.ExclusiveSqlConnection(self.db) as cur:
-            sql_lib.updateRows(cur, self.genome, self.primaryKey, self.getColumn(), 
-                    self.detailsEntryIter(valueDict.iteritems()))     
-
-    def detailsEntryIter(self, valueIter):
-        """
-        General case for converting a valueIter to a string entry representing 1 or more BED records
-        valueIters are generally lists of lists where each sublist represents a BED record
-        """
-        for aId, entry in valueIter:
-            if entry is None:
-                yield None, aId
-            elif type(entry[0]) != list:
-                #only one entry
-                yield "\t".join(map(str,entry)), aId
-            else:
-                bedEntries = ["\t".join(map(str, x)) for x in entry]
-                yield "\n".join(bedEntries), aId
+        with open(os.path.join(self.globalTempDir(), self.getColumn() + self.genome), "w") as outf:
+            pickle.dump(valueDict, outf)

@@ -9,6 +9,7 @@ from lib.general_lib import FileType, DirType, FullPaths, classesInModule
 import lib.sqlite_lib as sql_lib
 
 import src.classifiers, src.details, src.attributes
+from src.constructDatabases import ConstructDatabases
 
 
 #hard coded file extension types that we are looking for
@@ -27,7 +28,7 @@ def build_parser():
     parser.add_argument('--dataDir', type=DirType, action=FullPaths)
     parser.add_argument('--gencodeAttributeMap', type=FileType)
     parser.add_argument('--outDir', type=str, default="./output/", action=FullPaths)
-    parser.add_argument('--primaryKey', type=str, default="AlignmentID")
+    parser.add_argument('--primaryKeyColumn', type=str, default="AlignmentId")
     return parser
 
 
@@ -42,57 +43,28 @@ def parseDir(genomes, targetDir, ext):
 
 
 def buildAnalyses(target, alnPslDict, seqTwoBitDict, refSeqTwoBit, geneCheckBedDict, 
-            gencodeAttributeMap, genomes, annotationBed, outDir, primaryKeyColumn, refGenome):
+            gencodeAttributeMap, genomes, annotationBed, outDir, refGenome, primaryKeyColumn):
+    #find all user-defined classes in the three categories of analyses
+    classifiers = classesInModule(src.classifiers)
+    details = classesInModule(src.details)    
+    attributes = classesInModule(src.attributes)
+    outClassify = os.path.join(outDir, "classify.db")
+    outDetails = os.path.join(outDir, "details.db")
+    outAttributes = os.path.join(outDir, "attributes.db")
+    primaryKeyColumn = "alignmentId"
     for genome in genomes:
         alnPsl = alnPslDict[genome]
         geneCheckBed = geneCheckBedDict[genome]
         seqTwoBit = seqTwoBitDict[genome]
-
-        #find all user-defined classes in the classifiers module
-        classifiers = classesInModule(src.classifiers)
-        out = os.path.join(outDir, "classify_")
-        initializeDbs(out, genome, classifiers, alnPsl, primaryKeyColumn)
+        #set child targets for every classifier-genome pair
         for c in classifiers:
-            target.addChildTarget(c(genome, alnPsl, seqTwoBit, refSeqTwoBit,
-                annotationBed, gencodeAttributeMap, geneCheckBed, out, 
-                refGenome, primaryKeyColumn))
-
-        #find all user-defined classes in the details module
-        details = classesInModule(src.details)    
-        out = os.path.join(outDir, "details_")    
-        initializeDbs(out, genome, details, alnPsl, primaryKeyColumn)
+            target.addChildTarget(c(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, primaryKeyColumn))
         for d in details:
-            target.addChildTarget(d(genome, alnPsl, seqTwoBit, refSeqTwoBit,
-                annotationBed, gencodeAttributeMap, geneCheckBed, out, 
-                refGenome, primaryKeyColumn))
-
-        #find all user-defined classes in the attributes module     
-        attributes = classesInModule(src.attributes)
-        out = os.path.join(outDir, "attributes_")
-        initializeDbs(out, genome, attributes, alnPsl, primaryKeyColumn)
+            target.addChildTarget(d(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, primaryKeyColumn))
         for a in attributes:
-            target.addChildTarget(a(genome, alnPsl, seqTwoBit, refSeqTwoBit,
-                annotationBed, gencodeAttributeMap, geneCheckBed, out, 
-                refGenome, primaryKeyColumn))
-
-
-def initializeDbs(out, genome, classifiers, alnPsl, primaryKeyColumn):
-    columnDefinitions = [[x.__name__, x._getType()] for x in classifiers]
-    #find alignment IDs from PSLs (primary key for database)
-    aIds = set(x.split()[9] for x in open(alnPsl))
-    dbPath = out + genome + ".db"
-    initializeSqlTable(dbPath, genome, columnDefinitions, primaryKeyColumn)
-    initializeSqlRows(dbPath, genome, aIds, primaryKeyColumn)
-
-
-def initializeSqlTable(db, genome, columns, primaryKey):
-    with sql_lib.ExclusiveSqlConnection(db) as cur:
-        sql_lib.initializeTable(cur, genome, columns, primaryKey)
-
-
-def initializeSqlRows(db, genome, aIds, primaryKey):
-    with sql_lib.ExclusiveSqlConnection(db) as cur:
-        sql_lib.insertRows(cur, genome, primaryKey, [primaryKey], izip_longest(aIds, [None]))
+            target.addChildTarget(a(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, primaryKeyColumn))
+        #merge the resulting pickled files into sqlite databases
+    target.setFollowOnTarget(ConstructDatabases, args=(outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn))
 
 
 def main():
@@ -119,7 +91,7 @@ def main():
 
     i = Stack(Target.makeTargetFn(buildAnalyses, args=(alnPslDict, seqTwoBitDict, refSeqTwoBit, 
             geneCheckBedDict, args.gencodeAttributeMap, args.genomes, args.annotationBed, 
-            args.outDir, args.primaryKey, args.refGenome))).startJobTree(args)
+            args.outDir, args.refGenome, args.primaryKeyColumn))).startJobTree(args)
 
     if i != 0:
         raise RuntimeError("Got failed jobs")

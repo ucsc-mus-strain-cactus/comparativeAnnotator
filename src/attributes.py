@@ -4,7 +4,6 @@ from jobTree.src.bioio import logger
 
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
-import lib.sqlite_lib as sql_lib
 
 
 class TranscriptId(AbstractClassifier):
@@ -18,7 +17,7 @@ class TranscriptId(AbstractClassifier):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         valueDict = {aId : psl_lib.removeAlignmentNumber(aId) for aId in self.aIds}
-        self.simpleUpdateWrapper(valueDict)
+        self.dumpValueDict(valueDict)
         
 
 class GeneId(AbstractClassifier):
@@ -34,7 +33,7 @@ class GeneId(AbstractClassifier):
         self.getAttributeDict()
         valueDict = {aId : self.attributeDict[psl_lib.removeAlignmentNumber(aId)].geneId 
                 for aId in self.aIds}
-        self.simpleUpdateWrapper(valueDict)
+        self.dumpValueDict(valueDict)
 
 
 class GeneName(AbstractClassifier):
@@ -50,7 +49,7 @@ class GeneName(AbstractClassifier):
         self.getAttributeDict()
         valueDict = {aId : self.attributeDict[psl_lib.removeAlignmentNumber(aId)].geneName 
                 for aId in self.aIds}
-        self.simpleUpdateWrapper(valueDict)
+        self.dumpValueDict(valueDict)
 
 
 class GeneType(AbstractClassifier):
@@ -66,7 +65,7 @@ class GeneType(AbstractClassifier):
         self.getAttributeDict()
         valueDict = {aId : self.attributeDict[psl_lib.removeAlignmentNumber(aId)].geneType 
                 for aId in self.aIds}
-        self.simpleUpdateWrapper(valueDict)
+        self.dumpValueDict(valueDict)
 
 
 class TranscriptType(AbstractClassifier):
@@ -82,7 +81,7 @@ class TranscriptType(AbstractClassifier):
         self.getAttributeDict()
         valueDict = {aId : self.attributeDict[psl_lib.removeAlignmentNumber(aId)].transcriptType 
                 for aId in self.aIds}
-        self.simpleUpdateWrapper(valueDict)
+        self.dumpValueDict(valueDict)
 
 
 class SourceChrom(AbstractClassifier):
@@ -98,7 +97,7 @@ class SourceChrom(AbstractClassifier):
         self.getAnnotationDict()
         valueDict = {aId : self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.chromosome
                 for aId in self.aIds}
-        self.simpleUpdateWrapper(valueDict)
+        self.dumpValueDict(valueDict)
 
 
 class SourceStart(AbstractClassifier):
@@ -115,7 +114,7 @@ class SourceStart(AbstractClassifier):
         self.getAnnotationDict()
         valueDict = {aId : self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.start
                 for aId in self.aIds}
-        self.simpleUpdateWrapper(valueDict)
+        self.dumpValueDict(valueDict)
 
 
 class SourceStop(AbstractClassifier):
@@ -132,7 +131,7 @@ class SourceStop(AbstractClassifier):
         self.getAnnotationDict()
         valueDict = {aId : self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.stop
                 for aId in self.aIds}
-        self.simpleUpdateWrapper(valueDict)
+        self.dumpValueDict(valueDict)
 
 
 class SourceStrand(AbstractClassifier):
@@ -148,7 +147,7 @@ class SourceStrand(AbstractClassifier):
         self.getAnnotationDict()
         valueDict = {aId : seq_lib.convertStrand(self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.strand)
                 for aId in self.aIds}
-        self.simpleUpdateWrapper(valueDict)
+        self.dumpValueDict(valueDict)
 
 
 class DestChrom(AbstractClassifier):
@@ -164,7 +163,7 @@ class DestChrom(AbstractClassifier):
         self.getTranscriptDict()
         valueDict = {aId : self.transcriptDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.chrom
                 for aId in self.aIds if psl_lib.removeAlignmentNumber(aId) in self.transcriptDict}
-        self.simpleUpdateWrapper(valueDict)
+        self.dumpValueDict(valueDict)
 
 
 class DestStart(AbstractClassifier):
@@ -181,7 +180,7 @@ class DestStart(AbstractClassifier):
         self.getTranscriptDict()
         valueDict = {aId : self.transcriptDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.start
                 for aId in self.aIds if psl_lib.removeAlignmentNumber(aId) in self.transcriptDict}
-        self.simpleUpdateWrapper(valueDict)
+        self.dumpValueDict(valueDict)
 
 
 class DestStop(AbstractClassifier):
@@ -198,7 +197,7 @@ class DestStop(AbstractClassifier):
         self.getTranscriptDict()
         valueDict = {aId : self.transcriptDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.stop
                 for aId in self.aIds if psl_lib.removeAlignmentNumber(aId) in self.transcriptDict}
-        self.simpleUpdateWrapper(valueDict)
+        self.dumpValueDict(valueDict)
 
 
 class DestStrand(AbstractClassifier):
@@ -214,4 +213,4 @@ class DestStrand(AbstractClassifier):
         self.getTranscriptDict()
         valueDict = {aId : seq_lib.convertStrand(self.transcriptDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.strand)
                 for aId in self.aIds if psl_lib.removeAlignmentNumber(aId) in self.transcriptDict}
-        self.simpleUpdateWrapper(valueDict)
+        self.dumpValueDict(valueDict)
