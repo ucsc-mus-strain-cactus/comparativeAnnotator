@@ -16,13 +16,9 @@ alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
 seqDict = seq_lib.readTwoBit("datafiles/Rattus.2bit")
 
 
-aId = "ENSMUST00000089106.2-1"
+aId = 'ENSMUST00000071807.1-3'
 
-t = transcriptDict[aId]
-e = t.exons[0]
 
-t = transcriptDict[aId]
-s = t.getCds(seqDict)[-3:]
 
 
 valueDict = {}

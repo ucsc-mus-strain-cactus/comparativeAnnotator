@@ -1019,13 +1019,13 @@ def transcriptCoordinateToBed(t, start, stop, rgb, name):
     """
     if t.strand is True:
         #special case - we want to slice the very last base
-        if t.getCdsLength() == stop:
+        if len(t) == stop:
             chromStop = t.transcriptCoordinateToChromosome(stop - 1) + 1
         else:
             chromStop = t.transcriptCoordinateToChromosome(stop)
         chromStart = t.transcriptCoordinateToChromosome(start)
     else:
-        if t.getCdsLength() == stop:
+        if len(t) == stop:
             chromStart = t.transcriptCoordinateToChromosome(stop - 1)
         else:
             chromStart = t.transcriptCoordinateToChromosome(stop) + 1
@@ -1037,20 +1037,23 @@ def cdsCoordinateToBed(t, start, stop, rgb, name):
     Takes a transcript and start/stop coordinates in CDS coordinate space and returns
     a string in BED format with the specified RGB string (128,0,0 or etc) and name.
     """
-    if t.strand is True:
-        #special case - we want to slice the very last base
-        if t.getCdsLength() == stop:
-            chromStop = t.cdsCoordinateToChromosome(stop - 1) + 1
+    try:
+        if t.strand is True:
+            #special case - we want to slice the very last base
+            if t.getCdsLength() == stop:
+                chromStop = t.cdsCoordinateToChromosome(stop - 1) + 1
+            else:
+                chromStop = t.cdsCoordinateToChromosome(stop)
+            chromStart = t.cdsCoordinateToChromosome(start)
         else:
-            chromStop = t.cdsCoordinateToChromosome(stop)
-        chromStart = t.cdsCoordinateToChromosome(start)
-    else:
-        if t.getCdsLength() == stop:
-            chromStart = t.cdsCoordinateToChromosome(stop - 1)
-        else:
-            chromStart = t.cdsCoordinateToChromosome(stop) + 1
-        chromStop = t.cdsCoordinateToChromosome(start) + 1
-    return chromosomeCoordinateToBed(t, chromStart, chromStop, rgb, name)
+            if t.getCdsLength() == stop:
+                chromStart = t.cdsCoordinateToChromosome(stop - 1)
+            else:
+                chromStart = t.cdsCoordinateToChromosome(stop) + 1
+            chromStop = t.cdsCoordinateToChromosome(start) + 1
+        return chromosomeCoordinateToBed(t, chromStart, chromStop, rgb, name)
+    except:
+        print t.name, start, stop, name
 
 def chromosomeCoordinateToBed(t, start, stop, rgb, name):
     """

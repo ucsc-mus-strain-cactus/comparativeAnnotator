@@ -4,7 +4,7 @@ from itertools import izip_longest
 
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
-from jobTree.src.bioio import setLoggingFromOptions, system
+from jobTree.src.bioio import setLoggingFromOptions, system, logger
 from lib.general_lib import FileType, DirType, FullPaths, classesInModule
 import lib.sqlite_lib as sql_lib
 
@@ -27,7 +27,7 @@ def build_parser():
     parser.add_argument('--dataDir', type=DirType, action=FullPaths)
     parser.add_argument('--gencodeAttributeMap', type=FileType)
     parser.add_argument('--outDir', type=str, default="./output/", action=FullPaths)
-    parser.add_argument('--primaryKey', type=str, default="AlignmentId")
+    parser.add_argument('--primaryKey', type=str, default="AlignmentID")
     return parser
 
 
@@ -50,36 +50,37 @@ def buildAnalyses(target, alnPslDict, seqTwoBitDict, refSeqTwoBit, geneCheckBedD
 
         #find all user-defined classes in the classifiers module
         classifiers = classesInModule(src.classifiers)
-        outClassify = os.path.join(outDir, "classify.db")
-        initializeDb(outClassify, genome, classifiers, alnPsl, primaryKeyColumn)
+        out = os.path.join(outDir, "classify_")
+        initializeDbs(out, genome, classifiers, alnPsl, primaryKeyColumn)
         for c in classifiers:
             target.addChildTarget(c(genome, alnPsl, seqTwoBit, refSeqTwoBit,
-                annotationBed, gencodeAttributeMap, geneCheckBed, outClassify, 
+                annotationBed, gencodeAttributeMap, geneCheckBed, out, 
                 refGenome, primaryKeyColumn))
 
         #find all user-defined classes in the details module
-        details = classesInModule(src.details)        
-        outDetails = os.path.join(outDir, "details.db")
-        initializeDb(outDetails, genome, details, alnPsl, primaryKeyColumn)        
+        details = classesInModule(src.details)    
+        out = os.path.join(outDir, "details_")    
+        initializeDbs(out, genome, details, alnPsl, primaryKeyColumn)
         for d in details:
             target.addChildTarget(d(genome, alnPsl, seqTwoBit, refSeqTwoBit,
-                annotationBed, gencodeAttributeMap, geneCheckBed, outDetails, 
+                annotationBed, gencodeAttributeMap, geneCheckBed, out, 
                 refGenome, primaryKeyColumn))
 
         #find all user-defined classes in the attributes module     
         attributes = classesInModule(src.attributes)
-        outAttributes = os.path.join(outDir, "attributes.db")
-        initializeDb(outAttributes, genome, attributes, alnPsl, primaryKeyColumn)        
+        out = os.path.join(outDir, "attributes_")
+        initializeDbs(out, genome, attributes, alnPsl, primaryKeyColumn)
         for a in attributes:
             target.addChildTarget(a(genome, alnPsl, seqTwoBit, refSeqTwoBit,
-                annotationBed, gencodeAttributeMap, geneCheckBed, outAttributes, 
+                annotationBed, gencodeAttributeMap, geneCheckBed, out, 
                 refGenome, primaryKeyColumn))
 
 
-def initializeDb(dbPath, genome, classifiers, alnPsl, primaryKeyColumn):
+def initializeDbs(out, genome, classifiers, alnPsl, primaryKeyColumn):
     columnDefinitions = [[x.__name__, x._getType()] for x in classifiers]
     #find alignment IDs from PSLs (primary key for database)
     aIds = set(x.split()[9] for x in open(alnPsl))
+    dbPath = out + genome + ".db"
     initializeSqlTable(dbPath, genome, columnDefinitions, primaryKeyColumn)
     initializeSqlRows(dbPath, genome, aIds, primaryKeyColumn)
 

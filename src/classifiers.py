@@ -1,6 +1,8 @@
 import re
 from itertools import izip
 
+from jobTree.src.bioio import logger
+
 from lib.general_lib import formatRatio
 from src.abstractClassifier import AbstractClassifier
 
@@ -55,6 +57,7 @@ class CodingInsertions(AbstractClassifier):
         return 0
 
     def run(self, mult3=False):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAnnotationDict()
         self.getAlignmentDict()
         self.getTranscriptDict()
@@ -65,6 +68,11 @@ class CodingInsertions(AbstractClassifier):
             #annotated transcript coordinates are the same as query coordinates (they are the query)
             annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             valueDict[aId] = self.analyzeExons(annotatedTranscript, aln, mult3)
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -117,6 +125,7 @@ class CodingDeletions(AbstractClassifier):
         return 0
 
     def run(self, mult3=False):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
         valueDict = {}
@@ -125,6 +134,11 @@ class CodingDeletions(AbstractClassifier):
                 continue
             transcript = self.transcriptDict[aId]
             valueDict[aId] = self.analyzeExons(transcript, aln, mult3)
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -158,6 +172,7 @@ class AlignmentAbutsLeft(AbstractClassifier):
         return "INTEGER"
 
     def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
@@ -167,6 +182,11 @@ class AlignmentAbutsLeft(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -189,6 +209,7 @@ class AlignmentAbutsRight(AbstractClassifier):
         return "INTEGER"
 
     def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
@@ -198,6 +219,11 @@ class AlignmentAbutsRight(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -217,11 +243,14 @@ class AlignmentCoverage(AbstractClassifier):
         return "REAL"
 
     def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             valueDict[aId] = formatRatio(aln.matches + aln.misMatches, aln.matches + aln.misMatches 
                     + aln.qNumInsert)
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -241,10 +270,16 @@ class AlignmentIdentity(AbstractClassifier):
         return "REAL"
 
     def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             valueDict[aId] = formatRatio(aln.matches, aln.matches + aln.misMatches + aln.qNumInsert)
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -264,6 +299,7 @@ class AlignmentPartialMap(AbstractClassifier):
         return "INTEGER"
 
     def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
@@ -271,6 +307,11 @@ class AlignmentPartialMap(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -288,6 +329,7 @@ class BadFrame(AbstractClassifier):
         return "INTEGER"
 
     def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
         valueDict = {}
@@ -299,6 +341,11 @@ class BadFrame(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -320,6 +367,7 @@ class BeginStart(AbstractClassifier):
         return "INTEGER"
 
     def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
         valueDict = {}
@@ -334,6 +382,11 @@ class BeginStart(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -372,6 +425,7 @@ class CdsGap(AbstractClassifier):
         return 0
   
     def run(self, mult3=False, shortIntronSize=30):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         valueDict = {}
         for aId in self.aIds:
@@ -381,6 +435,11 @@ class CdsGap(AbstractClassifier):
                 valueDict[aId] = self.mult3(self.transcriptDict[aId], shortIntronSize)
             else:
                 valueDict[aId] = self.notMult3(self.transcriptDict[aId], shortIntronSize)
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
         
 
@@ -421,6 +480,7 @@ class CdsNonCanonSplice(AbstractClassifier):
             return False
 
     def run(self, shortIntronSize=30):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
         valueDict = {}
@@ -436,6 +496,11 @@ class CdsNonCanonSplice(AbstractClassifier):
                         break
             if aId not in valueDict:
                 valueDict[aId] = 0
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -488,6 +553,7 @@ class EndStop(AbstractClassifier):
         return "INTEGER"
 
     def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         stopCodons = ('TAA', 'TGA', 'TAG')
         self.getTranscriptDict()
         self.getSeqDict()
@@ -503,6 +569,11 @@ class EndStop(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -521,6 +592,7 @@ class InFrameStop(AbstractClassifier):
         return "INTEGER"
 
     def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
         valueDict = {}
@@ -537,6 +609,11 @@ class InFrameStop(AbstractClassifier):
                         valueDict[aId] = 1
             if aId not in valueDict:
                 valueDict[aId] = 0
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -556,6 +633,7 @@ class NoCds(AbstractClassifier):
         return "INTEGER"
 
     def run(self, cdsCutoff=3):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getAnnotationDict()
         valueDict = {}
@@ -569,6 +647,11 @@ class NoCds(AbstractClassifier):
                     valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -602,6 +685,7 @@ class ScaffoldGap(AbstractClassifier):
         return "INTEGER"
 
     def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getSeqDict()
         valueDict = {}
@@ -612,6 +696,11 @@ class ScaffoldGap(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -630,6 +719,7 @@ class UnknownBases(AbstractClassifier):
         return "INTEGER"
 
     def run(self, cds=False):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
         valueDict = {}
@@ -645,6 +735,11 @@ class UnknownBases(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -675,6 +770,7 @@ class UtrGap(AbstractClassifier):
         return "INTEGER"
 
     def run(self, shortIntronSize=30):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         valueDict = {}
         for aId in self.aIds:
@@ -688,6 +784,11 @@ class UtrGap(AbstractClassifier):
                         break
             if aId not in valueDict:
                 valueDict[aId] = 0
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 
@@ -719,6 +820,7 @@ class UtrNonCanonSplice(AbstractClassifier):
             return 0
 
     def run(self, shortIntronSize=30):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
         valueDict = {}
@@ -734,6 +836,11 @@ class UtrNonCanonSplice(AbstractClassifier):
                         valueDict[aId] = 1
             if aId not in valueDict:
                 valueDict[aId] = 0
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Classify analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Classify analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleUpdateWrapper(valueDict)
 
 

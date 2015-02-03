@@ -2,6 +2,8 @@ import re
 from itertools import izip
 from collections import defaultdict
 
+from jobTree.src.bioio import logger
+
 from lib.general_lib import formatRatio
 from src.abstractClassifier import AbstractClassifier
 
@@ -49,20 +51,21 @@ class CodingInsertions(AbstractClassifier):
                     insertSize += 1
                 #exiting insertion
                 elif insertFlag is True and aln.queryCoordinateToTarget(i) != None:
-                    if (t.tCoordinateToCds(i) is not None or 
+                    if (t.transcriptCoordinateToCds(i) is not None or 
                             t.transcriptCoordinateToCds(i + insertSize) is not None):
                         if insertSize % 3 == 0 and mult3 == True:
-                            records.append(seq_lib.transcriptCoordinateToBed(t, i, i - insertSize, 
-                                    self.rgb(), self.getColumn()))
+                            records.append(seq_lib.transcriptCoordinateToBed(t, i, 
+                                    i - insertSize, self.rgb(), self.getColumn()))
                         elif insertSize % 3 != 0 and mult3 == False:
-                            records.append(seq_lib.transcriptCoordinateToBed(t, i, i - insertSize, 
-                                    self.rgb(), self.getColumn()))
+                            records.append(seq_lib.transcriptCoordinateToBed(t, i,  
+                                    i - insertSize, self.rgb(), self.getColumn()))
                     insertSize = 0
                     insertFlag = False
         if len(records) > 0:
             return records
 
     def run(self, mult3=False):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAnnotationDict()
         self.getAlignmentDict()
         self.getTranscriptDict()
@@ -73,6 +76,11 @@ class CodingInsertions(AbstractClassifier):
             #annotated transcript coordinates are the same as query coordinates (they are the query)
             annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             valueDict[aId] = self.analyzeExons(annotatedTranscript, aln, mult3)
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 
@@ -133,6 +141,7 @@ class CodingDeletions(AbstractClassifier):
             return records
 
     def run(self, mult3=False):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
         valueDict = {}
@@ -141,6 +150,11 @@ class CodingDeletions(AbstractClassifier):
                 continue
             transcript = self.transcriptDict[aId]
             valueDict[aId] = self.analyzeExons(transcript, aln, mult3)
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 
@@ -177,16 +191,24 @@ class AlignmentAbutsLeft(AbstractClassifier):
         return self.colors["assembly"]
 
     def run(self):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
+            if aId not in self.transcriptDict:
+                continue
             if aln.strand == "+" and aln.tStart == 0 and aln.qStart != 0:
                 valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(), 
                         self.getColumn())
             elif aln.strand == "-" and aln.tEnd == aln.tSize and aln.qEnd != aln.qSize:
                 valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
                         self.getColumn())
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 
@@ -212,6 +234,7 @@ class AlignmentAbutsRight(AbstractClassifier):
         return self.colors["assembly"]
 
     def run(self):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
         valueDict = {}
@@ -224,6 +247,11 @@ class AlignmentAbutsRight(AbstractClassifier):
             elif aln.strand == "-" and aln.tStart == 0 and aln.qStart != 0:
                 valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
                         self.getColumn())
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 
@@ -246,16 +274,24 @@ class AlignmentPartialMap(AbstractClassifier):
         return self.colors["assembly"]
 
     def run(self):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
+            if aId not in self.transcriptDict:
+                continue
             if aln.qSize != aln.qEnd - aln.qStart:
                 valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
                         self.getColumn())
             else:
                 valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
                         self.getColumn())
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 
@@ -276,6 +312,7 @@ class BadFrame(AbstractClassifier):
         return self.colors["generic"]
 
     def run(self):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
         valueDict = {}
@@ -286,6 +323,11 @@ class BadFrame(AbstractClassifier):
             if t.getCdsLength() % 3 != 0:
                 valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
                         self.getColumn())
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 
@@ -305,6 +347,7 @@ class BeginStart(AbstractClassifier):
         return self.colors["generic"]
 
     def run(self):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
         valueDict = {}
@@ -318,6 +361,11 @@ class BeginStart(AbstractClassifier):
             if not s.startswith("ATG"):
                 valueDict[aId] = seq_lib.transcriptCoordinateToBed(t, 0, 2, self.rgb(),
                         self.getColumn())
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 
@@ -365,6 +413,7 @@ class CdsGap(AbstractClassifier):
             return records
 
     def run(self, mult3=False, shortIntronSize=30):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         valueDict = {}
         for aId in self.aIds:
@@ -374,6 +423,11 @@ class CdsGap(AbstractClassifier):
                 valueDict[aId] = self.mult3(self.transcriptDict[aId], shortIntronSize)
             else:
                 valueDict[aId] = self.notMult3(self.transcriptDict[aId], shortIntronSize)
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
         
 
@@ -419,12 +473,13 @@ class CdsNonCanonSplice(AbstractClassifier):
     def makeBed(self, t, intronInterval):
         tmp = []
         start, stop = intronInterval.start, intronInterval.start + 2
-        tmp.append(seq_lib.chromsomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
+        tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
         start, stop = intronInterval.stop - 2, intronInterval.stop
-        tmp.append(seq_lib.chromsomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
+        tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
         return tmp
 
     def run(self, shortIntronSize=30):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
         valueDict = defaultdict(list)
@@ -437,8 +492,11 @@ class CdsNonCanonSplice(AbstractClassifier):
                 if t.exons[i].containsCds() and t.exons[i+1].containsCds():
                     if self.badSplice(seq[:2], seq[-2:]) == True:
                         valueDict[aId].append(self.makeBed(t, t.intronIntervals[i]))
-            if aId not in valueDict:
-                valueDict[aId] = 0
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 
@@ -491,6 +549,7 @@ class EndStop(AbstractClassifier):
         return self.colors["alignment"]
 
     def run(self):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         stopCodons = ('TAA', 'TGA', 'TAG')
         self.getTranscriptDict()
         self.getSeqDict()
@@ -504,7 +563,12 @@ class EndStop(AbstractClassifier):
             cds = t.getCds(self.seqDict)
             if cds[-3:].upper() not in stopCodons:
                 valueDict[aId] = seq_lib.cdsCoordinateToBed(t, len(cds) - 3, len(cds), 
-                        self.rgb, self.getColumn())
+                    self.rgb, self.getColumn())
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 
@@ -526,6 +590,7 @@ class InFrameStop(AbstractClassifier):
         return self.colors["mutation"]
 
     def run(self):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
         valueDict = {}
@@ -541,6 +606,11 @@ class InFrameStop(AbstractClassifier):
                     if c == "*":
                         valueDict[aId] = seq_lib.cdsCoordinateToBed(t, i, i + 3, 
                                 self.rgb(), self.getColumn())
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 
@@ -563,6 +633,7 @@ class NoCds(AbstractClassifier):
         return self.colors["assembly"]
 
     def run(self, cdsCutoff=3):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getAnnotationDict()
         valueDict = {}
@@ -574,6 +645,11 @@ class NoCds(AbstractClassifier):
                 a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
                 if a.getCdsLength() > cdsCutoff:
                     valueDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn())
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 
@@ -610,16 +686,24 @@ class ScaffoldGap(AbstractClassifier):
         return self.colors["assembly"]
 
     def run(self):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getSeqDict()
         self.getTranscriptDict()
         valueDict = {}
         r = re.compile("[atgcATGC][N]{100}[atgcATGC]")
         for aId, aln in self.alignmentDict.iteritems():
+            if aId not in self.transcriptDict:
+                continue
             destSeq = self.seqDict[aln.tName][aln.tStart : aln.tEnd].upper()
             if re.search(r, destSeq) is not None:
                 t = self.transcriptDict[aId]
                 valueDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn())
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 
@@ -641,6 +725,7 @@ class UnknownBases(AbstractClassifier):
         return self.colors["assembly"]
 
     def run(self, cds=False):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
         valueDict = {}
@@ -654,6 +739,11 @@ class UnknownBases(AbstractClassifier):
                 s = t.getMRna(self.seqDict)
             if "N" in s:
                 valueDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn())
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 
@@ -687,6 +777,7 @@ class UtrGap(AbstractClassifier):
         return self.colors["alignment"]
 
     def run(self, shortIntronSize=30):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         valueDict = defaultdict(list)
         for aId in self.aIds:
@@ -696,8 +787,13 @@ class UtrGap(AbstractClassifier):
             for i in xrange(len(t.intronIntervals)):
                 if t.exons[i].containsCds() is False and t.exons[i+1].containsCds() is False:
                     if len(t.intronIntervals[i]) <= shortIntronSize:
-                        valueDict[aId].append(seq_lib.intervalToBed(t.intronIntervals[i], self.rgb(),
-                                self.getColumn()))
+                        valueDict[aId].append(seq_lib.intervalToBed(t, t.intronIntervals[i], 
+                                self.rgb(), self.getColumn()))
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 
@@ -740,6 +836,7 @@ class UtrNonCanonSplice(AbstractClassifier):
         return tmp
 
     def run(self, shortIntronSize=30):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
         valueDict = {}
@@ -752,6 +849,11 @@ class UtrNonCanonSplice(AbstractClassifier):
                 if not (t.exons[i].containsCds() and t.exons[i+1].containsCds()):
                     if self.badSplice(seq[:2], seq[-2:]) is True:
                         valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
+            if len(valueDict) % 1000 == 0:
+                logger.debug("Detailed analysis {} has done {} records. Genome: {}".format(
+                        self.getColumn(), len(valueDict), self.genome))
+        logger.info("Detailed analysis {} is dumping to database. Genome: {}".format(
+                self.getColumn(), self.genome))
         self.simpleBedUpdateWrapper(valueDict)
 
 

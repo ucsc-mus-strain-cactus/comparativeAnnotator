@@ -1,3 +1,5 @@
+import os
+
 from jobTree.scriptTree.target import Target
 
 import lib.sequence_lib as seq_lib
@@ -6,7 +8,7 @@ import lib.sqlite_lib as sql_lib
 
 class AbstractClassifier(Target):
     def __init__(self, genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed,   
-                gencodeAttributeMap, geneCheckBed, outDb, refGenome, primaryKey):
+                gencodeAttributeMap, geneCheckBed, out, refGenome, primaryKey):
         #initialize the Target
         Target.__init__(self)
 
@@ -21,7 +23,7 @@ class AbstractClassifier(Target):
         self.gencodeAttributeMap = gencodeAttributeMap
         self.geneCheckBed = geneCheckBed
         self.annotationBed = annotationBed
-        self.db = outDb
+        self.db = out + self.genome + ".db"
 
         #alignment IDs
         self.aIds = alnIds = set(x.split()[9] for x in open(alnPsl))

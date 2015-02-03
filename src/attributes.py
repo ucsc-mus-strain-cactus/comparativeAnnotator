@@ -1,5 +1,7 @@
 from src.abstractClassifier import AbstractClassifier
 
+from jobTree.src.bioio import logger
+
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
 import lib.sqlite_lib as sql_lib
@@ -14,6 +16,7 @@ class TranscriptId(AbstractClassifier):
         return "TEXT"
 
     def run(self):
+        logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         valueDict = {aId : psl_lib.removeAlignmentNumber(aId) for aId in self.aIds}
         self.simpleUpdateWrapper(valueDict)
         
@@ -27,6 +30,7 @@ class GeneId(AbstractClassifier):
         return "TEXT"
 
     def run(self):
+        logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getAttributeDict()
         valueDict = {aId : self.attributeDict[psl_lib.removeAlignmentNumber(aId)].geneId 
                 for aId in self.aIds}
@@ -42,6 +46,7 @@ class GeneName(AbstractClassifier):
         return "TEXT"
 
     def run(self):
+        logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getAttributeDict()
         valueDict = {aId : self.attributeDict[psl_lib.removeAlignmentNumber(aId)].geneName 
                 for aId in self.aIds}
@@ -57,6 +62,7 @@ class GeneType(AbstractClassifier):
         return "TEXT"
 
     def run(self):
+        logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getAttributeDict()
         valueDict = {aId : self.attributeDict[psl_lib.removeAlignmentNumber(aId)].geneType 
                 for aId in self.aIds}
@@ -72,6 +78,7 @@ class TranscriptType(AbstractClassifier):
         return "TEXT"
 
     def run(self):
+        logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getAttributeDict()
         valueDict = {aId : self.attributeDict[psl_lib.removeAlignmentNumber(aId)].transcriptType 
                 for aId in self.aIds}
@@ -87,6 +94,7 @@ class SourceChrom(AbstractClassifier):
         return "INTEGER"
 
     def run(self):
+        logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getAnnotationDict()
         valueDict = {aId : self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.chromosome
                 for aId in self.aIds}
@@ -103,6 +111,7 @@ class SourceStart(AbstractClassifier):
         return "INTEGER"
 
     def run(self):
+        logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getAnnotationDict()
         valueDict = {aId : self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.start
                 for aId in self.aIds}
@@ -119,6 +128,7 @@ class SourceStop(AbstractClassifier):
         return "INTEGER"
 
     def run(self):
+        logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getAnnotationDict()
         valueDict = {aId : self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.stop
                 for aId in self.aIds}
@@ -134,6 +144,7 @@ class SourceStrand(AbstractClassifier):
         return "TEXT"
 
     def run(self):
+        logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getAnnotationDict()
         valueDict = {aId : seq_lib.convertStrand(self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.strand)
                 for aId in self.aIds}
@@ -149,6 +160,7 @@ class DestChrom(AbstractClassifier):
         return "INTEGER"
 
     def run(self):
+        logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         valueDict = {aId : self.transcriptDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.chrom
                 for aId in self.aIds if psl_lib.removeAlignmentNumber(aId) in self.transcriptDict}
@@ -165,6 +177,7 @@ class DestStart(AbstractClassifier):
         return "INTEGER"
 
     def run(self):
+        logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         valueDict = {aId : self.transcriptDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.start
                 for aId in self.aIds if psl_lib.removeAlignmentNumber(aId) in self.transcriptDict}
@@ -181,6 +194,7 @@ class DestStop(AbstractClassifier):
         return "INTEGER"
 
     def run(self):
+        logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         valueDict = {aId : self.transcriptDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.stop
                 for aId in self.aIds if psl_lib.removeAlignmentNumber(aId) in self.transcriptDict}
@@ -196,6 +210,7 @@ class DestStrand(AbstractClassifier):
         return "TEXT"
 
     def run(self):
+        logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         valueDict = {aId : seq_lib.convertStrand(self.transcriptDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.strand)
                 for aId in self.aIds if psl_lib.removeAlignmentNumber(aId) in self.transcriptDict}
