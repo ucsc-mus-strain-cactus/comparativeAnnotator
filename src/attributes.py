@@ -161,8 +161,7 @@ class DestChrom(AbstractClassifier):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
-        valueDict = {aId : self.transcriptDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.chrom
-                for aId in self.aIds if psl_lib.removeAlignmentNumber(aId) in self.transcriptDict}
+        valueDict = {aId : self.transcriptDict[aId].chromosomeInterval.chrom for aId in self.aIds if aId in self.transcriptDict}
         self.dumpValueDict(valueDict)
 
 
@@ -178,8 +177,7 @@ class DestStart(AbstractClassifier):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
-        valueDict = {aId : self.transcriptDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.start
-                for aId in self.aIds if psl_lib.removeAlignmentNumber(aId) in self.transcriptDict}
+        valueDict = {aId : self.transcriptDict[aId].chromosomeInterval.start for aId in self.aIds if aId in self.transcriptDict}
         self.dumpValueDict(valueDict)
 
 
@@ -195,8 +193,7 @@ class DestStop(AbstractClassifier):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
-        valueDict = {aId : self.transcriptDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.stop
-                for aId in self.aIds if psl_lib.removeAlignmentNumber(aId) in self.transcriptDict}
+        valueDict = {aId : self.transcriptDict[aId].chromosomeInterval.stop for aId in self.aIds if aId in self.transcriptDict}
         self.dumpValueDict(valueDict)
 
 
@@ -211,6 +208,5 @@ class DestStrand(AbstractClassifier):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
-        valueDict = {aId : seq_lib.convertStrand(self.transcriptDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.strand)
-                for aId in self.aIds if psl_lib.removeAlignmentNumber(aId) in self.transcriptDict}
+        valueDict = {aId : seq_lib.convertStrand(self.transcriptDict[aId].chromosomeInterval.strand) for aId in self.aIds if aId in self.transcriptDict}
         self.dumpValueDict(valueDict)

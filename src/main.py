@@ -48,21 +48,17 @@ def buildAnalyses(target, alnPslDict, seqTwoBitDict, refSeqTwoBit, geneCheckBedD
     classifiers = classesInModule(src.classifiers)
     details = classesInModule(src.details)    
     attributes = classesInModule(src.attributes)
-    outClassify = os.path.join(outDir, "classify.db")
-    outDetails = os.path.join(outDir, "details.db")
-    outAttributes = os.path.join(outDir, "attributes.db")
-    primaryKeyColumn = "alignmentId"
     for genome in genomes:
         alnPsl = alnPslDict[genome]
         geneCheckBed = geneCheckBedDict[genome]
         seqTwoBit = seqTwoBitDict[genome]
         #set child targets for every classifier-genome pair
         for c in classifiers:
-            target.addChildTarget(c(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome, primaryKeyColumn))
+            target.addChildTarget(c(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome, primaryKeyColumn, outDir, "classify"))
         for d in details:
-            target.addChildTarget(d(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome, primaryKeyColumn))
+            target.addChildTarget(d(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome, primaryKeyColumn, outDir, "details"))
         for a in attributes:
-            target.addChildTarget(a(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome, primaryKeyColumn))
+            target.addChildTarget(a(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome, primaryKeyColumn, outDir, "attributes"))
         #merge the resulting pickled files into sqlite databases
     target.setFollowOnTarget(ConstructDatabases(outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn))
 

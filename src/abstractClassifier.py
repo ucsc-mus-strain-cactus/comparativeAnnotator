@@ -9,13 +9,11 @@ import lib.sqlite_lib as sql_lib
 
 class AbstractClassifier(Target):
     def __init__(self, genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed,   
-                gencodeAttributeMap, geneCheckBed, refGenome, primaryKey):
+                gencodeAttributeMap, geneCheckBed, refGenome, primaryKey, outDir, thisAnalysis):
         #initialize the Target
         Target.__init__(self)
-
         #primary key this will be keyed on (alignmentID usually)
         self.primaryKey = primaryKey
-
         self.genome = genome
         self.refGenome = refGenome
         self.alnPsl = alnPsl
@@ -24,6 +22,11 @@ class AbstractClassifier(Target):
         self.gencodeAttributeMap = gencodeAttributeMap
         self.geneCheckBed = geneCheckBed
         self.annotationBed = annotationBed
+        self.outDir = os.path.join(outDir, thisAnalysis, self.genome)
+        if not os.path.exists(os.path.join(outDir, thisAnalysis)):
+            os.mkdir(os.path.join(outDir, thisAnalysis))
+        if not os.path.exists(self.outDir):
+            os.mkdir(self.outDir)
 
         #alignment IDs
         self.aIds = alnIds = set(x.split()[9] for x in open(alnPsl))
@@ -61,5 +64,6 @@ class AbstractClassifier(Target):
         """
         Dumps a valueDict to disk in the globalTempDir for later merging.
         """
-        with open(os.path.join(self.getGlobalTempDir(), self.getColumn() + self.genome), "wb") as outf:
+        #with open(os.path.join(self.getGlobalTempDir(), self.getColumn() + self.genome), "wb") as outf:
+        with open(os.path.join(self.outDir, self.getColumn() + self.genome), "wb") as outf:
             pickle.dump(valueDict, outf)

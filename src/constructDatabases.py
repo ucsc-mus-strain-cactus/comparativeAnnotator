@@ -24,37 +24,40 @@ class ConstructDatabases(Target):
         classifyDb = os.path.join(self.outDir, "classify.db")
         detailsDb = os.path.join(self.outDir, "details.db")
         attributesDb = os.path.join(self.outDir, "attributes.db")
-        self.initializeDb(classifyDb)
-        self.initializeDb(detailsDb)
-        self.initializeDb(attributesDb)
+        self.initializeDb(classifyDb, self.classifiers)
+        self.initializeDb(detailsDb, self.details)
+        self.initializeDb(attributesDb, self.attributes)
         for classifier, genome in product(self.classifiers, self.genomes):
-            valueDict = pickle.load(open(self.getGlobalTempDir(), classifier.__name__ + genome, "rb"))
-            self.simpleUpdateWrapper(valueDict)
+            #valueDict = pickle.load(open(os.path.join(self.getGlobalTempDir(), classifier.__name__ + genome), "rb"))
+            classifyDict = pickle.load(open(os.path.join(self.outDir, "classify", genome, classifier.__name__ + genome), "rb"))
+            self.simpleUpdateWrapper(classifyDict, classifyDb, genome, classifier.__name__)
         for detail, genome in product(self.details, self.genomes):
-            valueDict = pickle.load(open(self.getGlobalTempDir(), detail.__name__ + genome, "rb"))
-            self.simpleBedUpdateWrapper(valueDict)
+            #valueDict = pickle.load(open(os.path.join(self.getGlobalTempDir(), detail.__name__ + genome), "rb"))
+            detailDict = pickle.load(open(os.path.join(self.outDir, "details", genome, detail.__name__ + genome), "rb"))
+            self.simpleBedUpdateWrapper(detailDict, detailsDb, genome, detail.__name__)
         for attribute, genome in product(self.attributes, self.genomes):
-            valueDict = pickle.load(open(self.getGlobalTempDir(), attribute.__name__ + genome, "rb"))
-            self.simpleUpdateWrapper(valueDict)
+            #valueDict = pickle.load(open(os.path.join(self.getGlobalTempDir(), attribute.__name__ + genome), "rb"))
+            attributeDict = pickle.load(open(os.path.join(self.outDir, "attributes", genome, attribute.__name__ + genome), "rb"))
+            self.simpleUpdateWrapper(attributeDict, attributesDb, genome, attribute.__name__)
 
     def invertDict(self, d):
         for a, b in d.iteritems():
             yield b, a
 
-    def simpleUpdateWrapper(self, valueDict):
+    def simpleUpdateWrapper(self, valueDict, db, genome, column):
         """
         If your classifier is going to do a simple 1-1 update with a valueDict, use this.
         """
-        with sql_lib.ExclusiveSqlConnection(self.db) as cur:
-            sql_lib.updateRows(cur, self.genome, self.primaryKey, self.getColumn(), 
+        with sql_lib.ExclusiveSqlConnection(db) as cur:
+            sql_lib.updateRows(cur, genome, self.primaryKeyColumn, column, 
                     self.invertDict(valueDict))
 
-    def simpleBedUpdateWrapper(self, valueDict):
+    def simpleBedUpdateWrapper(self, valueDict, db, genome, column):
         """
         If your details-mode classifier has BED records for values in its valueDict, use this.
         """
-        with sql_lib.ExclusiveSqlConnection(self.db) as cur:
-            sql_lib.updateRows(cur, self.genome, self.primaryKey, self.getColumn(), 
+        with sql_lib.ExclusiveSqlConnection(db) as cur:
+            sql_lib.updateRows(cur, genome, self.primaryKeyColumn, column, 
                     self.detailsEntryIter(valueDict.iteritems()))     
 
     def detailsEntryIter(self, valueIter):
@@ -72,8 +75,8 @@ class ConstructDatabases(Target):
                 bedEntries = ["\t".join(map(str, x)) for x in entry]
                 yield "\n".join(bedEntries), aId
 
-    def initializeDb(self, dbPath):
-        columnDefinitions = [[x.__name__, x._getType()] for x in self.classifiers]
+    def initializeDb(self, dbPath, classifiers):
+        columnDefinitions = [[x.__name__, x._getType()] for x in classifiers]
         #find alignment IDs from PSLs (primary key for database)
         for genome in self.genomes:
             aIds = set(x.split()[9] for x in open(self.alnPslDict[genome]))
