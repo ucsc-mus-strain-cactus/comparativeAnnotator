@@ -28,13 +28,13 @@ class ConstructDatabases(Target):
         self.initializeDb(detailsDb)
         self.initializeDb(attributesDb)
         for classifier, genome in product(self.classifiers, self.genomes):
-            valueDict = pickle.load(open(self.globalTempDir(), classifier.__name__ + genome, "rb"))
+            valueDict = pickle.load(open(self.getGlobalTempDir(), classifier.__name__ + genome, "rb"))
             self.simpleUpdateWrapper(valueDict)
         for detail, genome in product(self.details, self.genomes):
-            valueDict = pickle.load(open(self.globalTempDir(), detail.__name__ + genome, "rb"))
+            valueDict = pickle.load(open(self.getGlobalTempDir(), detail.__name__ + genome, "rb"))
             self.simpleBedUpdateWrapper(valueDict)
         for attribute, genome in product(self.attributes, self.genomes):
-            valueDict = pickle.load(open(self.globalTempDir(), attribute.__name__ + genome, "rb"))
+            valueDict = pickle.load(open(self.getGlobalTempDir(), attribute.__name__ + genome, "rb"))
             self.simpleUpdateWrapper(valueDict)
 
     def invertDict(self, d):
@@ -76,7 +76,7 @@ class ConstructDatabases(Target):
         columnDefinitions = [[x.__name__, x._getType()] for x in self.classifiers]
         #find alignment IDs from PSLs (primary key for database)
         for genome in self.genomes:
-            aIds = set(x.split()[9] for x in open(self.alnPslDict[aId]))
+            aIds = set(x.split()[9] for x in open(self.alnPslDict[genome]))
             self.initializeSqlTable(dbPath, genome, columnDefinitions, self.primaryKeyColumn)
             self.initializeSqlRows(dbPath, genome, aIds, self.primaryKeyColumn)
 
