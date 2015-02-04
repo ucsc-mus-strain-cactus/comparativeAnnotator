@@ -161,7 +161,7 @@ class DestChrom(AbstractClassifier):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
-        valueDict = {aId : self.transcriptDict[aId].chromosomeInterval.chrom for aId in self.aIds if aId in self.transcriptDict}
+        valueDict = {aId : self.transcriptDict[aId].chromosomeInterval.chromosome for aId in self.aIds if aId in self.transcriptDict}
         self.dumpValueDict(valueDict)
 
 

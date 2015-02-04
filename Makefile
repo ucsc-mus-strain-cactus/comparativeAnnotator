@@ -1,4 +1,4 @@
-batchSystem = singleMachine
+batchSystem = parasol
 maxThreads = 20
 maxCpus = 1024
 defaultMemory = 8589934592
