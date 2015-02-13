@@ -52,10 +52,11 @@ class CodingInsertions(AbstractClassifier):
                 #found insertion
                 start = min(prevTargetPos, target_i) + 1
                 stop = max(prevTargetPos, target_i)
-                if mult3 is True and stop - start % 3 == 0:
-                    records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
-                else:
-                    records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
+                if t.chromosomeCoordinateToCds(start) is not None or t.chromosomeCoordinateToCds(stop) is not None:
+                    if mult3 is True and stop - start % 3 == 0:
+                        records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
+                    else:
+                        records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
         if len(records) > 0:
             return records
 
@@ -125,10 +126,11 @@ class CodingDeletions(AbstractClassifier):
                 deleteFlag = False
                 start = target_i - 1
                 stop = target_i
-                if mult3 is True and deleteSize % 3 == 0:
-                    records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
-                elif mult3 is False and deleteSize % 3 == 0:
-                    records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
+                if t.chromosomeCoordinateToCds(start) is not None or t.chromosomeCoordinateToCds(stop) is not None:
+                    if mult3 is True and deleteSize % 3 == 0:
+                        records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
+                    elif mult3 is False and deleteSize % 3 == 0:
+                        records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
         if len(records) > 0:
             return records
 
