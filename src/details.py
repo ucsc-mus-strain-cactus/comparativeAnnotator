@@ -106,7 +106,7 @@ class CodingDeletions(AbstractClassifier):
         return "TEXT"
 
     def rgb(self):
-        return self.color["mutation"]
+        return self.colors["mutation"]
 
     def analyzeExons(self, a, t, aln, mult3=False):
         records = []
