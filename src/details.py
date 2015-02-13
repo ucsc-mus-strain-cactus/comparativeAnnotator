@@ -136,6 +136,7 @@ class CodingDeletions(AbstractClassifier):
         logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
+        self.getAnnotationDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
