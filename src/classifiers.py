@@ -36,17 +36,17 @@ class CodingInsertions(AbstractClassifier):
         insertFlag = False
         for exon in transcript.exons:
             for i in xrange(exon.start, exon.stop):
-                #we have found an insertion
+                # we have found an insertion
                 if insertFlag is False and aln.queryCoordinateToTarget(i) == None:
                     insertSize = 1
                     insertFlag = True
-                #insertion continues
+                # insertion continues
                 elif insertFlag is True and aln.queryCoordinateToTarget(i) == None:
                     insertSize += 1
                 #exiting insertion
                 elif insertFlag is True and aln.queryCoordinateToTarget(i) != None:
-                    if (transcript.transcriptCoordinateToCds(i) is not None or 
-                            transcript.transcriptCoordinateToCds(i + insertSize) is not None):
+                    if transcript.transcriptCoordinateToCds(i) is not None or transcript.transcriptCoordinateToCds(
+                                    i + insertSize) is not None:
                         if insertSize % 3 == 0 and mult3 == True:
                             return 1
                         elif insertSize % 3 != 0 and mult3 == False:
@@ -64,10 +64,11 @@ class CodingInsertions(AbstractClassifier):
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
-            #annotated transcript coordinates are the same as query coordinates (they are the query)
+            # annotated transcript coordinates are the same as query coordinates (they are the query)
             annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             valueDict[aId] = self.analyzeExons(annotatedTranscript, aln, mult3)
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -103,11 +104,11 @@ class CodingDeletions(AbstractClassifier):
         for exon in t.exons:
             for i in xrange(exon.start, exon.stop):
                 chrom_i = t.transcriptCoordinateToChromosome(i)
-                #entering deletion
+                # entering deletion
                 if delFlag is False and aln.targetCoordinateToQuery(chrom_i) is None:
                     delSize = 1
                     delFlag = True
-                #continuing deletion
+                # continuing deletion
                 elif delFlag is True and aln.targetCoordinateToQuery(chrom_i) is None:
                     delSize += 1
                 #exiting deletion
@@ -129,7 +130,8 @@ class CodingDeletions(AbstractClassifier):
                 continue
             transcript = self.transcriptDict[aId]
             valueDict[aId] = self.analyzeExons(transcript, aln, mult3)
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -173,7 +175,8 @@ class AlignmentAbutsLeft(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -206,7 +209,8 @@ class AlignmentAbutsRight(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -230,9 +234,10 @@ class AlignmentCoverage(AbstractClassifier):
         self.getAlignmentDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
-            valueDict[aId] = formatRatio(aln.matches + aln.misMatches, aln.matches + aln.misMatches 
-                    + aln.qNumInsert)        
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+            valueDict[aId] = formatRatio(aln.matches + aln.misMatches, aln.matches + aln.misMatches
+                                         + aln.qNumInsert)
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -257,7 +262,8 @@ class AlignmentIdentity(AbstractClassifier):
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             valueDict[aId] = formatRatio(aln.matches, aln.matches + aln.misMatches + aln.qNumInsert)
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -285,7 +291,8 @@ class AlignmentPartialMap(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -307,7 +314,7 @@ class BadFrame(AbstractClassifier):
         self.getAlignmentDict()
         self.getTranscriptDict()
         valueDict = {}
-        for aId, aln in self.alignmentDict.iteritems():        
+        for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
@@ -315,7 +322,8 @@ class BadFrame(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -332,6 +340,7 @@ class BeginStart(AbstractClassifier):
         3) this alignment was not trans-mapped
 
     """
+
     @staticmethod
     def _getType():
         return "INTEGER"
@@ -352,7 +361,8 @@ class BeginStart(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -366,30 +376,31 @@ class CdsGap(AbstractClassifier):
     If mult3 is true, will only report on multiple of 3 gaps.
 
     """
+
     @staticmethod
     def _getType():
         return "INTEGER"
 
     def mult3(self, t, shortIntronSize):
-        #only report if CdsGap is a multiple of 3
+        # only report if CdsGap is a multiple of 3
         for i in xrange(len(t.intronIntervals)):
-            #is this intron coding?
-            if t.exons[i].containsCds() is True and t.exons[i+1].containsCds() is True:
+            # is this intron coding?
+            if t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is True:
                 if len(t.intronIntervals[i]) <= shortIntronSize:
                     if len(t.intronIntervals[i]) % 3 == 0:
                         return 1
         return 0
 
     def notMult3(self, t, shortIntronSize):
-        #only report if CdsGap is a multiple of 3
+        # only report if CdsGap is a multiple of 3
         for i in xrange(len(t.intronIntervals)):
-            #is this intron coding?
-            if t.exons[i].containsCds() is True and t.exons[i+1].containsCds() is True:
+            # is this intron coding?
+            if t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is True:
                 if len(t.intronIntervals[i]) <= shortIntronSize:
                     if len(t.intronIntervals[i]) % 3 != 0:
                         return 1
         return 0
-  
+
     def run(self, mult3=False, shortIntronSize=30):
         logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
@@ -397,13 +408,14 @@ class CdsGap(AbstractClassifier):
         for aId in self.aIds:
             if aId not in self.transcriptDict:
                 continue
-            if mult3 is True:               
+            if mult3 is True:
                 valueDict[aId] = self.mult3(self.transcriptDict[aId], shortIntronSize)
             else:
                 valueDict[aId] = self.notMult3(self.transcriptDict[aId], shortIntronSize)
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
-        
+
 
 class CdsMult3Gap(CdsGap):
     """
@@ -428,12 +440,13 @@ class CdsNonCanonSplice(AbstractClassifier):
     a minimum intron size.
 
     """
+
     @staticmethod
     def _getType():
         return "INTEGER"
 
     def badSplice(self, donor, acceptor):
-        m = {"GT":"AG"}
+        m = {"GT": "AG"}
         d = donor.upper()
         a = acceptor.upper()
         if d in m and m[d] != a:
@@ -448,17 +461,18 @@ class CdsNonCanonSplice(AbstractClassifier):
         valueDict = {}
         for aId in self.aIds:
             if aId not in self.transcriptDict:
-                continue          
+                continue
             t = self.transcriptDict[aId]
             for i, seq in enumerate(t.intronSequenceIterator(self.seqDict)):
-                #make sure this intron is between coding exons
-                if t.exons[i].containsCds() and t.exons[i+1].containsCds():
+                # make sure this intron is between coding exons
+                if t.exons[i].containsCds() and t.exons[i + 1].containsCds():
                     if self.badSplice(seq[:2], seq[-2:]) == True:
                         valueDict[aId] = 1
                         break
             if aId not in valueDict:
                 valueDict[aId] = 0
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -476,12 +490,13 @@ class CdsUnknownSplice(CdsNonCanonSplice):
     a minimum intron size.
 
     """
+
     @staticmethod
     def _getType():
         return "INTEGER"
 
     def badSplice(self, donor, acceptor):
-        m = {"GT":"AG", "GC":"AG", "AT":"AC"}
+        m = {"GT": "AG", "GC": "AG", "AT": "AC"}
         d = donor.upper()
         a = acceptor.upper()
         if d in m and m[d] != a:
@@ -506,6 +521,7 @@ class EndStop(AbstractClassifier):
         2) this alignment was not trans-mapped
 
     """
+
     @staticmethod
     def _getType():
         return "INTEGER"
@@ -527,7 +543,8 @@ class EndStop(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -541,6 +558,7 @@ class InFrameStop(AbstractClassifier):
     mode: Reports 1 if TRUE (has in frame stop), 0 if FALSE
 
     """
+
     @staticmethod
     def _getType():
         return "INTEGER"
@@ -554,8 +572,8 @@ class InFrameStop(AbstractClassifier):
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
-            #make sure this transcript has CDS
-            #and more than 2 codons - can't have in frame stop without that
+            # make sure this transcript has CDS
+            # and more than 2 codons - can't have in frame stop without that
             if t.getCdsLength() >= 9:
                 for i in xrange(9, t.getCdsLength() - 3, 3):
                     c = t.cdsCoordinateToAminoAcid(i, self.seqDict)
@@ -563,7 +581,8 @@ class InFrameStop(AbstractClassifier):
                         valueDict[aId] = 1
             if aId not in valueDict:
                 valueDict[aId] = 0
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -578,6 +597,7 @@ class NoCds(AbstractClassifier):
     Only reports 1 if the original transcript had a CDS.
 
     """
+
     @staticmethod
     def _getType():
         return "INTEGER"
@@ -597,7 +617,8 @@ class NoCds(AbstractClassifier):
                     valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -609,6 +630,7 @@ class MinimumCdsSize(NoCds):
     Inherits NoCds and modifies cdsCutoff to do this.
 
     """
+
     @staticmethod
     def _getType():
         return "INTEGER"
@@ -637,12 +659,13 @@ class ScaffoldGap(AbstractClassifier):
         valueDict = {}
         r = re.compile("[N]{100}")
         for aId, aln in self.alignmentDict.iteritems():
-            destSeq = self.seqDict[aln.tName][aln.tStart : aln.tEnd].upper()
+            destSeq = self.seqDict[aln.tName][aln.tStart: aln.tEnd].upper()
             if re.search(r, destSeq) is not None:
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -656,6 +679,7 @@ class UnknownBases(AbstractClassifier):
     Reports 1 if TRUE, 0 if FALSE
 
     """
+
     @staticmethod
     def _getType():
         return "INTEGER"
@@ -677,7 +701,8 @@ class UnknownBases(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -687,6 +712,7 @@ class UnknownCdsBases(UnknownBases):
     Inherits Unknown Bases and sets the cds flag to True.
 
     """
+
     @staticmethod
     def _getType():
         return "INTEGER"
@@ -703,6 +729,7 @@ class UtrGap(AbstractClassifier):
     Reports 1 if TRUE, 0 if FALSE
 
     """
+
     @staticmethod
     def _getType():
         return "INTEGER"
@@ -716,13 +743,14 @@ class UtrGap(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             for i in xrange(len(t.intronIntervals)):
-                if t.exons[i].containsCds() is False and t.exons[i+1].containsCds() is False:
+                if t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is False:
                     if len(t.intronIntervals[i]) <= shortIntronSize:
                         valueDict[aId] = 1
                         break
             if aId not in valueDict:
                 valueDict[aId] = 0
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -740,12 +768,13 @@ class UtrNonCanonSplice(AbstractClassifier):
     TODO: this class is nearly identical to CdsNonCanonSplice. Devise a way to merge.
 
     """
+
     @staticmethod
     def _getType():
         return "INTEGER"
 
     def badSplice(self, donor, acceptor):
-        m = {"GT":"AG"}
+        m = {"GT": "AG"}
         d = donor.upper()
         a = acceptor.upper()
         if d in m and m[d] != a:
@@ -760,17 +789,18 @@ class UtrNonCanonSplice(AbstractClassifier):
         valueDict = {}
         for aId in self.aIds:
             if aId not in self.transcriptDict:
-                continue          
+                continue
             t = self.transcriptDict[aId]
             for i, seq in enumerate(t.intronSequenceIterator(self.seqDict)):
-                #make sure this intron is NOT between coding exons
-                if not (t.exons[i].containsCds() and t.exons[i+1].containsCds()):
+                # make sure this intron is NOT between coding exons
+                if not (t.exons[i].containsCds() and t.exons[i + 1].containsCds()):
                     bad = self.badSplice(seq[:2], seq[-2:])
                     if bad == 1:
                         valueDict[aId] = 1
             if aId not in valueDict:
                 valueDict[aId] = 0
-        logger.info("Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -788,12 +818,13 @@ class UtrUnknownSplice(UtrNonCanonSplice):
     a minimum intron size.
 
     """
+
     @staticmethod
     def _getType():
         return "INTEGER"
 
     def badSplice(self, donor, acceptor):
-        m = {"GT":"AG", "GC":"AG", "AT":"AC"}
+        m = {"GT": "AG", "GC": "AG", "AT": "AC"}
         d = donor.upper()
         a = acceptor.upper()
         if d in m and m[d] != a:

@@ -28,15 +28,15 @@ class ConstructDatabases(Target):
         self.initializeDb(detailsDb, self.details)
         self.initializeDb(attributesDb, self.attributes)
         for classifier, genome in product(self.classifiers, self.genomes):
-            #valueDict = pickle.load(open(os.path.join(self.getGlobalTempDir(), classifier.__name__ + genome), "rb"))
+            #classifyDict = pickle.load(open(os.path.join(self.getGlobalTempDir(), classifier.__name__ + genome), "rb"))
             classifyDict = pickle.load(open(os.path.join(self.outDir, "classify", genome, classifier.__name__ + genome), "rb"))
             self.simpleUpdateWrapper(classifyDict, classifyDb, genome, classifier.__name__)
         for detail, genome in product(self.details, self.genomes):
-            #valueDict = pickle.load(open(os.path.join(self.getGlobalTempDir(), detail.__name__ + genome), "rb"))
+            #detailDict = pickle.load(open(os.path.join(self.getGlobalTempDir(), detail.__name__ + genome), "rb"))
             detailDict = pickle.load(open(os.path.join(self.outDir, "details", genome, detail.__name__ + genome), "rb"))
             self.simpleBedUpdateWrapper(detailDict, detailsDb, genome, detail.__name__)
         for attribute, genome in product(self.attributes, self.genomes):
-            #valueDict = pickle.load(open(os.path.join(self.getGlobalTempDir(), attribute.__name__ + genome), "rb"))
+            #attributeDict = pickle.load(open(os.path.join(self.getGlobalTempDir(), attribute.__name__ + genome), "rb"))
             attributeDict = pickle.load(open(os.path.join(self.outDir, "attributes", genome, attribute.__name__ + genome), "rb"))
             self.simpleUpdateWrapper(attributeDict, attributesDb, genome, attribute.__name__)
 

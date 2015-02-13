@@ -1,6 +1,5 @@
 import os
 import argparse
-from itertools import izip_longest
 
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
@@ -10,12 +9,14 @@ import lib.sqlite_lib as sql_lib
 
 import src.classifiers, src.details, src.attributes
 from src.constructDatabases import ConstructDatabases
+from src.buildTrackHub import BuildTrackHub
 
 
-#hard coded file extension types that we are looking for
+# hard coded file extension types that we are looking for
 alignment_ext = ".filtered.psl"
 sequence_ext = ".2bit"
 gene_check_ext = ".gene-check.bed"
+
 
 def build_parser():
     """
@@ -29,6 +30,8 @@ def build_parser():
     parser.add_argument('--gencodeAttributeMap', type=FileType)
     parser.add_argument('--outDir', type=str, default="./output/", action=FullPaths)
     parser.add_argument('--primaryKeyColumn', type=str, default="AlignmentId")
+    parser.add_argument('--trackHubName', type=str, default="test")
+    parser.add_argument('--trackHubDir', type=DirType, action=FullPaths, default="test")
     return parser
 
 
@@ -42,25 +45,49 @@ def parseDir(genomes, targetDir, ext):
     return pathDict
 
 
-def buildAnalyses(target, alnPslDict, seqTwoBitDict, refSeqTwoBit, geneCheckBedDict, 
-            gencodeAttributeMap, genomes, annotationBed, outDir, refGenome, primaryKeyColumn):
-    #find all user-defined classes in the three categories of analyses
+def buildAnalyses(target, alnPslDict, seqTwoBitDict, refSeqTwoBit, geneCheckBedDict, gencodeAttributeMap, genomes,
+                  annotationBed, outDir, refGenome, primaryKeyColumn, trackHubName, trackHubDir, dataDir):
+    # find all user-defined classes in the three categories of analyses
     classifiers = classesInModule(src.classifiers)
-    details = classesInModule(src.details)    
+    details = classesInModule(src.details)
     attributes = classesInModule(src.attributes)
     for genome in genomes:
         alnPsl = alnPslDict[genome]
         geneCheckBed = geneCheckBedDict[genome]
         seqTwoBit = seqTwoBitDict[genome]
-        #set child targets for every classifier-genome pair
+        # set child targets for every classifier-genome pair
         for c in classifiers:
-            target.addChildTarget(c(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome, primaryKeyColumn, outDir, "classify"))
+            target.addChildTarget(
+                c(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
+                  primaryKeyColumn, outDir, "classify"))
         for d in details:
-            target.addChildTarget(d(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome, primaryKeyColumn, outDir, "details"))
+            target.addChildTarget(
+                d(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
+                  primaryKeyColumn, outDir, "details"))
         for a in attributes:
-            target.addChildTarget(a(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome, primaryKeyColumn, outDir, "attributes"))
-        #merge the resulting pickled files into sqlite databases
-    target.setFollowOnTarget(ConstructDatabases(outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn))
+            target.addChildTarget(
+                a(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
+                  primaryKeyColumn, outDir, "attributes"))
+            #merge the resulting pickled files into sqlite databases
+    target.setFollowOnTargetFn(databaseWrapper, args=(
+    outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn, trackHubDir, trackHubName,
+    dataDir))
+
+
+def databaseWrapper(target, outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn,
+                    trackHubDir, trackHubName, dataDir):
+    target.addChildTarget(
+        ConstructDatabases(outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn))
+    target.setFollowOnTargetFn(trackHubWrapper, args=(
+    outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn, trackHubDir, trackHubName,
+    dataDir))
+
+
+def trackHubWrapper(target, outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn,
+                    trackHubDir, trackHubName, dataDir):
+    target.addChildTarget(
+        BuildTrackHub(outDir, trackHubDir, genomes, classifiers, details, attributes, primaryKeyColumn, trackHubName,
+                      dataDir))
 
 
 def main():
@@ -76,7 +103,7 @@ def main():
         if x.endswith(".db"):
             os.remove(os.path.join(args.outDir, x))
 
-    #find data files
+    # find data files
     alnPslDict = parseDir(args.genomes, args.dataDir, alignment_ext)
     seqTwoBitDict = parseDir(args.genomes, args.dataDir, sequence_ext)
     geneCheckBedDict = parseDir(args.genomes, args.dataDir, gene_check_ext)
@@ -85,9 +112,12 @@ def main():
     if not os.path.exists(refSeqTwoBit):
         raise RuntimeError("Reference genome 2bit not present at {}".format(refSeqTwoBit))
 
-    i = Stack(Target.makeTargetFn(buildAnalyses, args=(alnPslDict, seqTwoBitDict, refSeqTwoBit, 
-            geneCheckBedDict, args.gencodeAttributeMap, args.genomes, args.annotationBed, 
-            args.outDir, args.refGenome, args.primaryKeyColumn))).startJobTree(args)
+    i = Stack(Target.makeTargetFn(buildAnalyses, args=(alnPslDict, seqTwoBitDict, refSeqTwoBit,
+                                                       geneCheckBedDict, args.gencodeAttributeMap, args.genomes,
+                                                       args.annotationBed,
+                                                       args.outDir, args.refGenome, args.primaryKeyColumn,
+                                                       args.trackHubName, args.trackHubDir,
+                                                       args.dataDir))).startJobTree(args)
 
     if i != 0:
         raise RuntimeError("Got failed jobs")
@@ -95,4 +125,5 @@ def main():
 
 if __name__ == '__main__':
     from src.main import *
+
     main()

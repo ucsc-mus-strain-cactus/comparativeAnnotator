@@ -143,3 +143,75 @@ def upsert(cur, table, primary_key_column, primary_key, col_to_change, value):
             primary_key_column, col_to_change)
     cur.execute(cmd, (primary_key, value))
     updateRow(cur, table, primary_key_column, primary_key, col_to_change, value)
+
+
+def attachDatabase(con, path, name):
+    """
+    Attaches another database found at path to the name given in the given connection.
+    """
+    con.execute("ATTACH DATABASE '{}' AS {}".format(path, name))
+
+
+def selectBetweenDatabasesWithAnd(cur, altName, returnColumn, columns, values, primaryKey, table):
+    """
+    Selects a column from the alternate database defined by altName that fit criteria in
+    the primary database (main). columns should be a list of columns we are selecting on
+    and values a matching list of values to check for. Returns all entries in altName that
+    match this select statement. returnColumn is the column whose values in altName we want.
+
+    Assumes that attachDatabase() as been run on a connection so that altName is an attached database.
+    table should exist in both databases and is the table we are joining.
+    """
+    cmd = ("""SELECT {altName}.{table}.{returnColumn} FROM main.{table} JOIN {altName}.{table} USING ('{primaryKey}')"""
+            """ WHERE {altName}.{table}.{returnColumn} IS NOT NULL AND main.{table}.{primaryKey} = """
+            """{altName}.{table}.{primaryKey}""").format(altName=altName, returnColumn=returnColumn, table=table,
+                                                         primaryKey=primaryKey)
+    for col in columns:
+        cmd += " AND main.{}.{} = ?".format(table, col)
+    print cmd
+    q = cur.execute(cmd, values)
+    return q.fetchall()
+
+
+def selectBetweenDatabasesWithOr(cur, altName, returnColumn, columns, values, primaryKey, table):
+    """
+    Selects a column from the alternate database defined by altName that fit criteria in
+    the primary database (main). columns should be a list of columns we are selecting on
+    and values a matching list of values to check for. Returns all entries in altName that
+    match this select statement. returnColumn is the column whose values in altName we want.
+
+    Assumes that attachDatabase() as been run on a connection so that altName is an attached database.
+    table should exist in both databases and is the table we are joining.
+    """
+    cmd = ("""SELECT {altName}.{table}.{returnColumn} FROM main.{table} JOIN {altName}.{table} USING ('{primaryKey}')"""
+            """ WHERE {altName}.{table}.{returnColumn} IS NOT NULL AND main.{table}.{primaryKey} = """
+            """{altName}.{table}.{primaryKey}""").format(altName=altName, returnColumn=returnColumn, table=table,
+                                                         primaryKey=primaryKey)
+    for col in columns:
+        cmd += " OR main.{}.{} = ?".format(table, col)
+    print cmd
+    q = cur.execute(cmd, values)
+    return q.fetchall()
+
+
+def selectBetweenDatabases(cur, altName, returnColumn, columns, values, modifiers, primaryKey, table):
+    """
+    Selects a column from the alternate database defined by altName that fit criteria in
+    the primary database (main). columns should be a list of columns we are selecting on
+    and values a matching list of values to check for. Returns all entries in altName that
+    match this select statement. returnColumn is the column whose values in altName we want.
+
+    modifiers should say either "AND" or "OR" describing how each comparison in the sequence should be join
+
+    Assumes that attachDatabase() as been run on a connection so that altName is an attached database.
+    table should exist in both databases and is the table we are joining.
+    """
+    cmd = ("""SELECT {altName}.{table}.{returnColumn} FROM main.{table} JOIN {altName}.{table} USING ('{primaryKey}')"""
+            """ WHERE {altName}.{table}.{returnColumn} IS NOT NULL AND main.{table}.{primaryKey} = """
+            """{altName}.{table}.{primaryKey}""").format(altName=altName, returnColumn=returnColumn, table=table,
+                                                         primaryKey=primaryKey)
+    for col, mod in izip(columns, modifiers):
+        cmd += " {} main.{}.{} = ?".format(mod, table, col)
+    print cmd
+    q = cur.execute(cmd, values)
+    return q.fetchall()

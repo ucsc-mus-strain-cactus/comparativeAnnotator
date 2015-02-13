@@ -14,7 +14,7 @@ import lib.psl_lib as psl_lib
 class CodingInsertions(AbstractClassifier):
     """
 
-    Does the alignment introduce insertions that are not a multiple of 3 to the target genome?
+    Does the alignment introduce insertions to the target genome?
 
     Reports a BED record for each such insertion
 
@@ -32,34 +32,30 @@ class CodingInsertions(AbstractClassifier):
     def rgb(self):
         return self.colors["mutation"]
 
-    def analyzeExons(self, t, aln, mult3=False):
+    def analyzeExons(self, a, t, aId, aln, mult3=False):
         """
-        Analyze a t object for coding insertions.
+        Analyze a annotation object for coding insertions.
         if mult3 is True, only multiple of 3 insertions are reported.
         """
         insertFlag = False
         records = []
-        for exon in t.exons:
-            for i in xrange(exon.start, exon.stop):
-                #we have found an insertion
-                if insertFlag is False and aln.queryCoordinateToTarget(i) == None:
-                    insertSize = 1
-                    insertFlag = True
-                #insertion continues
-                elif insertFlag is True and aln.queryCoordinateToTarget(i) == None:
-                    insertSize += 1
-                #exiting insertion
-                elif insertFlag is True and aln.queryCoordinateToTarget(i) != None:
-                    if (t.transcriptCoordinateToCds(i) is not None or 
-                            t.transcriptCoordinateToCds(i + insertSize) is not None):
-                        if insertSize % 3 == 0 and mult3 == True:
-                            records.append(seq_lib.transcriptCoordinateToBed(t, i - insertSize, 
-                                    i, self.rgb(), self.getColumn()))
-                        elif insertSize % 3 != 0 and mult3 == False:
-                            records.append(seq_lib.transcriptCoordinateToBed(t, i - insertSize,  
-                                    i, self.rgb(), self.getColumn()))
-                    insertSize = 0
-                    insertFlag = False
+        exonStarts = [x.start for x in a.exons]
+        prevTargetPos = None
+        for query_i in xrange(len(a)):
+            if query_i in exonStarts:
+                prevTargetPos = None
+            target_i = aln.queryCoordinateToTarget(query_i)
+            if target_i is None:
+                #found deletion
+                continue
+            if prevTargetPos is not None and abs(target_i - prevTargetPos) != 1:
+                #found insertion
+                start = min(prevTargetPos, target_i) + 1
+                stop = max(prevTargetPos, target_i)
+                if mult3 is True and stop - start % 3 == 0:
+                    records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
+                else:
+                    records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
         if len(records) > 0:
             return records
 
@@ -72,10 +68,12 @@ class CodingInsertions(AbstractClassifier):
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
-            #annotated transcript coordinates are the same as query coordinates (they are the query)
+            # annotated transcript coordinates are the same as query coordinates (they are the query)
             annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            valueDict[aId] = self.analyzeExons(annotatedTranscript, aln, mult3)
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+            transcript = self.transcriptDict[aId]
+            valueDict[aId] = self.analyzeExons(annotatedTranscript, transcript, aId, aln, mult3)
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -110,28 +108,27 @@ class CodingDeletions(AbstractClassifier):
     def rgb(self):
         return self.color["mutation"]
 
-    def analyzeExons(self, t, aln, mult3=False):
+    def analyzeExons(self, a, t, aln, mult3=False):
         records = []
-        delFlag = False
-        for exon in t.exons:
-            for i in xrange(exon.start, exon.stop):
-                chrom_i = t.transcriptCoordinateToChromosome(i)
+        deleteFlag = False
+        for query_i in xrange(len(a)):
+            target_i = aln.queryCoordinateToTarget(query_i)
+            if target_i is None and deleteFlag is False:
                 #entering deletion
-                if delFlag is False and aln.targetCoordinateToQuery(chrom_i) is None:
-                    delSize = 1
-                    delFlag = True
-                #continuing deletion
-                elif delFlag is True and aln.targetCoordinateToQuery(chrom_i) is None:
-                    delSize += 1
+                deleteFlag = True
+                deleteSize = 1
+            elif target_i is None and deleteFlag is True:
+                #extending deletion
+                deleteSize += 1
+            elif target_i is not None and deleteFlag is True:
                 #exiting deletion
-                elif delFlag is True and aln.targetCoordinateToQuery(chrom_i) is not None:
-                    if t.chromosomeCoordinateToCds(chrom_i) is not None:
-                        if delSize % 3 == 0 and mult3 is True:
-                            records.append(seq_lib.transcriptCoordinateToBed(transcript, i, 
-                                    i - 1, self.rgb(), self.getColumn()))
-                        elif delSize % 3 != 0 and mult3 is False:
-                            records.append(seq_lib.transcriptCoordinateToBed(transcript, i, 
-                                    i - 1, self.rgb(), self.getColumn()))
+                deleteFlag = False
+                start = target_i - 1
+                stop = target_i
+                if mult3 is True and deleteSize % 3 == 0:
+                    records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
+                elif mult3 is False and deleteSize % 3 == 0:
+                    records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
         if len(records) > 0:
             return records
 
@@ -144,8 +141,10 @@ class CodingDeletions(AbstractClassifier):
             if aId not in self.transcriptDict:
                 continue
             transcript = self.transcriptDict[aId]
-            valueDict[aId] = self.analyzeExons(transcript, aln, mult3)
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+            annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            valueDict[aId] = self.analyzeExons(annotatedTranscript, transcript, aln, mult3)
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -190,12 +189,11 @@ class AlignmentAbutsLeft(AbstractClassifier):
             if aId not in self.transcriptDict:
                 continue
             if aln.strand == "+" and aln.tStart == 0 and aln.qStart != 0:
-                valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(), 
-                        self.getColumn())
+                valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(), self.getColumn())
             elif aln.strand == "-" and aln.tEnd == aln.tSize and aln.qEnd != aln.qSize:
-                valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
-                        self.getColumn())
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+                valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(), self.getColumn())
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -229,12 +227,11 @@ class AlignmentAbutsRight(AbstractClassifier):
             if aId not in self.transcriptDict:
                 continue
             if aln.strand == "+" and aln.tEnd == aln.tSize and aln.qEnd != aln.qSize:
-                valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
-                        self.getColumn())
+                valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(), self.getColumn())
             elif aln.strand == "-" and aln.tStart == 0 and aln.qStart != 0:
-                valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
-                        self.getColumn())
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+                valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(), self.getColumn())
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -265,12 +262,9 @@ class AlignmentPartialMap(AbstractClassifier):
             if aId not in self.transcriptDict:
                 continue
             if aln.qSize != aln.qEnd - aln.qStart:
-                valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
-                        self.getColumn())
-            else:
-                valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
-                        self.getColumn())
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+                valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(), self.getColumn())
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -295,14 +289,14 @@ class BadFrame(AbstractClassifier):
         self.getAlignmentDict()
         self.getTranscriptDict()
         valueDict = {}
-        for aId, aln in self.alignmentDict.iteritems():        
+        for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
             if t.getCdsLength() % 3 != 0:
-                valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(),
-                        self.getColumn())
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+                valueDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(), self.getColumn())
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -314,6 +308,7 @@ class BeginStart(AbstractClassifier):
     Returns a BED record of the first 3 bases if this is NOT true
 
     """
+
     @staticmethod
     def _getType():
         return "TEXT"
@@ -334,9 +329,9 @@ class BeginStart(AbstractClassifier):
                 continue
             s = t.getCds(self.seqDict)
             if not s.startswith("ATG"):
-                valueDict[aId] = seq_lib.transcriptCoordinateToBed(t, 0, 2, self.rgb(),
-                        self.getColumn())
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+                valueDict[aId] = seq_lib.transcriptCoordinateToBed(t, 0, 2, self.rgb(), self.getColumn())
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -350,6 +345,7 @@ class CdsGap(AbstractClassifier):
     If mult3 is true, will only report on multiple of 3 gaps.
 
     """
+
     @staticmethod
     def _getType():
         return "TEXT"
@@ -359,27 +355,25 @@ class CdsGap(AbstractClassifier):
 
     def mult3(self, t, shortIntronSize):
         records = []
-        #only report if CdsGap is a multiple of 3
+        # only report if CdsGap is a multiple of 3
         for i in xrange(len(t.intronIntervals)):
             #is this intron coding?
-            if t.exons[i].containsCds() is True and t.exons[i+1].containsCds() is True:
+            if t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is True:
                 if len(t.intronIntervals[i]) <= shortIntronSize:
                     if len(t.intronIntervals[i]) % 3 == 0:
-                        records.append(seq_lib.intervalToBed(t, t.intronIntervals[i], self.rgb(),
-                                self.getColumn()))
+                        records.append(seq_lib.intervalToBed(t, t.intronIntervals[i], self.rgb(), self.getColumn()))
         if len(records) > 0:
             return records
 
     def notMult3(self, t, shortIntronSize):
         records = []
-        #only report if CdsGap is a multiple of 3
+        # only report if CdsGap is a multiple of 3
         for i in xrange(len(t.intronIntervals)):
             #is this intron coding?
-            if t.exons[i].containsCds() is True and t.exons[i+1].containsCds() is True:
+            if t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is True:
                 if len(t.intronIntervals[i]) <= shortIntronSize:
                     if len(t.intronIntervals[i]) % 3 != 0:
-                        records.append(seq_lib.intervalToBed(t, t.intronIntervals[i], self.rgb(),
-                                self.getColumn()))
+                        records.append(seq_lib.intervalToBed(t, t.intronIntervals[i], self.rgb(), self.getColumn()))
         if len(records) > 0:
             return records
 
@@ -390,13 +384,14 @@ class CdsGap(AbstractClassifier):
         for aId in self.aIds:
             if aId not in self.transcriptDict:
                 continue
-            if mult3 is True:               
+            if mult3 is True:
                 valueDict[aId] = self.mult3(self.transcriptDict[aId], shortIntronSize)
             else:
                 valueDict[aId] = self.notMult3(self.transcriptDict[aId], shortIntronSize)
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
-        
+
 
 class CdsMult3Gap(CdsGap):
     """
@@ -421,15 +416,16 @@ class CdsNonCanonSplice(AbstractClassifier):
     a minimum intron size.
 
     """
+
     @staticmethod
     def _getType():
         return "TEXT"
 
     def rgb(self):
-        return self.colors["generic"]
+        return self.colors["mutation"]
 
     def badSplice(self, donor, acceptor):
-        m = {"GT":"AG"}
+        m = {"GT": "AG"}
         d = donor.upper()
         a = acceptor.upper()
         if d in m and m[d] != a:
@@ -452,14 +448,15 @@ class CdsNonCanonSplice(AbstractClassifier):
         valueDict = defaultdict(list)
         for aId in self.aIds:
             if aId not in self.transcriptDict:
-                continue          
+                continue
             t = self.transcriptDict[aId]
             for i, seq in enumerate(t.intronSequenceIterator(self.seqDict)):
-                #make sure this intron is between coding exons
-                if t.exons[i].containsCds() and t.exons[i+1].containsCds():
+                # make sure this intron is between coding exons
+                if t.exons[i].containsCds() and t.exons[i + 1].containsCds():
                     if self.badSplice(seq[:2], seq[-2:]) == True:
                         valueDict[aId].append(self.makeBed(t, t.intronIntervals[i]))
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -479,7 +476,7 @@ class CdsUnknownSplice(CdsNonCanonSplice):
     """
 
     def badSplice(self, donor, acceptor):
-        m = {"GT":"AG", "GC":"AG", "AT":"AC"}
+        m = {"GT": "AG", "GC": "AG", "AT": "AC"}
         d = donor.upper()
         a = acceptor.upper()
         if d in m and m[d] != a:
@@ -504,6 +501,7 @@ class EndStop(AbstractClassifier):
         2) this alignment was not trans-mapped
 
     """
+
     @staticmethod
     def _getType():
         return "TEXT"
@@ -526,7 +524,8 @@ class EndStop(AbstractClassifier):
             cds = t.getCds(self.seqDict)
             if cds[-3:].upper() not in stopCodons:
                 valueDict[aId] = seq_lib.cdsCoordinateToBed(t, len(cds) - 3, len(cds), self.rgb(), self.getColumn())
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -540,6 +539,7 @@ class InFrameStop(AbstractClassifier):
     Returns a BED record of the position of the in frame stop if it exists.
 
     """
+
     @staticmethod
     def _getType():
         return "TEXT"
@@ -556,14 +556,15 @@ class InFrameStop(AbstractClassifier):
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
-            #make sure this transcript has CDS
+            # make sure this transcript has CDS
             #and more than 2 codons - can't have in frame stop without that
             if t.getCdsLength() >= 9:
                 for i in xrange(9, t.getCdsLength() - 3, 3):
                     c = t.cdsCoordinateToAminoAcid(i, self.seqDict)
                     if c == "*":
                         valueDict[aId] = seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn())
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -578,12 +579,13 @@ class NoCds(AbstractClassifier):
     Only reports if the original transcript had a CDS.
 
     """
+
     @staticmethod
     def _getType():
         return "TEXT"
 
     def rgb(self):
-        return self.colors["assembly"]
+        return self.colors["alignment"]
 
     def run(self, cdsCutoff=3):
         logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
@@ -598,7 +600,8 @@ class NoCds(AbstractClassifier):
                 a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
                 if a.getCdsLength() > cdsCutoff:
                     valueDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn())
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -610,6 +613,7 @@ class MinimumCdsSize(NoCds):
     Inherits NoCds and modifies cdsCutoff to do this.
 
     """
+
     @staticmethod
     def _getType():
         return "TEXT"
@@ -644,11 +648,12 @@ class ScaffoldGap(AbstractClassifier):
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
-            destSeq = self.seqDict[aln.tName][aln.tStart : aln.tEnd].upper()
+            destSeq = self.seqDict[aln.tName][aln.tStart: aln.tEnd].upper()
             if re.search(r, destSeq) is not None:
                 t = self.transcriptDict[aId]
                 valueDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn())
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -662,6 +667,7 @@ class UnknownBases(AbstractClassifier):
     Reports the entire transcript if True, regardless of cds flag
 
     """
+
     @staticmethod
     def _getType():
         return "TEXT"
@@ -684,7 +690,8 @@ class UnknownBases(AbstractClassifier):
                 s = t.getMRna(self.seqDict)
             if "N" in s:
                 valueDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn())
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -694,6 +701,7 @@ class UnknownCdsBases(UnknownBases):
     Inherits Unknown Bases and sets the cds flag to True.
 
     """
+
     @staticmethod
     def _getType():
         return "TEXT"
@@ -710,6 +718,7 @@ class UtrGap(AbstractClassifier):
     Reports on all such introns.
 
     """
+
     @staticmethod
     def _getType():
         return "TEXT"
@@ -726,11 +735,12 @@ class UtrGap(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             for i in xrange(len(t.intronIntervals)):
-                if t.exons[i].containsCds() is False and t.exons[i+1].containsCds() is False:
+                if t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is False:
                     if len(t.intronIntervals[i]) <= shortIntronSize:
-                        valueDict[aId].append(seq_lib.intervalToBed(t, t.intronIntervals[i], 
-                                self.rgb(), self.getColumn()))
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+                        valueDict[aId].append(
+                            seq_lib.intervalToBed(t, t.intronIntervals[i], self.rgb(), self.getColumn()))
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -748,6 +758,7 @@ class UtrNonCanonSplice(AbstractClassifier):
     TODO: this class is nearly identical to CdsNonCanonSplice. Devise a way to merge.
 
     """
+
     @staticmethod
     def _getType():
         return "TEXT"
@@ -756,7 +767,7 @@ class UtrNonCanonSplice(AbstractClassifier):
         return self.colors["generic"]
 
     def badSplice(self, donor, acceptor):
-        m = {"GT":"AG"}
+        m = {"GT": "AG"}
         d = donor.upper()
         a = acceptor.upper()
         if d in m and m[d] != a:
@@ -779,14 +790,15 @@ class UtrNonCanonSplice(AbstractClassifier):
         valueDict = {}
         for aId in self.aIds:
             if aId not in self.transcriptDict:
-                continue          
+                continue
             t = self.transcriptDict[aId]
             for i, seq in enumerate(t.intronSequenceIterator(self.seqDict)):
-                #make sure this intron is NOT between coding exons
-                if not (t.exons[i].containsCds() and t.exons[i+1].containsCds()):
+                # make sure this intron is NOT between coding exons
+                if not (t.exons[i].containsCds() and t.exons[i + 1].containsCds()):
                     if self.badSplice(seq[:2], seq[-2:]) is True:
                         valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
-        logger.info("Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -804,12 +816,13 @@ class UtrUnknownSplice(UtrNonCanonSplice):
     a minimum intron size.
 
     """
+
     @staticmethod
     def _getType():
         return "TEXT"
 
     def badSplice(self, donor, acceptor):
-        m = {"GT":"AG", "GC":"AG", "AT":"AC"}
+        m = {"GT": "AG", "GC": "AG", "AT": "AC"}
         d = donor.upper()
         a = acceptor.upper()
         if d in m and m[d] != a:
