@@ -174,38 +174,3 @@ for aId, aln in alignmentDict.iteritems():
     if len(records) > 0:
         final.append(records)
     count += 1
-
-
-
-
-final = []
-mult3 = False
-records = []
-for aId, aln in alignmentDict.iteritems():
-    if aId not in transcriptDict:
-        continue
-    a = annotationDict[psl_lib.removeAlignmentNumber(aId)]
-    t = transcriptDict[aId]     
-    records = []
-    insertFlag = False
-    for target_i in xrange(len(t)):
-        target_chrom_pos = t.transcriptCoordinateToChromosome(target_i)
-        query_i = aln.targetCoordinateToQuery(target_chrom_pos)
-        if query_i is None and insertFlag is False:
-            #entering deletion
-            insertFlag = True
-            insertSize = 1
-        elif query_i is None and insertFlag is True:
-            #extending deletion
-            insertSize += 1
-        elif target_i is not None and insertFlag is True:
-            #exiting deletion
-            insertFlag = False
-            start = query_i - insertSize
-            stop = query_i
-            if mult3 is True and insertSize % 3 == 0:
-                records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, "128,0,0", "A"))
-            elif mult3 is False and deleteSize % 3 == 0:
-                records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, "128,0,0", "A"))
-    if len(records) > 0:
-        final.append(records)
