@@ -31,7 +31,8 @@ class BuildTrackHub(Target):
         self.trackHubName = trackHubName
         #self.tempDir = self.getGlobalTempDir()
         self.dataDir = dataDir
-        self.categories = [self.mutations, self.assemblyErrors]
+        #self.categories = [self.mutations, self.assemblyErrors]
+        self.categories = [self.mutations]
 
     def mutations(self):
         detailsFields = ["CodingInsertions", "CodingDeletions", "CodingMult3Insertions", "CodingMult3Deletions",
@@ -43,7 +44,7 @@ class BuildTrackHub(Target):
         return detailsFields, classifyFields, classifyValues, classifyOperations
 
     def assemblyErrors(self):
-        detailsFields = [x.__class__.__name__ for x in self.details]
+        detailsFields = [x.__name__ for x in self.details]
         classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases",
                           "ScaffoldGap"]
         classifyOperations = ["OR"] * len(classifyFields)
@@ -58,7 +59,7 @@ class BuildTrackHub(Target):
                        .format(self.trackHubName))
         with open(os.path.join(self.trackHubDir, "genomes.txt"), "w") as outf:
             for genome in self.genomes:
-                outf.write("genome {0}\ntrackDb {0}/trackDb.txt\n".format(genome))
+                outf.write("genome {0}\ntrackDb {0}/trackDb.txt\ntwoBitPath\n{0}.2bit\n\n".format(genome))
             if not os.path.exists(os.path.join(self.trackHubDir, genome)):
                 os.mkdir(os.path.join(self.trackHubDir, genome))
         for genome in self.genomes:
@@ -77,26 +78,28 @@ class BuildTrackHub(Target):
         bedPath = os.path.join(self.trackHubDir, genome, categoryName + ".bed")
         with open(bedPath, "w") as outf:
             for details in detailsFields:
-                for record in sql_lib.selectBetweenDatabases(self.cur, "details", details, classifyFields,classifyValues,
+                for record in sql_lib.selectBetweenDatabases(self.cur, "details", details, classifyFields, classifyValues,
                                                               classifyOperations, self.primaryKeyColumn, genome):
-                    if type(record[0]) == type(u''):
+                    if record[0] == None:
+                        continue
+                    elif type(record[0]) == type(u''):
                         outf.write(record[0] + "\n")
                     else:
                         for x in record[0]:
                             outf.write(x)+"\n"
             return bedPath
 
-    def addTrack(self, name, genome):
+    def addTrack(self, name, genome, bigBedPath):
         with open(os.path.join(self.trackHubDir, genome, "trackDb.txt"), "a") as outf:
-            outf.write("track {0}\nshortLabel {0} {1}\nlongLabel {0} {1}\nitemRgb on\ntype bigBed 12\n\n".format(genome,
-                                                                                                                 name))
+            outf.write("track {0}\nshortLabel {0} {1}\nlongLabel {0} {1}\nitemRgb on\ntype bigBed 12\nbigDataUrl {2}\n\n".format(genome,
+                                                                                                                 name, os.path.basename(bigBedPath)))
 
     def buildBigBed(self, bedPath, name, genome):
         bigBedPath = os.path.join(self.trackHubDir, genome, name + ".bb")
         chromSizesPath = os.path.join(self.dataDir, genome + ".chrom.sizes")
         system("bedSort {0} {0}".format(bedPath))
         system("bedToBigBed {} {} {}".format(bedPath, chromSizesPath, bigBedPath))
-        self.addTrack(name, genome)
+        self.addTrack(name, genome, bigBedPath)
 
     def run(self):
         self.startHub()

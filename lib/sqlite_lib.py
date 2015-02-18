@@ -162,12 +162,12 @@ def selectBetweenDatabasesWithAnd(cur, altName, returnColumn, columns, values, p
     Assumes that attachDatabase() as been run on a connection so that altName is an attached database.
     table should exist in both databases and is the table we are joining.
     """
-    cmd = ("""SELECT {altName}.{table}.{returnColumn} FROM main.{table} JOIN {altName}.{table} USING ('{primaryKey}')"""
-            """ WHERE {altName}.{table}.{returnColumn} IS NOT NULL AND main.{table}.{primaryKey} = """
-            """{altName}.{table}.{primaryKey}""").format(altName=altName, returnColumn=returnColumn, table=table,
+    cmd = ("""SELECT {altName}.'{table}'.'{returnColumn}' FROM main.'{table}' JOIN {altName}.'{table}' USING ('{primaryKey}')"""
+            """ WHERE {altName}.'{table}'.'{returnColumn}' IS NOT NULL AND main.'{table}'.{primaryKey} = """
+            """{altName}.'{table}'.{primaryKey}""").format(altName=altName, returnColumn=returnColumn, table=table,
                                                          primaryKey=primaryKey)
     for col in columns:
-        cmd += " AND main.{}.{} = ?".format(table, col)
+        cmd += " AND main.'{}'.'{}' = ?".format(table, col)
     print cmd
     q = cur.execute(cmd, values)
     return q.fetchall()
@@ -183,12 +183,12 @@ def selectBetweenDatabasesWithOr(cur, altName, returnColumn, columns, values, pr
     Assumes that attachDatabase() as been run on a connection so that altName is an attached database.
     table should exist in both databases and is the table we are joining.
     """
-    cmd = ("""SELECT {altName}.{table}.{returnColumn} FROM main.{table} JOIN {altName}.{table} USING ('{primaryKey}')"""
-            """ WHERE {altName}.{table}.{returnColumn} IS NOT NULL AND main.{table}.{primaryKey} = """
-            """{altName}.{table}.{primaryKey}""").format(altName=altName, returnColumn=returnColumn, table=table,
+    cmd = ("""SELECT {altName}.'{table}'.'{returnColumn}' FROM main.'{table}' JOIN {altName}.'{table}' USING ('{primaryKey}')"""
+            """ WHERE {altName}.'{table}'.'{returnColumn}' IS NOT NULL AND main.'{table}'.{primaryKey} = """
+            """{altName}.'{table}'.{primaryKey}""").format(altName=altName, returnColumn=returnColumn, table=table,
                                                          primaryKey=primaryKey)
     for col in columns:
-        cmd += " OR main.{}.{} = ?".format(table, col)
+        cmd += " OR main.'{}'.'{}' = ?".format(table, col)
     print cmd
     q = cur.execute(cmd, values)
     return q.fetchall()
@@ -206,12 +206,12 @@ def selectBetweenDatabases(cur, altName, returnColumn, columns, values, modifier
     Assumes that attachDatabase() as been run on a connection so that altName is an attached database.
     table should exist in both databases and is the table we are joining.
     """
-    cmd = ("""SELECT {altName}.{table}.{returnColumn} FROM main.{table} JOIN {altName}.{table} USING ('{primaryKey}')"""
-            """ WHERE {altName}.{table}.{returnColumn} IS NOT NULL AND main.{table}.{primaryKey} = """
-            """{altName}.{table}.{primaryKey}""").format(altName=altName, returnColumn=returnColumn, table=table,
+    cmd = ("""SELECT {altName}.'{table}'.'{returnColumn}' FROM main.'{table}' JOIN {altName}.'{table}' USING ('{primaryKey}')"""
+            """ WHERE {altName}.'{table}'.'{returnColumn}' IS NOT NULL AND main.'{table}'.{primaryKey} = """
+            """{altName}.'{table}'.{primaryKey}""").format(altName=altName, returnColumn=returnColumn, table=table,
                                                          primaryKey=primaryKey)
     for col, mod in izip(columns, modifiers):
-        cmd += " {} main.{}.{} = ?".format(mod, table, col)
+        cmd += " {} main.'{}'.'{}' = ?".format(mod, table, col)
     print cmd
     q = cur.execute(cmd, values)
     return q.fetchall()
