@@ -88,8 +88,6 @@ def main():
 
     if not os.path.exists(args.outDir):
         os.mkdir(args.outDir)
-    if not os.path.exists(args.bedDir):
-        os.mkdir(args.bedDir)
 
     for x in os.listdir(args.outDir):
         if x.endswith(".db"):
@@ -108,7 +106,6 @@ def main():
                                                        geneCheckBedDict, args.gencodeAttributeMap, args.genomes,
                                                        args.annotationBed,
                                                        args.outDir, args.refGenome, args.primaryKeyColumn,
-                                                       args.trackHubName, args.bedDir,
                                                        args.dataDir))).startJobTree(args)
 
     if i != 0:
