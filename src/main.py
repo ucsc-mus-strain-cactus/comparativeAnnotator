@@ -78,15 +78,7 @@ def databaseWrapper(target, outDir, genomes, classifiers, details, attributes, a
                     trackHubDir, trackHubName, dataDir):
     target.addChildTarget(
         ConstructDatabases(outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn))
-    target.setFollowOnTargetFn(trackHubWrapper, args=(
-    outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn, trackHubDir, trackHubName,
-    dataDir))
-
-
-def trackHubWrapper(target, outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn,
-                    trackHubDir, trackHubName, dataDir):
-    target.addChildTarget(
-        BuildTrackHub(outDir, trackHubDir, genomes, classifiers, details, attributes, primaryKeyColumn, trackHubName,
+    target.setFollowOnTarget(BuildTrackHub(outDir, trackHubDir, genomes, classifiers, details, attributes, primaryKeyColumn, trackHubName,
                       dataDir))
 
 

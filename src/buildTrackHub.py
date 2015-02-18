@@ -62,6 +62,8 @@ class BuildTrackHub(Target):
             if not os.path.exists(os.path.join(self.trackHubDir, genome)):
                 os.mkdir(os.path.join(self.trackHubDir, genome))
         for genome in self.genomes:
+            if not os.path.exists(os.path.join(self.trackHubDir, genome)):
+                os.mkdir(os.path.join(self.trackHubDir, genome))
             with open(os.path.join(self.trackHubDir, genome, genome + ".html"), "w") as outf:
                 outf.write(genome + "\n")
         for genome in self.genomes:
@@ -77,8 +79,11 @@ class BuildTrackHub(Target):
             for details in detailsFields:
                 for record in sql_lib.selectBetweenDatabases(self.cur, "details", details, classifyFields,classifyValues,
                                                               classifyOperations, self.primaryKeyColumn, genome):
-                        outf.write(record[0])
-                        outf.write("\n")
+                    if type(record[0]) == type(u''):
+                        outf.write(record[0] + "\n")
+                    else:
+                        for x in record[0]:
+                            outf.write(x)+"\n"
             return bedPath
 
     def addTrack(self, name, genome):
@@ -89,6 +94,7 @@ class BuildTrackHub(Target):
     def buildBigBed(self, bedPath, name, genome):
         bigBedPath = os.path.join(self.trackHubDir, genome, name + ".bb")
         chromSizesPath = os.path.join(self.dataDir, genome + ".chrom.sizes")
+        system("bedSort {0} {0}".format(bedPath))
         system("bedToBigBed {} {} {}".format(bedPath, chromSizesPath, bigBedPath))
         self.addTrack(name, genome)
 

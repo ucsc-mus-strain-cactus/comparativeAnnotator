@@ -448,7 +448,7 @@ class CdsNonCanonSplice(AbstractClassifier):
         logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
-        valueDict = defaultdict(list)
+        valueDict = {}
         for aId in self.aIds:
             if aId not in self.transcriptDict:
                 continue
@@ -457,7 +457,7 @@ class CdsNonCanonSplice(AbstractClassifier):
                 # make sure this intron is between coding exons
                 if t.exons[i].containsCds() and t.exons[i + 1].containsCds():
                     if self.badSplice(seq[:2], seq[-2:]) == True:
-                        valueDict[aId].append(self.makeBed(t, t.intronIntervals[i]))
+                        valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
