@@ -1,0 +1,6 @@
+ISSUES
+
+1. insertions - the endStop field does not check if that stop is in frame
+2. insertions - how can we measure them? Dent had the indel filter where he found them, and then corrected this. This does work in this framework unless we do so before classifying.
+3. frameMismatch/frameDiscontig - I still do not quite understand how to calculate this, short of finding exonic indels similar to how it was done in the indel filter that Dent wrote. Maybe we should add a column for them?
+4. conceptual differences -  
