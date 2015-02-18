@@ -30,24 +30,37 @@ class BuildTracks(Target):
         self.attributes = attributes
         self.primaryKeyColumn = primaryKeyColumn
         self.geneCheckBedDict = geneCheckBedDict
-        #self.tempDir = self.getGlobalTempDir()
         self.dataDir = dataDir
-        #self.categories = [self.mutations, self.assemblyErrors]
-        self.categories = [self.mutations]
+        self.categories = [self.mutations, self.assemblyErrors]
 
     def mutations(self):
+        """
+        Hunts for likely real mutations by excluding assembly and alignment errors.
+        Any transcript which has errors in the classify fields specified will not have the details shown.
+        """
         detailsFields = ["CodingInsertions", "CodingDeletions", "CodingMult3Insertions", "CodingMult3Deletions",
                          "CdsNonCanonSplice", "UtrNonCanonSplice", "CdsUnknownSplice", "UtrUnknownSplice", "CdsMult3Gap"]
         classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases",
-                          "ScaffoldGap", "UtrGap", "CdsGap"]
+                          "ScaffoldGap", "AlignmentPartialMap", "MinimumCdsSize"]
         classifyOperations = ["AND"] * len(classifyFields)
         classifyValues = [0] * len(classifyFields)
         return detailsFields, classifyFields, classifyValues, classifyOperations
 
     def assemblyErrors(self):
+        """
+        Looks for assembly errors. Reports transcripts with assembly errors.
+        """
         detailsFields = [x.__name__ for x in self.details]
-        classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases",
-                          "ScaffoldGap"]
+        classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap"]
+        classifyOperations = ["OR"] * len(classifyFields)
+        classifyValues = [1] * len(classifyFields)
+        return detailsFields, classifyFields, classifyValues, classifyOperations
+
+    def alignmentErrors(self):
+        """
+        Looks for alignment errors. Reports details for all fields that are likely alignment errors.
+        """
+        classifyFields = detailsFields = ["AlignmentPartialMap", "BadFrame", "BeginStart", "CdsGap", "UtrGap", "CdsMult3Gap", "UtrMult3Gap", "EndStop", "MinimumCdsSize", "NoCds", "UtrUnknownSplice", "CdsUnknownSplice", "UtrNonCanonSplice", "CdsNonCanonSplice"]
         classifyOperations = ["OR"] * len(classifyFields)
         classifyValues = [1] * len(classifyFields)
         return detailsFields, classifyFields, classifyValues, classifyOperations
@@ -70,23 +83,24 @@ class BuildTracks(Target):
 
     def buildBigBed(self, bedPath, bigBedPath, genome):
         chromSizesPath = os.path.join(self.dataDir, genome + ".chrom.sizes")
-        #tmp = os.path.join(self.tempDir, "tmp")
-        tmp = os.path.join(self.bedDir, "tmp")
+        tmp = os.path.join(self.getLocalTempDir(), "tmp")
         system("bedSort {} {}".format(bedPath, tmp))
         system("bedToBigBed {} {} {}".format(tmp, chromSizesPath, bigBedPath))
-        os.remove(tmp)
 
     def run(self):
         if not os.path.exists(self.bedDir):
             os.mkdir(self.bedDir)
         if not os.path.exists(os.path.join(self.bedDir, "geneCheck")):
             os.mkdir(os.path.join(self.bedDir, "geneCheck"))
+        
         #build directory of geneCheck output
         for genome, bed in self.geneCheckBedDict.iteritems():
             self.buildBigBed(bed, os.path.join(self.bedDir, "geneCheck", genome + ".bb"), genome)
+        
         self.con = sql.connect(os.path.join(self.outDir, "classify.db"))
         self.cur = self.con.cursor()
         sql_lib.attachDatabase(self.con, os.path.join(self.outDir, "details.db"), "details")
+        
         for category in self.categories:
             if not os.path.exists(os.path.join(self.bedDir, category.__name__)):
                 os.mkdir(os.path.join(self.bedDir, category.__name__))

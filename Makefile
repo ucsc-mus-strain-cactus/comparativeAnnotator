@@ -1,5 +1,5 @@
 batchSystem = singleMachine
-maxThreads = 20
+maxThreads = 30
 maxCpus = 1024
 defaultMemory = 8589934592
 jobTree = .jobTree
@@ -18,6 +18,9 @@ rootDir := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 dataDir = ${rootDir}/datafiles
 annotationBed = ${dataDir}/wgEncodeGencodeBasicVM2.gene-check.bed
 gencodeAttributeMap = ${dataDir}/wgEncodeGencodeAttrsVM2.attrs
+hal = /cluster/home/jcarmstr/public_html/mouseBrowser_1411/1411.hal
+trackHub = trackHub/
+bedFiles = trackHub/bedfiles/
 
 all :
 	cd sonLib && make
@@ -32,4 +35,7 @@ run : all
 	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
 	--jobTree ${jobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
 	--stats &> ${log}
-	python hal/assemblyHub/hal2assemblyHub.py /cluster/home/jcarmstr/public_html/mouseBrowser_1411/1411.hal trackHub/ trackHub/bedfiles/ --jobTree .halJobTree
+	python hal/assemblyHub/hal2assemblyHub.py ${hal} ${trackHub} ${bedFiles} \
+	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
+	--jobTree .halJobTree --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
+	--stats &> ${log}
