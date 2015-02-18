@@ -3,12 +3,14 @@ maxThreads = 30
 maxCpus = 1024
 defaultMemory = 8589934592
 jobTree = .jobTree
+halJobTree = .halJobTree
 log = log.txt
 maxJobDuration = 36000
+h5prefix = ~
 
 export PYTHONPATH:=./:${PYTHONPATH}
-export PATH:=./sonLib/bin:./submodules/jobTree/bin:hal/bin/:${PATH}
-export h5prefix=-prefix=~
+export PATH:=./sonLib/bin:./submodules/jobTree/bin:./hal/bin/:${PATH}
+export h5prefix=-prefix=${h5prefix}
 
 genomes = FVBNJ
 #genomes = Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ
@@ -26,17 +28,18 @@ bedFiles = output/bedfiles
 all :
 	cd sonLib && make
 	cd jobTree && make
-	cd hal && make
+    cd hal && make
 	python lib/twobit/check_if_installed.py; if [ $$? == 3 ]; then python lib/twobit/setup_twobit.py build; python lib/twobit/setup_twobit.py install; fi
 
 run : all
 	if [ -d ${jobTree} ]; then rm -rf ${jobTree}; fi
+	if [ -d ${halJobTree} ]; then rm -rf ${halJobTree}; fi
 	python src/main.py --refGenome ${refGenome} --genomes ${genomes} --annotationBed ${annotationBed} \
 	--dataDir ${dataDir} --gencodeAttributeMap ${gencodeAttributeMap} \
 	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
 	--jobTree ${jobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
 	--stats &> ${log}
-	python hal/assemblyHub/hal2assemblyHub.py ${hal} ${trackHub} --bedDirs ${bedFiles} \
+	python hal/assemblyHub/hal2assemblyHub.py ${hal} ${trackHub} --bedDirs ${bedFiles} --noBedLiftover \
 	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
-	--jobTree .halJobTree --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
+	--jobTree ${halJobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
 	--stats &> ${log}
