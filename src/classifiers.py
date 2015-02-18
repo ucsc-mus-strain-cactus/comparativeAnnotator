@@ -334,7 +334,7 @@ class BeginStart(AbstractClassifier):
 
     Returns 1 if TRUE 0 if FALSE
 
-    Value will be NULL if there is unsufficient information, which is defined as:
+    Value will be NULL if there is insufficient information, which is defined as:
         1) thickStart == thickStop == 0 (no CDS)
         2) thickStop - thickStart < 3: (no useful CDS annotation)
         3) this alignment was not trans-mapped
@@ -464,11 +464,13 @@ class CdsNonCanonSplice(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             for i, seq in enumerate(t.intronSequenceIterator(self.seqDict)):
-                # make sure this intron is between coding exons
-                if t.exons[i].containsCds() and t.exons[i + 1].containsCds():
-                    if self.badSplice(seq[:2], seq[-2:]) == True:
-                        valueDict[aId] = 1
-                        break
+                #make sure this intron is of sufficient size
+                if len(seq) > shortIntronSize:
+                    # make sure this intron is between coding exons
+                    if t.exons[i].containsCds() and t.exons[i + 1].containsCds():
+                        if self.badSplice(seq[:2], seq[-2:]) == True:
+                            valueDict[aId] = 1
+                            break
             if aId not in valueDict:
                 valueDict[aId] = 0
         logger.info(
@@ -792,11 +794,13 @@ class UtrNonCanonSplice(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             for i, seq in enumerate(t.intronSequenceIterator(self.seqDict)):
-                # make sure this intron is NOT between coding exons
-                if not (t.exons[i].containsCds() and t.exons[i + 1].containsCds()):
-                    bad = self.badSplice(seq[:2], seq[-2:])
-                    if bad == 1:
-                        valueDict[aId] = 1
+                #make sure this intron is long enough
+                if len(seq) > shortIntronSize:
+                    # make sure this intron is NOT between coding exons
+                    if not (t.exons[i].containsCds() and t.exons[i + 1].containsCds()):
+                        bad = self.badSplice(seq[:2], seq[-2:])
+                        if bad == 1:
+                            valueDict[aId] = 1
             if aId not in valueDict:
                 valueDict[aId] = 0
         logger.info(
