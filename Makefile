@@ -20,7 +20,7 @@ annotationBed = ${dataDir}/wgEncodeGencodeBasicVM2.gene-check.bed
 gencodeAttributeMap = ${dataDir}/wgEncodeGencodeAttrsVM2.attrs
 hal = /cluster/home/jcarmstr/public_html/mouseBrowser_1411/1411.hal
 trackHub = trackHub/
-bedFiles = trackHub/bedfiles/
+bedFiles = output/bedfiles
 
 all :
 	cd sonLib && make
@@ -35,7 +35,7 @@ run : all
 	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
 	--jobTree ${jobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
 	--stats &> ${log}
-	python hal/assemblyHub/hal2assemblyHub.py ${hal} ${trackHub} ${bedFiles} \
+	python hal/assemblyHub/hal2assemblyHub.py ${hal} ${trackHub} --bedDirs ${bedFiles} \
 	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
 	--jobTree .halJobTree --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
 	--stats &> ${log}

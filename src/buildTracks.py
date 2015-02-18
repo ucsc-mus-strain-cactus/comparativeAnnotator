@@ -18,12 +18,11 @@ class BuildTracks(Target):
         a list of classify fields to filter on.
         a matching list of values that the classify field should have.
     """
-    def __init__(self, outDir, trackHubDir, genomes, classifiers, details, attributes, primaryKeyColumn,
+    def __init__(self, outDir, genomes, classifiers, details, attributes, primaryKeyColumn,
                       dataDir, geneCheckBedDict):
         Target.__init__(self)
         self.outDir = outDir
-        self.trackHubDir = trackHubDir
-        self.bedDir = os.path.join(self.trackHubDir, "bedfiles")
+        self.bedDir = os.path.join(self.outDir, "bedfiles")
         self.genomes = genomes
         self.classifiers = classifiers
         self.details = details
@@ -31,7 +30,7 @@ class BuildTracks(Target):
         self.primaryKeyColumn = primaryKeyColumn
         self.geneCheckBedDict = geneCheckBedDict
         self.dataDir = dataDir
-        self.categories = [self.mutations, self.assemblyErrors]
+        self.categories = [self.mutations, self.assemblyErrors, self.alignmentErrors]
 
     def mutations(self):
         """
@@ -78,14 +77,6 @@ class BuildTracks(Target):
                     else:
                         for x in record[0]:
                             outf.write(x)+"\n"
-        self.buildBigBed(bedPath, os.path.join(self.bedDir, categoryName, genome, genome + ".bb"), genome)
-        os.remove(bedPath)
-
-    def buildBigBed(self, bedPath, bigBedPath, genome):
-        chromSizesPath = os.path.join(self.dataDir, genome + ".chrom.sizes")
-        tmp = os.path.join(self.getLocalTempDir(), "tmp")
-        system("bedSort {} {}".format(bedPath, tmp))
-        system("bedToBigBed {} {} {}".format(tmp, chromSizesPath, bigBedPath))
 
     def run(self):
         if not os.path.exists(self.bedDir):
@@ -95,7 +86,7 @@ class BuildTracks(Target):
         
         #build directory of geneCheck output
         for genome, bed in self.geneCheckBedDict.iteritems():
-            self.buildBigBed(bed, os.path.join(self.bedDir, "geneCheck", genome + ".bb"), genome)
+            system("ln -s {} {}".format(os.path.abspath(bed), os.path.join(self.bedDir, "geneCheck", genome + ".bed")))
         
         self.con = sql.connect(os.path.join(self.outDir, "classify.db"))
         self.cur = self.con.cursor()

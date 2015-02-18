@@ -30,7 +30,6 @@ def build_parser():
     parser.add_argument('--gencodeAttributeMap', type=FileType)
     parser.add_argument('--outDir', type=str, default="./output/", action=FullPaths)
     parser.add_argument('--primaryKeyColumn', type=str, default="AlignmentId")
-    parser.add_argument('--bedDir', type=DirType, action=FullPaths, default="bedfiles")
     return parser
 
 
@@ -45,7 +44,7 @@ def parseDir(genomes, targetDir, ext):
 
 
 def buildAnalyses(target, alnPslDict, seqTwoBitDict, refSeqTwoBit, geneCheckBedDict, gencodeAttributeMap, genomes,
-                  annotationBed, outDir, refGenome, primaryKeyColumn, bedDir, dataDir):
+                  annotationBed, outDir, refGenome, primaryKeyColumn, dataDir):
     # find all user-defined classes in the three categories of analyses
     classifiers = classesInModule(src.classifiers)
     details = classesInModule(src.details)
@@ -69,15 +68,15 @@ def buildAnalyses(target, alnPslDict, seqTwoBitDict, refSeqTwoBit, geneCheckBedD
                   primaryKeyColumn, outDir, "attributes"))
             #merge the resulting pickled files into sqlite databases
     target.setFollowOnTargetFn(databaseWrapper, args=(
-    outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn, bedDir,
+    outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn, 
     dataDir, geneCheckBedDict))
 
 
 def databaseWrapper(target, outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn,
-                    bedDir, dataDir, geneCheckBedDict):
+                     dataDir, geneCheckBedDict):
     target.addChildTarget(
         ConstructDatabases(outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn))
-    target.setFollowOnTarget(BuildTracks(outDir, bedDir, genomes, classifiers, details, attributes, primaryKeyColumn,
+    target.setFollowOnTarget(BuildTracks(outDir, genomes, classifiers, details, attributes, primaryKeyColumn,
                       dataDir, geneCheckBedDict))
 
 
