@@ -69,15 +69,15 @@ def buildAnalyses(target, alnPslDict, seqTwoBitDict, refSeqTwoBit, geneCheckBedD
             #merge the resulting pickled files into sqlite databases
     target.setFollowOnTargetFn(databaseWrapper, args=(
     outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn, 
-    dataDir, geneCheckBedDict))
+    dataDir, geneCheckBedDict, annotationBed))
 
 
 def databaseWrapper(target, outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn,
-                     dataDir, geneCheckBedDict):
+                     dataDir, geneCheckBedDict, annotationBed):
     target.addChildTarget(
         ConstructDatabases(outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn))
     target.setFollowOnTarget(BuildTracks(outDir, genomes, classifiers, details, attributes, primaryKeyColumn,
-                      dataDir, geneCheckBedDict))
+                      dataDir, geneCheckBedDict, annotationBed))
 
 
 def main():

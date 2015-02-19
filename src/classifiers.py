@@ -28,31 +28,31 @@ class CodingInsertions(AbstractClassifier):
     def _getType():
         return "INTEGER"
 
-    def analyzeExons(self, transcript, aln, mult3=False):
+    def analyzeExons(self, a, t, aln, mult3=False):
         """
         Analyze a Transcript object for coding insertions.
         if mult3 is True, only multiple of 3 insertions are reported.
         """
         insertFlag = False
-        for exon in transcript.exons:
-            for i in xrange(exon.start, exon.stop):
-                # we have found an insertion
-                if insertFlag is False and aln.queryCoordinateToTarget(i) == None:
-                    insertSize = 1
-                    insertFlag = True
-                # insertion continues
-                elif insertFlag is True and aln.queryCoordinateToTarget(i) == None:
-                    insertSize += 1
-                #exiting insertion
-                elif insertFlag is True and aln.queryCoordinateToTarget(i) != None:
-                    if transcript.transcriptCoordinateToCds(i) is not None or transcript.transcriptCoordinateToCds(
-                                    i + insertSize) is not None:
-                        if insertSize % 3 == 0 and mult3 == True:
-                            return 1
-                        elif insertSize % 3 != 0 and mult3 == False:
-                            return 1
-                    insertSize = 0
-                    insertFlag = False
+        records = []
+        exonStarts = [x.start for x in a.exons]
+        prevTargetPos = None
+        for query_i in xrange(len(a)):
+            if query_i in exonStarts:
+                prevTargetPos = None
+            target_i = aln.queryCoordinateToTarget(query_i)
+            if target_i is None:
+                #found deletion
+                continue
+            if prevTargetPos is not None and abs(target_i - prevTargetPos) != 1:
+                #found insertion
+                start = min(prevTargetPos, target_i) + 1
+                stop = max(prevTargetPos, target_i)
+                if t.chromosomeCoordinateToCds(start) is not None or t.chromosomeCoordinateToCds(stop) is not None:
+                    if mult3 is True and stop - start % 3 == 0:
+                        return 1
+                    elif mult3 is False and stop - start % 3 != 0:
+                        return 1
         return 0
 
     def run(self, mult3=False):
@@ -65,8 +65,9 @@ class CodingInsertions(AbstractClassifier):
             if aId not in self.transcriptDict:
                 continue
             # annotated transcript coordinates are the same as query coordinates (they are the query)
-            annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            valueDict[aId] = self.analyzeExons(annotatedTranscript, aln, mult3)
+            annotated = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            transcript = self.transcriptDict[aId]
+            valueDict[aId] = self.analyzeExons(annotated, transcript, aln, mult3)
         logger.info(
             "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
@@ -99,37 +100,41 @@ class CodingDeletions(AbstractClassifier):
     def _getType():
         return "INTEGER"
 
-    def analyzeExons(self, t, aln, mult3=False):
-        delFlag = False
-        for exon in t.exons:
-            for i in xrange(exon.start, exon.stop):
-                chrom_i = t.transcriptCoordinateToChromosome(i)
-                # entering deletion
-                if delFlag is False and aln.targetCoordinateToQuery(chrom_i) is None:
-                    delSize = 1
-                    delFlag = True
-                # continuing deletion
-                elif delFlag is True and aln.targetCoordinateToQuery(chrom_i) is None:
-                    delSize += 1
+    def analyzeExons(self, a, t, aln, mult3=False):
+        deleteFlag = False
+        for query_i in xrange(len(a)):
+            target_i = aln.queryCoordinateToTarget(query_i)
+            if target_i is None and deleteFlag is False:
+                #entering deletion
+                deleteFlag = True
+                deleteSize = 1
+            elif target_i is None and deleteFlag is True:
+                #extending deletion
+                deleteSize += 1
+            elif target_i is not None and deleteFlag is True:
                 #exiting deletion
-                elif delFlag is True and aln.targetCoordinateToQuery(chrom_i) is not None:
-                    if t.chromosomeCoordinateToCds(chrom_i) is not None:
-                        if delSize % 3 == 0 and mult3 is True:
-                            return 1
-                        elif delSize % 3 != 0 and mult3 is False:
-                            return 1
+                deleteFlag = False
+                start = target_i
+                stop = target_i + 1 #TODO: make sure this is correct
+                if t.chromosomeCoordinateToCds(start) is not None or t.chromosomeCoordinateToCds(stop) is not None:
+                    if mult3 is True and deleteSize % 3 == 0:
+                        return 1
+                    elif mult3 is False and deleteSize % 3 != 0:
+                        return 1
         return 0
 
     def run(self, mult3=False):
         logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
+        self.getAnnotationDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
             transcript = self.transcriptDict[aId]
-            valueDict[aId] = self.analyzeExons(transcript, aln, mult3)
+            annotation = self.annotationDict[aId]
+            valueDict[aId] = self.analyzeExons(annotation, transcript, aln, mult3)
         logger.info(
             "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
@@ -219,7 +224,7 @@ class AlignmentCoverage(AbstractClassifier):
 
     Calculates alignment coverage:
 
-    (matches + mismatches) / (matches + mismatches + query_insertions)
+    (matches + mismatches) / qSize
 
     Reports the value as a REAL between 0 and 1
 
@@ -234,8 +239,7 @@ class AlignmentCoverage(AbstractClassifier):
         self.getAlignmentDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
-            valueDict[aId] = formatRatio(aln.matches + aln.misMatches, aln.matches + aln.misMatches
-                                         + aln.qNumInsert)
+            valueDict[aId] = formatRatio(aln.matches + aln.misMatches, aln.qSize)
         logger.info(
             "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
