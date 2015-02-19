@@ -359,24 +359,32 @@ class CdsGap(AbstractClassifier):
     def mult3(self, t, shortIntronSize):
         records = []
         # only report if CdsGap is a multiple of 3
-        for i in xrange(len(t.intronIntervals)):
+        if t.chromosomeInterval.strand is False:
+            intronIntervals = t.intronIntervals.reverse()
+        else:
+            intronIntervals = t.intronIntervals
+        for i in xrange(len(intronIntervals)):
             #is this intron coding?
             if t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is True:
-                if len(t.intronIntervals[i]) <= shortIntronSize:
-                    if len(t.intronIntervals[i]) % 3 == 0:
-                        records.append(seq_lib.intervalToBed(t, t.intronIntervals[i], self.rgb(), self.getColumn()))
+                if len(intronIntervals[i]) <= shortIntronSize:
+                    if len(intronIntervals[i]) % 3 == 0:
+                        records.append(seq_lib.intervalToBed(t, intronIntervals[i], self.rgb(), self.getColumn()))
         if len(records) > 0:
             return records
 
     def notMult3(self, t, shortIntronSize):
         records = []
+        if t.chromosomeInterval.strand is False:
+            intronIntervals = t.intronIntervals.reverse()
+        else:
+            intronIntervals = t.intronIntervals
         # only report if CdsGap is a multiple of 3
-        for i in xrange(len(t.intronIntervals)):
+        for i in xrange(len(intronIntervals)):
             #is this intron coding?
             if t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is True:
-                if len(t.intronIntervals[i]) <= shortIntronSize:
-                    if len(t.intronIntervals[i]) % 3 != 0:
-                        records.append(seq_lib.intervalToBed(t, t.intronIntervals[i], self.rgb(), self.getColumn()))
+                if len(intronIntervals[i]) <= shortIntronSize:
+                    if len(intronIntervals[i]) % 3 != 0:
+                        records.append(seq_lib.intervalToBed(t, intronIntervals[i], self.rgb(), self.getColumn()))
         if len(records) > 0:
             return records
 
@@ -737,11 +745,15 @@ class UtrGap(AbstractClassifier):
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
-            for i in xrange(len(t.intronIntervals)):
+            if t.chromosomeInterval.strand is False:
+                intronIntervals = t.intronIntervals.reverse()
+            else:
+                intronIntervals = t.intronIntervals
+            for i in xrange(len(intronIntervals)):
                 if t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is False:
-                    if len(t.intronIntervals[i]) <= shortIntronSize:
+                    if len(intronIntervals[i]) <= shortIntronSize:
                         valueDict[aId].append(
-                            seq_lib.intervalToBed(t, t.intronIntervals[i], self.rgb(), self.getColumn()))
+                            seq_lib.intervalToBed(t, intronIntervals[i], self.rgb(), self.getColumn()))
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)

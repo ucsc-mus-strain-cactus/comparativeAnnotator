@@ -388,21 +388,29 @@ class CdsGap(AbstractClassifier):
 
     def mult3(self, t, shortIntronSize):
         # only report if CdsGap is a multiple of 3
-        for i in xrange(len(t.intronIntervals)):
+        if t.chromosomeInterval.strand is False:
+            intronIntervals = t.intronIntervals.reverse()
+        else:
+            intronIntervals = t.intronIntervals        
+        for i in xrange(len(intronIntervals)):
             # is this intron coding?
             if t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is True:
-                if len(t.intronIntervals[i]) >= shortIntronSize:
-                    if len(t.intronIntervals[i]) % 3 == 0:
+                if len(intronIntervals[i]) <= shortIntronSize:
+                    if len(intronIntervals[i]) % 3 == 0:
                         return 1
         return 0
 
     def notMult3(self, t, shortIntronSize):
         # only report if CdsGap is NOT a multiple of 3
-        for i in xrange(len(t.intronIntervals)):
+        if t.chromosomeInterval.strand is False:
+            intronIntervals = t.intronIntervals.reverse()
+        else:
+            intronIntervals = t.intronIntervals        
+        for i in xrange(len(intronIntervals)):
             # is this intron coding?
             if t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is True:
-                if len(t.intronIntervals[i]) >= shortIntronSize:
-                    if len(t.intronIntervals[i]) % 3 != 0:
+                if len(intronIntervals[i]) <= shortIntronSize:
+                    if len(intronIntervals[i]) % 3 != 0:
                         return 1
         return 0
 
@@ -749,9 +757,13 @@ class UtrGap(AbstractClassifier):
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
+            if t.chromosomeInterval.strand is False:
+                intronIntervals = t.intronIntervals.reverse()
+            else:
+                intronIntervals = t.intronIntervals            
             for i in xrange(len(t.intronIntervals)):
                 if t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is False:
-                    if len(t.intronIntervals[i]) <= shortIntronSize:
+                    if len(intronIntervals[i]) <= shortIntronSize:
                         valueDict[aId] = 1
                         break
             if aId not in valueDict:
