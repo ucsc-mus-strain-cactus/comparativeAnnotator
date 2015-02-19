@@ -57,6 +57,7 @@ class CodingInsertions(AbstractClassifier):
                         records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
                     else:
                         records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
+            prevTargetPos = target_i
         if len(records) > 0:
             return records
 
