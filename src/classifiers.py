@@ -53,6 +53,7 @@ class CodingInsertions(AbstractClassifier):
                         return 1
                     elif mult3 is False and stop - start % 3 != 0:
                         return 1
+            prevTargetPos = target_i
         return 0
 
     def run(self, mult3=False):
@@ -390,17 +391,17 @@ class CdsGap(AbstractClassifier):
         for i in xrange(len(t.intronIntervals)):
             # is this intron coding?
             if t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is True:
-                if len(t.intronIntervals[i]) <= shortIntronSize:
+                if len(t.intronIntervals[i]) >= shortIntronSize:
                     if len(t.intronIntervals[i]) % 3 == 0:
                         return 1
         return 0
 
     def notMult3(self, t, shortIntronSize):
-        # only report if CdsGap is a multiple of 3
+        # only report if CdsGap is NOT a multiple of 3
         for i in xrange(len(t.intronIntervals)):
             # is this intron coding?
             if t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is True:
-                if len(t.intronIntervals[i]) <= shortIntronSize:
+                if len(t.intronIntervals[i]) >= shortIntronSize:
                     if len(t.intronIntervals[i]) % 3 != 0:
                         return 1
         return 0
