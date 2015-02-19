@@ -54,7 +54,7 @@ def DirType(d):
     """
     d = os.path.abspath(d)
     if not os.path.exists(d):
-        raise argparse.ArgumentTypeError('DirType:%s does not exist' % d)
+        os.mkdir(d)
     if not os.path.isdir(d):
         raise argparse.ArgumentTypeError('DirType:%s is not a directory' % d)
     if os.access(d, os.R_OK):

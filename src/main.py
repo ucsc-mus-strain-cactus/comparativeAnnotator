@@ -9,7 +9,7 @@ import lib.sqlite_lib as sql_lib
 
 import src.classifiers, src.details, src.attributes
 from src.constructDatabases import ConstructDatabases
-from src.buildTrackHub import BuildTrackHub
+from src.buildTracks import BuildTracks
 
 
 # hard coded file extension types that we are looking for
@@ -30,8 +30,6 @@ def build_parser():
     parser.add_argument('--gencodeAttributeMap', type=FileType)
     parser.add_argument('--outDir', type=str, default="./output/", action=FullPaths)
     parser.add_argument('--primaryKeyColumn', type=str, default="AlignmentId")
-    parser.add_argument('--trackHubName', type=str, default="test")
-    parser.add_argument('--trackHubDir', type=DirType, action=FullPaths, default="test")
     return parser
 
 
@@ -46,7 +44,7 @@ def parseDir(genomes, targetDir, ext):
 
 
 def buildAnalyses(target, alnPslDict, seqTwoBitDict, refSeqTwoBit, geneCheckBedDict, gencodeAttributeMap, genomes,
-                  annotationBed, outDir, refGenome, primaryKeyColumn, trackHubName, trackHubDir, dataDir):
+                  annotationBed, outDir, refGenome, primaryKeyColumn, dataDir):
     # find all user-defined classes in the three categories of analyses
     classifiers = classesInModule(src.classifiers)
     details = classesInModule(src.details)
@@ -70,16 +68,16 @@ def buildAnalyses(target, alnPslDict, seqTwoBitDict, refSeqTwoBit, geneCheckBedD
                   primaryKeyColumn, outDir, "attributes"))
             #merge the resulting pickled files into sqlite databases
     target.setFollowOnTargetFn(databaseWrapper, args=(
-    outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn, trackHubDir, trackHubName,
-    dataDir))
+    outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn, 
+    dataDir, geneCheckBedDict, annotationBed))
 
 
 def databaseWrapper(target, outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn,
-                    trackHubDir, trackHubName, dataDir):
+                     dataDir, geneCheckBedDict, annotationBed):
     target.addChildTarget(
         ConstructDatabases(outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn))
-    target.setFollowOnTarget(BuildTrackHub(outDir, trackHubDir, genomes, classifiers, details, attributes, primaryKeyColumn, trackHubName,
-                      dataDir))
+    target.setFollowOnTarget(BuildTracks(outDir, genomes, classifiers, details, attributes, primaryKeyColumn,
+                      dataDir, geneCheckBedDict, annotationBed))
 
 
 def main():
@@ -108,7 +106,6 @@ def main():
                                                        geneCheckBedDict, args.gencodeAttributeMap, args.genomes,
                                                        args.annotationBed,
                                                        args.outDir, args.refGenome, args.primaryKeyColumn,
-                                                       args.trackHubName, args.trackHubDir,
                                                        args.dataDir))).startJobTree(args)
 
     if i != 0:
