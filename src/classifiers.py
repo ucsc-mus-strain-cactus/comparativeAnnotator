@@ -389,7 +389,7 @@ class CdsGap(AbstractClassifier):
     def mult3(self, t, shortIntronSize):
         # only report if CdsGap is a multiple of 3
         if t.chromosomeInterval.strand is False:
-            intronIntervals = t.intronIntervals.reverse()
+            intronIntervals = t.intronIntervals[::-1]
         else:
             intronIntervals = t.intronIntervals        
         for i in xrange(len(intronIntervals)):
@@ -403,7 +403,7 @@ class CdsGap(AbstractClassifier):
     def notMult3(self, t, shortIntronSize):
         # only report if CdsGap is NOT a multiple of 3
         if t.chromosomeInterval.strand is False:
-            intronIntervals = t.intronIntervals.reverse()
+            intronIntervals = t.intronIntervals[::-1]
         else:
             intronIntervals = t.intronIntervals        
         for i in xrange(len(intronIntervals)):
@@ -758,7 +758,7 @@ class UtrGap(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             if t.chromosomeInterval.strand is False:
-                intronIntervals = t.intronIntervals.reverse()
+                intronIntervals = t.intronIntervals[::-1]
             else:
                 intronIntervals = t.intronIntervals            
             for i in xrange(len(t.intronIntervals)):

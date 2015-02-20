@@ -2,7 +2,7 @@ import re
 from itertools import izip
 from collections import defaultdict
 
-from jobTree.src.bioio import logger
+from jobTree.src.bioio import logger, reverseComplement
 
 from lib.general_lib import formatRatio
 from src.abstractClassifier import AbstractClassifier
@@ -360,7 +360,7 @@ class CdsGap(AbstractClassifier):
         records = []
         # only report if CdsGap is a multiple of 3
         if t.chromosomeInterval.strand is False:
-            intronIntervals = t.intronIntervals.reverse()
+            intronIntervals = t.intronIntervals[::-1]
         else:
             intronIntervals = t.intronIntervals
         for i in xrange(len(intronIntervals)):
@@ -375,7 +375,7 @@ class CdsGap(AbstractClassifier):
     def notMult3(self, t, shortIntronSize):
         records = []
         if t.chromosomeInterval.strand is False:
-            intronIntervals = t.intronIntervals.reverse()
+            intronIntervals = t.intronIntervals[::-1]
         else:
             intronIntervals = t.intronIntervals
         # only report if CdsGap is a multiple of 3
@@ -464,8 +464,12 @@ class CdsNonCanonSplice(AbstractClassifier):
             for i, seq in enumerate(t.intronSequenceIterator(self.seqDict)):
                 # make sure this intron is between coding exons
                 if t.exons[i].containsCds() and t.exons[i + 1].containsCds():
-                    if self.badSplice(seq[:2], seq[-2:]) == True:
-                        valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
+                    if t.chromosomeInterval.strand is False:
+                        if self.badSplice(reverseComplement(seq[:2]), reverseComplement(seq[-2:])) == True:
+                            valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
+                    else:
+                        if self.badSplice(seq[:2], seq[-2:]) == True:
+                            valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
@@ -507,7 +511,7 @@ class EndStop(AbstractClassifier):
 
     If this is NOT true, will report a BED record of the last 3 bases.
     
-    Value will be NULL if there is unsufficient information, which is defined as:
+    Value will be NULL if there is insufficient information, which is defined as:
         1) thickStop - thickStart < 3: (no useful CDS annotation)
         2) this alignment was not trans-mapped
 
@@ -746,7 +750,7 @@ class UtrGap(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             if t.chromosomeInterval.strand is False:
-                intronIntervals = t.intronIntervals.reverse()
+                intronIntervals = t.intronIntervals[::-1]
             else:
                 intronIntervals = t.intronIntervals
             for i in xrange(len(intronIntervals)):
@@ -808,10 +812,13 @@ class UtrNonCanonSplice(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             for i, seq in enumerate(t.intronSequenceIterator(self.seqDict)):
-                # make sure this intron is NOT between coding exons
-                if not (t.exons[i].containsCds() and t.exons[i + 1].containsCds()):
-                    if self.badSplice(seq[:2], seq[-2:]) is True:
-                        valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
+                if not t.exons[i].containsCds() and not t.exons[i + 1].containsCds():
+                    if t.chromosomeInterval.strand is False:
+                        if self.badSplice(reverseComplement(seq[:2]), reverseComplement(seq[-2:])) == True:
+                            valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
+                    else:
+                        if self.badSplice(seq[:2], seq[-2:]) == True:
+                            valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
