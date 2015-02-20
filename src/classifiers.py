@@ -134,7 +134,7 @@ class CodingDeletions(AbstractClassifier):
             if aId not in self.transcriptDict:
                 continue
             transcript = self.transcriptDict[aId]
-            annotation = self.annotationDict[aId]
+            annotation = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             valueDict[aId] = self.analyzeExons(annotation, transcript, aln, mult3)
         logger.info(
             "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
