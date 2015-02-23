@@ -127,9 +127,11 @@ class CodingDeletions(AbstractClassifier):
                 deleteFlag = False
                 #this how it should be
                 #start = stop = target_i
-                #but instead doing this
+                #but instead doing this 
                 start = target_i - 1
                 stop = target_i + 1
+                if start < 0:
+                    start = 0
                 if t.chromosomeCoordinateToCds(start) is not None or t.chromosomeCoordinateToCds(stop) is not None:
                     if mult3 is True and deleteSize % 3 == 0:
                         records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
