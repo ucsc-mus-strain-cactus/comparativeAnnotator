@@ -532,7 +532,7 @@ class EndStop(AbstractClassifier):
     mode: Returns 1 if TRUE 0 if FALSE
     
     Value will be NULL if there is unsufficient information, which is defined as:
-        1) thickStop - thickStart < 3: (no useful CDS annotation)
+        1) thickStop - thickStart <= 9: (no useful CDS annotation)
         2) this alignment was not trans-mapped
 
     """
@@ -551,7 +551,7 @@ class EndStop(AbstractClassifier):
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
-            if t.thickStop - t.thickStart < 3:
+            if t.thickStop - t.thickStart <= 9:
                 continue
             s = t.getCds(self.seqDict)[-3:]
             if s in stopCodons:
