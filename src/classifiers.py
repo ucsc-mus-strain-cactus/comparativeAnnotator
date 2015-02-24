@@ -551,7 +551,7 @@ class EndStop(AbstractClassifier):
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
-            if t.thickStop - t.thickStart <= 9:
+            if t.getCdsLength() <= 9: 
                 continue
             s = t.getCds(self.seqDict)[-3:]
             if s in stopCodons:
