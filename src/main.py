@@ -14,7 +14,7 @@ from src.buildTracks import BuildTracks
 
 # hard coded file extension types that we are looking for
 alignment_ext = ".filtered.psl"
-sequence_ext = ".2bit"
+sequence_ext = ".fa"
 gene_check_ext = ".gene-check.bed"
 
 
@@ -43,7 +43,7 @@ def parseDir(genomes, targetDir, ext):
     return pathDict
 
 
-def buildAnalyses(target, alnPslDict, seqTwoBitDict, refSeqTwoBit, geneCheckBedDict, gencodeAttributeMap, genomes,
+def buildAnalyses(target, alnPslDict, fastaDict, refSeqTwoBit, geneCheckBedDict, gencodeAttributeMap, genomes,
                   annotationBed, outDir, refGenome, primaryKeyColumn, dataDir):
     # find all user-defined classes in the three categories of analyses
     classifiers = classesInModule(src.classifiers)
@@ -52,19 +52,19 @@ def buildAnalyses(target, alnPslDict, seqTwoBitDict, refSeqTwoBit, geneCheckBedD
     for genome in genomes:
         alnPsl = alnPslDict[genome]
         geneCheckBed = geneCheckBedDict[genome]
-        seqTwoBit = seqTwoBitDict[genome]
+        fasta = fastaDict[genome]
         # set child targets for every classifier-genome pair
         for c in classifiers:
             target.addChildTarget(
-                c(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
+                c(genome, alnPsl, fasta, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
                   primaryKeyColumn, outDir, "classify"))
         for d in details:
             target.addChildTarget(
-                d(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
+                d(genome, alnPsl, fasta, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
                   primaryKeyColumn, outDir, "details"))
         for a in attributes:
             target.addChildTarget(
-                a(genome, alnPsl, seqTwoBit, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
+                a(genome, alnPsl, fasta, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
                   primaryKeyColumn, outDir, "attributes"))
             #merge the resulting pickled files into sqlite databases
     target.setFollowOnTargetFn(databaseWrapper, args=(
@@ -95,14 +95,14 @@ def main():
 
     # find data files
     alnPslDict = parseDir(args.genomes, args.dataDir, alignment_ext)
-    seqTwoBitDict = parseDir(args.genomes, args.dataDir, sequence_ext)
+    fastaDict = parseDir(args.genomes, args.dataDir, sequence_ext)
     geneCheckBedDict = parseDir(args.genomes, args.dataDir, gene_check_ext)
 
     refSeqTwoBit = os.path.join(args.dataDir, args.refGenome + ".2bit")
     if not os.path.exists(refSeqTwoBit):
         raise RuntimeError("Reference genome 2bit not present at {}".format(refSeqTwoBit))
 
-    i = Stack(Target.makeTargetFn(buildAnalyses, args=(alnPslDict, seqTwoBitDict, refSeqTwoBit,
+    i = Stack(Target.makeTargetFn(buildAnalyses, args=(alnPslDict, fastaDict, refSeqTwoBit,
                                                        geneCheckBedDict, args.gencodeAttributeMap, args.genomes,
                                                        args.annotationBed,
                                                        args.outDir, args.refGenome, args.primaryKeyColumn,

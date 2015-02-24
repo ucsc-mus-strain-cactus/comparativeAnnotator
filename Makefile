@@ -11,7 +11,7 @@ h5prefix = ~
 export PYTHONPATH:=./:${PYTHONPATH}
 export PATH:=./sonLib/bin:./submodules/jobTree/bin:./hal/bin/:${PATH}
 
-#genomes = C57B6N
+#genomes = C57B6NJ
 genomes = Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ
 refGenome = C57B6J
 
@@ -39,7 +39,7 @@ run : all
 	if [ -d ${halJobTree} ]; then rm -rf ${halJobTree}; fi
 	if [ -d {trackHub} ]; then rm -rf ${trackHub}; fi
 	bigBedDirs = /bin/ls -1d output/bedfiles/* | paste -s -d ","
-	python hal/assemblyHub/hal2assemblyHub.py ${hal} ${trackHub} --finalBigBedDirs ${bigBedDirs} --noBedLiftover \
+	python hal/assemblyHub/hal2assemblyHub.py ${hal} ${trackHub} --finalBigBedDirs ${bigBedDirs} \
 	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
 	--jobTree ${halJobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
 	--stats &> ${log}

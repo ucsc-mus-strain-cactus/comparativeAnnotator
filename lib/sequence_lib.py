@@ -10,6 +10,7 @@ Modified by Ian Fiddes
 import string
 from itertools import izip
 from math import ceil, floor
+from jobTree.src.bioio import fastaRead
 
 #in case you are running the tests
 try:
@@ -914,6 +915,15 @@ def readTwoBit(file_path):
     Acts as a wrapper around the TwoBitFile class in twobitreader.py.
     """
     return TwoBitFile(file_path)
+
+def getSequenceDict(file_path):
+    """
+    Returns a dictionary of fasta records.
+    """
+    fastaDict = {}
+    for name, seq in fastaRead(file_path):
+        fastaDict[name] = seq
+    return fastaDict
 
 
 def getTranscripts(bedFile):
