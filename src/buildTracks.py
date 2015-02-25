@@ -1,45 +1,14 @@
 import os
 from itertools import izip_longest, product
-import cPickle as pickle
 import sqlite3 as sql
+from collections import defaultdict
 
-import src.classifiers, src.details, src.attributes
+
+from src.summaryStatistics import SummaryStatistics
+
 import lib.sqlite_lib as sql_lib
 from jobTree.scriptTree.target import Target
 from jobTree.src.bioio import logger, system
-
-def mutations(classifiers, details, attributes):
-    """
-    Hunts for likely real mutations by excluding assembly and alignment errors.
-    Any transcript which has errors in the classify fields specified will not have the details shown.
-    """
-    detailsFields = ["CodingInsertions", "CodingDeletions", "CodingMult3Insertions", "CodingMult3Deletions",
-                     "CdsNonCanonSplice", "UtrNonCanonSplice", "CdsUnknownSplice", "UtrUnknownSplice", "CdsMult3Gap"]
-    classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases",
-                      "ScaffoldGap", "AlignmentPartialMap", "MinimumCdsSize"]
-    classifyOperations = ["AND"] * len(classifyFields)
-    classifyValues = [0] * len(classifyFields)
-    return detailsFields, classifyFields, classifyValues, classifyOperations
-
-def assemblyErrors(classifiers, details, attributes):
-    """
-    Looks for assembly errors. Reports transcripts with assembly errors.
-    """
-    detailsFields = [x.__name__ for x in details]
-    classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap"]
-    classifyOperations = ["OR"] * len(classifyFields)
-    classifyValues = [1] * len(classifyFields)
-    return detailsFields, classifyFields, classifyValues, classifyOperations
-
-def alignmentErrors(classifiers, details, attributes):
-    """
-    Looks for alignment errors. Reports details for all fields that are likely alignment errors.
-    """
-    classifyFields = detailsFields = ["AlignmentPartialMap", "BadFrame", "BeginStart", "CdsGap", "UtrGap", "CdsMult3Gap", "EndStop", "MinimumCdsSize", "NoCds", "UtrUnknownSplice", "CdsUnknownSplice", "UtrNonCanonSplice", "CdsNonCanonSplice"]
-    classifyOperations = ["OR"] * len(classifyFields)
-    classifyValues = [1] * len(classifyFields)
-    return detailsFields, classifyFields, classifyValues, classifyOperations
-
 
 class BuildTracks(Target):
     """
@@ -50,6 +19,7 @@ class BuildTracks(Target):
         a list of details fields to put in the BED record.
         a list of classify fields to filter on.
         a matching list of values that the classify field should have.
+        a matching list of AND/OR operations to link the logic together
     """
     def __init__(self, outDir, genomes, classifiers, details, attributes, primaryKeyColumn,
                       dataDir, geneCheckBedDict, annotationBed):
@@ -64,7 +34,7 @@ class BuildTracks(Target):
         self.geneCheckBedDict = geneCheckBedDict
         self.dataDir = dataDir
         self.annotationBed = annotationBed
-        self.categories = [mutations, assemblyErrors, alignmentErrors]
+        self.categories = [mutations, inFrameStop, interestingBiology, assemblyErrors, alignmentErrors]
 
     def writeBed(self, genome, detailsFields, classifyFields, classifyValues, classifyOperations, categoryName):
         bedPath = os.path.join(self.bedDir, categoryName, genome, genome + ".bed")
@@ -93,19 +63,19 @@ class BuildTracks(Target):
     def run(self):
         if not os.path.exists(self.bedDir):
             os.mkdir(self.bedDir)
-        if not os.path.exists(os.path.join(self.bedDir, "geneCheck")):
-            os.mkdir(os.path.join(self.bedDir, "geneCheck"))
+        if not os.path.exists(os.path.join(self.bedDir, "transMap")):
+            os.mkdir(os.path.join(self.bedDir, "transMap"))
         
-        #build directory of geneCheck output
+        #build directory of transMap output
         for genome, bed in self.geneCheckBedDict.iteritems():
-            if not os.path.exists(os.path.join(self.bedDir, "geneCheck", genome)):
-                os.mkdir(os.path.join(self.bedDir, "geneCheck", genome))
-            self.buildBigBed(bed, genome, "geneCheck")
+            if not os.path.exists(os.path.join(self.bedDir, "transMap", genome)):
+                os.mkdir(os.path.join(self.bedDir, "transMap", genome))
+            self.buildBigBed(bed, genome, "transMap")
         #don't need if including self in original analysis
-        #if not os.path.exists(os.path.join(self.bedDir, "geneCheck", "C57B6J")):
-        #    os.mkdir(os.path.join(self.bedDir, "geneCheck", "C57B6J"))
-        #if not os.path.exists(os.path.join(self.bedDir, "geneCheck", "C57B6J", "C57B6J" + ".bed")):
-        #    system("ln -s {} {}".format(os.path.abspath(self.annotationBed), os.path.join(self.bedDir, "geneCheck", "C57B6J", "C57B6J" + ".bed")))
+        if not os.path.exists(os.path.join(self.bedDir, "transMap", "C57B6J")):
+            os.mkdir(os.path.join(self.bedDir, "transMap", "C57B6J"))
+        if not os.path.exists(os.path.join(self.bedDir, "transMap", "C57B6J", "C57B6J" + ".bed")):
+            system("ln -s {} {}".format(os.path.abspath(self.annotationBed), os.path.join(self.bedDir, "transMap", "C57B6J", "C57B6J" + ".bed")))
 
         self.con = sql.connect(os.path.join(self.outDir, "classify.db"))
         self.cur = self.con.cursor()
@@ -114,13 +84,17 @@ class BuildTracks(Target):
         for category in self.categories:
             if not os.path.exists(os.path.join(self.bedDir, category.__name__)):
                 os.mkdir(os.path.join(self.bedDir, category.__name__))
-            detailsFields, classifyFields, classifyValues, classifyOperations = category(self.classifiers, self.details, self.attributes)
+            detailsFields, classifyFields, classifyValues, classifyOperations = category()
             for genome in self.genomes:
                 if not os.path.exists(os.path.join(self.bedDir, category.__name__, genome)):
                     os.mkdir(os.path.join(self.bedDir, category.__name__, genome))
                 bedPath = self.writeBed(genome, detailsFields, classifyFields, classifyValues, classifyOperations,
                                         category.__name__)
-                self.buildBigBed(bedPath, genome, category.__name__)
+                #dumb
+                if len(open(bedPath).readlines()) > 0:
+                    self.buildBigBed(bedPath, genome, category.__name__)
                 os.remove(bedPath)
+
+        self.setFollowOnTarget(SummaryStatistics(self.outDir, self.genomes))
 
 

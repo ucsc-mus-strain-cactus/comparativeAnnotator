@@ -47,7 +47,7 @@ all :
 	python hal/assemblyHub/hal2assemblyHub.py ${1411hal} ${1411trackHub} --finalBigBedDirs ${bigBedDirs} \
 	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
 	--jobTree ${1411halJobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
-	--stats --shortLabel 1411 --longLabel 1411 --hub 1411 &> ${log}
+	--stats --shortLabel 1411 --longLabel 1411 --hub 1411 --lod &> ${log}
 
 1412 : all
 	if [ -d ${1412jobTree} ]; then rm -rf ${1412jobTree}; fi
@@ -62,4 +62,4 @@ all :
 	python hal/assemblyHub/hal2assemblyHub.py ${1412hal} ${1412trackHub} --finalBigBedDirs ${bigBedDirs} \
 	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
 	--jobTree ${1412halJobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
-	--stats --shortLabel 1412 --longLabel 1412 --hub 1412 &> ${log}	
+	--stats --shortLabel 1412 --longLabel 1412 --hub 1412 --lod &> ${log}	

@@ -6,13 +6,13 @@ import lib.sqlite_lib as sql_lib
 from src.abstractClassifier import AbstractClassifier
 
 
-transcripts = seq_lib.getTranscripts("datafiles/Rattus.gene-check.bed")
+transcripts = seq_lib.getTranscripts("../mouse_release_data/1411/Rattus.gene-check.bed")
 transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
-annotations = seq_lib.getTranscripts("datafiles/wgEncodeGencodeBasicVM2.gene-check.bed")
+annotations = seq_lib.getTranscripts("../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
 annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
-alignments = psl_lib.readPsl("datafiles/Rattus.filtered.psl")
+alignments = psl_lib.readPsl("../mouse_release_data/1411/Rattus.filtered.psl")
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
-seqDict = seq_lib.readTwoBit("datafiles/Rattus.2bit")
+seqDict = seq_lib.readTwoBit("../mouse_release_data/1411/Rattus.2bit")
 
 
 mult3 = False

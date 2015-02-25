@@ -168,7 +168,6 @@ def selectBetweenDatabasesWithAnd(cur, altName, returnColumn, columns, values, p
                                                          primaryKey=primaryKey)
     for col in columns:
         cmd += " AND main.'{}'.'{}' = ?".format(table, col)
-    print cmd
     q = cur.execute(cmd, values)
     return q.fetchall()
 
@@ -189,7 +188,6 @@ def selectBetweenDatabasesWithOr(cur, altName, returnColumn, columns, values, pr
                                                          primaryKey=primaryKey)
     for col in columns:
         cmd += " OR main.'{}'.'{}' = ?".format(table, col)
-    print cmd
     q = cur.execute(cmd, values)
     return q.fetchall()
 
@@ -208,10 +206,11 @@ def selectBetweenDatabases(cur, altName, returnColumn, columns, values, modifier
     """
     cmd = ("""SELECT {altName}.'{table}'.'{returnColumn}' FROM main.'{table}' JOIN {altName}.'{table}' USING ('{primaryKey}')"""
             """ WHERE {altName}.'{table}'.'{returnColumn}' IS NOT NULL AND main.'{table}'.{primaryKey} = """
-            """{altName}.'{table}'.{primaryKey}""").format(altName=altName, returnColumn=returnColumn, table=table,
+            """{altName}.'{table}'.{primaryKey} AND (""").format(altName=altName, returnColumn=returnColumn, table=table,
                                                          primaryKey=primaryKey)
-    for col, mod in izip(columns, modifiers):
-        cmd += " {} main.'{}'.'{}' = ?".format(mod, table, col)
-    print cmd
+    for col, mod in izip(columns[:-1], modifiers):
+        cmd += " main.'{}'.'{}' = ? {}".format(table, col, mod)
+    cmd += " main.'{}'.'{}' = ?)".format(table, columns[-1])
     q = cur.execute(cmd, values)
     return q.fetchall()
+    
