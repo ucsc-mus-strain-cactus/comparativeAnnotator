@@ -1,6 +1,6 @@
 import os
 import sqlite3 as sql
-from collections import defaultdict
+from collections import defaultdict, Counter
 from itertools import izip
 
 import src.queries
@@ -31,15 +31,21 @@ class SummaryStatistics(Target):
         for genome in self.genomes:
             self.statistics["coverage"].append(self.coverage(self.cur, genome))
             self.statistics["identity"].append(self.identity(self.cur, genome))
+            self.statistics["paralogy"].append(self.paralogy(self.cur, genome))
             for category in categories:
                 detailsFields, classifyFields, classifyValues, classifyOperations = category()
-                self.statistics[category.__name__].append(round(100.0 * self.numberCategorized(self.cur, genome, classifyFields, classifyValues, classifyOperations) / self.numberRows(self.cur, genome), 3))
+                self.statistics[category.__name__].append(round(100.0 * self.numberCategorized(self.cur, genome, classifyFields, detailsFields, classifyValues, classifyOperations) / self.numberRows(self.cur, genome), 3))
 
-        with open(os.path.join(self.outDir, "summary.tsv"), "w") as outf:
-            outf.write("\t".join(self.genomes)+"\n")
-            for category in ["coverage", "identity"] + [x.__name__ for x in categories]:
+        with open(os.path.join(self.outDir, self.outDir.replace('/','') + "summary.tsv"), "w") as outf:
+            outf.write("genomes\t"+"\t".join(self.genomes)+"\n")
+            for category in ["coverage", "identity", "paralogy"] + [x.__name__ for x in categories]:
                 outf.write(category + "\t" + "\t".join(map(str, self.statistics[category])) + "\n")
 
+
+    def paralogy(self, cur, genome):
+        cmd = """SELECT attributes.'{0}'.GeneName FROM attributes.'{0}'""".format(genome)
+        genes = Counter([x[0] for x in cur.execute(cmd).fetchall()])
+        return round(100.0 * len([x for x in genes if genes[x] > 1]) / len(genes), 3)
 
     def coverage(self, cur, genome):
         """
@@ -67,7 +73,7 @@ class SummaryStatistics(Target):
                 t[gene] = val
         return round(100.0 * sum(t.values())/len(t), 3)
 
-    def numberCategorized(self, cur, genome, classifyFields, classifyValues, classifyOperations):
+    def numberCategorized(self, cur, genome, classifyFields, detailsFields, classifyValues, classifyOperations):
         """
         Finds the number of ALIGNMENTS categorized by a categorizing function
         """
@@ -75,6 +81,8 @@ class SummaryStatistics(Target):
         for col, mod in izip(classifyFields[:-1], classifyOperations):
             cmd += " main.'{}'.'{}' = ? {}".format(genome, col, mod)
         cmd += " main.'{}'.'{}' = ?)".format(genome, classifyFields[-1])
+        if len(detailsFields) == 1:
+            cmd += " AND main.'{}'.'{}' = 1".format(genome, detailsFields[0])
         q = cur.execute(cmd, classifyValues)
         return int(q.fetchone()[0])
 
