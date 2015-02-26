@@ -3,7 +3,7 @@ from itertools import izip_longest, product
 import sqlite3 as sql
 from collections import defaultdict
 
-
+from queries import *
 from src.summaryStatistics import SummaryStatistics
 
 import lib.sqlite_lib as sql_lib

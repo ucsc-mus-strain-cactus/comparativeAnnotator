@@ -52,10 +52,10 @@ class CodingInsertions(AbstractClassifier):
                 #found insertion
                 start = min(prevTargetPos, target_i) + 1
                 stop = max(prevTargetPos, target_i)
-                if t.chromosomeCoordinateToCds(start) is not None or t.chromosomeCoordinateToCds(stop) is not None:
+                if t.chromosomeCoordinateToCds(start) is not None and t.chromosomeCoordinateToCds(stop - 1) is not None:
                     if mult3 is True and stop - start % 3 == 0:
                         records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
-                    else:
+                    elif mult3 is False and stop - start % 3 != 0:
                         records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
             prevTargetPos = target_i
         if len(records) > 0:
@@ -132,7 +132,7 @@ class CodingDeletions(AbstractClassifier):
                 stop = target_i + 1
                 if start < 0:
                     start = 0
-                if t.chromosomeCoordinateToCds(start) is not None or t.chromosomeCoordinateToCds(stop) is not None:
+                if t.chromosomeCoordinateToCds(start + 1) is not None and t.chromosomeCoordinateToCds(stop - 1) is not None:
                     if mult3 is True and deleteSize % 3 == 0:
                         records.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
                     elif mult3 is False and deleteSize % 3 != 0:

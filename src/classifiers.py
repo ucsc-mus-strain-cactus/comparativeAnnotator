@@ -28,7 +28,7 @@ class CodingInsertions(AbstractClassifier):
     def _getType():
         return "INTEGER"
 
-    def analyzeExons(self, a, t, aln, mult3=False):
+    def analyzeExons(self, a, t, aln, mult3):
         """
         Analyze a Transcript object for coding insertions.
         if mult3 is True, only multiple of 3 insertions are reported.
@@ -48,7 +48,7 @@ class CodingInsertions(AbstractClassifier):
                 #found insertion
                 start = min(prevTargetPos, target_i) + 1
                 stop = max(prevTargetPos, target_i)
-                if t.chromosomeCoordinateToCds(start) is not None or t.chromosomeCoordinateToCds(stop) is not None:
+                if t.chromosomeCoordinateToCds(start) is not None and t.chromosomeCoordinateToCds(stop - 1) is not None:
                     if mult3 is True and stop - start % 3 == 0:
                         return 1
                     elif mult3 is False and stop - start % 3 != 0:
@@ -117,7 +117,7 @@ class CodingDeletions(AbstractClassifier):
                 deleteFlag = False
                 start = target_i
                 stop = target_i + 1 #TODO: make sure this is correct
-                if t.chromosomeCoordinateToCds(start) is not None or t.chromosomeCoordinateToCds(stop) is not None:
+                if t.chromosomeCoordinateToCds(start) is not None and t.chromosomeCoordinateToCds(stop - 1) is not None:
                     if mult3 is True and deleteSize % 3 == 0:
                         return 1
                     elif mult3 is False and deleteSize % 3 != 0:

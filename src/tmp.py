@@ -6,14 +6,23 @@ import lib.sqlite_lib as sql_lib
 from src.abstractClassifier import AbstractClassifier
 
 
-transcripts = seq_lib.getTranscripts("../mouse_release_data/1411/Rattus.gene-check.bed")
+transcripts = seq_lib.getTranscripts("../mouse_release_data/1411/C57B6NJ.gene-check.bed")
 transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
 annotations = seq_lib.getTranscripts("../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
 annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
-alignments = psl_lib.readPsl("../mouse_release_data/1411/Rattus.filtered.psl")
+alignments = psl_lib.readPsl("../mouse_release_data/1411/C57B6NJ.filtered.psl")
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
-seqDict = seq_lib.readTwoBit("../mouse_release_data/1411/Rattus.2bit")
+seqDict = seq_lib.readTwoBit("../mouse_release_data/1411/C57B6NJ.2bit")
 
+
+valueDict = {}
+for aId, aln in alignmentDict.iteritems():
+    if aln.strand == "+" and aln.tStart == 0 and aln.qStart != 0:
+        valueDict[aId] = 1
+    elif aln.strand == "-" and aln.tEnd == aln.tSize and aln.qEnd != aln.qSize:
+        valueDict[aId] = 1
+    else:
+        valueDict[aId] = 0
 
 mult3 = False
 records = []

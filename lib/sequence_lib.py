@@ -225,7 +225,7 @@ class Transcript(object):
 
         return exons
 
-    def getMRna(self, twoBitFileObj):
+    def getMRna(self, seqDict):
         """
         Returns the mRNA sequence for this transcript based on a TwoBitFile object.
         and the start/end positions and the exons. Sequence returned in
@@ -233,7 +233,7 @@ class Transcript(object):
         """
         if hasattr(self, "mRna"):
             return self.mRna
-        sequence = twoBitFileObj[self.chromosomeInterval.chromosome]
+        sequence = seqDict[self.chromosomeInterval.chromosome]
         assert self.chromosomeInterval.stop <= len(sequence)
         s = []
         for e in self.exonIntervals:
@@ -245,23 +245,23 @@ class Transcript(object):
         self.mRna = mRna
         return mRna
 
-    def getSequence(self, twoBitFileObj):
+    def getSequence(self, seqDict):
         """
         Returns the entire chromosome sequence for this transcript, (+) strand orientation.
         """
-        sequence = twoBitFileObj[self.chromosomeInterval.chromosome]
+        sequence = seqDict[self.chromosomeInterval.chromosome]
         return sequence[self.start:self.stop]
 
-    def getCds(self, twoBitFileObj):
+    def getCds(self, seqDict):
         """
         Return the CDS sequence (as a string) for the transcript 
-        (based on the exons) using a TwoBitFile object as the sequence source.
+        (based on the exons) using a sequenceDict as the sequence source.
         The returned sequence is in the correct 5'-3' orientation (i.e. it has
         been reverse complemented if necessary).
         """
         if hasattr(self, "cds"):
             return self.cds
-        sequence = twoBitFileObj[self.chromosomeInterval.chromosome]
+        sequence = seqDict[self.chromosomeInterval.chromosome]
         assert self.chromosomeInterval.stop <= len(sequence)
         #make sure this isn't a non-coding gene
         if self.thickStart == self.thickStop == 0:
@@ -345,21 +345,21 @@ class Transcript(object):
         else:
             return self.thickStart - 1
 
-    def getProteinSequence(self, twoBitFileObj):
+    def getProteinSequence(self, seqDict):
         """
         Returns the translated protein sequence for this transcript in single
         character space.
         """
-        cds = self.getCds(twoBitFileObj)
+        cds = self.getCds(seqDict)
         if len(cds) < 3:
             return ""
-        return translateSequence(self.getCds(twoBitFileObj))
+        return translateSequence(self.getCds(seqDict))
 
-    def intronSequenceIterator(self, twoBitFileObj):
+    def intronSequenceIterator(self, seqDict):
         """
         Iterates over intron sequences in transcript order and strand
         """
-        chromSeq = twoBitFileObj[self.chromosomeInterval.chromosome]
+        chromSeq = seqDict[self.chromosomeInterval.chromosome]
         if self.strand is True:
             for intron in self.intronIntervals:
                 yield chromSeq[intron.start : intron.stop]
@@ -367,11 +367,11 @@ class Transcript(object):
             for intron in reversed(self.intronIntervals):
                 yield reverseComplement(chromSeq[intron.start : intron.stop])
 
-    def getIntrons(self, twoBitFileObj):
+    def getIntrons(self, seqDict):
         """
         Wrapper for intronSequenceIterator that returns a list of sequences.
         """
-        return [x for x in self.intronSequenceIterator(twoBitFileObj)]
+        return [x for x in self.intronSequenceIterator(seqDict)]
 
     def transcriptCoordinateToCds(self, p):
         """
@@ -428,13 +428,13 @@ class Transcript(object):
             if exon.containsCdsPos(p):
                 return exon.cdsPosToChromPos(p)
 
-    def cdsCoordinateToAminoAcid(self, p, twoBitFileObj):
+    def cdsCoordinateToAminoAcid(self, p, seqDict):
         """
         Takes a CDS-relative position and a TwoBitFile object that contains this
         transcript and returns the amino acid at that CDS position.
         Returns None if this is invalid.
         """
-        cds = self.getCds(twoBitFileObj)
+        cds = self.getCds(seqDict)
         if p >= len(cds) or p < 0:
             return None
         #we add 0.1 to the ceiling to make multiples of 3 work
@@ -444,7 +444,7 @@ class Transcript(object):
         codon = cds[start : stop]
         return codonToAminoAcid(codon)
 
-    def transcriptCoordinateToAminoAcid(self, p, twoBitFileObj):
+    def transcriptCoordinateToAminoAcid(self, p, seqDict):
         """
         Takes a transcript coordinate position and a TwoBitFile object that contains
         this transcript and returns the amino acid at that transcript position.
@@ -453,9 +453,9 @@ class Transcript(object):
         cds_pos = self.transcriptCoordinateToCds(p)
         if cds_pos is None:
             return None
-        return self.cdsCoordinateToAminoAcid(cds_pos, twoBitFileObj)
+        return self.cdsCoordinateToAminoAcid(cds_pos, seqDict)
 
-    def chromosomeCoordinateToAminoAcid(self, p, twoBitFileObj):
+    def chromosomeCoordinateToAminoAcid(self, p, seqDict):
         """
         Takes a chromosome coordinate and a TwoBitFile object that contains this
         transcript and returns the amino acid at that chromosome position.
@@ -464,7 +464,7 @@ class Transcript(object):
         cds_pos = self.chromosomeCoordinateToCds(p)
         if cds_pos is None:
             return None
-        return self.cdsCoordinateToAminoAcid(cds_pos, twoBitFileObj)
+        return self.cdsCoordinateToAminoAcid(cds_pos, seqDict)
 
 
 class GenePredTranscript(Transcript):
@@ -915,6 +915,7 @@ def readTwoBit(file_path):
     Acts as a wrapper around the TwoBitFile class in twobitreader.py.
     """
     return TwoBitFile(file_path)
+
 
 def getSequenceDict(file_path):
     """

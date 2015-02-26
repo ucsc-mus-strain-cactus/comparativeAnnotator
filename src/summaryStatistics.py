@@ -36,14 +36,18 @@ class SummaryStatistics(Target):
                 detailsFields, classifyFields, classifyValues, classifyOperations = category()
                 self.statistics[category.__name__].append(round(100.0 * self.numberCategorized(self.cur, genome, classifyFields, detailsFields, classifyValues, classifyOperations) / self.numberRows(self.cur, genome), 3))
 
-        with open(os.path.join(self.outDir, self.outDir.replace('/','') + "summary.tsv"), "w") as outf:
+        with open(os.path.join(self.outDir, self.outDir.split("/")[-1] + "summary.tsv"), "w") as outf:
             outf.write("genomes\t"+"\t".join(self.genomes)+"\n")
             for category in ["coverage", "identity", "paralogy"] + [x.__name__ for x in categories]:
                 outf.write(category + "\t" + "\t".join(map(str, self.statistics[category])) + "\n")
 
 
     def paralogy(self, cur, genome):
-        cmd = """SELECT attributes.'{0}'.GeneName FROM attributes.'{0}'""".format(genome)
+        """
+        Finds the number of paralogous alignments. This is defined as the number of gene IDs with more than one
+        alignment.
+        """
+        cmd = """SELECT attributes.'{0}'.TranscriptId FROM attributes.'{0}'""".format(genome)
         genes = Counter([x[0] for x in cur.execute(cmd).fetchall()])
         return round(100.0 * len([x for x in genes if genes[x] > 1]) / len(genes), 3)
 
@@ -52,7 +56,7 @@ class SummaryStatistics(Target):
         Finds the best coverage percent for each gene and records the average.
         TODO: histogram
         """
-        cmd = """SELECT main.'{0}'.AlignmentCoverage, attributes.'{0}'.GeneName FROM attributes.'{0}' JOIN main.'{0}' USING ('AlignmentId') WHERE main.'{0}'.AlignmentCoverage IS NOT NULL""".format(genome)
+        cmd = """SELECT main.'{0}'.AlignmentCoverage, attributes.'{0}'.TranscriptId FROM attributes.'{0}' JOIN main.'{0}' USING ('AlignmentId') WHERE main.'{0}'.AlignmentCoverage IS NOT NULL""".format(genome)
         r = cur.execute(cmd).fetchall()
         t = defaultdict(float)
         for val, gene in r:
