@@ -6,7 +6,7 @@ from jobTree.src.bioio import logger
 
 from lib.general_lib import formatRatio
 from src.abstractClassifier import AbstractClassifier
-from src.indels import insertionIterator, deletionIterator, firstIndel
+from src.indels import insertionIterator, deletionIterator, firstIndel, codonPairIterator
 
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
@@ -42,7 +42,7 @@ class CodingInsertions(AbstractClassifier):
             # annotated transcript coordinates are the same as query coordinates (they are the query)
             annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             transcript = self.transcriptDict[aId]
-            if insertionIterator(annotatedTranscript, transcript, aln, mult3).next() is not None:
+            if next(insertionIterator(annotatedTranscript, transcript, aln, mult3), None) == None:
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
@@ -89,7 +89,7 @@ class CodingDeletions(AbstractClassifier):
                 continue
             annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             transcript = self.transcriptDict[aId]
-            if deletionIterator(annotatedTranscript, transcript, aln, mult3).next() is not None:
+            if next(deletionIterator(annotatedTranscript, transcript, aln, mult3), None) == None:
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
@@ -134,7 +134,7 @@ class FrameShift(AbstractClassifier):
                 continue
             transcript = self.transcriptDict[aId]
             annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            f = firstIndel(annotatedTranscript, transcript, aln)
+            f = firstIndel(annotatedTranscript, transcript, aln, mult3=False, inversion=False)
             if f is not None:
                 valueDict[aId] = 1
             else:
@@ -814,14 +814,15 @@ class Nonsynonymous(AbstractClassifier):
         self.getTranscriptDict()
         self.getAnnotationDict()
         self.getSeqDict()
+        self.getAlignmentDict()
         self.getRefTwoBit()
         valueDict = {}
-        for aId in self.aIds:
+        for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            for i, target_codon, query_codon in codonPairIterator(a, t, self.seqDict, self.refTwoBit):
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
                 if seq_lib.codonToAminoAcid(target_codon) != seq_lib.codonToAminoAcid(query_codon):
                     valueDict[aId] = 1
                     break                   
@@ -850,13 +851,14 @@ class Synonymous(AbstractClassifier):
         self.getAnnotationDict()
         self.getSeqDict()
         self.getRefTwoBit()
+        self.getAlignmentDict()
         valueDict = {}
-        for aId in self.aIds:
+        for aId in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            for i, target_codon, query_codon in codonPairIterator(a, t, self.seqDict, self.refTwoBit):
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
                 if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) == seq_lib.codonToAminoAcid(query_codon):
                         valueDict[aId] = 1
                         break

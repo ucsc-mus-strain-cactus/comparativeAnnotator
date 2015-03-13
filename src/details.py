@@ -47,7 +47,7 @@ class CodingInsertions(AbstractClassifier):
             transcript = self.transcriptDict[aId]
             insertions = list(insertionIterator(annotatedTranscript, transcript, aln, mult3))
             if len(insertions) > 0:
-                valueDict[aId] = [seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), sef.getColumn()) for start, stop, size in insertions]
+                valueDict[aId] = [seq_lib.chromosomeCoordinateToBed(transcript, start, stop, self.rgb(), self.getColumn()) for start, stop, size in insertions]
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
@@ -97,7 +97,7 @@ class CodingDeletions(AbstractClassifier):
             annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             deletions = list(deletionIterator(annotatedTranscript, transcript, aln, mult3))
             if len(deletions) > 0:
-                valueDict[aId] = [seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), sef.getColumn()) for start, stop, size in deletions]
+                valueDict[aId] = [seq_lib.chromosomeCoordinateToBed(transcript, start, stop, self.rgb(), self.getColumn()) for start, stop, size in deletions]
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
@@ -140,10 +140,10 @@ class FrameShift(AbstractClassifier):
                 continue
             transcript = self.transcriptDict[aId]
             annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            f = firstIndel(annotatedTranscript, transcript, aln)
+            f = firstIndel(annotatedTranscript, transcript, aln, mult3=False, inversion=False)
             if f is not None:
                 start, stop, size = f
-                valueDict[aId] = seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), sef.getColumn())
+                valueDict[aId] = seq_lib.chromosomeCoordinateToBed(transcript, start, stop, self.rgb(), self.getColumn())
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
@@ -688,7 +688,7 @@ class UnknownBases(AbstractClassifier):
             t = self.transcriptDict[aId]
             if cds is True:
                 s = t.getCds(self.seqDict)
-                for i,  in enumerate(s):
+                for i, x in enumerate(s):
                     if x == "N":
                         valueDict[aId] = seq_lib.cdsCoordinateToBed(t, i, i + 1, self.rgb(), self.getColumn())
             else:
@@ -868,13 +868,14 @@ class Nonsynonymous(AbstractClassifier):
         self.getAnnotationDict()
         self.getSeqDict()
         self.getRefTwoBit()
+        self.getAlignmentDict()
         valueDict = defaultdict(list)
-        for aId in self.aIds:
+        for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            for i, target_codon, query_codon in codonPairIterator(a, t, self.seqDict, self.refTwoBit):
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
                 if seq_lib.codonToAminoAcid(target_codon) != seq_lib.codonToAminoAcid(query_codon):
                     valueDict[aId].append(seq_lib.cdsCoordinateToBed(t, i * 3, i * 3 + 3, self.rgb(), self.getColumn()))
         logger.info(
@@ -903,14 +904,15 @@ class Synonymous(AbstractClassifier):
         self.getAnnotationDict()
         self.getSeqDict()
         self.getRefTwoBit()
+        self.getAlignmentDict()
         valueDict = defaultdict(list)
-        for aId in self.aIds:
+        for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            for i, target_codon, query_codon in codonPairIterator(a, t, self.seqDict, self.refTwoBit):
-                if target_codon != query_codon seq_lib.codonToAminoAcid(target_codon) == seq_lib.codonToAminoAcid(query_codon):
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
+                if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) == seq_lib.codonToAminoAcid(query_codon):
                         valueDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
