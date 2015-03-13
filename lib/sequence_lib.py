@@ -1081,6 +1081,10 @@ def chromosomeCoordinateToBed(t, start, stop, rgb, name):
     """
     strand = convertStrand(t.chromosomeInterval.strand)
     chrom = t.chromosomeInterval.chromosome
-    assert start != None and stop != None
-    assert stop >= start
+    try:
+        assert start != None and stop != None
+        assert stop >= start
+    except:
+        print t.name, start, stop, name
+        assert False
     return [chrom, start, stop, name + "/" + t.name, 0, strand, start, stop, rgb, 1, stop - start, 0]

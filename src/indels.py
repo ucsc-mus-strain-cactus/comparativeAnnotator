@@ -54,8 +54,7 @@ def deletionIterator(a, t, aln, mult3=False, inversion=False):
 
     mult3 controls whether only multiple of 3 or only not multiple of 3 are reported.
 
-    Inversion controls whether to filter out inversions or keep them (if you are concerned about
-    frame shifts)
+    Inversion controls whether to filter out inversions or keep them (if you are concerned about frame shifts)
 
     """
     prev_query_i = None
