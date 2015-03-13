@@ -43,9 +43,9 @@ class CodingInsertions(AbstractClassifier):
             annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             transcript = self.transcriptDict[aId]
             if next(insertionIterator(annotatedTranscript, transcript, aln, mult3), None) == None:
-                valueDict[aId] = 1
-            else:
                 valueDict[aId] = 0
+            else:
+                valueDict[aId] = 1
         logger.info(
             "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
@@ -90,9 +90,9 @@ class CodingDeletions(AbstractClassifier):
             annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             transcript = self.transcriptDict[aId]
             if next(deletionIterator(annotatedTranscript, transcript, aln, mult3), None) == None:
-                valueDict[aId] = 1
-            else:
                 valueDict[aId] = 0
+            else:
+                valueDict[aId] = 1
         logger.info(
             "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)

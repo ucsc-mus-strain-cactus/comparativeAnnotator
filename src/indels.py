@@ -4,11 +4,58 @@ import lib.sequence_lib as seq_lib
 def insertionIterator(a, t, aln, mult3=False, inversion=False):
     """
 
+    Target insertion:
+    query:   AATTAT--GCATGGA
+    target:  AATTATAAGCATGGA    
+
     Analyze a given annotation transcript, transcript and alignment for coding insertions.
 
     mult3 controls whether only multiple of 3 or only not multiple of 3 are reported. Set to None to report all.
 
     Inversion controls whether to filter out inversions or keep them (if you are concerned about frame shifts)
+
+    """
+    prev_target_i = None
+    for query_i in xrange(len(a)):
+        target_i = t.chromosomeCoordinateToTranscript(aln.queryCoordinateToTarget(query_i))
+        if target_i is None:
+            # deletion; ignore
+            prev_target_i = target_i
+            continue
+        if prev_target_i is not None and abs(target_i - prev_target_i) != 1:
+            # jumped over a deletion
+            # make sure this is not an inversion
+            if inversion is True:
+                if t.chromosomeInterval.strand is True and target_i <= prev_target_i:
+                    continue
+                if t.chromosomeInterval.strand is False and target_i >= prev_target_i:
+                    continue
+            insertSize = abs(target_i - prev_target_i) - 1
+            start = t.transcriptCoordinateToChromosome(target_i - 1)
+            stop = t.transcriptCoordinateToChromosome(target_i)
+            if t.chromosomeCoordinateToCds(start) is not None:
+                if mult3 is True and insertSize % 3 == 0:
+                    yield start, stop, insertSize
+                elif mult3 is False and insertSize % 3 != 0:
+                    yield start, stop, insertSize
+                elif mult3 is None:
+                    yield start, stop, insertSize
+        prev_target_i = target_i
+
+
+def deletionIterator(a, t, aln, mult3=False, inversion=False):
+    """
+
+    Target deletion:
+    query:   AATTATAAGCATGGA
+    target:  AATTAT--GCATGGA
+
+    Analyze a given annotation transcript, transcript and alignment for coding deletions.
+
+    mult3 controls whether only multiple of 3 or only not multiple of 3 are reported.
+
+    Inversion controls whether to filter out inversions or keep them (if you are concerned about
+    frame shifts)
 
     """
     prev_query_i = None
@@ -20,54 +67,15 @@ def insertionIterator(a, t, aln, mult3=False, inversion=False):
             prev_query_i = query_i
             continue
         if prev_query_i is not None and abs(query_i - prev_query_i) != 1:
-            # jumped over a insertion
+            # jumped over a deletion
             # make sure this is not an inversion
             if inversion is True:
                 if t.chromosomeInterval.strand is True and query_i <= prev_query_i:
                     continue
                 if t.chromosomeInterval.strand is False and query_i >= prev_query_i:
                     continue            
-            insertSize = abs(query_i - prev_query_i) - 1
+            deleteSize = abs(query_i - prev_query_i) - 1
             start = stop = target_chrom_i
-            if t.chromosomeCoordinateToCds(start) is not None:
-                if mult3 is True and insertSize % 3 == 0:
-                    yield start, stop, insertSize
-                elif mult3 is False and insertSize % 3 != 0:
-                    yield start, stop, insertSize
-                elif mult3 is None:
-                    yield start, stop, insertSize
-        prev_query_i = query_i
-
-
-def deletionIterator(a, t, aln, mult3=False, inversion=False):
-    """
-
-    Analyze a given annotation transcript, transcript and alignment for coding deletions.
-
-    mult3 controls whether only multiple of 3 or only not multiple of 3 are reported.
-
-    Inversion controls whether to filter out inversions or keep them (if you are concerned about
-    frame shifts)
-
-    """
-    prev_target_i = None
-    for query_i in xrange(len(a)):
-        target_i = t.chromosomeCoordinateToTranscript(aln.queryCoordinateToTarget(query_i))
-        if target_i is None:
-            # insertion; ignore
-            prev_target_i = target_i
-            continue
-        if prev_target_i is not None and abs(target_i - prev_target_i) != 1:
-            # jumped over a deletion
-            # make sure this is not an inversion
-            if inversion is True:
-                if t.chromosomeInterval.strand is True and target_i <= prev_target_i:
-                    continue
-                if t.chromosomeInterval.strand is False and target_i >= prev_target_i:
-                    continue
-            deleteSize = abs(target_i - prev_target_i) - 1
-            start = t.transcriptCoordinateToChromosome(target_i - 1)
-            stop = t.transcriptCoordinateToChromosome(target_i)
             if t.chromosomeCoordinateToCds(start) is not None:
                 if mult3 is True and deleteSize % 3 == 0:
                     yield start, stop, deleteSize
@@ -75,7 +83,7 @@ def deletionIterator(a, t, aln, mult3=False, inversion=False):
                     yield start, stop, deleteSize
                 elif mult3 is None:
                     yield start, stop, deleteSize
-        prev_target_i = target_i
+        prev_query_i = query_i
 
 
 def firstIndel(a, t, aln, mult3=False, inversion=False):
