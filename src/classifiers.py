@@ -1,10 +1,12 @@
 import re
 from itertools import izip
+from collections import defaultdict, Counter
 
 from jobTree.src.bioio import logger
 
 from lib.general_lib import formatRatio
 from src.abstractClassifier import AbstractClassifier
+from src.indels import insertionIterator, deletionIterator, firstIndel
 
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
@@ -28,34 +30,6 @@ class CodingInsertions(AbstractClassifier):
     def _getType():
         return "INTEGER"
 
-    def analyzeExons(self, a, t, aln, mult3):
-        """
-        Analyze a Transcript object for coding insertions.
-        if mult3 is True, only multiple of 3 insertions are reported.
-        """
-        insertFlag = False
-        records = []
-        exonStarts = [x.start for x in a.exons]
-        prevTargetPos = None
-        for query_i in xrange(len(a)):
-            if query_i in exonStarts:
-                prevTargetPos = None
-            target_i = aln.queryCoordinateToTarget(query_i)
-            if target_i is None:
-                #found deletion
-                continue
-            if prevTargetPos is not None and abs(target_i - prevTargetPos) != 1:
-                #found insertion
-                start = min(prevTargetPos, target_i) + 1
-                stop = max(prevTargetPos, target_i)
-                if t.chromosomeCoordinateToCds(start) is not None and t.chromosomeCoordinateToCds(stop - 1) is not None:
-                    if mult3 is True and stop - start % 3 == 0:
-                        return 1
-                    elif mult3 is False and stop - start % 3 != 0:
-                        return 1
-            prevTargetPos = target_i
-        return 0
-
     def run(self, mult3=False):
         logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAnnotationDict()
@@ -66,9 +40,12 @@ class CodingInsertions(AbstractClassifier):
             if aId not in self.transcriptDict:
                 continue
             # annotated transcript coordinates are the same as query coordinates (they are the query)
-            annotated = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             transcript = self.transcriptDict[aId]
-            valueDict[aId] = self.analyzeExons(annotated, transcript, aln, mult3)
+            if insertionIterator(annotatedTranscript, transcript, aln, mult3).next() is not None:
+                valueDict[aId] = 1
+            else:
+                valueDict[aId] = 0
         logger.info(
             "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
@@ -101,29 +78,6 @@ class CodingDeletions(AbstractClassifier):
     def _getType():
         return "INTEGER"
 
-    def analyzeExons(self, a, t, aln, mult3=False):
-        deleteFlag = False
-        for query_i in xrange(len(a)):
-            target_i = aln.queryCoordinateToTarget(query_i)
-            if target_i is None and deleteFlag is False:
-                #entering deletion
-                deleteFlag = True
-                deleteSize = 1
-            elif target_i is None and deleteFlag is True:
-                #extending deletion
-                deleteSize += 1
-            elif target_i is not None and deleteFlag is True:
-                #exiting deletion
-                deleteFlag = False
-                start = target_i
-                stop = target_i + 1 #TODO: make sure this is correct
-                if t.chromosomeCoordinateToCds(start) is not None and t.chromosomeCoordinateToCds(stop - 1) is not None:
-                    if mult3 is True and deleteSize % 3 == 0:
-                        return 1
-                    elif mult3 is False and deleteSize % 3 != 0:
-                        return 1
-        return 0
-
     def run(self, mult3=False):
         logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
@@ -133,9 +87,12 @@ class CodingDeletions(AbstractClassifier):
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
+            annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             transcript = self.transcriptDict[aId]
-            annotation = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            valueDict[aId] = self.analyzeExons(annotation, transcript, aln, mult3)
+            if deletionIterator(annotatedTranscript, transcript, aln, mult3).next() is not None:
+                valueDict[aId] = 1
+            else:
+                valueDict[aId] = 0
         logger.info(
             "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
@@ -150,6 +107,41 @@ class CodingMult3Deletions(CodingDeletions):
 
     def run(self):
         CodingDeletions.run(self, mult3=True)
+
+
+class FrameShift(AbstractClassifier):
+    """
+
+    Frameshifts are caused by coding indels that are not a multiple of 3.
+
+    """
+
+    @staticmethod
+    def _getType():
+        return "TEXT"
+
+    def rgb(self):
+        return self.colors["mutation"]
+
+    def run(self):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getAlignmentDict()
+        self.getTranscriptDict()
+        self.getAnnotationDict()
+        valueDict = {}
+        for aId, aln in self.alignmentDict.iteritems():
+            if aId not in self.transcriptDict:
+                continue
+            transcript = self.transcriptDict[aId]
+            annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            f = firstIndel(annotatedTranscript, transcript, aln)
+            if f is not None:
+                valueDict[aId] = 1
+            else:
+                valueDict[aId] = 0
+        logger.info(
+            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        self.dumpValueDict(valueDict)
 
 
 class AlignmentAbutsLeft(AbstractClassifier):
@@ -218,59 +210,7 @@ class AlignmentAbutsRight(AbstractClassifier):
         logger.info(
             "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
-
-
-class AlignmentCoverage(AbstractClassifier):
-    """
-
-    Calculates alignment coverage:
-
-    (matches + mismatches) / qSize
-
-    Reports the value as a REAL between 0 and 1
-
-    """
-
-    @staticmethod
-    def _getType():
-        return "REAL"
-
-    def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
-        self.getAlignmentDict()
-        valueDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            valueDict[aId] = formatRatio(aln.matches + aln.misMatches, aln.qSize)
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
-        self.dumpValueDict(valueDict)
-
-
-class AlignmentIdentity(AbstractClassifier):
-    """
-
-    Calculates alignment identity:
-
-    matches / (matches + mismatches + query_insertions)
-
-    Reports the value as a REAL between 0 and 1
-
-    """
-
-    @staticmethod
-    def _getType():
-        return "REAL"
-
-    def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
-        self.getAlignmentDict()
-        valueDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            valueDict[aId] = formatRatio(aln.matches, aln.matches + aln.misMatches + aln.qNumInsert)
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
-        self.dumpValueDict(valueDict)
-
+        
 
 class AlignmentPartialMap(AbstractClassifier):
     """
@@ -855,3 +795,100 @@ class UtrUnknownSplice(UtrNonCanonSplice):
 
     def run(self, shortIntronSize=30):
         UtrNonCanonSplice.run(self)
+
+
+class Nonsynonymous(AbstractClassifier):
+    """
+
+    Do any base changes introduce nonsynonymous changes?
+
+    Only reports if these exist before a frameshift mutation
+
+    """
+    @staticmethod
+    def _getType():
+        return "INTEGER"
+
+    def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getTranscriptDict()
+        self.getAnnotationDict()
+        self.getSeqDict()
+        self.getRefTwoBit()
+        valueDict = {}
+        for aId in self.aIds:
+            if aId not in self.transcriptDict:
+                continue
+            t = self.transcriptDict[aId]
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            for i, target_codon, query_codon in codonPairIterator(a, t, self.seqDict, self.refTwoBit):
+                if seq_lib.codonToAminoAcid(target_codon) != seq_lib.codonToAminoAcid(query_codon):
+                    valueDict[aId] = 1
+                    break                   
+            if aId not in valueDict:
+                valueDict[aId] = 0
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        self.dumpValueDict(valueDict)
+
+
+class Synonymous(AbstractClassifier):
+    """
+
+    Do any base changes introduce nonsynonymous changes?
+
+    Only reports if these exist before a frameshift mutation
+
+    """
+    @staticmethod
+    def _getType():
+        return "INTEGER"
+
+    def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getTranscriptDict()
+        self.getAnnotationDict()
+        self.getSeqDict()
+        self.getRefTwoBit()
+        valueDict = {}
+        for aId in self.aIds:
+            if aId not in self.transcriptDict:
+                continue
+            t = self.transcriptDict[aId]
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            for i, target_codon, query_codon in codonPairIterator(a, t, self.seqDict, self.refTwoBit):
+                if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) == seq_lib.codonToAminoAcid(query_codon):
+                        valueDict[aId] = 1
+                        break
+            if aId not in valueDict:
+                valueDict[aId] = 0
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        self.dumpValueDict(valueDict)
+
+class Paralogy(AbstractClassifier):
+    """
+
+    Does this transcript appear more than once in the transcript dict?
+
+    """
+
+    @staticmethod
+    def _getType():
+        return "INTEGER"
+
+    def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getTranscriptDict()
+        counts = Counter(psl_lib.removeAlignmentNumber(aId) for aId in self.aIds if aId in self.transcriptDict)
+        valueDict = {}
+        for aId in self.aIds:
+            if aId not in self.transcriptDict:
+                continue
+            elif counts[psl_lib.removeAlignmentNumber(aId)] > 1:
+                valueDict[aId] = 1
+            else:
+                valueDict[aId] = 0
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        self.dumpValueDict(valueDict)        

@@ -95,7 +95,9 @@ class Transcript(object):
         """
         if rgb is None:
             rgb = self.rgb
-        if name is None:
+        if name is not None:
+            name += "/" + self.name
+        else:
             name = self.name
         return [self.chrom, self.start, self.stop, name, self.score, convertStrand(self.strand),
                 self.thickStart, self.thickStop, rgb, self.blockCount, self.blockSizes, 
@@ -283,9 +285,9 @@ class Transcript(object):
                 # thickStop marks the end of the CDS
                 s.append(sequence[e.start : self.thickStop])
         if not self.chromosomeInterval.strand:
-            cds = reverseComplement("".join(s))
+            cds = reverseComplement("".join(s)).upper()
         else:
-            cds = "".join(s)
+            cds = "".join(s).upper()
         self.cds = cds
         return cds
 
@@ -878,7 +880,7 @@ _codonTable = {
 def codonToAminoAcid(c):
     """
     Given a codon C, return an amino acid or ??? if codon unrecognized.
-    Codons could be unrecognized due to ambiguity IUPAC characters.
+    Codons could be unrecognized due to ambiguity in IUPAC characters.
     """
     if c is None: return None
     c = c.upper()
@@ -893,21 +895,30 @@ def translateSequence(sequence):
     space. If the sequence is not a multiple of 3 it will be truncated
     silently.
     """
-    #truncate sequence to multiple of 3
-    sequence = sequence[:len(sequence) - len(sequence) % 3]
     result = []
-    for i in xrange(0, len(sequence), 3):
+    for i in xrange(0, len(sequence)- len(sequence) % 3, 3):
         result.append(codonToAminoAcid(sequence[i : i + 3]))
     return "".join(result)
 
 
 def readCodons(seq):
     """
-    Provide an iterator that reads through a sequence one codon at a time.
+    Provides an iterator that reads through a sequence one codon at a time.
     """
-    for i in xrange(0, len(seq), 3):
-        yield seq[i:i+3]
+    l = len(seq)
+    for i in xrange(0, l, 3):
+        if i + 3 <= l:
+            yield seq[i:i + 3]
 
+def readCodonsWithPosition(seq):
+    """
+    Provides an iterator that reads through a sequence one codon at a time,
+    returning both the codon and the start position in the sequence.
+    """
+    l = len(seq)
+    for i in xrange(0, l, 3):
+        if i + 3 <= l:
+            yield i, seq[i:i + 3]
 
 def readTwoBit(file_path):
     """
@@ -1062,7 +1073,7 @@ def cdsCoordinateToBed(t, start, stop, rgb, name):
             chromStart = t.cdsCoordinateToChromosome(stop) + 1
         chromStop = t.cdsCoordinateToChromosome(start) + 1
     return chromosomeCoordinateToBed(t, chromStart, chromStop, rgb, name)
-
+        
 def chromosomeCoordinateToBed(t, start, stop, rgb, name):
     """
     Takes a transcript and start/stop coordinates in CHROMOSOME coordiante space and returns
@@ -1072,4 +1083,4 @@ def chromosomeCoordinateToBed(t, start, stop, rgb, name):
     chrom = t.chromosomeInterval.chromosome
     assert start != None and stop != None
     assert stop >= start
-    return [chrom, start, stop, name, 0, strand, start, stop, rgb, 1, stop - start, 0]
+    return [chrom, start, stop, name + "/" + t.name, 0, strand, start, stop, rgb, 1, stop - start, 0]

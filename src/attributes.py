@@ -4,6 +4,7 @@ from jobTree.src.bioio import logger
 
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
+from lib.general_lib import formatRatio
 
 
 class TranscriptId(AbstractClassifier):
@@ -225,3 +226,55 @@ class DestStrand(AbstractClassifier):
         valueDict = {aId: seq_lib.convertStrand(self.transcriptDict[aId].chromosomeInterval.strand) for aId in self.aIds
                      if aId in self.transcriptDict}
         self.dumpValueDict(valueDict)
+
+class AlignmentCoverage(AbstractClassifier):
+    """
+
+    Calculates alignment coverage:
+
+    (matches + mismatches) / qSize
+
+    Reports the value as a REAL between 0 and 1
+
+    """
+
+    @staticmethod
+    def _getType():
+        return "REAL"
+
+    def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getAlignmentDict()
+        valueDict = {}
+        for aId, aln in self.alignmentDict.iteritems():
+            valueDict[aId] = formatRatio(aln.matches + aln.misMatches, aln.qSize)
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        self.dumpValueDict(valueDict)
+
+
+class AlignmentIdentity(AbstractClassifier):
+    """
+
+    Calculates alignment identity:
+
+    matches / (matches + mismatches + query_insertions)
+
+    Reports the value as a REAL between 0 and 1
+
+    """
+
+    @staticmethod
+    def _getType():
+        return "REAL"
+
+    def run(self):
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getAlignmentDict()
+        valueDict = {}
+        for aId, aln in self.alignmentDict.iteritems():
+            valueDict[aId] = formatRatio(aln.matches, aln.matches + aln.misMatches + aln.qNumInsert)
+        logger.info(
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+        self.dumpValueDict(valueDict)
+

@@ -5,7 +5,8 @@ def mutations():
     Any transcript which has errors in the classify fields specified will not have the details shown.
     """
     detailsFields = ["CodingInsertions", "CodingDeletions", "CodingMult3Insertions", "CodingMult3Deletions",
-                     "CdsNonCanonSplice", "UtrNonCanonSplice", "CdsUnknownSplice", "UtrUnknownSplice", "CdsMult3Gap", "InFrameStop"]
+                     "CdsNonCanonSplice", "UtrNonCanonSplice", "CdsUnknownSplice", "UtrUnknownSplice", "CdsMult3Gap", "InFrameStop",
+                     "Synonymous", "Nonsynonymous"]
     classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "NoCds", 
                      "AlignmentPartialMap", "BadFrame", "CdsGap", "UtrGap"]
     classifyOperations = ["AND"] * (len(classifyFields) - 1)

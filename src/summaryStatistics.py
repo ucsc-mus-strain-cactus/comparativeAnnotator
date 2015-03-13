@@ -56,7 +56,7 @@ class SummaryStatistics(Target):
         Finds the best coverage percent for each gene and records the average.
         TODO: histogram
         """
-        cmd = """SELECT main.'{0}'.AlignmentCoverage, attributes.'{0}'.TranscriptId FROM attributes.'{0}' JOIN main.'{0}' USING ('AlignmentId') WHERE main.'{0}'.AlignmentCoverage IS NOT NULL""".format(genome)
+        cmd = """SELECT attributes.'{0}'.AlignmentCoverage, attributes.'{0}'.TranscriptId FROM attributes.'{0}' WHERE attributes.'{0}'.AlignmentCoverage IS NOT NULL""".format(genome)
         r = cur.execute(cmd).fetchall()
         t = defaultdict(float)
         for val, gene in r:
@@ -69,7 +69,7 @@ class SummaryStatistics(Target):
         Finds the best identity percent for each gene and records the average.
         TODO: histogram
         """
-        cmd = """SELECT main.'{0}'.AlignmentIdentity, attributes.'{0}'.GeneName FROM attributes.'{0}' JOIN main.'{0}' USING ('AlignmentId') WHERE main.'{0}'.AlignmentIdentity IS NOT NULL""".format(genome)
+        cmd = """SELECT attributes.'{0}'.AlignmentIdentity, attributes.'{0}'.GeneName FROM attributes.'{0}' WHERE attributes.'{0}'.AlignmentIdentity IS NOT NULL""".format(genome)
         r = cur.execute(cmd).fetchall()
         t = defaultdict(float)
         for val, gene in r:

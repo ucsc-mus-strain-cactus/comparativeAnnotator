@@ -4,15 +4,18 @@ import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
 import lib.sqlite_lib as sql_lib
 from src.abstractClassifier import AbstractClassifier
+from collections import defaultdict, Counter
+from itertools import izip
 
 
-transcripts = seq_lib.getTranscripts("../mouse_release_data/1411/C57B6NJ.gene-check.bed")
+transcripts = seq_lib.getTranscripts("../mouse_release_data/1411/AKRJ.gene-check.bed")
 transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
 annotations = seq_lib.getTranscripts("../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
 annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
-alignments = psl_lib.readPsl("../mouse_release_data/1411/C57B6NJ.filtered.psl")
+alignments = psl_lib.readPsl("../mouse_release_data/1411/AKRJ.filtered.psl")
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
-seqDict = seq_lib.readTwoBit("../mouse_release_data/1411/C57B6NJ.2bit")
+seqDict = seq_lib.readTwoBit("../mouse_release_data/1411/AKRJ.fa")
+refTwoBit = seq_lib.readTwoBit("../mouse_release_data/1411/C57B6J.2bit")
 
 
 valueDict = {}
@@ -149,7 +152,7 @@ for aId, aln in alignmentDict.iteritems():
     # query     G T A T T - - T G G A C C T
     # target    G T A T T C T T G G A C C T A A G
 
-aln = psl_lib.PslRow(simplePsl("+", 12, 0, 12, 290094216, 0, 12, [5,7], [0,5], [0,7], qName="query", tName="chr1"))
+aln = psl_lib.PslRow(psl_lib.simplePsl("+", 12, 0, 12, 290094216, 0, 12, [5,7], [0,5], [0,7], qName="query", tName="chr1"))
 t = seq_lib.Transcript(bedLine("chr1", 0, 14, "query", 1000, "+", 0, 14, "128,0,0", 2, "5,7", "0,7").split())
 a = seq_lib.Transcript(bedLine("chr1", 0, 12, "query", 1000, "+", 0, 12, "128,0,0", 1, 12, 0).split())
 
@@ -183,3 +186,40 @@ for aId, aln in alignmentDict.iteritems():
     if len(records) > 0:
         final.append(records)
     count += 1
+
+
+ ##########
+    #            0          11
+    # ref        ATGATCCAATGA  query
+    # exons       ****  ****
+    # non ref    ATGATTAA--GA  target
+    #            0          9
+    #####
+
+from lib.lib_tests import simplePsl
+aln = simplePsl('+', 8, 0, 8, 10, 1, 9, [4, 1, 1], [0, 4, 7], [1, 7, 8], qName='ensmust0', tName='test_0_nr')
+a = seq_lib.Transcript(['test_0_r', 1, 11, 'ensmust0', 0, '+', 1, 11, '128,0,0', 2, '4,4', '0,6'])
+t = seq_lib.Transcript(['test_0_nr', 1, 9, 'ensmust0', 0, '+', 1, 9, '128,0,0', 2, '4,2', '0,6'])
+
+    ##########
+    #            0          9
+    # ref        ATGATTAA--GA  query
+    # exons       ****  ****
+    # non ref    ATGATCCAATGA  target
+    #            0          11
+    #####
+
+aln = simplePsl('+', 6, 0, 6, 12, 1, 11, [4, 1, 1], [0, 4, 5], [1, 7, 10], qName='ensmust0', tName='test_0_nr')
+a = seq_lib.Transcript(['test_0_r', 1, 9, 'ensmust0', 0, '+', 1, 9, '128,0,0', 2, '4,2', '0,6'])
+t = seq_lib.Transcript(['test_0_nr', 1, 11, 'ensmust0', 0, '+', 1, 11, '128,0,0', 2, '4,4', '0,6'])
+
+#
+# 
+#  01234567891011
+#  GT--GGCCCAAA query
+#
+#  GTGGGG--CCAA target
+# THIS IS WRONG AND YOU SHOULD FIGURE OUT WHY
+aln = simplePsl("+", 10, 0, 10, 10, 0, 10, [2, 2, 4], [0, 2, 6], [0, 4, 6])
+a = seq_lib.Transcript(['test', 0, 12, "test", 0, "+", 0, 12, "128,0,0", 2, "2,8", "0,4"])
+t = seq_lib.Transcript(['test', 0, 12, "test", 0, "+", 0, 12, "128,0,0", 2, "6,4", "0,8"])

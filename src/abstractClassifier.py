@@ -36,8 +36,9 @@ class AbstractClassifier(Target):
             'mutation': '132,35,27',  # red-ish
             'assembly': '167,206,226',  # l blue
             'alignment': '35,125,191',  # blue
-            'generic': '163,116,87',  # l brown
-            'ok': '181,216,139'}  # avocado
+            'synon': '163,116,87',  # l brown
+            'nonsynon': '181,216,139',  # avocado
+            'generic': '152,156,45'} # grey-yellow
 
     def getAttributeDict(self):
         self.attributeDict = seq_lib.getTranscriptAttributeDict(self.gencodeAttributeMap)
@@ -46,8 +47,8 @@ class AbstractClassifier(Target):
         self.transcripts = seq_lib.getTranscripts(self.geneCheckBed)
         self.transcriptDict = seq_lib.transcriptListToDict(self.transcripts, noDuplicates=True)
 
-    #def getRefTwoBit(self):
-    #    self.refTwoBit = seq_lib.readTwoBit(self.refSeqTwoBit)
+    def getRefTwoBit(self):
+        self.refTwoBit = seq_lib.readTwoBit(self.refSeqTwoBit)
 
     def getSeqDict(self):
         self.seqDict = seq_lib.getSequenceDict(self.fasta)
