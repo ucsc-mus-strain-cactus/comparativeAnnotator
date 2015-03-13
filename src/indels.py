@@ -124,7 +124,7 @@ def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
 
     Yields matching codon pairs, taking into account indels. Out of frame pairs will not be returned
 
-    Order is (target_pos, target, query)
+    Order is (target_cds_pos, target, query)
     
     """
     target_cds = t.getCds(targetSeqDict)
@@ -170,4 +170,4 @@ def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
         # if we are in frame, we start yielding codon pairs
         if frame_shift is False and target_cds_i % 3 == 0:
             query_cds_i = a.transcriptCoordinateToCds(query_i)
-            yield target_i, target_cds[target_cds_i:target_cds_i + 3], query_cds[query_cds_i:query_cds_i + 3]
+            yield target_cds_i, target_cds[target_cds_i:target_cds_i + 3], query_cds[query_cds_i:query_cds_i + 3]

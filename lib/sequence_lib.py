@@ -182,6 +182,13 @@ class Transcript(object):
                 #special case - entirely non-coding
                 elif thick_start == thick_stop == 0:
                     this_cds_start, this_cds_stop, this_cds_pos = None, None, None
+                #special case - CDS starts and stops on the same exon
+                elif (thick_start >= this_chrom_start and thick_start < this_chrom_stop) and \
+                        (thick_stop > this_chrom_start and thick_stop <= this_chrom_stop):
+                    this_cds_pos = 0
+                    cds_pos = this_chrom_stop - thick_start
+                    this_cds_start = this_start + thick_start - this_chrom_start
+                    this_cds_stop = this_stop + thick_stop - this_chrom_stop
                 #is this the start codon containing exon?
                 elif thick_start >= this_chrom_start and thick_start < this_chrom_stop:
                     cds_pos = this_chrom_stop - thick_start
@@ -194,7 +201,7 @@ class Transcript(object):
                     this_cds_stop = this_stop + thick_stop - this_chrom_stop
                 #is this exon all coding?
                 elif (this_cds_stop == None and this_cds_start == None and thick_stop >= 
-                        this_chrom_stop and thick_start < this_chrom_start):
+                      this_chrom_stop and thick_start < this_chrom_start):
                     this_cds_pos = cds_pos
                     cds_pos += block_size
             else:
@@ -206,6 +213,13 @@ class Transcript(object):
                 #special case - entirely non-coding
                 elif thick_start == thick_stop == 0:
                     this_cds_start, this_cds_stop, this_cds_pos = None, None, None
+                #special case - start and stop codons are on the same exon
+                elif (thick_stop > this_chrom_start and thick_stop <= this_chrom_stop) and \
+                        (thick_start >= this_chrom_start and thick_start < this_chrom_stop):
+                    cds_pos = thick_stop - this_chrom_start
+                    this_cds_pos = 0
+                    this_cds_start = this_start + this_chrom_stop - thick_stop
+                    this_cds_stop = this_start + this_chrom_stop - thick_start
                 #is this the start codon containing exon?
                 elif thick_stop > this_chrom_start and thick_stop <= this_chrom_stop:
                     cds_pos = thick_stop - this_chrom_start
@@ -1038,20 +1052,24 @@ def transcriptCoordinateToBed(t, start, stop, rgb, name):
     Takes a transcript and start/stop coordinates in TRANSCRIPT coordinate space and returns
     a string in BED format with the specified RGB string (128,0,0 or etc) and name.
     """
-    if t.strand is True:
-        #special case - we want to slice the very last base
-        if len(t) == stop:
-            chromStop = t.transcriptCoordinateToChromosome(stop - 1) + 1
+    try:
+        if t.strand is True:
+            #special case - we want to slice the very last base
+            if len(t) == stop:
+                chromStop = t.transcriptCoordinateToChromosome(stop - 1) + 1
+            else:
+                chromStop = t.transcriptCoordinateToChromosome(stop)
+            chromStart = t.transcriptCoordinateToChromosome(start)
         else:
-            chromStop = t.transcriptCoordinateToChromosome(stop)
-        chromStart = t.transcriptCoordinateToChromosome(start)
-    else:
-        if len(t) == stop:
-            chromStart = t.transcriptCoordinateToChromosome(stop - 1)
-        else:
-            chromStart = t.transcriptCoordinateToChromosome(stop) + 1
-        chromStop = t.transcriptCoordinateToChromosome(start) + 1
-    assert chromStop >= chromStart
+            if len(t) == stop:
+                chromStart = t.transcriptCoordinateToChromosome(stop - 1)
+            else:
+                chromStart = t.transcriptCoordinateToChromosome(stop) + 1
+            chromStop = t.transcriptCoordinateToChromosome(start) + 1
+        assert chromStop >= chromStart
+    except:
+        print t.name, start, stop, name
+        assert False
     return chromosomeCoordinateToBed(t, chromStart, chromStop, rgb, name)
 
 def cdsCoordinateToBed(t, start, stop, rgb, name):
@@ -1059,19 +1077,23 @@ def cdsCoordinateToBed(t, start, stop, rgb, name):
     Takes a transcript and start/stop coordinates in CDS coordinate space and returns
     a string in BED format with the specified RGB string (128,0,0 or etc) and name.
     """
-    if t.strand is True:
-        #special case - we want to slice the very last base
-        if t.getCdsLength() == stop:
-            chromStop = t.cdsCoordinateToChromosome(stop - 1) + 1
+    try:
+        if t.strand is True:
+            #special case - we want to slice the very last base
+            if t.getCdsLength() == stop:
+                chromStop = t.cdsCoordinateToChromosome(stop - 1) + 1
+            else:
+                chromStop = t.cdsCoordinateToChromosome(stop)
+            chromStart = t.cdsCoordinateToChromosome(start)
         else:
-            chromStop = t.cdsCoordinateToChromosome(stop)
-        chromStart = t.cdsCoordinateToChromosome(start)
-    else:
-        if t.getCdsLength() == stop:
-            chromStart = t.cdsCoordinateToChromosome(stop - 1)
-        else:
-            chromStart = t.cdsCoordinateToChromosome(stop) + 1
-        chromStop = t.cdsCoordinateToChromosome(start) + 1
+            if t.getCdsLength() == stop:
+                chromStart = t.cdsCoordinateToChromosome(stop - 1)
+            else:
+                chromStart = t.cdsCoordinateToChromosome(stop) + 1
+            chromStop = t.cdsCoordinateToChromosome(start) + 1
+    except:
+        print t.name, start, stop, name
+        assert False
     return chromosomeCoordinateToBed(t, chromStart, chromStop, rgb, name)
         
 def chromosomeCoordinateToBed(t, start, stop, rgb, name):

@@ -22,7 +22,7 @@ def inFrameStop():
     return detailsFields, classifyFields, classifyValues, classifyOperations
 
 def interestingBiology():
-    detailsFields = ["InFrameStop", "CodingMult3Insertions", "CodingMult3Deletions", "CdsMult3Gap", "Frameshift"]
+    detailsFields = ["InFrameStop", "CodingMult3Insertions", "CodingMult3Deletions", "CdsMult3Gap", "Frameshift", "Nonsynonymous"]
     classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "NoCds", 
                      "AlignmentPartialMap", "BadFrame", "CdsGap", "UtrGap"]
     classifyOperations = ["AND"] * (len(classifyFields) - 1)
@@ -42,7 +42,7 @@ def alignmentErrors():
     """
     Looks for alignment errors. Reports details for all fields that are likely alignment errors.
     """
-    classifyFields = detailsFields = ["BadFrame", "CdsGap", "UtrGap"]
+    classifyFields = detailsFields = ["BadFrame", "CdsGap", "UtrGap", "Paralogy"]
     classifyOperations = ["OR"] * (len(classifyFields) - 1)
     classifyValues = [1] * len(classifyFields)
     return detailsFields, classifyFields, classifyValues, classifyOperations
