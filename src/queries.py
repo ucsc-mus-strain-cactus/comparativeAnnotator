@@ -1,3 +1,5 @@
+import src.classifiers, src.details
+from lib.general_lib import classesInModule
 
 def mutations():
     """
@@ -6,9 +8,9 @@ def mutations():
     """
     detailsFields = ["CodingInsertions", "CodingDeletions", "CodingMult3Insertions", "CodingMult3Deletions",
                      "CdsNonCanonSplice", "UtrNonCanonSplice", "CdsUnknownSplice", "UtrUnknownSplice", "CdsMult3Gap", "InFrameStop",
-                     "Synonymous", "Nonsynonymous", "Frameshift"]
+                     "Synonymous", "Nonsynonymous", "Frameshift", "CdsGap", "UtrGap"]
     classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "NoCds", 
-                     "AlignmentPartialMap", "BadFrame", "CdsGap", "UtrGap"]
+                     "AlignmentPartialMap", "BadFrame"]
     classifyOperations = ["AND"] * (len(classifyFields) - 1)
     classifyValues = [0] * len(classifyFields)
     return detailsFields, classifyFields, classifyValues, classifyOperations
@@ -19,6 +21,13 @@ def inFrameStop():
                      "AlignmentPartialMap", "BadFrame", "CdsGap", "UtrGap"]
     classifyOperations = ["AND"] * (len(classifyFields) - 1)
     classifyValues = [0] * len(classifyFields)
+    return detailsFields, classifyFields, classifyValues, classifyOperations
+
+def everything():
+    detailsFields = [x.__name__ for x in classesInModule(src.details)]
+    classifyFields = [x.__name__ for  x in classesInModule(src.classifiers)]
+    classifyOperations = ["OR"] * (len(classifyFields) - 1)
+    classifyValues = [1] * len(classifyFields)
     return detailsFields, classifyFields, classifyValues, classifyOperations
 
 def interestingBiology():

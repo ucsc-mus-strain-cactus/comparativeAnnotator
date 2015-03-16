@@ -379,13 +379,16 @@ class CdsGap(AbstractClassifier):
         logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         valueDict = {}
+        r = None
         for aId in self.aIds:
             if aId not in self.transcriptDict:
                 continue
             if mult3 is True:
-                valueDict[aId] = self.mult3(self.transcriptDict[aId], shortIntronSize)
+                r = self.mult3(self.transcriptDict[aId], shortIntronSize)
             else:
-                valueDict[aId] = self.notMult3(self.transcriptDict[aId], shortIntronSize)
+                r = self.notMult3(self.transcriptDict[aId], shortIntronSize)
+            if r is not None:
+                valueDict[aId] = r
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)

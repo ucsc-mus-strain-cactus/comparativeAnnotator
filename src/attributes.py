@@ -243,13 +243,13 @@ class AlignmentCoverage(AbstractClassifier):
         return "REAL"
 
     def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting attribute analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             valueDict[aId] = formatRatio(aln.matches + aln.misMatches, aln.qSize)
         logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+            "Attribute {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -275,6 +275,6 @@ class AlignmentIdentity(AbstractClassifier):
         for aId, aln in self.alignmentDict.iteritems():
             valueDict[aId] = formatRatio(aln.matches, aln.matches + aln.misMatches + aln.qNumInsert)
         logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+            "Attribute {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
