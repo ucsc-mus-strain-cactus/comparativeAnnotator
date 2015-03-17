@@ -70,7 +70,7 @@ class ConstructDatabases(Target):
             if entry is None:
                 yield None, aId
             elif type(entry) == list and len(entry) == 0:
-                raise RuntimeError "Empty list came out of database. What did you do wrong?"
+                raise RuntimeError("Empty list came out of database. What did you do wrong?")
             elif type(entry[0]) != list:
                 #only one entry
                 yield "\t".join(map(str,entry)), aId
