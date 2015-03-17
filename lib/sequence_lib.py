@@ -1037,7 +1037,7 @@ def intervalToBed(t, interval, rgb, name):
     Interval objects should always have start <= stop (+ strand chromosome ordering)
     """
     assert interval.stop >= interval.start
-    return [interval.chromosome, interval.start, interval.stop, name, 0, 
+    return [interval.chromosome, interval.start, interval.stop, name + "/" + t.name, 0, 
             convertStrand(interval.strand), interval.start, interval.stop, rgb,
             1, interval.stop - interval.start, 0]
 

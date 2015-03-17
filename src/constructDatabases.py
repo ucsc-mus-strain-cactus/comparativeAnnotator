@@ -34,6 +34,7 @@ class ConstructDatabases(Target):
         for detail, genome in product(self.details, self.genomes):
             #detailDict = pickle.load(open(os.path.join(self.getGlobalTempDir(), detail.__name__ + genome), "rb"))
             detailDict = pickle.load(open(os.path.join(self.outDir, "details", genome, detail.__name__ + genome), "rb"))
+            print "HERE", detail.__name__ 
             self.simpleBedUpdateWrapper(detailDict, detailsDb, genome, detail.__name__)
         for attribute, genome in product(self.attributes, self.genomes):
             #attributeDict = pickle.load(open(os.path.join(self.getGlobalTempDir(), attribute.__name__ + genome), "rb"))
@@ -68,6 +69,8 @@ class ConstructDatabases(Target):
         for aId, entry in valueIter:
             if entry is None:
                 yield None, aId
+            elif type(entry) == list and len(entry) == 0:
+                raise RuntimeError "Empty list came out of database. What did you do wrong?"
             elif type(entry[0]) != list:
                 #only one entry
                 yield "\t".join(map(str,entry)), aId

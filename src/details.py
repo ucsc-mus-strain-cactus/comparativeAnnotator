@@ -44,11 +44,11 @@ class CodingInsertions(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            insertions = list(insertionIterator(a, t, aln, mult3))
+            insertions = [seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, size in insertionIterator(a, t, aln, mult3) if t.chromosomeCoordinateToCds(start) != None and t.chromosomeCoordinateToCds(stop) != None]
             if len(insertions) > 0:
-                valueDict[aId] = [seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, size in insertions if t.chromosomeCoordinateToCds(start) != None and t.chromosomeCoordinateToCds(stop) != None]
-        logger.info(
-            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+                valueDict[aId] = insertions
+            logger.info(
+                "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -94,9 +94,9 @@ class CodingDeletions(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            deletions = list(deletionIterator(a, t, aln, mult3))
+            deletions = insertions = [seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, size in deletionIterator(a, t, aln, mult3) if t.chromosomeCoordinateToCds(start) != None]
             if len(deletions) > 0:
-                valueDict[aId] = [seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, size in deletions if t.chromosomeCoordinateToCds(start) != None]
+                valueDict[aId] = deletions
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
