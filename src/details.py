@@ -44,7 +44,7 @@ class CodingInsertions(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            insertions = [seq_lib.chromosomeCoordinateToBed(t, start, stop, "128,0,0", "A") for start, stop, size in insertionIterator(a, t, aln, mult3, inversion=True) if start >= t.thickStart and stop <= t.thickStop]
+            insertions = [seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, size in insertionIterator(a, t, aln, mult3, inversion=True) if start >= t.thickStart and stop <= t.thickStop]
             if len(insertions) > 0:
                 valueDict[aId] = insertions
             logger.info(
@@ -94,7 +94,7 @@ class CodingDeletions(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            deletions = [seq_lib.chromosomeCoordinateToBed(t, start, stop, "128,0,0", "A") for start, stop, size in deletionIterator(a, t, aln, mult3, inversion=True) if start >= t.thickStart and stop <= t.thickStop]            
+            deletions = [seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, size in deletionIterator(a, t, aln, mult3, inversion=True) if start >= t.thickStart and stop <= t.thickStop]            
             if len(deletions) > 0:
                 valueDict[aId] = deletions
         logger.info(
@@ -357,6 +357,8 @@ class CdsGap(AbstractClassifier):
                         records.append(seq_lib.intervalToBed(t, intronIntervals[i], self.rgb(), self.getColumn()))
         if len(records) > 0:
             return records
+        else:
+            return None
 
     def notMult3(self, t, shortIntronSize):
         records = []
@@ -373,6 +375,8 @@ class CdsGap(AbstractClassifier):
                         records.append(seq_lib.intervalToBed(t, intronIntervals[i], self.rgb(), self.getColumn()))
         if len(records) > 0:
             return records
+        else:
+            return None
 
     def run(self, mult3=False, shortIntronSize=30):
         logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
