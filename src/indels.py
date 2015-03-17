@@ -92,7 +92,7 @@ def firstIndel(a, t, aln, mult3=False, inversion=False):
 
     Makes use of deletionIterator and insertionIterator to find the first indel in an alignment.
 
-    If mult3 and inversion are False, this will be the first frameshift.
+    If mult3 is False, this will be the first frameshift.
 
     """
     firstDeletion = next(deletionIterator(a, t, aln, mult3, inversion), None)

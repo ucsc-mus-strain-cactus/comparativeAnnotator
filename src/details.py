@@ -44,7 +44,7 @@ class CodingInsertions(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            insertions = [seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, size in insertionIterator(a, t, aln, mult3) if t.chromosomeCoordinateToCds(start) != None and t.chromosomeCoordinateToCds(stop) != None]
+            insertions = [seq_lib.chromosomeCoordinateToBed(t, start, stop, "128,0,0", "A") for start, stop, size in insertionIterator(a, t, aln, mult3, inversion=True) if start >= t.thickStart and stop <= t.thickStop]
             if len(insertions) > 0:
                 valueDict[aId] = insertions
             logger.info(
@@ -94,7 +94,7 @@ class CodingDeletions(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            deletions = insertions = [seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, size in deletionIterator(a, t, aln, mult3) if t.chromosomeCoordinateToCds(start) != None]
+            deletions = [seq_lib.chromosomeCoordinateToBed(t, start, stop, "128,0,0", "A") for start, stop, size in deletionIterator(a, t, aln, mult3, inversion=True) if start >= t.thickStart and stop <= t.thickStop]            
             if len(deletions) > 0:
                 valueDict[aId] = deletions
         logger.info(
