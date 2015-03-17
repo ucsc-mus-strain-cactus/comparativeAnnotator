@@ -66,7 +66,7 @@ def buildAnalyses(target, alnPslDict, fastaDict, refSeqTwoBit, geneCheckBedDict,
             target.addChildTarget(
                 a(genome, alnPsl, fasta, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
                   primaryKeyColumn, outDir, "attributes"))
-            #merge the resulting pickled files into sqlite databases
+        # merge the resulting pickled files into sqlite databases
     target.setFollowOnTargetFn(databaseWrapper, args=(
     outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn, 
     dataDir, geneCheckBedDict, annotationBed))

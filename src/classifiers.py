@@ -40,9 +40,10 @@ class CodingInsertions(AbstractClassifier):
             if aId not in self.transcriptDict:
                 continue
             # annotated transcript coordinates are the same as query coordinates (they are the query)
-            annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            transcript = self.transcriptDict[aId]
-            if next(insertionIterator(annotatedTranscript, transcript, aln, mult3), None) == None:
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            t = self.transcriptDict[aId]
+            i = [[start, stop, size] for start, stop, size in insertionIterator(a, t, aln, mult3, inversion=True) if t.chromosomeCoordinateToCds(start) != None and t.chromosomeCoordinateToCds(stop) != None]
+            if len(i) == 0:
                 valueDict[aId] = 0
             else:
                 valueDict[aId] = 1
@@ -87,9 +88,10 @@ class CodingDeletions(AbstractClassifier):
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
-            annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            transcript = self.transcriptDict[aId]
-            if next(deletionIterator(annotatedTranscript, transcript, aln, mult3), None) == None:
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            t = self.transcriptDict[aId]
+            i = [[start, stop, size] for start, stop, size in deletionIterator(a, t, aln, mult3, inversion=True) if t.chromosomeCoordinateToCds(start) != None]
+            if len(i) == 0:
                 valueDict[aId] = 0
             else:
                 valueDict[aId] = 1

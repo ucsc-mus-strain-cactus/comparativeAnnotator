@@ -20,7 +20,7 @@ export PATH:=./sonLib/bin:./submodules/jobTree/bin:./hal/bin/:${PATH}
 1412genomes = Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ CAROLIEiJ PAHARIEiJ
 1411genomes = Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ
 refGenome = C57B6J
-testgenomes = C57B6NJ FVBNJ
+testgenomes = C57B6NJ AKRJ
 
 1411dataDir = /hive/users/ifiddes/mouse_release_data/1411
 1412dataDir = /hive/users/ifiddes/mouse_release_data/1412

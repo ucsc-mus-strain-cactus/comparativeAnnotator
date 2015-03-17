@@ -14,9 +14,13 @@ annotations = seq_lib.getTranscripts("../mouse_release_data/wgEncodeGencodeBasic
 annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
 alignments = psl_lib.readPsl("../mouse_release_data/1411/AKRJ.filtered.psl")
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
-seqDict = seq_lib.readTwoBit("../mouse_release_data/1411/AKRJ.fa")
+seqDict = seq_lib.readTwoBit("../mouse_release_data/1411/AKRJ.2bit")
 refTwoBit = seq_lib.readTwoBit("../mouse_release_data/1411/C57B6J.2bit")
 
+aId = "ENSMUST00000114167.2-1"
+a = annotationDict[aId[:-2]]
+t = transcriptDict[aId]
+aln = alignmentDict[aId]
 
 valueDict = {}
 for aId, aln in alignmentDict.iteritems():
@@ -189,6 +193,7 @@ for aId, aln in alignmentDict.iteritems():
 
 
  ##########
+    # DELETION
     #            0          11
     # ref        ATGATCCAATGA  query
     # exons       ****  ****
@@ -202,6 +207,7 @@ a = seq_lib.Transcript(['test_0_r', 1, 11, 'ensmust0', 0, '+', 1, 11, '128,0,0',
 t = seq_lib.Transcript(['test_0_nr', 1, 9, 'ensmust0', 0, '+', 1, 9, '128,0,0', 2, '4,2', '0,6'])
 
     ##########
+    # INSERTION
     #            0          9
     # ref        ATGATTAA--GA  query
     # exons       ****  ****
@@ -213,13 +219,15 @@ aln = simplePsl('+', 6, 0, 6, 12, 1, 11, [4, 1, 1], [0, 4, 5], [1, 7, 10], qName
 a = seq_lib.Transcript(['test_0_r', 1, 9, 'ensmust0', 0, '+', 1, 9, '128,0,0', 2, '4,2', '0,6'])
 t = seq_lib.Transcript(['test_0_nr', 1, 11, 'ensmust0', 0, '+', 1, 11, '128,0,0', 2, '4,4', '0,6'])
 
-#
-# 
-#  01234567891011
-#  GT--GGCCCAAA query
-#
-#  GTGGGG--CCAA target
-# THIS IS WRONG AND YOU SHOULD FIGURE OUT WHY
-aln = simplePsl("+", 10, 0, 10, 10, 0, 10, [2, 2, 4], [0, 2, 6], [0, 4, 6])
-a = seq_lib.Transcript(['test', 0, 12, "test", 0, "+", 0, 12, "128,0,0", 2, "2,8", "0,4"])
-t = seq_lib.Transcript(['test', 0, 12, "test", 0, "+", 0, 12, "128,0,0", 2, "6,4", "0,8"])
+    ##########
+    # DELETION ON BOUNDARY
+    #            0          11
+    # ref        ATGATCCAATGA  query
+    # exons       ****  ****
+    # non ref    ATGATTA--AGA  target
+    #            0          9
+    #####
+
+aln = simplePsl('+', 8, 0, 8, 10, 1, 9, [4, 2], [0, 6], [1, 7], qName='ensmust0', tName='test_0_nr')
+a = seq_lib.Transcript(['test_0_r', 1, 11, 'ensmust0', 0, '+', 1, 11, '128,0,0', 2, '4,4', '0,6'])
+t = seq_lib.Transcript(['test_0_nr', 1, 9, 'ensmust0', 0, '+', 1, 9, '128,0,0', 2, '4,2', '0,6'])
