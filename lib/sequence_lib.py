@@ -995,6 +995,7 @@ def tokenizeBedStream(bedStream):
             tokens = line.split()
             yield tokens
 
+
 def tokenizeGenePredStream(genePredStream):
     """
     Iterator through gene pred file, returning lines as list of tokens
@@ -1004,6 +1005,7 @@ def tokenizeGenePredStream(genePredStream):
             tokens = line.split("\t")
             tokens[-1].rstrip()
             yield tokens
+
 
 def transcriptIterator(transcriptsBedStream):
     """
@@ -1031,6 +1033,7 @@ def getTranscriptAttributeDict(attributeFile):
                     transcriptID, transcriptType)
     return attribute_dict
 
+
 def intervalToBed(t, interval, rgb, name):
     """
     If you are turning interval objects into BED records, look here. t is a transcript object.
@@ -1041,11 +1044,13 @@ def intervalToBed(t, interval, rgb, name):
             convertStrand(interval.strand), interval.start, interval.stop, rgb,
             1, interval.stop - interval.start, 0]
 
+
 def transcriptToBed(t, rgb, name):
     """
     Convenience function for pulling BED tokens from a Transcript object.
     """
     return t.getBed(rgb, name)
+
 
 def transcriptCoordinateToBed(t, start, stop, rgb, name):
     """
@@ -1053,15 +1058,19 @@ def transcriptCoordinateToBed(t, start, stop, rgb, name):
     a string in BED format with the specified RGB string (128,0,0 or etc) and name.
     """
     try:
+        exonStops = [x.stop for x in t.exons]
         if t.strand is True:
-            #special case - we want to slice the very last base
-            if len(t) == stop:
+            # special case - we want to slice the very last base of a exon
+            # we have to do this because the last base effectively has two coordinates - the slicing coordinate
+            # and the actual coordinate. This is because you slice one further than you want, I.E. x[:3] returns
+            # 3 bases, but x[3] is the 4th item.
+            if stop in exonStops:
                 chromStop = t.transcriptCoordinateToChromosome(stop - 1) + 1
             else:
                 chromStop = t.transcriptCoordinateToChromosome(stop)
             chromStart = t.transcriptCoordinateToChromosome(start)
         else:
-            if len(t) == stop:
+            if stop in exonStops:
                 chromStart = t.transcriptCoordinateToChromosome(stop - 1)
             else:
                 chromStart = t.transcriptCoordinateToChromosome(stop) + 1
@@ -1072,21 +1081,30 @@ def transcriptCoordinateToBed(t, start, stop, rgb, name):
         assert False
     return chromosomeCoordinateToBed(t, chromStart, chromStop, rgb, name)
 
+
 def cdsCoordinateToBed(t, start, stop, rgb, name):
     """
     Takes a transcript and start/stop coordinates in CDS coordinate space and returns
     a string in BED format with the specified RGB string (128,0,0 or etc) and name.
     """
     try:
+        exonStops = [t.transcriptCoordinateToCds(x.stop) for x in t.exons[:-1]]
+        # the last exonstop will be None because it is a slicing stop, so adjust it.
+        for x in t.exons:
+            if x.cdsStop is not None:
+                exonStops.append(t.transcriptCoordinateToCds(x.cdsStop - 1) + 1)
         if t.strand is True:
-            #special case - we want to slice the very last base
-            if t.getCdsLength() == stop:
+            # special case - we want to slice the very last base of a exon
+            # we have to do this because the last base effectively has two coordinates - the slicing coordinate
+            # and the actual coordinate. This is because you slice one further than you want, I.E. x[:3] returns
+            # 3 bases, but x[3] is the 4th item.
+            if stop in exonStops:
                 chromStop = t.cdsCoordinateToChromosome(stop - 1) + 1
             else:
                 chromStop = t.cdsCoordinateToChromosome(stop)
             chromStart = t.cdsCoordinateToChromosome(start)
         else:
-            if t.getCdsLength() == stop:
+            if stop in exonStops:
                 chromStart = t.cdsCoordinateToChromosome(stop - 1)
             else:
                 chromStart = t.cdsCoordinateToChromosome(stop) + 1
@@ -1096,6 +1114,7 @@ def cdsCoordinateToBed(t, start, stop, rgb, name):
         assert False
     return chromosomeCoordinateToBed(t, chromStart, chromStop, rgb, name)
         
+
 def chromosomeCoordinateToBed(t, start, stop, rgb, name):
     """
     Takes a transcript and start/stop coordinates in CHROMOSOME coordiante space and returns

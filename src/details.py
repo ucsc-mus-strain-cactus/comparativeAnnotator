@@ -882,7 +882,7 @@ class Nonsynonymous(AbstractClassifier):
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
                 if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) != seq_lib.codonToAminoAcid(query_codon):
-                    valueDict[aId].append(seq_lib.cdsCoordinateToBed(t, i - 3, i, self.rgb(), self.getColumn()))
+                    valueDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
@@ -916,9 +916,10 @@ class Synonymous(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            # this is a hack to deal with the CDS coordinate bug. You need to seriously consider refactoring.
             for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
                 if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) == seq_lib.codonToAminoAcid(query_codon):
-                        valueDict[aId].append(seq_lib.cdsCoordinateToBed(t, i - 3, i, self.rgb(), self.getColumn()))
+                    valueDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)

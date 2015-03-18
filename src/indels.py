@@ -14,7 +14,7 @@ def insertionIterator(a, t, aln, mult3=False, inversion=False):
     If inversion is True, inversions are ignored.
     """
     prev_target_i = None
-    exon_starts = [x.start for x in t.exons]
+    exon_starts = [x.start for x in a.exons]
     for query_i in xrange(len(a)):
         if query_i in exon_starts:
             # don't call a intron an insertion
@@ -75,7 +75,7 @@ def deletionIterator(a, t, aln, mult3=False, inversion=False):
                     continue
                 if t.chromosomeInterval.strand is False and query_i >= prev_query_i:
                     prev_query_i = query_i
-                    continue            
+                    continue
             deleteSize = abs(query_i - prev_query_i) - 1
             start = stop = target_chrom_i
             if mult3 is True and deleteSize % 3 == 0:
@@ -172,9 +172,4 @@ def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
         # if we are in frame, we start yielding codon pairs
         if frame_shift is False and target_cds_i % 3 == 0:
             query_cds_i = a.transcriptCoordinateToCds(query_i)
-            yield target_cds_i, target_cds[target_cds_i - 3:target_cds_i], query_cds[query_cds_i - 3:query_cds_i]
-        # handle case where last base is the stop codon
-        elif frame_shift is False and target_cds_i == len(target_cds) - 1 and (target_cds_i + 1) % 3 == 0:
-            query_cds_i = a.transcriptCoordinateToCds(query_i) + 1
-            target_cds_i += 1
-            yield target_cds_i, target_cds[target_cds_i - 3:target_cds_i], query_cds[query_cds_i - 3:query_cds_i]
+            yield target_cds_i - 3, target_cds[target_cds_i - 3:target_cds_i], query_cds[query_cds_i - 3:query_cds_i]
