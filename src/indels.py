@@ -116,6 +116,20 @@ def firstIndel(a, t, aln, mult3=False, inversion=False):
     return None
 
 
+def frameShiftIterator(a, t, aln):
+    """
+
+    Yields frameshift-causing mutations. These are defined as non mult3 indels within CDS.
+
+    """
+    deletions = list(deletionIterator(a, t, aln, mult3=False, inversion=False))
+    insertions = list(insertionIterator(a, t, aln, mult3=False, inversion=False))
+    if len(deletions) == 0 and len(insertions) == 0:
+        yield None
+    for start, stop, span in sorted(deletions + insertions, key = lambda x: x[0]):
+        yield start, stop, span
+
+
 def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
     """
 

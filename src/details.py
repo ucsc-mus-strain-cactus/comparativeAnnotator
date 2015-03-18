@@ -9,7 +9,7 @@ from src.abstractClassifier import AbstractClassifier
 
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
-from src.indels import deletionIterator, insertionIterator, firstIndel, codonPairIterator
+from src.indels import deletionIterator, insertionIterator, frameShiftIterator, codonPairIterator
 
 
 class CodingInsertions(AbstractClassifier):
@@ -137,12 +137,12 @@ class FrameShift(AbstractClassifier):
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
-            transcript = self.transcriptDict[aId]
-            annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            f = firstIndel(annotatedTranscript, transcript, aln, mult3=False, inversion=False)
-            if f is not None:
-                start, stop, size = f
-                valueDict[aId] = seq_lib.chromosomeCoordinateToBed(transcript, start, stop, self.rgb(), self.getColumn())
+            t = self.transcriptDict[aId]
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            for f in frameShiftIterator(a, t, aln):
+                if f is not None:
+                    start, stop, size = f
+                    valueDict[aId] = seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn())
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)

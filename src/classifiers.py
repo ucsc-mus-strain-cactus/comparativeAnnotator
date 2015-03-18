@@ -6,7 +6,7 @@ from jobTree.src.bioio import logger
 
 from lib.general_lib import formatRatio
 from src.abstractClassifier import AbstractClassifier
-from src.indels import insertionIterator, deletionIterator, firstIndel, codonPairIterator
+from src.indels import insertionIterator, deletionIterator, frameShiftIterator, codonPairIterator
 
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
@@ -126,7 +126,7 @@ class FrameShift(AbstractClassifier):
         return self.colors["mutation"]
 
     def run(self):
-        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
         self.getAnnotationDict()
@@ -134,15 +134,15 @@ class FrameShift(AbstractClassifier):
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
-            transcript = self.transcriptDict[aId]
-            annotatedTranscript = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            f = firstIndel(annotatedTranscript, transcript, aln, mult3=False, inversion=False)
+            t = self.transcriptDict[aId]
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            f = next(frameShiftIterator(a, t, aln), None)
             if f is not None:
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
         logger.info(
-            "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
+            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
