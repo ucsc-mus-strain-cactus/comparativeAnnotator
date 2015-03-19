@@ -113,11 +113,11 @@ class CodingMult3Deletions(CodingDeletions):
         CodingDeletions.run(self, mult3=True)
 
 
-class FrameShift(AbstractClassifier):
+class FrameMismatch(AbstractClassifier):
     """
 
     Frameshifts are caused by coding indels that are not a multiple of 3. Reports a BED entry
-    for the first frameshifting indel in this alignment.
+    spanning all blocks of coding bases that are frame-shifted.
 
     """
 
@@ -139,10 +139,22 @@ class FrameShift(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            for f in frameShiftIterator(a, t, aln):
-                if f is not None:
-                    start, stop, size = f
-                    valueDict[aId] = seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn())
+            s = list(frameShiftIterator(a, t, aln))
+            if len(s) == 0:
+                continue
+            elif len(s) == 1:
+                start, stop, size = s[0]
+                valueDict[aId] = seq_lib.chromosomeCoordinateToBed(t, start, t.stop, self.rgb(), self.getColumn())
+            else:
+                tmp = []
+                for i in xrange(1, len(s), 2):
+                    start = s[i-1][0]
+                    stop = s[i][1]
+                    tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
+                if i % 2 != 0:
+                    start = s[-1][0]
+                    tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, t.stop, self.rgb(), self.getColumn()))
+                valueDict[aId] = tmp
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
@@ -695,12 +707,10 @@ class UnknownBases(AbstractClassifier):
             t = self.transcriptDict[aId]
             if cds is True:
                 s = t.getCds(self.seqDict)
-                for m in re.finditer(r, s):
-                        valueDict[aId] = seq_lib.cdsCoordinateToBed(t, m.start(), m.end(), self.rgb(), self.getColumn())
+                valueDict[aId] = [seq_lib.cdsCoordinateToBed(t, m.start(), m.end(), self.rgb(), self.getColumn()) for m in re.finditer(r, s)]
             else:
                 s = t.getMRna(self.seqDict)
-                for m in re.finditer(r, s):
-                        valueDict[aId] = seq_lib.transcriptCoordinateToBed(t, m.start(), m.end(), self.rgb(), self.getColumn())
+                valueDict[aId] = [seq_lib.transcriptCoordinateToBed(t, m.start(), m.end(), self.rgb(), self.getColumn()) for m in re.finditer(r, s)]
         logger.info(
             "Details {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
@@ -916,7 +926,6 @@ class Synonymous(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            # this is a hack to deal with the CDS coordinate bug. You need to seriously consider refactoring.
             for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
                 if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) == seq_lib.codonToAminoAcid(query_codon):
                     valueDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))

@@ -111,7 +111,7 @@ class CodingMult3Deletions(CodingDeletions):
         CodingDeletions.run(self, mult3=True)
 
 
-class FrameShift(AbstractClassifier):
+class FrameMismatch(AbstractClassifier):
     """
 
     Frameshifts are caused by coding indels that are not a multiple of 3.

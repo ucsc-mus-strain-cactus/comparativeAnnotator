@@ -231,3 +231,93 @@ t = seq_lib.Transcript(['test_0_nr', 1, 11, 'ensmust0', 0, '+', 1, 11, '128,0,0'
 aln = simplePsl('+', 8, 0, 8, 10, 1, 9, [4, 2], [0, 6], [1, 7], qName='ensmust0', tName='test_0_nr')
 a = seq_lib.Transcript(['test_0_r', 1, 11, 'ensmust0', 0, '+', 1, 11, '128,0,0', 2, '4,4', '0,6'])
 t = seq_lib.Transcript(['test_0_nr', 1, 9, 'ensmust0', 0, '+', 1, 9, '128,0,0', 2, '4,2', '0,6'])
+
+
+
+def getBed(t, rgb=None, name=None, start_offset=None, stop_offset=None):
+    """
+    Returns this transcript as a BED record with optional changes to rgb and name.
+    If start_offset or stop_offset are set (chromosome coordinates), then this record will be changed to only 
+    show results within that region, which is defined in chromosome coordinates.
+    """
+assert start_offset < stop_offset
+if rgb is None:
+    rgb = t.rgb
+if name is not None:
+    name += "/" + t.name
+else:
+    name = t.name
+if start_offset is None and stop_offset is None:
+    return [t.chrom, t.start, t.stop, name, t.score, convertStrand(t.strand), t.thickStart, t.thickStop, rgb, 
+            t.blockCount, t.blockSizes, t.blockStarts]
+
+def _moveStart(exonIntervals, blockCount, blockStarts, blockSizes, start, start_offset):
+    toRemove = len([x for x in t.exonIntervals if x.start <= start_offset and x.stop <= start_offset])
+    if toRemove > 0:
+        blockCount -= toRemove
+        blockSizes = blockSizes[toRemove:]
+        start += blockStarts[toRemove]
+        new_block_starts = [0]
+        for i in xrange(toRemove, len(blockStarts) - 1):
+            new_block_starts.append(blockStarts[i + 1] - blockStarts[i] + new_block_starts[-1])
+        blockStarts = new_block_starts
+    if start_offset > start:
+        blockSizes[0] += start - start_offset
+        blockStarts[1:] = [x + start - start_offset for x in blockStarts[1:]]
+        start = start_offset
+    return start, blockCount, blockStarts, blockSizes
+
+
+def _moveStop(exonIntervals, blockCount, blockStarts, blockSizes, stop, start, stop_offset):
+    toRemove = len([x for x in t.exonIntervals if x.stop >= stop_offset and x.start >= stop_offset])
+    if toRemove > 0:
+        blockCount -= toRemove
+        blockSizes = blockSizes[:-toRemove]
+        blockStarts = blockStarts[:-toRemove]
+        stop = start + blockSizes[-1] + blockStarts[-1]
+    if stop_offset < stop and stop_offset > start + blockStarts[-1]:
+        blockSizes[-1] = stop_offset - start - blockStarts[-1] 
+        stop = stop_offset
+    return stop, blockCount, blockStarts, blockSizes
+    
+
+import os
+
+import lib.sequence_lib as seq_lib
+import lib.psl_lib as psl_lib
+import lib.sqlite_lib as sql_lib
+from src.abstractClassifier import AbstractClassifier
+from collections import defaultdict, Counter
+from itertools import izip
+
+
+test = "chr1 100 10000 test 0 + 100 10000 128,0,0 5 100,150,100,1000,3000 0,1000,3000,4000,6900"
+t = seq_lib.Transcript(test.split())
+" ".join(map(str,t.getBed(start_offset=1150,name="start_1150")))
+" ".join(map(str,t.getBed(stop_offset=7500,name="stop_7500")))
+" ".join(map(str,t.getBed(stop_offset=4500,name="stop_4500")))
+" ".join(map(str,t.getBed(stop_offset=4500,start_offset=1150,name="stop_4500_start_1150")))
+" ".join(map(str,t.getBed(stop_offset=6500,start_offset=3000,name="stop_6500_start_3000")))
+" ".join(map(str,t.getBed(stop_offset=6500,start_offset=3000,name="stop_4500_start_3000")))
+
+
+
+blockCount = int(t.blockCount)
+blockStarts = map(int, t.blockStarts.split(","))
+blockSizes = map(int, t.blockSizes.split(","))
+start = t.start
+stop = t.stop
+thickStart = t.thickStart
+thickStop = t.thickStop
+
+if start_offset is not None and start_offset > start:
+    start, blockCount, blockStarts, blockSizes = _moveStart(t.exonIntervals, blockCount, blockStarts, blockSizes, start, start_offset)
+if stop_offset is not None and stop_offset > stop:
+    stop, blockCount, blockStarts, blockSizes = _moveStop(t.exonIntervals, blockCount, blockStarts, blockSizes, stop, stop_offset)
+if start > thickStart:
+    thickStart = start
+if stop < thickStop:
+    thickStop = stop
+return [t.chrom, start, stop, name, t.score, convertStrand(t.strand), thickStart, thickStop, rgb, blockCount,
+        blockSizes, blockStarts]
+

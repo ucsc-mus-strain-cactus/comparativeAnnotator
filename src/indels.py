@@ -79,41 +79,12 @@ def deletionIterator(a, t, aln, mult3=False, inversion=False):
             deleteSize = abs(query_i - prev_query_i) - 1
             start = stop = target_chrom_i
             if mult3 is True and deleteSize % 3 == 0:
-                yield start, stop, deleteSize
+                yield start, stop, -deleteSize
             elif mult3 is False and deleteSize % 3 != 0:
-                yield start, stop, deleteSize
+                yield start, stop, -deleteSize
             elif mult3 is None:
-                yield start, stop, deleteSize
+                yield start, stop, -deleteSize
         prev_query_i = query_i
-
-
-def firstIndel(a, t, aln, mult3=False, inversion=False):
-    """
-
-    Makes use of deletionIterator and insertionIterator to find the first indel in an alignment.
-
-    If mult3 is False, this will be the first frameshift.
-
-    """
-    firstDeletion = next(deletionIterator(a, t, aln, mult3, inversion), None)
-    firstInsertion = next(insertionIterator(a, t, aln, mult3, inversion), None)
-    if firstDeletion is not None and firstInsertion is not None:
-        # who happens first?
-        if t.chromosomeInterval.strand is True:
-            if firstInsertion > firstDeletion:
-                return firstInsertion
-            else:
-                return firstDeletion                       
-        else:
-            if firstInsertion < firstDeletion:
-                return firstInsertion
-            else:
-                return firstDeletion
-    elif firstDeletion is not None:
-        return firstDeletion
-    elif firstInsertion is not None:                                       
-        return firstInsertion
-    return None
 
 
 def frameShiftIterator(a, t, aln):
@@ -147,42 +118,22 @@ def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
     query_cds = a.getCds(querySeqDict)
     if len(target_cds) == 0 or len(query_cds) == 0:
         yield None
-    # dicts mapping starts of indels to their size
-    # deletions are stored as a negative value
-    deletions = list(deletionIterator(a, t, aln, mult3=False, inversion=False))
-    insertions = list(insertionIterator(a, t, aln, mult3=False, inversion=False))
-    if len(deletions) > 0:
-        deletions = {start : -int(size) for start, stop, size in deletions}
-    if len(insertions) > 0:
-        insertions = {start : int(size) for start, stop, size in insertions}
+    frame_shifts = list(frameShiftIterator(a, t, aln))
+    if len(frame_shifts) > 0:
+        frame_shifts = {start: size for start, stop, size in frame_shifts}
     frame_shift = False
     # iterate over the cds looking for codon pairs
     for target_cds_i in xrange(1, len(target_cds)):
         target_i = t.cdsCoordinateToChromosome(target_cds_i)
         query_i = aln.targetCoordinateToQuery(target_i)
         # the if statements below determine if we are moving in or out of frame
-        if frame_shift is False and target_i in insertions:
-            # entering frame shift with insertion
+        if frame_shift is False and target_i in frame_shifts:
             frame_shift = True
-            shift_size = insertions[target_i]
-        elif frame_shift is False and target_i in deletions:
-            # entering frame shift with deletion
-            frame_shift = True
-            shift_size = deletions[target_i]
-        elif frame_shift is True and target_i in insertions:
-            # next frame shift - did we rescue?
-            shift_size += insertions[target_i]
+            shift_size = frame_shifts[target_i]
+        elif frame_shift is True and target_i in frame_shifts:
+            shift_size += frame_shifts[target_i]
             if shift_size % 3 == 0:
-                # rescued frame shift, we are back in frame
                 frame_shift = False
-                shift_size = 0
-        elif frame_shift is True and target_i in deletions:
-            # next frame shift - did we rescue?
-            shift_size += deletions[target_i]
-            if shift_size % 3 == 0:
-                # rescued frame shift, we are back in frame
-                frame_shift = False
-                shift_size = 0
         # if we are in frame, we start yielding codon pairs
         if frame_shift is False and target_cds_i % 3 == 0:
             query_cds_i = a.transcriptCoordinateToCds(query_i)

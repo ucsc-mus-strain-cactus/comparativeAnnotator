@@ -89,19 +89,76 @@ class Transcript(object):
         return '%s_%s_%d_%d' % (self.name, self.chromosomeInterval.chromosome, 
                 self.chromosomeInterval.start, self.chromosomeInterval.stop)
 
-    def getBed(self, rgb=None, name=None):
+    def getBed(self, rgb=None, name=None, start_offset=None, stop_offset=None):
         """
-        Returns this transcript as a BED record with optional changes to rgb and name
+        Returns this transcript as a BED record with optional changes to rgb and name.
+        If start_offset or stop_offset are set (chromosome coordinates), then this record will be changed to only 
+        show results within that region, which is defined in chromosome coordinates.
         """
+        if start_offset is not None and stop_offset is not None:
+            assert start_offset < stop_offset
+        if start_offset is not None:
+            assert start_offset > self.start
+        if stop_offset is not None:
+            assert stop_offset < self.stop
         if rgb is None:
             rgb = self.rgb
         if name is not None:
             name += "/" + self.name
         else:
             name = self.name
-        return [self.chrom, self.start, self.stop, name, self.score, convertStrand(self.strand),
-                self.thickStart, self.thickStop, rgb, self.blockCount, self.blockSizes, 
-                self.blockStarts]
+        if start_offset is None and stop_offset is None:
+            return [self.chrom, self.start, self.stop, name, self.score, convertStrand(self.strand), self.thickStart, self.thickStop, rgb, 
+                    self.blockCount, self.blockSizes, self.blockStarts]
+        
+        def _moveStart(exonIntervals, blockCount, blockStarts, blockSizes, start, start_offset):
+            toRemove = len([x for x in exonIntervals if x.start <= start_offset and x.stop <= start_offset])
+            if toRemove > 0:
+                blockCount -= toRemove
+                blockSizes = blockSizes[toRemove:]
+                start += blockStarts[toRemove]
+                new_block_starts = [0]
+                for i in xrange(toRemove, len(blockStarts) - 1):
+                    new_block_starts.append(blockStarts[i + 1] - blockStarts[i] + new_block_starts[-1])
+                blockStarts = new_block_starts
+            if start_offset > start:
+                blockSizes[0] += start - start_offset
+                blockStarts[1:] = [x + start - start_offset for x in blockStarts[1:]]
+                start = start_offset
+            return start, blockCount, blockStarts, blockSizes
+        
+        def _moveStop(exonIntervals, blockCount, blockStarts, blockSizes, stop, start, stop_offset):
+            toRemove = len([x for x in exonIntervals if x.stop >= stop_offset and x.start >= stop_offset])
+            if toRemove > 0:
+                blockCount -= toRemove
+                blockSizes = blockSizes[:-toRemove]
+                blockStarts = blockStarts[:-toRemove]
+                stop = start + blockSizes[-1] + blockStarts[-1]
+            if stop_offset < stop and stop_offset > start + blockStarts[-1]:
+                blockSizes[-1] = stop_offset - start - blockStarts[-1] 
+                stop = stop_offset
+            return stop, blockCount, blockStarts, blockSizes
+        
+        blockCount = int(self.blockCount)
+        blockStarts = map(int, self.blockStarts.split(","))
+        blockSizes = map(int, self.blockSizes.split(","))
+        start = self.start
+        stop = self.stop
+        thickStart = self.thickStart
+        thickStop = self.thickStop
+        
+        if start_offset is not None:
+            start, blockCount, blockStarts, blockSizes = _moveStart(self.exonIntervals, blockCount, blockStarts, blockSizes, start, start_offset)
+        if stop_offset is not None:
+            stop, blockCount, blockStarts, blockSizes = _moveStop(self.exonIntervals, blockCount, blockStarts, blockSizes, stop, start, stop_offset)
+        if start > thickStart:
+            thickStart = start
+        if stop < thickStop:
+            thickStop = stop
+        blockStarts = ",".join(map(str, blockStarts))
+        blockSizes = ",".join(map(str, blockSizes))
+        return [self.chrom, start, stop, name, self.score, convertStrand(self.strand), thickStart, thickStop, rgb, blockCount,
+                blockSizes, blockStarts]
 
     def _getExonIntervals(self, bed_tokens):
         """
@@ -578,6 +635,7 @@ class Exon(object):
 
     def __len__(self):
         return self.stop - self.start
+        
 
     def containsChromPos(self, p):
         """does this exon contain a given chromosome position?"""
@@ -1055,7 +1113,7 @@ def transcriptToBed(t, rgb, name):
 def transcriptCoordinateToBed(t, start, stop, rgb, name):
     """
     Takes a transcript and start/stop coordinates in TRANSCRIPT coordinate space and returns
-    a string in BED format with the specified RGB string (128,0,0 or etc) and name.
+    a list in BED format with the specified RGB string (128,0,0 or etc) and name.
     """
     try:
         exonStops = [x.stop for x in t.exons]
@@ -1085,7 +1143,7 @@ def transcriptCoordinateToBed(t, start, stop, rgb, name):
 def cdsCoordinateToBed(t, start, stop, rgb, name):
     """
     Takes a transcript and start/stop coordinates in CDS coordinate space and returns
-    a string in BED format with the specified RGB string (128,0,0 or etc) and name.
+    a list in BED format with the specified RGB string (128,0,0 or etc) and name.
     """
     try:
         exonStops = [t.transcriptCoordinateToCds(x.stop) for x in t.exons[:-1]]
@@ -1117,8 +1175,8 @@ def cdsCoordinateToBed(t, start, stop, rgb, name):
 
 def chromosomeCoordinateToBed(t, start, stop, rgb, name):
     """
-    Takes a transcript and start/stop coordinates in CHROMOSOME coordiante space and returns
-    a string in BED format with the specified RGB string and name.
+    Takes a transcript and start/stop coordinates in CHROMOSOME coordinate space and returns
+    a list in BED format with the specified RGB string and name.
     """
     strand = convertStrand(t.chromosomeInterval.strand)
     chrom = t.chromosomeInterval.chromosome
@@ -1128,4 +1186,4 @@ def chromosomeCoordinateToBed(t, start, stop, rgb, name):
     except:
         print t.name, start, stop, name
         assert False
-    return [chrom, start, stop, name + "/" + t.name, 0, strand, start, stop, rgb, 1, stop - start, 0]
+    return t.getBed(start_offset=start, stop_offset=stop)
