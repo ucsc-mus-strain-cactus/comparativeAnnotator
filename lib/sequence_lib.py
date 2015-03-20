@@ -161,6 +161,9 @@ class Transcript(object):
             thickStart = start
         if stop < thickStop:
             thickStop = stop
+        if (start > thickStop and stop > thickStop) or (start < thickStart and stop < thickStart):
+            thickStart = 0
+            thickStop = 0
         blockStarts = ",".join(map(str, blockStarts))
         blockSizes = ",".join(map(str, blockSizes))
         return [self.chrom, start, stop, name, self.score, convertStrand(self.strand), thickStart, thickStop, rgb, blockCount,
@@ -1180,7 +1183,7 @@ def chromosomeCoordinateToBed(t, start, stop, rgb, name):
     chrom = t.chromosomeInterval.chromosome
     assert start != None and stop != None, (t.name, start, stop, name)
     assert stop >= start, (t.name, start, stop, name)
-    return t.getBed(start_offset=start, stop_offset=stop)
+    return t.getBed(name=name, rgb=rgb, start_offset=start, stop_offset=stop)
 
 
 def chromosomeRegionToBed(t, start, stop, rgb, name):

@@ -47,8 +47,6 @@ class CodingInsertions(AbstractClassifier):
                 valueDict[aId] = 0
             else:
                 valueDict[aId] = 1
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -95,8 +93,6 @@ class CodingDeletions(AbstractClassifier):
                 valueDict[aId] = 0
             else:
                 valueDict[aId] = 1
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -141,8 +137,6 @@ class FrameMismatch(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -175,8 +169,6 @@ class AlignmentAbutsLeft(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -209,8 +201,6 @@ class AlignmentAbutsRight(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
         
 
@@ -238,8 +228,6 @@ class AlignmentPartialMap(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -269,8 +257,6 @@ class BadFrame(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -308,8 +294,6 @@ class BeginStart(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -367,8 +351,6 @@ class CdsGap(AbstractClassifier):
                 valueDict[aId] = self.mult3(self.transcriptDict[aId], shortIntronSize)
             else:
                 valueDict[aId] = self.notMult3(self.transcriptDict[aId], shortIntronSize)
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -428,8 +410,6 @@ class CdsNonCanonSplice(AbstractClassifier):
                             break
             if aId not in valueDict:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -500,8 +480,6 @@ class EndStop(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -538,8 +516,6 @@ class InFrameStop(AbstractClassifier):
                         valueDict[aId] = 1
             if aId not in valueDict:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -574,8 +550,6 @@ class NoCds(AbstractClassifier):
                     valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -621,8 +595,6 @@ class ScaffoldGap(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -658,8 +630,6 @@ class UnknownBases(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -713,8 +683,6 @@ class UtrGap(AbstractClassifier):
                         break
             if aId not in valueDict:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -767,8 +735,6 @@ class UtrNonCanonSplice(AbstractClassifier):
                             valueDict[aId] = 1
             if aId not in valueDict:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -835,8 +801,6 @@ class Nonsynonymous(AbstractClassifier):
                     break                   
             if aId not in valueDict:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -871,8 +835,6 @@ class Synonymous(AbstractClassifier):
                         break
             if aId not in valueDict:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 class Paralogy(AbstractClassifier):
@@ -898,6 +860,4 @@ class Paralogy(AbstractClassifier):
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
-        logger.info(
-            "Classify {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)        
