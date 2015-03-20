@@ -42,7 +42,7 @@ class CodingInsertions(AbstractClassifier):
             # annotated transcript coordinates are the same as query coordinates (they are the query)
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             t = self.transcriptDict[aId]
-            i = [[start, stop, size] for start, stop, size in insertionIterator(a, t, aln, mult3, inversion=True) if t.chromosomeCoordinateToCds(start) != None and t.chromosomeCoordinateToCds(stop) != None]
+            i = [[start, stop, size] for start, stop, size in insertionIterator(a, t, aln, mult3, inversion=True) if start >= t.thickStart and stop <= t.thickStop]
             if len(i) == 0:
                 valueDict[aId] = 0
             else:
@@ -90,7 +90,7 @@ class CodingDeletions(AbstractClassifier):
                 continue
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             t = self.transcriptDict[aId]
-            i = [[start, stop, size] for start, stop, size in deletionIterator(a, t, aln, mult3, inversion=True) if t.chromosomeCoordinateToCds(start) != None]
+            i = [[start, stop, size] for start, stop, size in deletionIterator(a, t, aln, mult3, inversion=True) if start >= t.thickStart and stop <= t.thickStop]
             if len(i) == 0:
                 valueDict[aId] = 0
             else:
@@ -614,9 +614,9 @@ class ScaffoldGap(AbstractClassifier):
         self.getAlignmentDict()
         self.getSeqDict()
         valueDict = {}
-        r = re.compile("[N]{100}")
+        r = re.compile("[atgcATGC][nN]{100}[atgcATGC]")
         for aId, aln in self.alignmentDict.iteritems():
-            destSeq = self.seqDict[aln.tName][aln.tStart: aln.tEnd].upper()
+            destSeq = self.seqDict[aln.tName][aln.tStart: aln.tEnd]
             if re.search(r, destSeq) is not None:
                 valueDict[aId] = 1
             else:
@@ -654,7 +654,7 @@ class UnknownBases(AbstractClassifier):
                 s = t.getCds(self.seqDict)
             else:
                 s = t.getMRna(self.seqDict)
-            if "N" in s:
+            if "N" in s or "n" in s:
                 valueDict[aId] = 1
             else:
                 valueDict[aId] = 0
@@ -703,9 +703,12 @@ class UtrGap(AbstractClassifier):
                 intronIntervals = t.intronIntervals[::-1]
             else:
                 intronIntervals = t.intronIntervals            
-            for i in xrange(len(t.intronIntervals)):
-                if t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is False:
-                    if len(intronIntervals[i]) <= shortIntronSize:
+            for i, interval in enumerate(t.intronIntervals):
+                if len(interval) <= shortIntronSize:
+                    # make sure this intron is in UTR
+                    if (t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is False) or \
+                       (t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is False) or \
+                       (t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is True):
                         valueDict[aId] = 1
                         break
             if aId not in valueDict:
@@ -756,7 +759,9 @@ class UtrNonCanonSplice(AbstractClassifier):
                 #make sure this intron is long enough
                 if len(seq) > shortIntronSize:
                     # make sure this intron is NOT between coding exons
-                    if not (t.exons[i].containsCds() and t.exons[i + 1].containsCds()):
+                    if (t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is False) or \
+                       (t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is False) or \
+                       (t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is True):
                         bad = self.badSplice(seq[:2], seq[-2:])
                         if bad == 1:
                             valueDict[aId] = 1

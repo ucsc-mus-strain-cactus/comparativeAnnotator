@@ -638,11 +638,11 @@ class ScaffoldGap(AbstractClassifier):
         self.getSeqDict()
         self.getTranscriptDict()
         valueDict = {}
-        r = re.compile("[atgcATGC][N]{100}[atgcATGC]")
+        r = re.compile("[atgcATGC][nN]{100}[atgcATGC]")
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
-            destSeq = self.seqDict[aln.tName][aln.tStart: aln.tEnd].upper()
+            destSeq = self.seqDict[aln.tName][aln.tStart:aln.tEnd]
             if re.search(r, destSeq) is not None:
                 t = self.transcriptDict[aId]
                 valueDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn())
@@ -679,10 +679,12 @@ class UnknownBases(AbstractClassifier):
             t = self.transcriptDict[aId]
             if cds is True:
                 s = t.getCds(self.seqDict)
-                valueDict[aId] = [seq_lib.cdsCoordinateToBed(t, m.start(), m.end(), self.rgb(), self.getColumn()) for m in re.finditer(r, s)]
+                tmp = [seq_lib.cdsCoordinateToBed(t, m.start(), m.end(), self.rgb(), self.getColumn()) for m in re.finditer(r, s)]
             else:
                 s = t.getMRna(self.seqDict)
-                valueDict[aId] = [seq_lib.transcriptCoordinateToBed(t, m.start(), m.end(), self.rgb(), self.getColumn()) for m in re.finditer(r, s)]
+                tmp = [seq_lib.transcriptCoordinateToBed(t, m.start(), m.end(), self.rgb(), self.getColumn()) for m in re.finditer(r, s)]
+            if len(tmp) > 0:
+                valueDict[aId] = tmp
         self.dumpValueDict(valueDict)
 
 
@@ -729,11 +731,14 @@ class UtrGap(AbstractClassifier):
                 intronIntervals = t.intronIntervals[::-1]
             else:
                 intronIntervals = t.intronIntervals
-            for i in xrange(len(intronIntervals)):
-                if t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is False:
-                    if len(intronIntervals[i]) <= shortIntronSize:
+            for i, interval in enumerate(intronIntervals):
+                if len(interval) <= shortIntronSize:
+                    # make sure this intron is in UTR
+                    if (t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is False) or \
+                       (t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is False) or \
+                       (t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is True):
                         valueDict[aId].append(
-                            seq_lib.intervalToBed(t, intronIntervals[i], self.rgb(), self.getColumn()))
+                            seq_lib.intervalToBed(t, interval, self.rgb(), self.getColumn()))
         self.dumpValueDict(valueDict)
 
 
@@ -786,7 +791,9 @@ class UtrNonCanonSplice(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             for i, seq in enumerate(t.intronSequenceIterator(self.seqDict)):
-                if not t.exons[i].containsCds() and not t.exons[i + 1].containsCds():
+                if (t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is False) or \
+                   (t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is False) or \
+                   (t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is True):
                     if t.chromosomeInterval.strand is False:
                         if self.badSplice(reverseComplement(seq[:2]), reverseComplement(seq[-2:])) == True:
                             valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
