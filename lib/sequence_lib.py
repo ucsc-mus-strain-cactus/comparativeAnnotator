@@ -96,11 +96,11 @@ class Transcript(object):
         show results within that region, which is defined in chromosome coordinates.
         """
         if start_offset is not None and stop_offset is not None:
-            assert start_offset < stop_offset
+            assert start_offset <= stop_offset
         if start_offset is not None:
-            assert start_offset > self.start
+            assert start_offset >= self.start
         if stop_offset is not None:
-            assert stop_offset < self.stop
+            assert stop_offset <= self.stop
         if rgb is None:
             rgb = self.rgb
         if name is not None:
@@ -108,11 +108,16 @@ class Transcript(object):
         else:
             name = self.name
         if start_offset is None and stop_offset is None:
-            return [self.chrom, self.start, self.stop, name, self.score, convertStrand(self.strand), self.thickStart, self.thickStop, rgb, 
-                    self.blockCount, self.blockSizes, self.blockStarts]
+            return [self.chrom, self.start, self.stop, name, self.score, convertStrand(self.strand), self.thickStart, 
+                    self.thickStop, rgb, self.blockCount, self.blockSizes, self.blockStarts]
+        elif start_offset == stop_offset:
+            assert self.chromosomeCoordinateToTranscript(start_offset) is not None #no intron records
+            return [self.chrom, start_offset, stop_offset, name, self.score, convertStrand(self.strand), start_offset, 
+                    stop_offset, rgb, 1, 0, 0]
         
         def _moveStart(exonIntervals, blockCount, blockStarts, blockSizes, start, start_offset):
             toRemove = len([x for x in exonIntervals if x.start <= start_offset and x.stop <= start_offset])
+            assert toRemove < len(exonIntervals)
             if toRemove > 0:
                 blockCount -= toRemove
                 blockSizes = blockSizes[toRemove:]
@@ -129,6 +134,7 @@ class Transcript(object):
         
         def _moveStop(exonIntervals, blockCount, blockStarts, blockSizes, stop, start, stop_offset):
             toRemove = len([x for x in exonIntervals if x.stop >= stop_offset and x.start >= stop_offset])
+            assert toRemove < len(exonIntervals)
             if toRemove > 0:
                 blockCount -= toRemove
                 blockSizes = blockSizes[:-toRemove]
@@ -147,9 +153,9 @@ class Transcript(object):
         thickStart = self.thickStart
         thickStop = self.thickStop
         
-        if start_offset is not None:
+        if start_offset is not None and start_offset > start:
             start, blockCount, blockStarts, blockSizes = _moveStart(self.exonIntervals, blockCount, blockStarts, blockSizes, start, start_offset)
-        if stop_offset is not None:
+        if stop_offset is not None and stop_offset > stop and stop_offset > stop:
             stop, blockCount, blockStarts, blockSizes = _moveStop(self.exonIntervals, blockCount, blockStarts, blockSizes, stop, start, stop_offset)
         if start > thickStart:
             thickStart = start
@@ -1115,28 +1121,24 @@ def transcriptCoordinateToBed(t, start, stop, rgb, name):
     Takes a transcript and start/stop coordinates in TRANSCRIPT coordinate space and returns
     a list in BED format with the specified RGB string (128,0,0 or etc) and name.
     """
-    try:
-        exonStops = [x.stop for x in t.exons]
-        if t.strand is True:
-            # special case - we want to slice the very last base of a exon
-            # we have to do this because the last base effectively has two coordinates - the slicing coordinate
-            # and the actual coordinate. This is because you slice one further than you want, I.E. x[:3] returns
-            # 3 bases, but x[3] is the 4th item.
-            if stop in exonStops:
-                chromStop = t.transcriptCoordinateToChromosome(stop - 1) + 1
-            else:
-                chromStop = t.transcriptCoordinateToChromosome(stop)
-            chromStart = t.transcriptCoordinateToChromosome(start)
+    exonStops = [x.stop for x in t.exons]
+    if t.strand is True:
+        # special case - we want to slice the very last base of a exon
+        # we have to do this because the last base effectively has two coordinates - the slicing coordinate
+        # and the actual coordinate. This is because you slice one further than you want, I.E. x[:3] returns
+        # 3 bases, but x[3] is the 4th item.
+        if stop in exonStops:
+            chromStop = t.transcriptCoordinateToChromosome(stop - 1) + 1
         else:
-            if stop in exonStops:
-                chromStart = t.transcriptCoordinateToChromosome(stop - 1)
-            else:
-                chromStart = t.transcriptCoordinateToChromosome(stop) + 1
-            chromStop = t.transcriptCoordinateToChromosome(start) + 1
-        assert chromStop >= chromStart
-    except:
-        print t.name, start, stop, name
-        assert False
+            chromStop = t.transcriptCoordinateToChromosome(stop)
+        chromStart = t.transcriptCoordinateToChromosome(start)
+    else:
+        if stop in exonStops:
+            chromStart = t.transcriptCoordinateToChromosome(stop - 1)
+        else:
+            chromStart = t.transcriptCoordinateToChromosome(stop) + 1
+        chromStop = t.transcriptCoordinateToChromosome(start) + 1
+    assert chromStop >= chromStart, (t.name, start, stop, name)
     return chromosomeCoordinateToBed(t, chromStart, chromStop, rgb, name)
 
 
@@ -1145,38 +1147,46 @@ def cdsCoordinateToBed(t, start, stop, rgb, name):
     Takes a transcript and start/stop coordinates in CDS coordinate space and returns
     a list in BED format with the specified RGB string (128,0,0 or etc) and name.
     """
-    try:
-        exonStops = [t.transcriptCoordinateToCds(x.stop) for x in t.exons[:-1]]
-        # the last exonstop will be None because it is a slicing stop, so adjust it.
-        for x in t.exons:
-            if x.cdsStop is not None:
-                exonStops.append(t.transcriptCoordinateToCds(x.cdsStop - 1) + 1)
-        if t.strand is True:
-            # special case - we want to slice the very last base of a exon
-            # we have to do this because the last base effectively has two coordinates - the slicing coordinate
-            # and the actual coordinate. This is because you slice one further than you want, I.E. x[:3] returns
-            # 3 bases, but x[3] is the 4th item.
-            if stop in exonStops:
-                chromStop = t.cdsCoordinateToChromosome(stop - 1) + 1
-            else:
-                chromStop = t.cdsCoordinateToChromosome(stop)
-            chromStart = t.cdsCoordinateToChromosome(start)
+    exonStops = [t.transcriptCoordinateToCds(x.stop) for x in t.exons[:-1]]
+    # the last exonstop will be None because it is a slicing stop, so adjust it.
+    for x in t.exons:
+        if x.cdsStop is not None:
+            exonStops.append(t.transcriptCoordinateToCds(x.cdsStop - 1) + 1)
+    if t.strand is True:
+        # special case - we want to slice the very last base of a exon
+        # we have to do this because the last base effectively has two coordinates - the slicing coordinate
+        # and the actual coordinate. This is because you slice one further than you want, I.E. x[:3] returns
+        # 3 bases, but x[3] is the 4th item.
+        if stop in exonStops:
+            chromStop = t.cdsCoordinateToChromosome(stop - 1) + 1
         else:
-            if stop in exonStops:
-                chromStart = t.cdsCoordinateToChromosome(stop - 1)
-            else:
-                chromStart = t.cdsCoordinateToChromosome(stop) + 1
-            chromStop = t.cdsCoordinateToChromosome(start) + 1
-    except:
-        print t.name, start, stop, name
-        assert False
+            chromStop = t.cdsCoordinateToChromosome(stop)
+        chromStart = t.cdsCoordinateToChromosome(start)
+    else:
+        if stop in exonStops:
+            chromStart = t.cdsCoordinateToChromosome(stop - 1)
+        else:
+            chromStart = t.cdsCoordinateToChromosome(stop) + 1
+        chromStop = t.cdsCoordinateToChromosome(start) + 1
     return chromosomeCoordinateToBed(t, chromStart, chromStop, rgb, name)
-        
+
 
 def chromosomeCoordinateToBed(t, start, stop, rgb, name):
     """
     Takes a transcript and start/stop coordinates in CHROMOSOME coordinate space and returns
     a list in BED format with the specified RGB string and name.
+    """
+    strand = convertStrand(t.chromosomeInterval.strand)
+    chrom = t.chromosomeInterval.chromosome
+    assert start != None and stop != None, (t.name, start, stop, name)
+    assert stop >= start, (t.name, start, stop, name)
+    return t.getBed(start_offset=start, stop_offset=stop)
+
+
+def chromosomeRegionToBed(t, start, stop, rgb, name):
+    """
+    This is different from chromosomeCoordinateToBed - this function will not resize the BED information
+    for the input transcript, but instead be any coordinate on the chromosome.
     """
     strand = convertStrand(t.chromosomeInterval.strand)
     chrom = t.chromosomeInterval.chromosome
@@ -1186,4 +1196,6 @@ def chromosomeCoordinateToBed(t, start, stop, rgb, name):
     except:
         print t.name, start, stop, name
         assert False
-    return t.getBed(start_offset=start, stop_offset=stop)
+    return [chrom, start, stop, name + "/" + t.name, 0, strand, start, stop, rgb, 1, stop - start, 0]        
+
+

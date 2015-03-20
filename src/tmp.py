@@ -8,13 +8,13 @@ from collections import defaultdict, Counter
 from itertools import izip
 
 
-transcripts = seq_lib.getTranscripts("../mouse_release_data/1411/AKRJ.gene-check.bed")
+transcripts = seq_lib.getTranscripts("../mouse_release_data/1411/C57B6NJ.gene-check.bed")
 transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
 annotations = seq_lib.getTranscripts("../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
 annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
-alignments = psl_lib.readPsl("../mouse_release_data/1411/AKRJ.filtered.psl")
+alignments = psl_lib.readPsl("../mouse_release_data/1411/C57B6NJ.filtered.psl")
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
-seqDict = seq_lib.readTwoBit("../mouse_release_data/1411/AKRJ.2bit")
+seqDict = seq_lib.readTwoBit("../mouse_release_data/1411/C57B6NJ.2bit")
 refTwoBit = seq_lib.readTwoBit("../mouse_release_data/1411/C57B6J.2bit")
 
 aId = "ENSMUST00000114167.2-1"
@@ -299,7 +299,7 @@ t = seq_lib.Transcript(test.split())
 " ".join(map(str,t.getBed(stop_offset=4500,start_offset=1150,name="stop_4500_start_1150")))
 " ".join(map(str,t.getBed(stop_offset=6500,start_offset=3000,name="stop_6500_start_3000")))
 " ".join(map(str,t.getBed(stop_offset=6500,start_offset=3000,name="stop_4500_start_3000")))
-
+" ".join(map(str,t.getBed(start_offset=1150, stop_offset=1200,name="start_1150_stop1200")))
 
 
 blockCount = int(t.blockCount)
@@ -312,7 +312,7 @@ thickStop = t.thickStop
 
 if start_offset is not None and start_offset > start:
     start, blockCount, blockStarts, blockSizes = _moveStart(t.exonIntervals, blockCount, blockStarts, blockSizes, start, start_offset)
-if stop_offset is not None and stop_offset > stop:
+if stop_offset is not None and stop_offset > stop and stop_offset > stop:
     stop, blockCount, blockStarts, blockSizes = _moveStop(t.exonIntervals, blockCount, blockStarts, blockSizes, stop, stop_offset)
 if start > thickStart:
     thickStart = start
@@ -321,3 +321,98 @@ if stop < thickStop:
 return [t.chrom, start, stop, name, t.score, convertStrand(t.strand), thickStart, thickStop, rgb, blockCount,
         blockSizes, blockStarts]
 
+
+valueDict = {}
+for aId, aln in alignmentDict.iteritems():
+    if aId not in transcriptDict:
+        continue
+    t = transcriptDict[aId]
+    a = annotationDict[psl_lib.removeAlignmentNumber(aId)]
+    s = list(frameShiftIterator(a, t, aln))
+    if len(s) == 0:
+        continue
+    elif len(s) == 1:
+        start, stop, size = s[0]
+        valueDict[aId] = seq_lib.chromosomeCoordinateToBed(t, start, t.stop, "128,0,0", "A")
+    else:
+        tmp = []
+        for i in xrange(1, len(s), 2):
+            start = s[i-1][0]
+            stop = s[i][1]
+            tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, "128,0,0", "A"))
+        if i % 2 != 0:
+            start = s[-1][0]
+            tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, t.stop, "128,0,0", "A"))
+        valueDict[aId] = tmp
+
+
+
+
+import os
+import argparse
+
+from jobTree.scriptTree.target import Target
+from jobTree.scriptTree.stack import Stack
+from jobTree.src.bioio import setLoggingFromOptions, system, logger
+from lib.general_lib import FileType, DirType, FullPaths, classesInModule
+import lib.sqlite_lib as sql_lib
+
+import src.classifiers, src.details, src.attributes
+from src.constructDatabases import ConstructDatabases
+from src.buildTracks import BuildTracks
+
+
+genomes_1412 = "C57B6J Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ CAROLIEiJ PAHARIEiJ"
+genomes_1412 = genomes_1412.split()
+
+genomes_1411 = "Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ"
+genomes_1411 = genomes_1411.split()
+
+genomes_test = "C57B6NJ AKRJ"
+genomes_test = genomes_test.split()
+
+# hard coded file extension types that we are looking for
+alignment_ext = ".filtered.psl"
+sequence_ext = ".fa"
+gene_check_ext = ".gene-check.bed"
+
+import src.classifiers, src.details, src.attributes
+
+classifiers = classesInModule(src.classifiers)
+details = classesInModule(src.details)
+attributes = classesInModule(src.attributes)
+
+def parseDir(genomes, targetDir, ext):
+    pathDict = {}
+    for g in genomes:
+        path = os.path.join(targetDir, g + ext)
+        if not os.path.exists(path):
+            raise RuntimeError("{} does not exist".format(path))
+        pathDict[g] = path
+    return pathDict
+
+geneCheckBedDict = parseDir(genomes_1411, "../mouse_release_data/1411", gene_check_ext)
+
+p = BuildTracks("1411_output", genomes_1411, classifiers, details, attributes, "AlignmentId", "../mouse_release_data/1411", geneCheckBedDict, "../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
+
+p.run()
+
+
+geneCheckBedDict = parseDir(genomes_1412, "../mouse_release_data/1412", gene_check_ext)
+
+p2 = BuildTracks("1412_output", genomes_1412, classifiers, details, attributes, "AlignmentId", "../mouse_release_data/1412", geneCheckBedDict, "../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
+
+geneCheckBedDict = parseDir(genomes_test, "../mouse_release_data/1411", gene_check_ext)
+
+p2.run()
+
+p3 = BuildTracks("test_output", genomes_test, classifiers, details, attributes, "AlignmentId", "../mouse_release_data/1411", geneCheckBedDict, "../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
+
+bigBedDirs=`/bin/ls -1d 1412_output/bedfiles/* | paste -s -d ","`
+python hal/assemblyHub/hal2assemblyHub.py /hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1412/cactus/1412.hal 1412_trackHub  --jobTree 1412_haljobtree --finalBigBedDirs ${bigBedDirs} --batchSystem=singleMachine --stats --shortLabel 1412 --longLabel 1412 --hub 1412 --maxThreads 20 &> 1412.log &
+
+bigBedDirs=`/bin/ls -1d 1411_output/bedfiles/* | paste -s -d ","`
+python hal/assemblyHub/hal2assemblyHub.py /cluster/home/jcarmstr/public_html/mouseBrowser_1411/1411.hal 1411_GPIP_trackHub --jobTree 1411_haljobtree --finalBigBedDirs ${bigBedDirs} --batchSystem=singleMachine --stats --shortLabel 1411_GPIP --longLabel 1411_GPIP --hub 1411_GPIP --maxThreads 20
+
+bigBedDirs=`/bin/ls -1d test_output/bedfiles/* | paste -s -d ","`
+python hal/assemblyHub/hal2assemblyHub.py /cluster/home/jcarmstr/public_html/mouseBrowser_1411/1411.hal test_trackHub  --jobTree test_haljobtree --finalBigBedDirs ${bigBedDirs} --batchSystem=singleMachine --stats --shortLabel test --longLabel test --hub test --maxThreads 30 &> test.log &
