@@ -414,5 +414,10 @@ python hal/assemblyHub/hal2assemblyHub.py /hive/groups/recon/projs/mus_strain_ca
 bigBedDirs=`/bin/ls -1d 1411_output/bedfiles/* | paste -s -d ","`
 python hal/assemblyHub/hal2assemblyHub.py /cluster/home/jcarmstr/public_html/mouseBrowser_1411/1411.hal 1411_GPIP_trackHub --jobTree 1411_haljobtree --finalBigBedDirs ${bigBedDirs} --batchSystem=singleMachine --stats --shortLabel 1411_GPIP --longLabel 1411_GPIP --hub 1411_GPIP --maxThreads 20
 
-bigBedDirs=`/bin/ls -1d test_output/bedfiles/* | paste -s -d ","`
+export PYTHONPATH=./:${PYTHONPATH}
+export PATH=./sonLib/bin:./submodules/jobTree/bin:./hal/bin/:${PATH}
+
+bigBedDirs="test_output/bedfiles/transMap,test_output/bedfiles/everything,test_output/bedfiles/GPIP"
 python hal/assemblyHub/hal2assemblyHub.py /cluster/home/jcarmstr/public_html/mouseBrowser_1411/1411.hal test_trackHub  --jobTree test_haljobtree --finalBigBedDirs ${bigBedDirs} --batchSystem=singleMachine --stats --shortLabel test --longLabel test --hub test --maxThreads 30 &> test.log &
+
+for f in /cluster/home/ifiddes/ifiddes_hive/mus_strain_cactus/pipeline/results_1411/*/*details*; do n=`echo $f | cut -d "/" -f 9 | cut -d "." -f 2`; mkdir $n; bedToBigBed $f ~/ifiddes_hive/mouse_release_data/1411/$n.chrom.sizes $n/$n.bb; done

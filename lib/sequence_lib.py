@@ -155,7 +155,7 @@ class Transcript(object):
         
         if start_offset is not None and start_offset > start:
             start, blockCount, blockStarts, blockSizes = _moveStart(self.exonIntervals, blockCount, blockStarts, blockSizes, start, start_offset)
-        if stop_offset is not None and stop_offset > stop and stop_offset > stop:
+        if stop_offset is not None and stop_offset < stop:
             stop, blockCount, blockStarts, blockSizes = _moveStop(self.exonIntervals, blockCount, blockStarts, blockSizes, stop, start, stop_offset)
         if start > thickStart:
             thickStart = start
