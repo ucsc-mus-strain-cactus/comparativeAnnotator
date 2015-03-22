@@ -139,6 +139,10 @@ class Transcript(object):
                 blockCount -= toRemove
                 blockSizes = blockSizes[:-toRemove]
                 blockStarts = blockStarts[:-toRemove]
+                assert len(blockSizes) == len(blockStarts)
+                if len(blockSizes) == 0:
+                    blockSizes = blockStarts = [0]
+                    blockCount = 1
                 stop = start + blockSizes[-1] + blockStarts[-1]
             if stop_offset < stop and stop_offset > start + blockStarts[-1]:
                 blockSizes[-1] = stop_offset - start - blockStarts[-1] 

@@ -1,7 +1,7 @@
 import lib.sequence_lib as seq_lib
 
 
-def insertionIterator(a, t, aln, mult3=False, inversion=False):
+def insertionIterator(a, t, aln, mult3=False, inversion=None):
     """
     Target insertion:
     query:   AATTAT--GCATGGA
@@ -11,7 +11,7 @@ def insertionIterator(a, t, aln, mult3=False, inversion=False):
 
     mult3 controls whether only multiple of 3 or only not multiple of 3 are reported. Set to None to report all.
 
-    If inversion is True, inversions are ignored.
+    If inversion is True, only inversions are reported. If inversion is False, only deletions.
     """
     prev_target_i = None
     exon_starts = [x.start for x in a.exons]
@@ -27,11 +27,18 @@ def insertionIterator(a, t, aln, mult3=False, inversion=False):
         if prev_target_i is not None and abs(target_i - prev_target_i) != 1:
             # jumped over a insertion
             # make sure this is not an inversion
-            if inversion is True:
+            if inversion is False:
                 if t.chromosomeInterval.strand is True and target_i <= prev_target_i:
                     prev_target_i = target_i
                     continue
                 if t.chromosomeInterval.strand is False and target_i >= prev_target_i:
+                    prev_target_i = target_i
+                    continue
+            if inversion is True:
+                if t.chromosomeInterval.strand is True and target_i >= prev_target_i:
+                    prev_target_i = target_i
+                    continue
+                if t.chromosomeInterval.strand is False and target_i <= prev_target_i:
                     prev_target_i = target_i
                     continue
             insertSize = abs(target_i - prev_target_i) - 1
@@ -46,7 +53,7 @@ def insertionIterator(a, t, aln, mult3=False, inversion=False):
         prev_target_i = target_i
 
 
-def deletionIterator(a, t, aln, mult3=False, inversion=False):
+def deletionIterator(a, t, aln, mult3=False, inversion=None):
     """
     Target deletion:
     query:   AATTATAAGCATGGA
@@ -56,7 +63,7 @@ def deletionIterator(a, t, aln, mult3=False, inversion=False):
 
     mult3 controls whether only multiple of 3 or only not multiple of 3 are reported.
 
-    If inversion is True, inversions are ignored.
+    If inversion is True, only inversions are reported. If inversion is False, only deletions.
     """
     prev_query_i = None
     for target_i in xrange(len(t)):
@@ -69,13 +76,20 @@ def deletionIterator(a, t, aln, mult3=False, inversion=False):
         if prev_query_i is not None and abs(query_i - prev_query_i) != 1:
             # jumped over a deletion
             # make sure this is not an inversion
-            if inversion is True:
+            if inversion is False:
                 if t.chromosomeInterval.strand is True and query_i <= prev_query_i:
                     prev_query_i = query_i
                     continue
                 if t.chromosomeInterval.strand is False and query_i >= prev_query_i:
                     prev_query_i = query_i
                     continue
+            elif inversion is True:
+                if t.chromosomeInterval.strand is True and query_i >= prev_query_i:
+                    prev_query_i = query_i
+                    continue
+                if t.chromosomeInterval.strand is False and query_i <= prev_query_i:
+                    prev_query_i = query_i
+                    continue                
             deleteSize = abs(query_i - prev_query_i) - 1
             start = stop = target_chrom_i
             if mult3 is True and deleteSize % 3 == 0:
@@ -93,10 +107,22 @@ def frameShiftIterator(a, t, aln):
     Yields frameshift-causing mutations. These are defined as non mult3 indels within CDS.
 
     """
-    deletions = list(deletionIterator(a, t, aln, mult3=False, inversion=False))
-    insertions = list(insertionIterator(a, t, aln, mult3=False, inversion=False))
+    deletions = list(deletionIterator(a, t, aln, mult3=False, inversion=None))
+    insertions = list(insertionIterator(a, t, aln, mult3=False, inversion=None))
     for start, stop, span in sorted(deletions + insertions, key = lambda x: x[0]):
         yield start, stop, span
+
+
+def inversionIterator(a, t, aln):
+    """
+
+    Yields any type of inversion.
+
+    """
+    deletions = list(deletionIterator(a, t, aln, mult3=None, inversion=True))
+    insertions = list(insertionIterator(a, t, aln, mult3=None, inversion=True))
+    for start, stop, span in sorted(deletions + insertions, key = lambda x: x[0]):
+        yield start, stop, span    
 
 
 def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
@@ -118,11 +144,13 @@ def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
         yield None
     frame_shifts = list(frameShiftIterator(a, t, aln))
     if len(frame_shifts) > 0:
-        frame_shifts = {start: size for start, stop, size in frame_shifts}
+        frame_shifts = {start:size for start, stop, size in frame_shifts}
     frame_shift = False
+    last_3_shift = None
     # iterate over the cds looking for codon pairs
-    for target_cds_i in xrange(1, len(target_cds)):
+    for target_cds_i in xrange(1, len(target_cds) - len(target_cds) % 3):
         target_i = t.cdsCoordinateToChromosome(target_cds_i)
+        next_target_codon_i = t.cdsCoordinateToChromosome(target_cds_i + 3)
         query_i = aln.targetCoordinateToQuery(target_i)
         # the if statements below determine if we are moving in or out of frame
         if frame_shift is False and target_i in frame_shifts:
@@ -132,7 +160,12 @@ def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
             shift_size += frame_shifts[target_i]
             if shift_size % 3 == 0:
                 frame_shift = False
-        # if we are in frame, we start yielding codon pairs
+                last_3_shift = target_cds_i
+        # if we are in frame and have been in frame for 3 bases, we start yielding codon pairs
+        if last_3_shift is not None and target_cds_i - last_3_shift < 3:
+            continue
+        elif last_3_shift is not None and target_cds_i - last_3_shift == 3:
+            last_3_shift = None
         if frame_shift is False and target_cds_i % 3 == 0:
             query_cds_i = a.transcriptCoordinateToCds(query_i)
-            yield target_cds_i - 3, target_cds[target_cds_i - 3:target_cds_i], query_cds[query_cds_i - 3:query_cds_i]
+            yield target_cds_i, target_cds[target_cds_i:target_cds_i + 3], query_cds[query_cds_i:query_cds_i + 3]

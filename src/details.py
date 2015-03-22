@@ -9,7 +9,7 @@ from src.abstractClassifier import AbstractClassifier
 
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
-from src.indels import deletionIterator, insertionIterator, frameShiftIterator, codonPairIterator
+from src.indels import deletionIterator, insertionIterator, frameShiftIterator, codonPairIterator, inversionIterator
 
 
 class CodingInsertions(AbstractClassifier):
@@ -44,7 +44,7 @@ class CodingInsertions(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            insertions = [seq_lib.chromosomeRegionToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, size in insertionIterator(a, t, aln, mult3, inversion=True) if start >= t.thickStart and stop <= t.thickStop]
+            insertions = [seq_lib.chromosomeRegionToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, size in insertionIterator(a, t, aln, mult3, inversion=False) if start >= t.thickStart and stop <= t.thickStop]
             if len(insertions) > 0:
                 valueDict[aId] = insertions
         self.dumpValueDict(valueDict)
@@ -67,7 +67,7 @@ class CodingDeletions(AbstractClassifier):
     Does the alignment introduce deletions that are not a multiple of 3 to the target genome?
 
     Reports a BED record for each deletion. Since deletions are obviously not visible
-    on the target genome, just has a 1 base record at this position.
+    on the target genome, just has a 0 base record at this position.
 
     query:   AATTATAAGCATGGA
     target:  AATTAT--GCATGGA
@@ -92,9 +92,40 @@ class CodingDeletions(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            deletions = [seq_lib.chromosomeRegionToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, size in deletionIterator(a, t, aln, mult3, inversion=True) if start >= t.thickStart and stop <= t.thickStop]            
+            deletions = [seq_lib.chromosomeRegionToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, size in deletionIterator(a, t, aln, mult3, inversion=False) if start >= t.thickStart and stop <= t.thickStop]            
             if len(deletions) > 0:
                 valueDict[aId] = deletions
+        self.dumpValueDict(valueDict)
+
+
+class Inversions(AbstractClassifier):
+    """
+
+    Are there any inversions in these alignments? Will show both insertion and deletion style rearrangements
+
+    """
+
+    @staticmethod
+    def _getType():
+        return "TEXT"
+
+    def rgb(self):
+        return self.colors["mutation"]
+
+    def run(self):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getAlignmentDict()
+        self.getTranscriptDict()
+        self.getAnnotationDict()
+        valueDict = {}
+        for aId, aln in self.alignmentDict.iteritems():
+            if aId not in self.transcriptDict:
+                continue
+            t = self.transcriptDict[aId]
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            inversions = [seq_lib.chromosomeRegionToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, size in inversionIterator(a, t, aln)]
+            if len(inversions) > 0:
+                valueDict[aId] = inversions
         self.dumpValueDict(valueDict)
 
 
@@ -147,7 +178,7 @@ class FrameMismatch(AbstractClassifier):
                     start = s[i-1][0]
                     stop = s[i][1]
                     tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
-                if i % 2 != 0:
+                if i % 2 == 0 and i < len(s):
                     start = s[-1][0]
                     tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, t.stop, self.rgb(), self.getColumn()))
                 valueDict[aId] = tmp
@@ -864,6 +895,8 @@ class Nonsynonymous(AbstractClassifier):
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
+                if "N" in target_codon or "N" in query_codon:
+                    continue
                 if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) != seq_lib.codonToAminoAcid(query_codon):
                     valueDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))
         self.dumpValueDict(valueDict)

@@ -6,7 +6,7 @@ from jobTree.src.bioio import logger
 
 from lib.general_lib import formatRatio
 from src.abstractClassifier import AbstractClassifier
-from src.indels import insertionIterator, deletionIterator, frameShiftIterator, codonPairIterator
+from src.indels import insertionIterator, deletionIterator, frameShiftIterator, codonPairIterator, inversionIterator
 
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
@@ -42,7 +42,7 @@ class CodingInsertions(AbstractClassifier):
             # annotated transcript coordinates are the same as query coordinates (they are the query)
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             t = self.transcriptDict[aId]
-            i = [[start, stop, size] for start, stop, size in insertionIterator(a, t, aln, mult3, inversion=True) if start >= t.thickStart and stop <= t.thickStop]
+            i = [[start, stop, size] for start, stop, size in insertionIterator(a, t, aln, mult3, inversion=False) if start >= t.thickStart and stop <= t.thickStop]
             if len(i) == 0:
                 valueDict[aId] = 0
             else:
@@ -88,7 +88,7 @@ class CodingDeletions(AbstractClassifier):
                 continue
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             t = self.transcriptDict[aId]
-            i = [[start, stop, size] for start, stop, size in deletionIterator(a, t, aln, mult3, inversion=True) if start >= t.thickStart and stop <= t.thickStop]
+            i = [[start, stop, size] for start, stop, size in deletionIterator(a, t, aln, mult3, inversion=False) if start >= t.thickStart and stop <= t.thickStop]
             if len(i) == 0:
                 valueDict[aId] = 0
             else:
@@ -105,6 +105,39 @@ class CodingMult3Deletions(CodingDeletions):
 
     def run(self):
         CodingDeletions.run(self, mult3=True)
+
+
+class Inversions(AbstractClassifier):
+    """
+
+    Are there any inversions in these alignments? Will show both insertion and deletion style rearrangements
+
+    """
+
+    @staticmethod
+    def _getType():
+        return "TEXT"
+
+    def rgb(self):
+        return self.colors["mutation"]
+
+    def run(self):
+        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getAlignmentDict()
+        self.getTranscriptDict()
+        self.getAnnotationDict()
+        valueDict = {}
+        for aId, aln in self.alignmentDict.iteritems():
+            if aId not in self.transcriptDict:
+                continue
+            t = self.transcriptDict[aId]
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            inversions = [[start, stop, size] for start, stop, size in inversionIterator(a, t, aln)]
+            if len(inversions) > 0:
+                valueDict[aId] = 1
+            else:
+                valueDict[aId] = 0
+        self.dumpValueDict(valueDict)
 
 
 class FrameMismatch(AbstractClassifier):
