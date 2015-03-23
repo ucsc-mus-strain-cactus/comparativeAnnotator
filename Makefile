@@ -50,8 +50,8 @@ all :
 	--stats &> ${1411log}
 	if [ -d ${1411halJobTree} ]; then rm -rf ${1411halJobTree}; fi ;\
 	if [ -d {1411trackHub} ]; then rm -rf ${1411trackHub}; fi ;\
-	bigBedDirs=`/bin/ls -1d 1411_output/bedfiles/* | paste -s -d ","` ;\
-	python hal/assemblyHub/hal2assemblyHub.py ${1411hal} ${1411trackHub} --finalBigBedDirs $${bigBedDirs} \
+	bigBedDirs="$(shell /bin/ls -1d 1411_output/bedfiles/* | paste -s -d ",")" ;\
+	python hal/assemblyHub/hal2assemblyHub.py ${1411hal} ${1411trackHub} --finalBigBedDirs $$bigBedDirs \
 	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
 	--jobTree ${1411halJobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
 	--stats --shortLabel 1411 --longLabel 1411 --hub 1411 &> ${1411log}
@@ -65,8 +65,8 @@ all :
 	--stats &> ${1412log}
 	if [ -d ${1412halJobTree} ]; then rm -rf ${1412halJobTree}; fi ;\
 	if [ -d {1412trackHub} ]; then rm -rf ${1412trackHub}; fi ;\
-	bigBedDirs=`/bin/ls -1d 1412_output/bedfiles/* | paste -s -d ","` ;\
-	python hal/assemblyHub/hal2assemblyHub.py ${1412hal} ${1412trackHub} --finalBigBedDirs $${bigBedDirs} \
+	bigBedDirs="$(shell /bin/ls -1d 1412_output/bedfiles/* | paste -s -d ",")" ;\
+	python hal/assemblyHub/hal2assemblyHub.py ${1412hal} ${1412trackHub} --finalBigBedDirs $$bigBedDirs \
 	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
 	--jobTree ${1412halJobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
 	--stats --shortLabel 1412 --longLabel 1412 --hub 1412 &> ${1412log}	
@@ -78,10 +78,10 @@ test : all
 	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
 	--jobTree ${testjobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
 	--stats &> ${testlog}
-	if [ -d ${testhalJobTree} ]; then rm -rf ${testhalJobTree}; fi
-	if [ -d {testtrackHub} ]; then rm -rf ${testtrackHub}; fi
-	bigBedDirs="test_output/bedfiles/transMap,test_output/bedfiles/everything,test_output/bedfiles/GPIP"
-	python hal/assemblyHub/hal2assemblyHub.py ${testhal} ${testtrackHub} --finalBigBedDirs ${bigBedDirs} \
+	if [ -d ${testhalJobTree} ]; then rm -rf ${testhalJobTree}; fi ;\
+	if [ -d {testtrackHub} ]; then rm -rf ${testtrackHub}; fi ;\
+	bigBedDirs="test_output/bedfiles/transMap,test_output/bedfiles/everything,test_output/bedfiles/GPIP" ;\
+	python hal/assemblyHub/hal2assemblyHub.py ${testhal} ${testtrackHub} --finalBigBedDirs $$bigBedDirs \
 	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
 	--jobTree ${testhalJobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
 	--stats --shortLabel test --longLabel test --hub test &> ${testlog}	

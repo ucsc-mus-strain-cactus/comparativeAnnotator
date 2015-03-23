@@ -11,7 +11,7 @@ def insertionIterator(a, t, aln, mult3=False, inversion=None):
 
     mult3 controls whether only multiple of 3 or only not multiple of 3 are reported. Set to None to report all.
 
-    If inversion is True, only inversions are reported. If inversion is False, only deletions.
+    If inversion is True, only inversions are reported. If inversion is False, only insertions.
     """
     prev_target_i = None
     exon_starts = [x.start for x in a.exons]
@@ -19,6 +19,7 @@ def insertionIterator(a, t, aln, mult3=False, inversion=None):
         if query_i in exon_starts:
             # don't call a intron an insertion
             prev_target_i = None
+            continue
         target_i = aln.queryCoordinateToTarget(query_i)
         if target_i is None:
             # deletion; ignore
@@ -148,7 +149,7 @@ def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
     frame_shift = False
     last_3_shift = None
     # iterate over the cds looking for codon pairs
-    for target_cds_i in xrange(1, len(target_cds) - len(target_cds) % 3):
+    for target_cds_i in xrange(1, len(target_cds)):
         target_i = t.cdsCoordinateToChromosome(target_cds_i)
         next_target_codon_i = t.cdsCoordinateToChromosome(target_cds_i + 3)
         query_i = aln.targetCoordinateToQuery(target_i)
@@ -168,4 +169,4 @@ def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
             last_3_shift = None
         if frame_shift is False and target_cds_i % 3 == 0:
             query_cds_i = a.transcriptCoordinateToCds(query_i)
-            yield target_cds_i, target_cds[target_cds_i:target_cds_i + 3], query_cds[query_cds_i:query_cds_i + 3]
+            yield target_cds_i, target_cds[target_cds_i - 3:target_cds_i], query_cds[query_cds_i - 3:query_cds_i]
