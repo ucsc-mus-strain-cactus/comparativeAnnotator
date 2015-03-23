@@ -111,7 +111,8 @@ def frameShiftIterator(a, t, aln):
     deletions = list(deletionIterator(a, t, aln, mult3=False, inversion=None))
     insertions = list(insertionIterator(a, t, aln, mult3=False, inversion=None))
     for start, stop, span in sorted(deletions + insertions, key = lambda x: x[0]):
-        yield start, stop, span
+        if start >= t.thickStart and stop <= t.thickStop:
+            yield start, stop, span
 
 
 def inversionIterator(a, t, aln):

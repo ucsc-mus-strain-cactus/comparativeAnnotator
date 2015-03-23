@@ -821,14 +821,14 @@ class Nonsynonymous(AbstractClassifier):
         self.getAnnotationDict()
         self.getSeqDict()
         self.getAlignmentDict()
-        self.getRefTwoBit()
+        self.getRefDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
                 if seq_lib.codonToAminoAcid(target_codon) != seq_lib.codonToAminoAcid(query_codon):
                     valueDict[aId] = 1
                     break                   
@@ -854,7 +854,7 @@ class Synonymous(AbstractClassifier):
         self.getTranscriptDict()
         self.getAnnotationDict()
         self.getSeqDict()
-        self.getRefTwoBit()
+        self.getRefDict()
         self.getAlignmentDict()
         valueDict = {}
         for aId in self.alignmentDict.iteritems():
@@ -862,7 +862,7 @@ class Synonymous(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
                 if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) == seq_lib.codonToAminoAcid(query_codon):
                         valueDict[aId] = 1
                         break

@@ -100,7 +100,7 @@ def main():
 
     refSeqTwoBit = os.path.join(args.dataDir, args.refGenome + ".2bit")
     if not os.path.exists(refSeqTwoBit):
-        raise RuntimeError("Reference genome 2bit not present at {}".format(refSeqTwoBit))
+        raise RuntimeError("Reference genome fasta not present at {}".format(refSeqTwoBit))
 
     i = Stack(Target.makeTargetFn(buildAnalyses, args=(alnPslDict, fastaDict, refSeqTwoBit,
                                                        geneCheckBedDict, args.gencodeAttributeMap, args.genomes,

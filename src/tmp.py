@@ -15,7 +15,8 @@ annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
 alignments = psl_lib.readPsl("../mouse_release_data/1411/C57B6NJ.filtered.psl")
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
 seqDict = seq_lib.readTwoBit("../mouse_release_data/1411/C57B6NJ.2bit")
-refTwoBit = seq_lib.readTwoBit("../mouse_release_data/1411/C57B6J.2bit")
+#refTwoBit = seq_lib.readTwoBit("../mouse_release_data/1411/C57B6J.2bit")
+refDict = seq_lib.getSequenceDict("../mouse_release_data/1411/C57B6J.fa")
 
 aId = "ENSMUST00000114167.2-1"
 a = annotationDict[aId[:-2]]

@@ -886,7 +886,7 @@ class Nonsynonymous(AbstractClassifier):
         self.getTranscriptDict()
         self.getAnnotationDict()
         self.getSeqDict()
-        self.getRefTwoBit()
+        self.getRefDict()
         self.getAlignmentDict()
         valueDict = defaultdict(list)
         for aId, aln in self.alignmentDict.iteritems():
@@ -894,11 +894,9 @@ class Nonsynonymous(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
-                if "N" in target_codon or "N" in query_codon:
-                    continue
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
                 if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) != seq_lib.codonToAminoAcid(query_codon):
-                    valueDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))
+                    valueDict[aId].append(seq_lib.cdsCoordinateToBed(t, i - 3, i, self.rgb(), self.getColumn()))
         self.dumpValueDict(valueDict)
 
 
@@ -922,7 +920,7 @@ class Synonymous(AbstractClassifier):
         self.getTranscriptDict()
         self.getAnnotationDict()
         self.getSeqDict()
-        self.getRefTwoBit()
+        self.getRefDict()
         self.getAlignmentDict()
         valueDict = defaultdict(list)
         for aId, aln in self.alignmentDict.iteritems():
@@ -930,7 +928,7 @@ class Synonymous(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
                 if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) == seq_lib.codonToAminoAcid(query_codon):
                     valueDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))
         self.dumpValueDict(valueDict)

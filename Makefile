@@ -32,7 +32,7 @@ gencodeAttributeMap = /hive/users/ifiddes/mouse_release_data/wgEncodeGencodeAttr
 testhal = ${1411hal}
 1411trackHub = trackHub_1411/
 1412trackHub = trackHub_1412/
-testtrackHub = trackHub_test
+testtrackHub = test_trackHub
 
 
 all :

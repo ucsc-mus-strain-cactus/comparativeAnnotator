@@ -466,8 +466,12 @@ class Transcript(object):
         Transcript/CDS coordinates are 0-based half open on 5'->3' transcript orientation.
         """
         for exon in self.exons:
-            if exon.containsTranscriptPos(p):
-                return exon.transcriptPosToCdsPos(p)
+            t = exon.transcriptPosToCdsPos(p)
+            if t is not None:
+                return t
+        return None            
+        #    if exon.containsTranscriptPos(p):
+        #        return exon.transcriptPosToCdsPos(p)
 
     def transcriptCoordinateToChromosome(self, p):
         """
@@ -476,8 +480,12 @@ class Transcript(object):
         for details on how this works.
         """
         for exon in self.exons:
-            if exon.containsTranscriptPos(p):
-                return exon.transcriptPosToChromPos(p)
+            t = exon.transcriptPosToChromPos(p)
+            if t is not None:
+                return t
+        return None
+        #    if exon.containsTranscriptPos(p):
+        #        return exon.transcriptPosToChromPos(p)
 
     def chromosomeCoordinateToTranscript(self, p):
         """
@@ -486,8 +494,12 @@ class Transcript(object):
         5'->3' transcript orientation.
         """
         for exon in self.exons:
-            if exon.containsChromPos(p):
-                return exon.chromPosToTranscriptPos(p)
+            t = exon.chromPosToTranscriptPos(p)
+            if t is not None:
+                return t
+        return None            
+            #if exon.containsChromPos(p):
+            #    return exon.chromPosToTranscriptPos(p)
 
     def chromosomeCoordinateToCds(self, p):
         """
@@ -495,24 +507,36 @@ class Transcript(object):
         Will return None if this chromosome coordinate is not in the CDS.
         """
         for exon in self.exons:
-            if exon.containsChromPos(p):
-                return exon.chromPosToCdsPos(p)
+            t = exon.chromPosToCdsPos(p)
+            if t is not None:
+                return t
+        return None
+        #    if exon.containsChromPos(p):
+        #        return exon.chromPosToCdsPos(p)
 
     def cdsCoordinateToTranscript(self, p):
         """
         Takes a CDS-relative position and converts it to Transcript coordinates.
         """
         for exon in self.exons:
-            if exon.containsCdsPos(p):
-                return exon.cdsPosToTranscriptPos(p)
+            t = exon.cdsPosToTranscriptPos(p)
+            if t is not None:
+                return t
+        return None
+        #    if exon.containsCdsPos(p):
+        #        return exon.cdsPosToTranscriptPos(p)
 
     def cdsCoordinateToChromosome(self, p):
         """
         Takes a CDS-relative position and converts it to Chromosome coordinates.
         """
         for exon in self.exons:
-            if exon.containsCdsPos(p):
-                return exon.cdsPosToChromPos(p)
+            t = exon.cdsPosToChromPos(p)
+            if t is not None:
+                return t
+        return None
+        #    if exon.containsCdsPos(p):
+        #        return exon.cdsPosToChromPos(p)
 
     def cdsCoordinateToAminoAcid(self, p, seqDict):
         """

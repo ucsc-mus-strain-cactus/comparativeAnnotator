@@ -47,8 +47,8 @@ class AbstractClassifier(Target):
         self.transcripts = seq_lib.getTranscripts(self.geneCheckBed)
         self.transcriptDict = seq_lib.transcriptListToDict(self.transcripts, noDuplicates=True)
 
-    def getRefTwoBit(self):
-        self.refTwoBit = seq_lib.readTwoBit(self.refSeqTwoBit)
+    def getRefDict(self):
+        self.refDict = seq_lib.readTwoBit(self.refSeqTwoBit)
 
     def getSeqDict(self):
         self.seqDict = seq_lib.getSequenceDict(self.fasta)
