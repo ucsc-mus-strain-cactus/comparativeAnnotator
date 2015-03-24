@@ -152,7 +152,6 @@ def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
     # iterate over the cds looking for codon pairs
     for target_cds_i in xrange(1, len(target_cds)):
         target_i = t.cdsCoordinateToChromosome(target_cds_i)
-        next_target_codon_i = t.cdsCoordinateToChromosome(target_cds_i + 3)
         query_i = aln.targetCoordinateToQuery(target_i)
         # the if statements below determine if we are moving in or out of frame
         if frame_shift is False and target_i in frame_shifts:

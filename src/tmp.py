@@ -8,15 +8,14 @@ from collections import defaultdict, Counter
 from itertools import izip
 
 
-transcripts = seq_lib.getTranscripts("../mouse_release_data/1411/C57B6NJ.gene-check.bed")
+transcripts = seq_lib.getTranscripts("../mouse_release_data/1411/AKRJ.gene-check.bed")
 transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
 annotations = seq_lib.getTranscripts("../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
 annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
-alignments = psl_lib.readPsl("../mouse_release_data/1411/C57B6NJ.filtered.psl")
+alignments = psl_lib.readPsl("../mouse_release_data/1411/AKRJ.filtered.psl")
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
-seqDict = seq_lib.readTwoBit("../mouse_release_data/1411/C57B6NJ.2bit")
-#refTwoBit = seq_lib.readTwoBit("../mouse_release_data/1411/C57B6J.2bit")
-refDict = seq_lib.getSequenceDict("../mouse_release_data/1411/C57B6J.fa")
+seqDict = seq_lib.readTwoBit("../mouse_release_data/1411/AKRJ.2bit")
+refDict = seq_lib.readTwoBit("../mouse_release_data/1411/C57B6J.2bit")
 
 aId = "ENSMUST00000114167.2-1"
 a = annotationDict[aId[:-2]]
@@ -363,13 +362,13 @@ from src.constructDatabases import ConstructDatabases
 from src.buildTracks import BuildTracks
 
 
-genomes_1412 = "C57B6J Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ CAROLIEiJ PAHARIEiJ"
+genomes_1412 = "C57B6J Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ AKRJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ CAROLIEiJ PAHARIEiJ"
 genomes_1412 = genomes_1412.split()
 
-genomes_1411 = "Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ"
+genomes_1411 = "Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ AKRJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ"
 genomes_1411 = genomes_1411.split()
 
-genomes_test = "C57B6NJ AKRJ"
+genomes_test = "AKRJ AKRJ"
 genomes_test = genomes_test.split()
 
 # hard coded file extension types that we are looking for

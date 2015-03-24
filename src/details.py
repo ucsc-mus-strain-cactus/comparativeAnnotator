@@ -180,7 +180,7 @@ class FrameMismatch(AbstractClassifier):
                     tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
                 if i % 2 == 0 and i < len(s):
                     start = s[-1][0]
-                    tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, t.stop, self.rgb(), self.getColumn()))
+                    tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, t.thickStop, self.rgb(), self.getColumn()))
                 valueDict[aId] = tmp
         self.dumpValueDict(valueDict)
 
@@ -480,14 +480,12 @@ class CdsNonCanonSplice(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             for i, seq in enumerate(t.intronSequenceIterator(self.seqDict)):
+                if len(seq) <= shortIntronSize:
+                    continue
                 # make sure this intron is between coding exons
                 if t.exons[i].containsCds() and t.exons[i + 1].containsCds():
-                    if t.chromosomeInterval.strand is False:
-                        if self.badSplice(reverseComplement(seq[:2]), reverseComplement(seq[-2:])) == True:
-                            valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
-                    else:
-                        if self.badSplice(seq[:2], seq[-2:]) == True:
-                            valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
+                    if self.badSplice(seq[:2], seq[-2:]) == True:
+                        valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
         self.dumpValueDict(valueDict)
 
 
@@ -822,15 +820,13 @@ class UtrNonCanonSplice(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             for i, seq in enumerate(t.intronSequenceIterator(self.seqDict)):
+                if len(seq) <= shortIntronSize:
+                    continue
                 if (t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is False) or \
                    (t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is False) or \
                    (t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is True):
-                    if t.chromosomeInterval.strand is False:
-                        if self.badSplice(reverseComplement(seq[:2]), reverseComplement(seq[-2:])) == True:
-                            valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
-                    else:
-                        if self.badSplice(seq[:2], seq[-2:]) == True:
-                            valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
+                    if self.badSplice(seq[:2], seq[-2:]) == True:
+                        valueDict[aId] = self.makeBed(t, t.intronIntervals[i])
         self.dumpValueDict(valueDict)
 
 
@@ -886,7 +882,7 @@ class Nonsynonymous(AbstractClassifier):
         self.getTranscriptDict()
         self.getAnnotationDict()
         self.getSeqDict()
-        self.getRefDict()
+        self.getRefTwoBit()
         self.getAlignmentDict()
         valueDict = defaultdict(list)
         for aId, aln in self.alignmentDict.iteritems():
@@ -894,7 +890,7 @@ class Nonsynonymous(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
                 if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) != seq_lib.codonToAminoAcid(query_codon):
                     valueDict[aId].append(seq_lib.cdsCoordinateToBed(t, i - 3, i, self.rgb(), self.getColumn()))
         self.dumpValueDict(valueDict)
@@ -920,7 +916,7 @@ class Synonymous(AbstractClassifier):
         self.getTranscriptDict()
         self.getAnnotationDict()
         self.getSeqDict()
-        self.getRefDict()
+        self.getRefTwoBit()
         self.getAlignmentDict()
         valueDict = defaultdict(list)
         for aId, aln in self.alignmentDict.iteritems():
@@ -928,7 +924,7 @@ class Synonymous(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
                 if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) == seq_lib.codonToAminoAcid(query_codon):
                     valueDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))
         self.dumpValueDict(valueDict)

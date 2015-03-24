@@ -11,7 +11,7 @@ import string
 import subprocess
 import sys
 import unittest
-import sequence_lib as seq_lib
+import sequence_lib_v2 as seq_lib
 import psl_lib as psl_lib
 import random
 
