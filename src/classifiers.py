@@ -600,7 +600,7 @@ class Nonsynonymous(AbstractClassifier):
         self.getTranscriptDict()
         self.getAnnotationDict()
         self.getSeqDict()
-        self.getRefTwoBit()
+        self.getRefDict()
         self.getAlignmentDict()
         detailsDict = defaultdict(list)
         classifyDict = {}
@@ -609,7 +609,7 @@ class Nonsynonymous(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
                 if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) != \
                                                                                   seq_lib.codonToAminoAcid(query_codon):
                     detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i - 3, i, self.rgb(), self.getColumn()))
@@ -633,7 +633,7 @@ class Synonymous(AbstractClassifier):
         self.getTranscriptDict()
         self.getAnnotationDict()
         self.getSeqDict()
-        self.getRefTwoBit()
+        self.getRefDict()
         self.getAlignmentDict()
         detailsDict = defaultdict(list)
         classifyDict = {}
@@ -642,7 +642,7 @@ class Synonymous(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
                 if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) == \
                                                                                   seq_lib.codonToAminoAcid(query_codon):
                     detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))

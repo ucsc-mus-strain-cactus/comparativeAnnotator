@@ -14,7 +14,7 @@ class GapFinder(AbstractClassifier):
         coding: True for only coding, False for non-coding, None for either
         """
         records = []
-        if t.chromosomeInterval.strand is False:
+        if t.strand is False:
             intronIntervals = reversed(t.intronIntervals)
         else:
             intronIntervals = t.intronIntervals

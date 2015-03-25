@@ -35,13 +35,15 @@ testhal = ${1411hal}
 testtrackHub = test_trackHub
 
 
-all :
+all : 1411 1412
+
+init :
 	git submodule update --init
 	cd sonLib && make
 	cd jobTree && make
 	cd hal && make
 
-1411 : all
+1411 : init
 	if [ -d ${1411jobTree} ]; then rm -rf ${1411jobTree}; fi
 	python src/main.py --refGenome ${refGenome} --genomes ${1411genomes} --annotationBed ${annotationBed} \
 	--dataDir ${1411dataDir} --gencodeAttributeMap ${gencodeAttributeMap} --outDir 1411_output/ \
@@ -56,7 +58,7 @@ all :
 	--jobTree ${1411halJobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
 	--stats --shortLabel 1411 --longLabel 1411 --hub 1411 &> ${1411log}
 
-1412 : all
+1412 : init
 	if [ -d ${1412jobTree} ]; then rm -rf ${1412jobTree}; fi
 	python src/main.py --refGenome ${refGenome} --genomes ${1412genomes} --annotationBed ${annotationBed} \
 	--dataDir ${1412dataDir} --gencodeAttributeMap ${gencodeAttributeMap} --outDir 1412_output/ \
@@ -71,7 +73,7 @@ all :
 	--jobTree ${1412halJobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
 	--stats --shortLabel 1412 --longLabel 1412 --hub 1412 &> ${1412log}	
 
-test : all
+test : init
 	if [ -d ${testjobTree} ]; then rm -rf ${testjobTree}; fi
 	python src/main.py --refGenome ${refGenome} --genomes ${testgenomes} --annotationBed ${annotationBed} \
 	--dataDir ${testdataDir} --gencodeAttributeMap ${gencodeAttributeMap} --outDir test_output/ \
