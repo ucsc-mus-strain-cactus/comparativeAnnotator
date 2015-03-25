@@ -2,25 +2,11 @@ import os
 import cPickle as pickle
 
 from jobTree.src.bioio import logger
-from src.abstractClassifier import AbstractClassifier
+from src.abstractClassifier import Attribute
 
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
 from lib.general_lib import formatRatio
-
-class Attribute(AbstractClassifier):
-    """Need to overwrite the dumpValueDict method for attributes"""
-    def getAttributeDict(self):
-        self.attributeDict = seq_lib.getTranscriptAttributeDict(self.gencodeAttributeMap)        
-
-    def dumpValueDict(self, valueDict):
-        """
-        Dumps a attribute dict.
-        """
-        #with open(os.path.join(self.getGlobalTempDir(), "Attribute" + self.genome), "wb") as outf:
-        with open(os.path.join(self.outDir, "Attribute" + self.getColumn() + self.genome), "wb") as outf:
-            pickle.dump(valueDict, outf)
-
 
 class TranscriptId(Attribute):
     """

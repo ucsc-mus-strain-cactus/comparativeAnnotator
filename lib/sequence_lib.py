@@ -1115,7 +1115,7 @@ def spliceIntronIntervalToBed(t, intronInterval, rgb, name):
     """
     interval = intronInterval
     assert interval.stop >= interval.start
-    blockStarts = "0,{}".format(interval.stop - 2)
+    blockStarts = "0,{}".format(interval.stop - interval.start - 2)
     return [interval.chromosome, interval.start, interval.stop, name + "/" + t.name, 0, convertStrand(interval.strand), 
             interval.start, interval.stop, rgb, 2, "2,2", blockStarts]
 

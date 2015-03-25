@@ -362,16 +362,6 @@ import src.classifiers, src.details, src.attributes
 from src.constructDatabases import ConstructDatabases
 from src.buildTracks import BuildTracks
 
-
-genomes_1412 = "C57B6J Rattus 129S1 NZOHlLtJ NZOHlLtJ BALBcJ C3HHeJ NZOHlLtJ CASTEiJ CBNZOHlLtJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ CAROLIEiJ PAHARIEiJ"
-genomes_1412 = genomes_1412.split()
-
-genomes_1411 = "Rattus 129S1 NZOHlLtJ NZOHlLtJ BALBcJ C3HHeJ NZOHlLtJ CASTEiJ CBNZOHlLtJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ"
-genomes_1411 = genomes_1411.split()
-
-genomes_test = "NZOHlLtJ NZOHlLtJ"
-genomes_test = genomes_test.split()
-
 # hard coded file extension types that we are looking for
 alignment_ext = ".filtered.psl"
 sequence_ext = ".fa"
@@ -394,20 +384,20 @@ def parseDir(genomes, targetDir, ext):
 
 geneCheckBedDict = parseDir(genomes_1411, "../mouse_release_data/1411", gene_check_ext)
 
-p = BuildTracks("1411_output", genomes_1411, classifiers, details, attributes, "AlignmentId", "../mouse_release_data/1411", geneCheckBedDict, "../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
+p = BuildTracks("1411_output", genomes_1411, "AlignmentId", "../mouse_release_data/1411", geneCheckBedDict, "../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
 
 p.run()
 
 
 geneCheckBedDict = parseDir(genomes_1412, "../mouse_release_data/1412", gene_check_ext)
 
-p2 = BuildTracks("1412_output", genomes_1412, classifiers, details, attributes, "AlignmentId", "../mouse_release_data/1412", geneCheckBedDict, "../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
+p2 = BuildTracks("1412_output", genomes_1412, "AlignmentId", "../mouse_release_data/1412", geneCheckBedDict, "../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
 
 geneCheckBedDict = parseDir(genomes_test, "../mouse_release_data/1411", gene_check_ext)
 
 p2.run()
 
-p3 = BuildTracks("test_output", genomes_test, classifiers, details, attributes, "AlignmentId", "../mouse_release_data/1411", geneCheckBedDict, "../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
+p3 = BuildTracks("test_output", genomes_test, "AlignmentId", "../mouse_release_data/1411", geneCheckBedDict, "../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
 
 bigBedDirs=`/bin/ls -1d 1412_output/bedfiles/* | paste -s -d ","`
 python hal/assemblyHub/hal2assemblyHub.py /hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1412/cactus/1412.hal 1412_trackHub  --jobTree 1412_haljobtree --finalBigBedDirs ${bigBedDirs} --batchSystem=singleMachine --stats --shortLabel 1412 --longLabel 1412 --hub 1412 --maxThreads 20 &> 1412.log &

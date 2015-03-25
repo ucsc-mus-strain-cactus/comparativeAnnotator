@@ -72,3 +72,17 @@ class AbstractClassifier(Target):
         #with open(os.path.join(self.getGlobalTempDir(), "Classify" + self.getColumn() + self.genome), "wb") as outf:
         with open(os.path.join(self.outDir, "Classify" + self.getColumn() + self.genome), "wb") as outf:
             pickle.dump(classifyDict, outf)            
+
+
+class Attribute(AbstractClassifier):
+    """Need to overwrite the dumpValueDict method for attributes"""
+    def getAttributeDict(self):
+        self.attributeDict = seq_lib.getTranscriptAttributeDict(self.gencodeAttributeMap)        
+
+    def dumpValueDict(self, valueDict):
+        """
+        Dumps a attribute dict.
+        """
+        #with open(os.path.join(self.getGlobalTempDir(), "Attribute" + self.genome), "wb") as outf:
+        with open(os.path.join(self.outDir, "Attribute" + self.getColumn() + self.genome), "wb") as outf:
+            pickle.dump(valueDict, outf)
