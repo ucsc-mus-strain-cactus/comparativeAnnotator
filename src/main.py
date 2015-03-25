@@ -7,7 +7,7 @@ from jobTree.src.bioio import setLoggingFromOptions, system, logger
 from lib.general_lib import FileType, DirType, FullPaths, classesInModule
 import lib.sqlite_lib as sql_lib
 
-import src.classifiers, src.details, src.attributes
+import src.classifiers, src.attributes
 from src.constructDatabases import ConstructDatabases
 from src.buildTracks import BuildTracks
 
@@ -45,39 +45,28 @@ def parseDir(genomes, targetDir, ext):
 
 def buildAnalyses(target, alnPslDict, fastaDict, refSeqTwoBit, geneCheckBedDict, gencodeAttributeMap, genomes,
                   annotationBed, outDir, refGenome, primaryKeyColumn, dataDir):
-    # find all user-defined classes in the three categories of analyses
+    # find all user-defined classes in the categories of analyses
     classifiers = classesInModule(src.classifiers)
-    details = classesInModule(src.details)
     attributes = classesInModule(src.attributes)
     for genome in genomes:
         alnPsl = alnPslDict[genome]
         geneCheckBed = geneCheckBedDict[genome]
         fasta = fastaDict[genome]
-        # set child targets for every classifier-genome pair
         for c in classifiers:
-            target.addChildTarget(
-                c(genome, alnPsl, fasta, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
-                  primaryKeyColumn, outDir, "classify"))
-        for d in details:
-            target.addChildTarget(
-                d(genome, alnPsl, fasta, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
-                  primaryKeyColumn, outDir, "details"))
+            target.addChildTarget(c(genome, alnPsl, fasta, refSeqTwoBit, annotationBed, gencodeAttributeMap,
+                                    geneCheckBed, refGenome, primaryKeyColumn, outDir))
         for a in attributes:
-            target.addChildTarget(
-                a(genome, alnPsl, fasta, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
-                  primaryKeyColumn, outDir, "attributes"))
+            target.addChildTarget(a(genome, alnPsl, fasta, refSeqTwoBit, annotationBed, gencodeAttributeMap,
+                                    geneCheckBed, refGenome, primaryKeyColumn, outDir))
         # merge the resulting pickled files into sqlite databases
-    target.setFollowOnTargetFn(databaseWrapper, args=(
-    outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn, 
-    dataDir, geneCheckBedDict, annotationBed))
+    target.setFollowOnTargetFn(databaseWrapper, args=(outDir, genomes, classifiers, attributes, alnPslDict, 
+                                                      primaryKeyColumn, dataDir, geneCheckBedDict, annotationBed))
 
 
-def databaseWrapper(target, outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn,
+def databaseWrapper(target, outDir, genomes, classifiers, attributes, alnPslDict, primaryKeyColumn,
                      dataDir, geneCheckBedDict, annotationBed):
-    target.addChildTarget(
-        ConstructDatabases(outDir, genomes, classifiers, details, attributes, alnPslDict, primaryKeyColumn))
-    target.setFollowOnTarget(BuildTracks(outDir, genomes, classifiers, details, attributes, primaryKeyColumn,
-                      dataDir, geneCheckBedDict, annotationBed))
+    target.addChildTarget(ConstructDatabases(outDir, genomes, classifiers, attributes, alnPslDict,primaryKeyColumn))
+    target.setFollowOnTarget(BuildTracks(outDir, genomes, primaryKeyColumn, dataDir, geneCheckBedDict, annotationBed))
 
 
 def main():
@@ -104,9 +93,8 @@ def main():
 
     i = Stack(Target.makeTargetFn(buildAnalyses, args=(alnPslDict, fastaDict, refSeqTwoBit,
                                                        geneCheckBedDict, args.gencodeAttributeMap, args.genomes,
-                                                       args.annotationBed,
-                                                       args.outDir, args.refGenome, args.primaryKeyColumn,
-                                                       args.dataDir))).startJobTree(args)
+                                                       args.annotationBed, args.outDir, args.refGenome, 
+                                                       args.primaryKeyColumn, args.dataDir))).startJobTree(args)
 
     if i != 0:
         raise RuntimeError("Got failed jobs")
@@ -114,5 +102,4 @@ def main():
 
 if __name__ == '__main__':
     from src.main import *
-
     main()
