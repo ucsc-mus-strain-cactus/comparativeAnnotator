@@ -14,7 +14,7 @@ def insertionIterator(a, t, aln, mult3=False, rearrangement=None):
     If rearrangement is True, only rearrangements are reported. If rearrangement is False, only insertions.
     """
     prev_target_i = None
-    exon_starts = [x.start for x in a.exonIntervals]
+    exon_starts = [x.start for x in a.exons]
     for query_i in xrange(len(a)):
         if query_i in exon_starts:
             # don't call a intron an insertion
@@ -140,11 +140,11 @@ def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
         yield None
     frame_shifts = list(frameShiftIterator(a, t, aln))
     if len(frame_shifts) > 0:
-        frame_shifts = {start:size for start, stop, size in frame_shifts}
+        frame_shifts = {start: size for start, stop, size in frame_shifts}
     frame_shift = False
     last_3_shift = None
     # iterate over the cds looking for codon pairs
-    for target_cds_i in xrange(1, len(target_cds) - t.getCdsLength() % 3):
+    for target_cds_i in xrange(1, len(target_cds) - len(target_cds) % 3):
         target_i = t.cdsCoordinateToChromosome(target_cds_i)
         query_i = aln.targetCoordinateToQuery(target_i)
         # the if statements below determine if we are moving in or out of frame

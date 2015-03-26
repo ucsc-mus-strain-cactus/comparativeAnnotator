@@ -165,6 +165,8 @@ class FrameMismatch(AbstractClassifier):
                 for i in xrange(1, len(s), 2):
                     start = s[i-1][0]
                     stop = s[i][1]
+                    if stop > t.thickStop:
+                        stop = t.thickStop
                     tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
                 if i % 2 == 0 and i < len(s):
                     start = s[-1][0]
