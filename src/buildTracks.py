@@ -52,10 +52,9 @@ class BuildTracks(Target):
         bigBedPath = os.path.join(self.bedDir, categoryName, genome, genome + ".bb")
         chromSizesPath = os.path.join(self.dataDir, genome + ".chrom.sizes")
         #system("bedSort {} {}".format(bedPath, os.path.join(self.getLocalTempDir(), "tmp"))
-        system("bedSort {} {}".format(bedPath, "tmp"))
+        system("bedSort {} {}".format(bedPath, bedPath))
         #system("bedToBigBed {} {} {}".format(os.path.join(self.getLocalTempDir(), "tmp"), chromSizesPath, bigBedPath))
-        system("bedToBigBed -extraIndex=name {} {} {}".format("tmp", chromSizesPath, bigBedPath))
-        os.remove("tmp")
+        system("bedToBigBed -extraIndex=name {} {} {}".format(bedPath, chromSizesPath, bigBedPath))
 
     def run(self):
         if not os.path.exists(self.bedDir):
