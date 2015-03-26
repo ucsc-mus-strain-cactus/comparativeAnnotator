@@ -54,7 +54,7 @@ class BuildTracks(Target):
         #system("bedSort {} {}".format(bedPath, os.path.join(self.getLocalTempDir(), "tmp"))
         system("bedSort {} {}".format(bedPath, "tmp"))
         #system("bedToBigBed {} {} {}".format(os.path.join(self.getLocalTempDir(), "tmp"), chromSizesPath, bigBedPath))
-        system("bedToBigBed {} {} {}".format("tmp", chromSizesPath, bigBedPath))
+        system("bedToBigBed -extraIndex=name {} {} {}".format("tmp", chromSizesPath, bigBedPath))
         os.remove("tmp")
 
     def run(self):
