@@ -4,7 +4,8 @@ include config.mk
 all: init srcData mapping chaining filtered extractFasta geneCheck annotation assemblyHub
 
 init:
-	git submodule update --init
+	# why does this error out?
+	#git submodule update --init
 	cd sonLib && make
 	cd jobTree && make
 	cd hal && make
@@ -154,13 +155,15 @@ annotation: ${ANNOTATION_DIR}/DONE
 		--maxThreads ${maxThreads} --stats --outDir ${ANNOTATION_DIR} --sizes ${targetChromSizes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} &> ${log} ;\
 	fi
+
+${ANNOTATION_DIR}/DONE:
 	touch ${DONE}
 
 ####################################################################################################
 # Building assemblyHub. Can't be run on ku due to weird issues with halLodExtract.
 # TODO: this creates all of the fastas/2bits from the hal again, unnecessarily.
 ####################################################################################################
-assemblyHub: ${}
+assemblyHub: ${ASSEMBLY_HUB_DIR}/DONE
 	if [ -d ${halJobTreeDir} ]; then rm -rf ${halJobTreeDir}; fi
 	bigBedDirs="$(shell /bin/ls -1d ${ANNOTATION_DIR}/bedfiles/* | paste -s -d ",")" ;\
 	python hal/assemblyHub/hal2assemblyHub.py ${HAL} ${ASSEMBLY_HUB_DIR} \
@@ -168,3 +171,6 @@ assemblyHub: ${}
 	--defaultMemory=${defaultMemory} --jobTree ${halJobTreeDir} \
 	--maxJobDuration ${maxJobDuration} --stats --shortLabel ${MSCA_VERSION} \
 	--longLabel ${MSCA_VERSION} --hub ${MSCA_VERSION} &>> ${log}
+
+${ASSEMBLY_HUB_DIR}/DONE:
+	touch ${DONE}

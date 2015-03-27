@@ -9,7 +9,7 @@ from jobTree.src.bioio import logger
 
 
 class ConstructDatabases(Target):
-    def __init__(self, outDir, genomes, classifiers, attributes, psls, primaryKeyColumn):
+    def __init__(self, outDir, dataDir, genomes, classifiers, attributes, psls, primaryKeyColumn):
         Target.__init__(self)
         self.outDir = outDir
         self.genomes = genomes
@@ -17,7 +17,7 @@ class ConstructDatabases(Target):
         self.attributes = attributes
         self.psls = psls
         self.primaryKeyColumn = primaryKeyColumn
-        self.tmpDir = self.getGlobalTempDir()
+        self.tmpDir = dataDir
 
     def run(self):
         logger.info("Merging pickled files into databases")

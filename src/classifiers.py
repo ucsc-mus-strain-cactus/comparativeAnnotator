@@ -158,6 +158,8 @@ class FrameMismatch(AbstractClassifier):
                 continue
             elif len(s) == 1:
                 start, stop, size = s[0]
+                if stop > t.thickStop:
+                    stop = t.thickStop
                 detailsDict[aId] = seq_lib.chromosomeCoordinateToBed(t, start, t.stop, self.rgb(), self.getColumn())
                 classifyDict[aId] = 1
             else:
