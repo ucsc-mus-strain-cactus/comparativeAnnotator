@@ -1,17 +1,17 @@
-from src.abstractClassifier import AbstractClassifier
+import os
+import cPickle as pickle
 
 from jobTree.src.bioio import logger
+from src.abstractClassifier import Attribute
 
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
 from lib.general_lib import formatRatio
 
-
-class TranscriptId(AbstractClassifier):
+class TranscriptId(Attribute):
     """
     Creates a column representing the transcript Id
     """
-
     @staticmethod
     def _getType():
         return "TEXT"
@@ -22,11 +22,10 @@ class TranscriptId(AbstractClassifier):
         self.dumpValueDict(valueDict)
 
 
-class GeneId(AbstractClassifier):
+class GeneId(Attribute):
     """
     Creates a column representing the gene Id
     """
-
     @staticmethod
     def _getType():
         return "TEXT"
@@ -38,11 +37,10 @@ class GeneId(AbstractClassifier):
         self.dumpValueDict(valueDict)
 
 
-class GeneName(AbstractClassifier):
+class GeneName(Attribute):
     """
     Creates a column representing the gene name
     """
-
     @staticmethod
     def _getType():
         return "TEXT"
@@ -54,11 +52,10 @@ class GeneName(AbstractClassifier):
         self.dumpValueDict(valueDict)
 
 
-class GeneType(AbstractClassifier):
+class GeneType(Attribute):
     """
     Creates a column representing the gene type
     """
-
     @staticmethod
     def _getType():
         return "TEXT"
@@ -70,11 +67,10 @@ class GeneType(AbstractClassifier):
         self.dumpValueDict(valueDict)
 
 
-class TranscriptType(AbstractClassifier):
+class TranscriptType(Attribute):
     """
     Creates a column representing the transcript type
     """
-
     @staticmethod
     def _getType():
         return "TEXT"
@@ -86,11 +82,10 @@ class TranscriptType(AbstractClassifier):
         self.dumpValueDict(valueDict)
 
 
-class SourceChrom(AbstractClassifier):
+class SourceChrom(Attribute):
     """
     Creates a column representing the source chromosome
     """
-
     @staticmethod
     def _getType():
         return "INTEGER"
@@ -98,17 +93,15 @@ class SourceChrom(AbstractClassifier):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getAnnotationDict()
-        valueDict = {aId: self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.chromosome for aId
-                     in self.aIds}
+        valueDict = {aId: self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosome for aId in self.aIds}
         self.dumpValueDict(valueDict)
 
 
-class SourceStart(AbstractClassifier):
+class SourceStart(Attribute):
     """
     Creates a column representing the source genomic start location.
     (+) strand value, so always smaller than sourceEnd.
     """
-
     @staticmethod
     def _getType():
         return "INTEGER"
@@ -116,17 +109,15 @@ class SourceStart(AbstractClassifier):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getAnnotationDict()
-        valueDict = {aId: self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.start for aId in
-                     self.aIds}
+        valueDict = {aId: self.annotationDict[psl_lib.removeAlignmentNumber(aId)].start for aId in self.aIds}
         self.dumpValueDict(valueDict)
 
 
-class SourceStop(AbstractClassifier):
+class SourceStop(Attribute):
     """
     Creates a column representing the source genomic stop location.
     (+) strand value, so always smaller than sourceEnd.
     """
-
     @staticmethod
     def _getType():
         return "INTEGER"
@@ -134,16 +125,14 @@ class SourceStop(AbstractClassifier):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getAnnotationDict()
-        valueDict = {aId: self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.stop for aId in
-                     self.aIds}
+        valueDict = {aId: self.annotationDict[psl_lib.removeAlignmentNumber(aId)].stop for aId in self.aIds}
         self.dumpValueDict(valueDict)
 
 
-class SourceStrand(AbstractClassifier):
+class SourceStrand(Attribute):
     """
     Creates a column representing the source genomic strand.
     """
-
     @staticmethod
     def _getType():
         return "TEXT"
@@ -151,18 +140,15 @@ class SourceStrand(AbstractClassifier):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getAnnotationDict()
-        valueDict = {
-            aId: seq_lib.convertStrand(
-                self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosomeInterval.strand)
-            for aId in self.aIds}
+        valueDict = {aId: seq_lib.convertStrand(self.annotationDict[psl_lib.removeAlignmentNumber(aId)].strand)
+                     for aId in self.aIds}
         self.dumpValueDict(valueDict)
 
 
-class DestChrom(AbstractClassifier):
+class DestChrom(Attribute):
     """
     Creates a column representing the dest chromosome
     """
-
     @staticmethod
     def _getType():
         return "INTEGER"
@@ -170,17 +156,15 @@ class DestChrom(AbstractClassifier):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
-        valueDict = {aId: self.transcriptDict[aId].chromosomeInterval.chromosome for aId in self.aIds if
-                     aId in self.transcriptDict}
+        valueDict = {aId: self.transcriptDict[aId].chromosome for aId in self.aIds if aId in self.transcriptDict}
         self.dumpValueDict(valueDict)
 
 
-class DestStart(AbstractClassifier):
+class DestStart(Attribute):
     """
     Creates a column representing the dest genomic start location.
     (+) strand value, so always smaller than destEnd.
     """
-
     @staticmethod
     def _getType():
         return "INTEGER"
@@ -188,17 +172,15 @@ class DestStart(AbstractClassifier):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
-        valueDict = {aId: self.transcriptDict[aId].chromosomeInterval.start for aId in self.aIds if
-                     aId in self.transcriptDict}
+        valueDict = {aId: self.transcriptDict[aId].start for aId in self.aIds if aId in self.transcriptDict}
         self.dumpValueDict(valueDict)
 
 
-class DestStop(AbstractClassifier):
+class DestStop(Attribute):
     """
     Creates a column representing the dest genomic stop location.
     (+) strand value, so always larger tha destStart
     """
-
     @staticmethod
     def _getType():
         return "INTEGER"
@@ -206,16 +188,14 @@ class DestStop(AbstractClassifier):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
-        valueDict = {aId: self.transcriptDict[aId].chromosomeInterval.stop for aId in self.aIds if
-                     aId in self.transcriptDict}
+        valueDict = {aId: self.transcriptDict[aId].stop for aId in self.aIds if aId in self.transcriptDict}
         self.dumpValueDict(valueDict)
 
 
-class DestStrand(AbstractClassifier):
+class DestStrand(Attribute):
     """
     Creates a column representing the dest genomic strand.
     """
-
     @staticmethod
     def _getType():
         return "TEXT"
@@ -223,21 +203,18 @@ class DestStrand(AbstractClassifier):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
-        valueDict = {aId: seq_lib.convertStrand(self.transcriptDict[aId].chromosomeInterval.strand) for aId in self.aIds
-                     if aId in self.transcriptDict}
+        valueDict = {aId: seq_lib.convertStrand(self.transcriptDict[aId].strand) for aId in self.aIds if aId in 
+                     self.transcriptDict}
         self.dumpValueDict(valueDict)
 
-class AlignmentCoverage(AbstractClassifier):
+class AlignmentCoverage(Attribute):
     """
-
     Calculates alignment coverage:
 
     (matches + mismatches) / qSize
 
     Reports the value as a REAL between 0 and 1
-
     """
-
     @staticmethod
     def _getType():
         return "REAL"
@@ -253,7 +230,7 @@ class AlignmentCoverage(AbstractClassifier):
         self.dumpValueDict(valueDict)
 
 
-class AlignmentIdentity(AbstractClassifier):
+class AlignmentIdentity(Attribute):
     """
 
     Calculates alignment identity:
@@ -261,9 +238,7 @@ class AlignmentIdentity(AbstractClassifier):
     matches / (matches + mismatches + query_insertions)
 
     Reports the value as a REAL between 0 and 1
-
     """
-
     @staticmethod
     def _getType():
         return "REAL"
@@ -277,4 +252,3 @@ class AlignmentIdentity(AbstractClassifier):
         logger.info(
             "Attribute {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
-

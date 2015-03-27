@@ -2,895 +2,673 @@ import re
 from itertools import izip
 from collections import defaultdict, Counter
 
-from jobTree.src.bioio import logger
-
-from lib.general_lib import formatRatio
-from src.abstractClassifier import AbstractClassifier
-from src.indels import insertionIterator, deletionIterator, frameShiftIterator, codonPairIterator, inversionIterator
-
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
 
+from jobTree.src.bioio import logger, reverseComplement
+
+from src.abstractClassifier import AbstractClassifier
+from src.helperClasses import GapFinder, SpliceSiteAnalysis
+from src.helperFunctions import deletionIterator, insertionIterator, frameShiftIterator, codonPairIterator
+from src.helperFunctions import rearrangementIterator
 
 class CodingInsertions(AbstractClassifier):
     """
+    Does the alignment introduce insertions to the target genome?
 
-    Does the alignment introduce insertions that are not a multiple of 3 to the target genome?
-
-    reports 1 (TRUE) if so, 0 (FALSE) otherwise
+    Reports a BED record for each such insertion
 
     Target insertion:
 
     query:   AATTAT--GCATGGA
     target:  AATTATAAGCATGGA
-
     """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def rgb(self):
+        return self.colors["mutation"]
 
     def run(self, mult3=False):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAnnotationDict()
         self.getAlignmentDict()
         self.getTranscriptDict()
-        valueDict = {}
+        detailsDict = {}
+        classifyDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
-            # annotated transcript coordinates are the same as query coordinates (they are the query)
-            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             t = self.transcriptDict[aId]
-            i = [[start, stop, size] for start, stop, size in insertionIterator(a, t, aln, mult3, inversion=False) if start >= t.thickStart and stop <= t.thickStop]
-            if len(i) == 0:
-                valueDict[aId] = 0
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            insertions = [seq_lib.chromosomeRegionToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, \
+                          size in insertionIterator(a, t, aln, mult3, rearrangement=False) if start >= t.thickStart \
+                           and stop <= t.thickStop]
+            if len(insertions) > 0:
+                detailsDict[aId] = insertions
+                classifyDict[aId] = 1
             else:
-                valueDict[aId] = 1
-        self.dumpValueDict(valueDict)
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class CodingMult3Insertions(CodingInsertions):
     """
-
     See CodingInsertions. Reports all cases where there are multiple of 3 insertions.
-
     """
-
     def run(self):
         CodingInsertions.run(self, mult3=True)
 
 
 class CodingDeletions(AbstractClassifier):
     """
-
     Does the alignment introduce deletions that are not a multiple of 3 to the target genome?
 
-    reports 1 (TRUE) if so, 0 (FALSE) otherwise
+    Reports a BED record for each deletion. Since deletions are not visible on the target genome, just has a 0 base 
+    record at this position.
 
     query:   AATTATAAGCATGGA
     target:  AATTAT--GCATGGA
-             012345  67
     """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def rgb(self):
+        return self.colors["mutation"]
 
     def run(self, mult3=False):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
         self.getAnnotationDict()
-        valueDict = {}
+        detailsDict = {}
+        classifyDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
-            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             t = self.transcriptDict[aId]
-            i = [[start, stop, size] for start, stop, size in deletionIterator(a, t, aln, mult3, inversion=False) if start >= t.thickStart and stop <= t.thickStop]
-            if len(i) == 0:
-                valueDict[aId] = 0
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            deletions = [seq_lib.chromosomeRegionToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, 
+                         size in deletionIterator(a, t, aln, mult3, rearrangement=False) if start >= t.thickStart and stop \
+                         <= t.thickStop]            
+            if len(deletions) > 0:
+                detailsDict[aId] = deletions
+                classifyDict[aId] = 1
             else:
-                valueDict[aId] = 1
-        self.dumpValueDict(valueDict)
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class CodingMult3Deletions(CodingDeletions):
     """
-
     See CodingDeletions. Reports all cases where there are multiple of 3 insertions.
-
     """
-
     def run(self):
         CodingDeletions.run(self, mult3=True)
 
 
-class Inversions(AbstractClassifier):
+class Rearrangements(AbstractClassifier):
     """
 
-    Are there any inversions in these alignments? Will show both insertion and deletion style rearrangements
+    Are there any rearrangements in these alignments? Will show both insertion and deletion style rearrangements
 
     """
-
-    @staticmethod
-    def _getType():
-        return "TEXT"
-
     def rgb(self):
         return self.colors["mutation"]
 
     def run(self):
-        logger.info("Starting detailed analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
         self.getAnnotationDict()
-        valueDict = {}
+        detailsDict = {}
+        classifyDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            inversions = [[start, stop, size] for start, stop, size in inversionIterator(a, t, aln)]
-            if len(inversions) > 0:
-                valueDict[aId] = 1
+            rearrangements = [seq_lib.chromosomeRegionToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop,
+                          size in rearrangementIterator(a, t, aln)]
+            if len(rearrangements) > 0:
+                detailsDict[aId] = rearrangements
+                classifyDict[aId] = 1
             else:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class FrameMismatch(AbstractClassifier):
     """
-
-    Frameshifts are caused by coding indels that are not a multiple of 3.
-
+    Frameshifts are caused by coding indels that are not a multiple of 3. Reports a BED entry
+    spanning all blocks of coding bases that are frame-shifted.
     """
-
-    @staticmethod
-    def _getType():
-        return "TEXT"
-
     def rgb(self):
         return self.colors["mutation"]
 
     def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
         self.getAnnotationDict()
-        valueDict = {}
+        detailsDict = {}
+        classifyDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            f = next(frameShiftIterator(a, t, aln), None)
-            if f is not None:
-                valueDict[aId] = 1
+            s = list(frameShiftIterator(a, t, aln))
+            if len(s) == 0:
+                classifyDict[aId] = 0
+                continue
+            elif len(s) == 1:
+                start, stop, size = s[0]
+                detailsDict[aId] = seq_lib.chromosomeCoordinateToBed(t, start, t.stop, self.rgb(), self.getColumn())
+                classifyDict[aId] = 1
             else:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
+                tmp = []
+                for i in xrange(1, len(s), 2):
+                    start = s[i-1][0]
+                    stop = s[i][1]
+                    if stop > t.thickStop:
+                        stop = t.thickStop
+                    tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
+                if i % 2 == 0 and i < len(s):
+                    start = s[-1][0]
+                    tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, t.thickStop, self.rgb(), self.getColumn()))
+                detailsDict[aId] = tmp
+                classifyDict[aId] = 1
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class AlignmentAbutsLeft(AbstractClassifier):
     """
-
     Does the alignment extend off the 3' end of a scaffold?
     (regardless of transcript orientation)
+
+    If so, reports BED of entire transcript
 
     aligned: #  unaligned: -  whatever: .  edge: |
              query  |---#####....
              target    |#####....
-
-    Entries are either 1 (TRUE) or 0 (FALSE)
-
     """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def rgb(self):
+        return self.colors["assembly"]
 
     def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
-        valueDict = {}
+        self.getTranscriptDict()
+        detailsDict = {}
+        classifyDict = {}
         for aId, aln in self.alignmentDict.iteritems():
+            if aId not in self.transcriptDict:
+                continue
             if aln.strand == "+" and aln.tStart == 0 and aln.qStart != 0:
-                valueDict[aId] = 1
+                detailsDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(), self.getColumn())
+                classifyDict[aId] = 1
             elif aln.strand == "-" and aln.tEnd == aln.tSize and aln.qEnd != aln.qSize:
-                valueDict[aId] = 1
+                detailsDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(), self.getColumn())
+                classifyDict[aId] = 1
             else:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class AlignmentAbutsRight(AbstractClassifier):
     """
-
     Does the alignment extend off the 3' end of a scaffold?
     (regardless of transcript orientation)
+
+    If so, reports BED of entire transcript
 
     aligned: #  unaligned: -  whatever: .  edge: |
              query  ...######---|
              target ...######|
-
-    Entries are either 1 (TRUE) or 0 (FALSE)
-
     """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def rgb(self):
+        return self.colors["assembly"]
 
     def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
-        valueDict = {}
+        self.getTranscriptDict()
+        detailsDict = {}
+        classifyDict = {}
         for aId, aln in self.alignmentDict.iteritems():
+            if aId not in self.transcriptDict:
+                continue
             if aln.strand == "+" and aln.tEnd == aln.tSize and aln.qEnd != aln.qSize:
-                valueDict[aId] = 1
+                detailsDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(), self.getColumn())
+                classifyDict[aId] = 1
             elif aln.strand == "-" and aln.tStart == 0 and aln.qStart != 0:
-                valueDict[aId] = 1
+                detailsDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(), self.getColumn())
+                classifyDict[aId] = 1
             else:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
-        
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
+
 
 class AlignmentPartialMap(AbstractClassifier):
     """
-
     Does the query sequence NOT map entirely?
 
     a.qSize != a.qEnd - a.qStart
 
-    Reports 1 if TRUE and 0 if FALSE
-
+    If so, reports the entire transcript
     """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def rgb(self):
+        return self.colors["assembly"]
 
     def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
-        valueDict = {}
+        self.getTranscriptDict()
+        detailsDict = {}
+        classifyDict = {}
         for aId, aln in self.alignmentDict.iteritems():
+            if aId not in self.transcriptDict:
+                continue
             if aln.qSize != aln.qEnd - aln.qStart:
-                valueDict[aId] = 1
+                detailsDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb(), self.getColumn())
+                classifyDict[aId] = 1
             else:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class BadFrame(AbstractClassifier):
     """
-
     Looks for CDS sequences that are not a multiple of 3
 
-    Reports 1 if TRUE and 0 if FALSE
-
+    Will report a BED record of the transcript if true
     """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def rgb(self):
+        return self.colors["generic"]
 
     def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
-        valueDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            if aId not in self.transcriptDict:
-                continue
-            t = self.transcriptDict[aId]
+        detailsDict = {}
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
             if t.getCdsLength() % 3 != 0:
-                valueDict[aId] = 1
+                detailsDict[aId] = seq_lib.chromosomeCoordinateToBed(t, t.thickStart, t.thickStop, self.rgb(),
+                                                                     self.getColumn())
+                classifyDict[aId] = 1
             else:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class BeginStart(AbstractClassifier):
     """
-
     Does the annotated CDS have a start codon (ATG) in the first 3 bases?
 
-    Returns 1 if TRUE 0 if FALSE
-
-    Value will be NULL if there is insufficient information, which is defined as:
-        1) thickStart == thickStop == 0 (no CDS)
-        2) thickStop - thickStart < 3: (no useful CDS annotation)
-        3) this alignment was not trans-mapped
-
+    Returns a BED record of the first 3 bases if this is NOT true
     """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def rgb(self):
+        return self.colors["generic"]
 
     def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
-        valueDict = {}
-        for aId in self.aIds:
-            if aId not in self.transcriptDict:
-                continue
-            t = self.transcriptDict[aId]
+        detailsDict = {}
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
             if t.thickStart == t.thickStop == 0 or t.thickStop - t.thickStart < 3:
                 continue
             s = t.getCds(self.seqDict)
-            if s.startswith("ATG"):
-                valueDict[aId] = 1
+            if not s.startswith("ATG"):
+                detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, 0, 2, self.rgb(), self.getColumn())
+                classifyDict[aId] = 1
             else:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
-class CdsGap(AbstractClassifier):
+class CdsGap(GapFinder):
     """
-
     Are any of the CDS introns too short? Too short default is 30 bases.
 
-    Returns 1 if TRUE 0 if FALSE
+    Reports a BED record for each intron interval that is too short.
 
     If mult3 is true, will only report on multiple of 3 gaps.
-
     """
+    def rgb(self):
+        return self.colors["alignment"]
 
-    @staticmethod
-    def _getType():
-        return "INTEGER"
-
-    def mult3(self, t, shortIntronSize):
-        # only report if CdsGap is a multiple of 3
-        if t.chromosomeInterval.strand is False:
-            intronIntervals = t.intronIntervals[::-1]
-        else:
-            intronIntervals = t.intronIntervals        
-        for i in xrange(len(intronIntervals)):
-            # is this intron coding?
-            if t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is True:
-                if len(intronIntervals[i]) <= shortIntronSize:
-                    if len(intronIntervals[i]) % 3 == 0:
-                        return 1
-        return 0
-
-    def notMult3(self, t, shortIntronSize):
-        # only report if CdsGap is NOT a multiple of 3
-        if t.chromosomeInterval.strand is False:
-            intronIntervals = t.intronIntervals[::-1]
-        else:
-            intronIntervals = t.intronIntervals        
-        for i in xrange(len(intronIntervals)):
-            # is this intron coding?
-            if t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is True:
-                if len(intronIntervals[i]) <= shortIntronSize:
-                    if len(intronIntervals[i]) % 3 != 0:
-                        return 1
-        return 0
-
-    def run(self, mult3=False, shortIntronSize=30):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
-        self.getTranscriptDict()
-        valueDict = {}
-        for aId in self.aIds:
-            if aId not in self.transcriptDict:
-                continue
-            if mult3 is True:
-                valueDict[aId] = self.mult3(self.transcriptDict[aId], shortIntronSize)
-            else:
-                valueDict[aId] = self.notMult3(self.transcriptDict[aId], shortIntronSize)
-        self.dumpValueDict(valueDict)
+    def run(self, shortIntronSize=30, mult3=False, coding=True):
+        GapFinder.run(self, shortIntronSize=shortIntronSize, mult3=mult3, coding=coding)
 
 
-class CdsMult3Gap(CdsGap):
+class CdsMult3Gap(GapFinder):
     """
-
     See CdsGap for details. Runs it in mult3 mode.
-
     """
+    def rgb(self):
+        return self.colors["alignment"]    
 
-    def run(self, mult3=True, shortIntronSize=30):
-        CdsGap.run(self, mult3, shortIntronSize)
+    def run(self, shortIntronSize=30, mult3=True, coding=True):
+        GapFinder.run(self, shortIntronSize=shortIntronSize, mult3=mult3, coding=coding)
 
 
-class CdsNonCanonSplice(AbstractClassifier):
+class UtrGap(GapFinder):
     """
+    Are any UTR introns too short? Too short is defined as less than 30bp
 
+    Reports on all such introns.
+    """
+    def rgb(self):
+        return self.colors["alignment"]
+
+    def run(self, shortIntronSize=30, mult3=False, coding=False):
+        GapFinder.run(self, shortIntronSize=shortIntronSize, mult3=mult3, coding=coding)
+
+
+class CdsNonCanonSplice(SpliceSiteAnalysis):
+    """
     Are any of the CDS introns splice sites not of the canonical form
     GT..AG
 
-    reports 1 if TRUE, 0 if FALSE
+    Reports two BED records of the four offending bases.
 
     This classifier is only applied to introns which are longer than
     a minimum intron size.
-
     """
+    def rgb(self):
+        return self.colors["mutation"]
 
-    @staticmethod
-    def _getType():
-        return "INTEGER"
-
-    def badSplice(self, donor, acceptor):
-        m = {"GT": "AG"}
-        d = donor.upper()
-        a = acceptor.upper()
-        if d in m and m[d] != a:
-            return True
-        else:
-            return False
-
-    def run(self, shortIntronSize=30):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
-        self.getTranscriptDict()
-        self.getSeqDict()
-        valueDict = {}
-        for aId in self.aIds:
-            if aId not in self.transcriptDict:
-                continue
-            t = self.transcriptDict[aId]
-            for i, seq in enumerate(t.intronSequenceIterator(self.seqDict)):
-                #make sure this intron is of sufficient size
-                if len(seq) > shortIntronSize:
-                    # make sure this intron is between coding exons
-                    if t.exons[i].containsCds() and t.exons[i + 1].containsCds():
-                        if self.badSplice(seq[:2], seq[-2:]) == True:
-                            valueDict[aId] = 1
-                            break
-            if aId not in valueDict:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
+    def run(self, shortIntronSize=30, coding=True, canonical=True):
+        SpliceSiteAnalysis.run(self, canonical=canonical, coding=coding, shortIntronSize=shortIntronSize)
 
 
-class CdsUnknownSplice(CdsNonCanonSplice):
+class CdsUnknownSplice(SpliceSiteAnalysis):
     """
-
     Are any of the CDS introns splice sites not of the form
     GT..AG, GC..AG, AT..AC
 
-    subclasses cdsNonCanonSplice and just replaces the badSplice function
+    This classifier is only applied to introns which are longer than
+    a minimum intron size.
+    """
+    def rgb(self):
+        return self.colors["assembly"]
 
-    reports 1 if TRUE, 0 if FALSE
+    def run(self, shortIntronSize=30, coding=True, canonical=False):
+        SpliceSiteAnalysis.run(self, canonical=canonical, coding=coding, shortIntronSize=shortIntronSize)
+
+
+class UtrNonCanonSplice(SpliceSiteAnalysis):
+    """
+    Are any of the UTR introns splice sites not of the canonical form
+    GT..AG
 
     This classifier is only applied to introns which are longer than
     a minimum intron size.
-
     """
+    def rgb(self):
+        return self.colors["mutation"]
 
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def run(self, shortIntronSize=30, coding=False, canonical=True):
+        SpliceSiteAnalysis.run(self, canonical=canonical, coding=coding, shortIntronSize=shortIntronSize)
 
-    def badSplice(self, donor, acceptor):
-        m = {"GT": "AG", "GC": "AG", "AT": "AC"}
-        d = donor.upper()
-        a = acceptor.upper()
-        if d in m and m[d] != a:
-            return 1
-        else:
-            return 0
 
-    def run(self, shortIntronSize=30):
-        CdsNonCanonSplice.run(self)
+class UtrUnknownSplice(SpliceSiteAnalysis):
+    """
+    Are any of the UTR introns splice sites not of the form
+    GT..AG, GC..AG, AT..AC
+
+    This classifier is only applied to introns which are longer than
+    a minimum intron size.
+    """
+    def rgb(self):
+        return self.colors["assembly"]
+
+    def run(self, shortIntronSize=30, coding=False, canonical=False):
+        SpliceSiteAnalysis.run(self, canonical=canonical, coding=coding, shortIntronSize=shortIntronSize)
 
 
 class EndStop(AbstractClassifier):
     """
-
     Looks at the end of the coding region (thickEnd) and sees if the last
     three bases are a stop codon ('TAA', 'TGA', 'TAG')
 
-    mode: Returns 1 if TRUE 0 if FALSE
+    If this is NOT true, will report a BED record of the last 3 bases.
     
-    Value will be NULL if there is unsufficient information, which is defined as:
+    Value will be NULL if there is insufficient information, which is defined as:
         1) thickStop - thickStart <= 9: (no useful CDS annotation)
         2) this alignment was not trans-mapped
-
     """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def rgb(self):
+        return self.colors["alignment"]
 
     def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         stopCodons = ('TAA', 'TGA', 'TAG')
         self.getTranscriptDict()
         self.getSeqDict()
-        valueDict = {}
-        for aId in self.aIds:
-            if aId not in self.transcriptDict:
+        detailsDict = {}
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
+            if t.getCdsLength() <= 9:
                 continue
-            t = self.transcriptDict[aId]
-            if t.getCdsLength() <= 9: 
-                continue
-            s = t.getCds(self.seqDict)[-3:]
-            if s in stopCodons:
-                valueDict[aId] = 1
+            cds = t.getCds(self.seqDict)
+            if cds[-3:] not in stopCodons:
+                detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, len(cds) - 3, len(cds), self.rgb(), self.getColumn())
+                classifyDict[aId] = 1
             else:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class InFrameStop(AbstractClassifier):
     """
-
     Reports on in frame stop codons for each transcript.
 
     In order to be considered, must have at least 3 codons.
 
-    mode: Reports 1 if TRUE (has in frame stop), 0 if FALSE
-
+    Returns a BED record of the position of the in frame stop if it exists.
     """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def rgb(self):
+        return self.colors["mutation"]
 
     def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
-        valueDict = {}
-        for aId in self.aIds:
-            if aId not in self.transcriptDict:
-                continue
-            t = self.transcriptDict[aId]
+        detailsDict = {}
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
             # make sure this transcript has CDS
-            # and more than 2 codons - can't have in frame stop without that
-            if t.getCdsLength() >= 9:
-                for i in xrange(9, t.getCdsLength() - 3, 3):
-                    c = t.cdsCoordinateToAminoAcid(i, self.seqDict)
-                    if c == "*":
-                        valueDict[aId] = 1
-            if aId not in valueDict:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
+            #and more than 2 codons - can't have in frame stop without that
+            if t.getCdsLength() < 9:
+                continue
+            for i in xrange(9, t.getCdsLength() - 3, 3):
+                c = t.cdsCoordinateToAminoAcid(i, self.seqDict)
+                if c == "*":
+                    detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn())
+                    classifyDict[aId] = 1
+            if aId not in classifyDict:
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class NoCds(AbstractClassifier):
     """
-
     Looks to see if this transcript actually has a CDS, which is defined as having a
-    thickStop-thickStart region of at least 1 codon. Adjusting cdsCutoff can change this.
+    thickStop-thickStart region of at least 10 codons. Adjusting cdsCutoff can change this.
 
-    Reports a 1 if TRUE, 0 if FALSE.
+    If True, reports entire transcript.
 
-    Only reports 1 if the original transcript had a CDS.
-
+    Only reports if the original transcript had a CDS.
     """
+    def rgb(self):
+        return self.colors["alignment"]
 
-    @staticmethod
-    def _getType():
-        return "INTEGER"
-
-    def run(self, cdsCutoff=3):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+    def run(self, cdsCutoff=30):
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
-        self.getAnnotationDict()
-        valueDict = {}
-        for aId in self.aIds:
-            if aId not in self.transcriptDict:
-                continue
-            t = self.transcriptDict[aId]
+        detailsDict = {}
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
             if t.getCdsLength() < cdsCutoff:
-                a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-                if a.getCdsLength() > cdsCutoff:
-                    valueDict[aId] = 1
+                detailsDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn())
+                classifyDict[aId] = 1
             else:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
-
-
-class MinimumCdsSize(NoCds):
-    """
-
-    The smallest ORFs in any species are >10AA. So, we will flag any CDS smaller than this.
-
-    Inherits NoCds and modifies cdsCutoff to do this.
-
-    """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
-
-    def run(self):
-        NoCds.run(self, cdsCutoff=30)
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class ScaffoldGap(AbstractClassifier):
     """
-
     Does this alignment span a scaffold gap? (Defined as a 100bp run of Ns)
 
-    Reports 1 if TRUE, 0 if FALSE
-
+    Reports the entire alignment if it spans a scaffold gap
     """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def rgb(self):
+        return self.colors["assembly"]
 
     def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getAlignmentDict()
         self.getSeqDict()
-        valueDict = {}
+        self.getTranscriptDict()
+        detailsDict = {}
+        classifyDict = {}
         r = re.compile("[atgcATGC][nN]{100}[atgcATGC]")
         for aId, aln in self.alignmentDict.iteritems():
-            destSeq = self.seqDict[aln.tName][aln.tStart: aln.tEnd]
+            if aId not in self.transcriptDict:
+                continue
+            destSeq = self.seqDict[aln.tName][aln.tStart:aln.tEnd]
             if re.search(r, destSeq) is not None:
-                valueDict[aId] = 1
+                t = self.transcriptDict[aId]
+                detailsDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn())
+                classifyDict[aId] = 1
             else:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class UnknownBases(AbstractClassifier):
     """
-
     Does this alignment contain Ns in the target genome?
 
-    Only looks mRNA bases, and restricts to CDS if cds is True
-
-    Reports 1 if TRUE, 0 if FALSE
-
+    Only looks at mRNA bases, and restricts to CDS if cds is True
     """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def rgb(self):
+        return self.colors["assembly"]
 
     def run(self, cds=False):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
-        valueDict = {}
-        for aId in self.aIds:
-            if aId not in self.transcriptDict:
-                continue
-            t = self.transcriptDict[aId]
+        detailsDict = {}
+        classifyDict = {}
+        r = re.compile("N+")
+        for aId, t in self.transcriptDict.iteritems():
             if cds is True:
                 s = t.getCds(self.seqDict)
+                tmp = [seq_lib.cdsCoordinateToBed(t, m.start(), m.end(), self.rgb(), self.getColumn()) for m in \
+                       re.finditer(r, s)]
             else:
                 s = t.getMRna(self.seqDict)
-            if "N" in s or "n" in s:
-                valueDict[aId] = 1
+                tmp = [seq_lib.transcriptCoordinateToBed(t, m.start(), m.end(), self.rgb(), self.getColumn()) for m in \
+                       re.finditer(r, s)]
+            if len(tmp) > 0:
+                detailsDict[aId] = tmp
+                classifyDict[aId] = 1
             else:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class UnknownCdsBases(UnknownBases):
     """
-
     Inherits Unknown Bases and sets the cds flag to True.
-
     """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
 
     def run(self):
         UnknownBases.run(self, cds=True)
 
 
-class UtrGap(AbstractClassifier):
-    """
-
-    Are any UTR introns too short? Too short is defined as less than 30bp
-
-    Reports 1 if TRUE, 0 if FALSE
-
-    """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
-
-    def run(self, shortIntronSize=30):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
-        self.getTranscriptDict()
-        valueDict = {}
-        for aId in self.aIds:
-            if aId not in self.transcriptDict:
-                continue
-            t = self.transcriptDict[aId]
-            if t.chromosomeInterval.strand is False:
-                intronIntervals = t.intronIntervals[::-1]
-            else:
-                intronIntervals = t.intronIntervals            
-            for i, interval in enumerate(t.intronIntervals):
-                if len(interval) <= shortIntronSize:
-                    # make sure this intron is in UTR
-                    if (t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is False) or \
-                       (t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is False) or \
-                       (t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is True):
-                        valueDict[aId] = 1
-                        break
-            if aId not in valueDict:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
-
-
-class UtrNonCanonSplice(AbstractClassifier):
-    """
-
-    Are any of the UTR introns splice sites not of the canonical form
-    GT..AG
-
-    reports 1 if TRUE, 0 if FALSE
-
-    This classifier is only applied to introns which are longer than
-    a minimum intron size.
-
-    TODO: this class is nearly identical to CdsNonCanonSplice. Devise a way to merge.
-
-    """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
-
-    def badSplice(self, donor, acceptor):
-        m = {"GT": "AG"}
-        d = donor.upper()
-        a = acceptor.upper()
-        if d in m and m[d] != a:
-            return 1
-        else:
-            return 0
-
-    def run(self, shortIntronSize=30):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
-        self.getTranscriptDict()
-        self.getSeqDict()
-        valueDict = {}
-        for aId in self.aIds:
-            if aId not in self.transcriptDict:
-                continue
-            t = self.transcriptDict[aId]
-            for i, seq in enumerate(t.intronSequenceIterator(self.seqDict)):
-                #make sure this intron is long enough
-                if len(seq) > shortIntronSize:
-                    # make sure this intron is NOT between coding exons
-                    if (t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is False) or \
-                       (t.exons[i].containsCds() is True and t.exons[i + 1].containsCds() is False) or \
-                       (t.exons[i].containsCds() is False and t.exons[i + 1].containsCds() is True):
-                        bad = self.badSplice(seq[:2], seq[-2:])
-                        if bad == 1:
-                            valueDict[aId] = 1
-            if aId not in valueDict:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
-
-
-class UtrUnknownSplice(UtrNonCanonSplice):
-    """
-
-    Are any of the UTR introns splice sites not of the form
-    GT..AG, GC..AG, AT..AC
-
-    subclasses CdsNonCanonSplice and just replaces the badSplice function
-
-    reports 1 if TRUE, 0 if FALSE
-
-    This classifier is only applied to introns which are longer than
-    a minimum intron size.
-
-    """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
-
-    def badSplice(self, donor, acceptor):
-        m = {"GT": "AG", "GC": "AG", "AT": "AC"}
-        d = donor.upper()
-        a = acceptor.upper()
-        if d in m and m[d] != a:
-            return 1
-        else:
-            return 0
-
-    def run(self, shortIntronSize=30):
-        UtrNonCanonSplice.run(self)
-
-
 class Nonsynonymous(AbstractClassifier):
     """
+    Do any base changes introduce nonsynonmous changes?
 
-    Do any base changes introduce nonsynonymous changes?
-
-    Only reports if these exist before a frameshift mutation
-
+    This is filtered for codons within frameshifts, unless another frameshift restores the frame.
     """
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def rgb(self):
+        return self.colors["nonsynon"]
 
     def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting details analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getAnnotationDict()
         self.getSeqDict()
-        self.getAlignmentDict()
         self.getRefDict()
-        valueDict = {}
+        self.getAlignmentDict()
+        detailsDict = defaultdict(list)
+        classifyDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
-                if seq_lib.codonToAminoAcid(target_codon) != seq_lib.codonToAminoAcid(query_codon):
-                    valueDict[aId] = 1
-                    break                   
-            if aId not in valueDict:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
+                if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) != \
+                                                                                  seq_lib.codonToAminoAcid(query_codon):
+                    detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i - 3, i, self.rgb(), self.getColumn()))
+                    classifyDict[aId] = 1
+            if aId not in classifyDict:
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class Synonymous(AbstractClassifier):
     """
+    Do any base changes introduce nonsynonmous changes?
 
-    Do any base changes introduce nonsynonymous changes?
-
-    Only reports if these exist before a frameshift mutation
-
+    This is filtered for codons within frameshifts, unless another frameshift restores the frame.
     """
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def rgb(self):
+        return self.colors["synon"]        
 
     def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting details analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getAnnotationDict()
         self.getSeqDict()
         self.getRefDict()
         self.getAlignmentDict()
-        valueDict = {}
-        for aId in self.alignmentDict.iteritems():
+        detailsDict = defaultdict(list)
+        classifyDict = {}
+        for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
-                if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) == seq_lib.codonToAminoAcid(query_codon):
-                        valueDict[aId] = 1
-                        break
-            if aId not in valueDict:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)
+                if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) == \
+                                                                                  seq_lib.codonToAminoAcid(query_codon):
+                    detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))
+                    classifyDict[aId] = 1
+            if aId not in classifyDict:
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
+
 
 class Paralogy(AbstractClassifier):
     """
-
     Does this transcript appear more than once in the transcript dict?
-
     """
-
-    @staticmethod
-    def _getType():
-        return "INTEGER"
+    def rgb(self):
+        return self.colors["mutation"]       
 
     def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.getColumn(), self.genome))
+        logger.info("Starting details analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         counts = Counter(psl_lib.removeAlignmentNumber(aId) for aId in self.aIds if aId in self.transcriptDict)
-        valueDict = {}
-        for aId in self.aIds:
-            if aId not in self.transcriptDict:
-                continue
-            elif counts[psl_lib.removeAlignmentNumber(aId)] > 1:
-                valueDict[aId] = 1
-            else:
-                valueDict[aId] = 0
-        self.dumpValueDict(valueDict)        
+        detailsDict = {}
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
+            if counts[psl_lib.removeAlignmentNumber(aId)] > 1:
+                detailsDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn() + "_{}_Copies".format( \
+                                                           counts[psl_lib.removeAlignmentNumber(aId)] - 1))
+        self.dumpValueDicts(classifyDict, detailsDict)        

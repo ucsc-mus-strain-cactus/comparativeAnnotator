@@ -1,4 +1,4 @@
-import src.classifiers, src.details
+import src.classifiers
 from lib.general_lib import classesInModule
 
 def mutations():
@@ -24,8 +24,7 @@ def inFrameStop():
     return detailsFields, classifyFields, classifyValues, classifyOperations
 
 def everything():
-    detailsFields = [x.__name__ for x in classesInModule(src.details)]
-    classifyFields = [x.__name__ for  x in classesInModule(src.classifiers)]
+    detailsFields = classifyFields = [x.__name__ for x in classesInModule(src.classifiers)]
     classifyOperations = ["OR"] * (len(classifyFields) - 1)
     classifyValues = [1] * len(classifyFields)
     return detailsFields, classifyFields, classifyValues, classifyOperations

@@ -21,15 +21,11 @@ class BuildTracks(Target):
         a matching list of values that the classify field should have.
         a matching list of AND/OR operations to link the logic together
     """
-    def __init__(self, outDir, genomes, classifiers, details, attributes, primaryKeyColumn,
-                      dataDir, geneCheckBedDict, annotationBed):
+    def __init__(self, outDir, genomes, primaryKeyColumn, dataDir, geneCheckBedDict, annotationBed):
         Target.__init__(self)
         self.outDir = outDir
         self.bedDir = os.path.join(self.outDir, "bedfiles")
         self.genomes = genomes
-        self.classifiers = classifiers
-        self.details = details
-        self.attributes = attributes
         self.primaryKeyColumn = primaryKeyColumn
         self.geneCheckBedDict = geneCheckBedDict
         self.dataDir = dataDir
@@ -40,8 +36,9 @@ class BuildTracks(Target):
         bedPath = os.path.join(self.bedDir, categoryName, genome, genome + ".bed")
         with open(bedPath, "w") as outf:
             for details in detailsFields:
-                for record in sql_lib.selectBetweenDatabases(self.cur, "details", details, classifyFields, classifyValues,
-                                                              classifyOperations, self.primaryKeyColumn, genome):
+                for record in sql_lib.selectBetweenDatabases(self.cur, "details", details, classifyFields, 
+                                                             classifyValues, classifyOperations, self.primaryKeyColumn, 
+                                                             genome):
                     if record[0] == None:
                         continue
                     elif type(record[0]) == type(u''):
@@ -55,10 +52,9 @@ class BuildTracks(Target):
         bigBedPath = os.path.join(self.bedDir, categoryName, genome, genome + ".bb")
         chromSizesPath = os.path.join(self.dataDir, genome + ".chrom.sizes")
         #system("bedSort {} {}".format(bedPath, os.path.join(self.getLocalTempDir(), "tmp"))
-        system("bedSort {} {}".format(bedPath, "tmp"))
+        system("bedSort {} {}".format(bedPath, bedPath))
         #system("bedToBigBed {} {} {}".format(os.path.join(self.getLocalTempDir(), "tmp"), chromSizesPath, bigBedPath))
-        system("bedToBigBed {} {} {}".format("tmp", chromSizesPath, bigBedPath))
-        os.remove("tmp")
+        system("bedToBigBed -extraIndex=name {} {} {}".format(bedPath, chromSizesPath, bigBedPath))
 
     def run(self):
         if not os.path.exists(self.bedDir):

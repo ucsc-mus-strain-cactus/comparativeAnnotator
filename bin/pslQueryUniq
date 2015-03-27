@@ -1,0 +1,38 @@
+#!/usr/bin/awk -f
+#
+#  pslQueryUniq [-p prefix] [psl1 ...]
+#
+# make PSL qNames unique.  This always adds something to the qName, so it's is
+# consistent if run multiple times on the same data.  First time it's run, it
+# adds a -n (acc-1, acc-2), subsequent runs add another period and number.
+# (acc-1.1, acc-1.2, acc-2.1) If -p is specified, the prefixed is added to the accession.
+BEGIN {
+    FS = "\t";
+    OFS = "\t";
+    iarg = 1;
+    while (ARGV[iarg] ~ "^-") {
+        if (ARGV[iarg] == "-p") {
+            prefix = ARGV[iarg+1];
+            ARGV[iarg] = ARGV[iarg+1] = "";
+            iarg += 2;
+        } else {
+            print "Invalid option" >stderr
+            exit(1)
+        }
+    }
+}
+
+{
+    uacc = $10;
+    qNameCnt[uacc]++;
+    
+    if (match(uacc, "-[.0-9]+") == 0) {
+        # first added id
+        uacc2 = prefix uacc "-" qNameCnt[uacc];
+    } else {
+        # subsequent added ids
+        uacc2 = prefix uacc "." qNameCnt[uacc];
+    }
+    $10 = uacc2;
+    print $0;
+}

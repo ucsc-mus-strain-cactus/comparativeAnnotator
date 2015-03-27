@@ -36,12 +36,12 @@ class Transcript(object):
     Then they will be stored so we don't slice the same thing over and over.
     """
     
-    __slots__ = ('chromosomeInterval', 'name', 'strand', 'score', 'thickStart', 'rgb',
-            'thickStop', 'start', 'stop', 'intronIntervals', 'exonIntervals', 'exons',
-            'cds', 'mRna', 'blockSizes', 'blockStarts', 'blockCount', 'chrom')
+    __slots__ = ('name', 'strand', 'score', 'thickStart', 'rgb', 'thickStop', 'start', 'stop', 'intronIntervals',
+                 'exonIntervals', 'exons', 'cds', 'mRna', 'blockSizes', 'blockStarts', 'blockCount', 'chromosome',
+                 'cdsSize', 'transcriptSize')
     
     def __init__(self, bed_tokens):
-        self.chrom = bed_tokens[0]
+        self.chromosome = bed_tokens[0]
         self.start = int(bed_tokens[1])
         self.stop = int(bed_tokens[2])
         self.name = bed_tokens[3]
@@ -54,10 +54,6 @@ class Transcript(object):
         self.blockSizes = bed_tokens[10]
         self.blockStarts = bed_tokens[11]
 
-        #interval for entire transcript including introns
-        self.chromosomeInterval = ChromosomeInterval(bed_tokens[0], self.start, 
-                self.stop, self.strand)
-
         #build chromosome intervals for exons and introns
         self.exonIntervals = self._getExonIntervals(bed_tokens)
         self.intronIntervals = self._getIntronIntervals(bed_tokens)
@@ -65,29 +61,23 @@ class Transcript(object):
         #build Exons mapping transcript space coordinates to chromosome
         self.exons = self._getExons(bed_tokens)
 
-    def __len__(self):
-        return  sum(x.stop-x.start for x in self.exonIntervals)
+        #calculate sizes
+        self._getCdsSize()
+        self._getSize()
 
-    def __eq__(self, other):
-        return (self.chromosomeInterval == other.chromosomeInterval and
-                        self.name == other.name and
-                        self.exonIntervals == other.exonIntervals and
-                        self.score == other.score and
-                        self.thickStart == other.thickStart and
-                        self.thickStop == other.thickStop and
-                        self.start == other.start and 
-                        self.stop == other.end)
+    def __len__(self):
+        return  self.transcriptSize
 
     def __cmp__(self, transcript):
-        return cmp((self.chromosomeInterval, self.name),
-                    (transcript.chromosomeInterval, transcript.name))
+        return cmp((self, self.name),
+                    (transcript, transcript.name))
 
     def hashkey(self):
         """
         Return a string to use as dict key.
         """
-        return '%s_%s_%d_%d' % (self.name, self.chromosomeInterval.chromosome, 
-                self.chromosomeInterval.start, self.chromosomeInterval.stop)
+        return '%s_%s_%d_%d' % (self.name, self.chromosome, 
+                self.start, self.stop)
 
     def getBed(self, rgb=None, name=None, start_offset=None, stop_offset=None):
         """
@@ -108,11 +98,11 @@ class Transcript(object):
         else:
             name = self.name
         if start_offset is None and stop_offset is None:
-            return [self.chrom, self.start, self.stop, name, self.score, convertStrand(self.strand), self.thickStart, 
+            return [self.chromosome, self.start, self.stop, name, self.score, convertStrand(self.strand), self.thickStart, 
                     self.thickStop, rgb, self.blockCount, self.blockSizes, self.blockStarts]
         elif start_offset == stop_offset:
             assert self.chromosomeCoordinateToTranscript(start_offset) is not None #no intron records
-            return [self.chrom, start_offset, stop_offset, name, self.score, convertStrand(self.strand), start_offset, 
+            return [self.chromosome, start_offset, stop_offset, name, self.score, convertStrand(self.strand), start_offset, 
                     stop_offset, rgb, 1, 0, 0]
         
         def _moveStart(exonIntervals, blockCount, blockStarts, blockSizes, start, start_offset):
@@ -170,7 +160,7 @@ class Transcript(object):
             thickStop = 0
         blockStarts = ",".join(map(str, blockStarts))
         blockSizes = ",".join(map(str, blockSizes))
-        return [self.chrom, start, stop, name, self.score, convertStrand(self.strand), thickStart, thickStop, rgb, blockCount,
+        return [self.chromosome, start, stop, name, self.score, convertStrand(self.strand), thickStart, thickStop, rgb, blockCount,
                 blockSizes, blockStarts]
 
     def _getExonIntervals(self, bed_tokens):
@@ -311,6 +301,34 @@ class Transcript(object):
 
         return exons
 
+    def _getSize(self):
+        self.transcriptSize = sum(x.stop - x.start for x in self.exonIntervals)
+
+    def _getCdsSize(self):
+        l = 0
+        for e in self.exonIntervals:
+            if self.thickStart < e.start and e.stop < self.thickStop:
+                # squarely in the CDS
+                l += e.stop - e.start
+            elif (e.start <= self.thickStart and e.stop < self.thickStop
+                        and self.thickStart < e.stop):
+                # thickStart marks the start of the CDS
+                l += e.stop - self.thickStart
+            elif e.start <= self.thickStart and self.thickStop <= e.stop:
+                # thickStart and thickStop mark the whole CDS
+                l += self.thickStop - self.thickStart
+            elif (self.thickStart < e.start and self.thickStop <= e.stop
+                        and e.start < self.thickStop):
+                # thickStop marks the end of the CDS
+                l += self.thickStop - e.start
+        self.cdsSize = l
+
+    def getCdsLength(self):
+        return self.cdsSize
+
+    def getTranscriptLength(self):
+        return self.transcriptSize
+
     def getMRna(self, seqDict):
         """
         Returns the mRNA sequence for this transcript based on a TwoBitFile object.
@@ -319,12 +337,12 @@ class Transcript(object):
         """
         if hasattr(self, "mRna"):
             return self.mRna
-        sequence = seqDict[self.chromosomeInterval.chromosome]
-        assert self.chromosomeInterval.stop <= len(sequence)
+        sequence = seqDict[self.chromosome]
+        assert self.stop <= len(sequence)
         s = []
         for e in self.exonIntervals:
             s.append(sequence[e.start : e.stop])
-        if self.chromosomeInterval.strand is True:
+        if self.strand is True:
             mRna = "".join(s)
         else:
             mRna = reverseComplement("".join(s))
@@ -335,7 +353,7 @@ class Transcript(object):
         """
         Returns the entire chromosome sequence for this transcript, (+) strand orientation.
         """
-        sequence = seqDict[self.chromosomeInterval.chromosome]
+        sequence = seqDict[self.chromosome]
         return sequence[self.start:self.stop]
 
     def getCds(self, seqDict):
@@ -347,8 +365,8 @@ class Transcript(object):
         """
         if hasattr(self, "cds"):
             return self.cds
-        sequence = seqDict[self.chromosomeInterval.chromosome]
-        assert self.chromosomeInterval.stop <= len(sequence)
+        sequence = seqDict[self.chromosome]
+        assert self.stop <= len(sequence)
         #make sure this isn't a non-coding gene
         if self.thickStart == self.thickStop == 0:
             return ""
@@ -368,34 +386,12 @@ class Transcript(object):
                         and e.start < self.thickStop):
                 # thickStop marks the end of the CDS
                 s.append(sequence[e.start : self.thickStop])
-        if not self.chromosomeInterval.strand:
+        if not self.strand:
             cds = reverseComplement("".join(s)).upper()
         else:
             cds = "".join(s).upper()
         self.cds = cds
         return cds
-
-    def getCdsLength(self):
-        """
-        Returns the length of the CDS.
-        """
-        l = 0
-        for e in self.exonIntervals:
-            if self.thickStart < e.start and e.stop < self.thickStop:
-                # squarely in the CDS
-                l += e.stop - e.start
-            elif (e.start <= self.thickStart and e.stop < self.thickStop
-                        and self.thickStart < e.stop):
-                # thickStart marks the start of the CDS
-                l += e.stop - self.thickStart
-            elif e.start <= self.thickStart and self.thickStop <= e.stop:
-                # thickStart and thickStop mark the whole CDS
-                l += self.thickStop - self.thickStart
-            elif (self.thickStart < e.start and self.thickStop <= e.stop
-                        and e.start < self.thickStop):
-                # thickStop marks the end of the CDS
-                l += self.thickStop - e.start
-        return l
 
     def getTranscriptCoordinateCdsStart(self):
         """
@@ -445,15 +441,11 @@ class Transcript(object):
         """
         Iterates over intron sequences in transcript order and strand
         """
-        chromSeq = seqDict[self.chromosomeInterval.chromosome]
-        if self.strand is True:
-            for intron in self.intronIntervals:
-                yield chromSeq[intron.start : intron.stop]
-        else:
-            for intron in reversed(self.intronIntervals):
-                yield reverseComplement(chromSeq[intron.start : intron.stop])
+        chromSeq = seqDict[self.chromosome]
+        for intron in self.introns:
+            yield intron.getSequence(seqDict)
 
-    def getIntrons(self, seqDict):
+    def getIntronSequences(self, seqDict):
         """
         Wrapper for intronSequenceIterator that returns a list of sequences.
         """
@@ -625,7 +617,7 @@ class GenePredTranscript(Transcript):
                 ",".join(map(str,blockSizes)), ",".join(map(str,blockStarts))]
 
         #interval for entire transcript including introns
-        self.chromosomeInterval = ChromosomeInterval(bed_tokens[0], self.start, 
+        self = ChromosomeInterval(bed_tokens[0], self.start, 
                 self.stop, self.strand)
 
         #build chromosome intervals for exons and introns
@@ -865,44 +857,14 @@ class ChromosomeInterval(object):
         self.strand = strand    # True or False
 
     def __eq__(self, other):
-        return (self.chromosome == other.chromosome and
-                        self.start == other.start and
-                        self.stop == other.stop and
-                        self.strand == other.strand)
+        return (self.chromosome == other.chromosome and self.start == other.start and self.stop == other.stop and
+                self.strand == other.strand)
 
     def __cmp__(self, cI):
-        return cmp((self.chromosome, self.start, self.stop, self.strand),
-                             (cI.chromosome, cI.start, cI.stop, cI.strand))
+        return cmp((self.chromosome, self.start, self.stop, self.strand), (cI.chromosome, cI.start, cI.stop, cI.strand))
 
     def __len__(self):
         return self.stop - self.start
-
-    def contains(self, other):
-        """ Check the other chromosomeInterval to see if it is contained by this
-        CI. If it is not contained return False, else return True.
-        """
-        if not isinstance(other, ChromosomeInterval):
-            raise RuntimeError('ChromosomeInterval:contains expects '
-                                'ChromosomeInterval, not %s' % other.__class__)
-        if self.chromosome != other.chromosome:
-            return False
-            # self  |----*
-            # other         *----|
-        if self.stop <= other.start:
-            return False
-            # self          *----|
-            # other |----*
-        if self.start >= other.stop:
-            return False
-            # self    *------|
-            # other *----|
-        if self.start > other.start:
-            return False
-            # self  |-----*
-            # other    |----*
-        if self.stop < other.stop:
-            return False
-        return True
 
     def size(self):
         return self.stop - self.start
@@ -913,6 +875,16 @@ class ChromosomeInterval(object):
         """
         return [self.chromosome, self.start, self.stop, name, 0, convertStrand(self.strand)]
 
+    def getSequence(self, seqDict, strand=True):
+        """
+        Returns the sequence for this intron in transcript orientation (reverse complement as necessary)
+        If strand is False, returns the + strand regardless of transcript orientation.
+        """
+        if strand is True or self.strand is True:
+            return seqDict[self.chromosome][self.start:self.stop]
+        elif strand is False or self.strand is False:
+            return reverseComplement(seqDict[self.chromosome][self.start:self.stop])
+        assert False
 
 class Attribute(object):
     """
@@ -1073,7 +1045,7 @@ def transcriptListToDict(transcripts, noDuplicates=False):
             if noDuplicates:
                 raise RuntimeError('transcriptListToDict: Discovered a '
                          'duplicate transcript %s %s'
-                         % (t.name, t.chromosomeInterval.chromosome))
+                         % (t.name, t.chromosome))
         if noDuplicates:
             result[t.name] = t
         else:
@@ -1121,11 +1093,9 @@ def getTranscriptAttributeDict(attributeFile):
             line = line.split("\t")
             if line[0] == "geneId": 
                 continue
-            geneID, geneName, geneType, geneStatus, transcriptID, transcriptName, \
-                    transcriptType, transcriptStatus, havanaGeneID, havanaTranscriptID, \
-                    ccdsID, level, transcriptClass = line
-            attribute_dict[transcriptID] = Attribute(geneID, geneName, geneType, 
-                    transcriptID, transcriptType)
+            geneID, geneName, geneType, geneStatus, transcriptID, transcriptName, transcriptType, transcriptStatus, \
+                    havanaGeneID, havanaTranscriptID, ccdsID, level, transcriptClass = line
+            attribute_dict[transcriptID] = Attribute(geneID, geneName, geneType, transcriptID, transcriptType)
     return attribute_dict
 
 
@@ -1135,9 +1105,19 @@ def intervalToBed(t, interval, rgb, name):
     Interval objects should always have start <= stop (+ strand chromosome ordering)
     """
     assert interval.stop >= interval.start
-    return [interval.chromosome, interval.start, interval.stop, name + "/" + t.name, 0, 
-            convertStrand(interval.strand), interval.start, interval.stop, rgb,
-            1, interval.stop - interval.start, 0]
+    return [interval.chromosome, interval.start, interval.stop, name + "/" + t.name, 0, convertStrand(interval.strand),
+            interval.start, interval.stop, rgb, 1, interval.stop - interval.start, 0]
+
+
+def spliceIntronIntervalToBed(t, intronInterval, rgb, name):
+    """
+    Specific case of turning an intron interval into the first and last two bases (splice sites)
+    """
+    interval = intronInterval
+    assert interval.stop >= interval.start
+    blockStarts = "0,{}".format(interval.stop - interval.start - 2)
+    return [interval.chromosome, interval.start, interval.stop, name + "/" + t.name, 0, convertStrand(interval.strand), 
+            interval.start, interval.stop, rgb, 2, "2,2", blockStarts]
 
 
 def transcriptToBed(t, rgb, name):
@@ -1207,8 +1187,8 @@ def chromosomeCoordinateToBed(t, start, stop, rgb, name):
     Takes a transcript and start/stop coordinates in CHROMOSOME coordinate space and returns
     a list in BED format with the specified RGB string and name.
     """
-    strand = convertStrand(t.chromosomeInterval.strand)
-    chrom = t.chromosomeInterval.chromosome
+    strand = convertStrand(t.strand)
+    chrom = t.chromosome
     assert start != None and stop != None, (t.name, start, stop, name)
     assert stop >= start, (t.name, start, stop, name)
     return t.getBed(name=name, rgb=rgb, start_offset=start, stop_offset=stop)
@@ -1219,8 +1199,8 @@ def chromosomeRegionToBed(t, start, stop, rgb, name):
     This is different from chromosomeCoordinateToBed - this function will not resize the BED information
     for the input transcript, but instead be any coordinate on the chromosome.
     """
-    strand = convertStrand(t.chromosomeInterval.strand)
-    chrom = t.chromosomeInterval.chromosome
+    strand = convertStrand(t.strand)
+    chrom = t.chromosome
     try:
         assert start != None and stop != None
         assert stop >= start
@@ -1228,5 +1208,3 @@ def chromosomeRegionToBed(t, start, stop, rgb, name):
         print t.name, start, stop, name
         assert False
     return [chrom, start, stop, name + "/" + t.name, 0, strand, start, stop, rgb, 1, stop - start, 0]        
-
-
