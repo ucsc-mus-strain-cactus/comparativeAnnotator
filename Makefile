@@ -34,7 +34,6 @@ ${srcBasicPsl}: ${srcBasicGp}
 	genePredToFakePsl mm10 ${srcGencodeSet} stdout ${srcBasicCds} | tawk -v chromCol=14 '${editUcscChrom}' >$@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
-
 ####################################################################################################
 # Mapping. Also uses hgSql and related Kent tools.
 ####################################################################################################
@@ -47,7 +46,6 @@ ${mappedDataDir}/%.region.idpsl:
 ${mappedDataDir}/%.block.psl: ${mappedDataDir}/%.region.idpsl
 	pslMap -mapFileWithInQName ${srcBasicPsl} $< $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
-
 
 ####################################################################################################
 # Chaining alignments. Uses Kent tools, but does not need hgSql access.
