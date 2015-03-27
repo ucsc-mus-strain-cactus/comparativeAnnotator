@@ -39,7 +39,7 @@ ${srcBasicPsl}: ${srcBasicGp}
 # Mapping. Also uses hgSql and related Kent tools.
 ####################################################################################################
 mapping: ${mappedRegionIdPsls} ${mappedBlockPsls}
-${mappedDataDir}/%.region.idpsl:
+${mappedDataDir}/%.region.idpsl: ${srcBasicBed}
 	@mkdir -p $(dir $@)
 	halLiftover --tab --outPSLWithName ${HAL} ${refGenome} ${srcBasicBed} $* $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
@@ -100,11 +100,11 @@ ${queryFasta}:
 	hal2fasta ${HAL} $$n > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
-${queryTwoBit}:
+${queryTwoBit}: ${queryFasta}
 	faToTwoBit ${queryFasta} $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
-${queryChromSizes}:
+${queryChromSizes}: ${queryTwoBit}
 	twoBitInfo ${queryTwoBit} stdout | sort -k2rn > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
@@ -132,8 +132,9 @@ ${geneCheckDir}/%.gene-check.bed: ${geneCheckDir}/%.gene-check
 ####################################################################################################
 # Annotation pipeline. Going to ssh to ku to use the cluster if batch system is parasol.
 ####################################################################################################
-
 annotation: ${ANNOTATION_DIR}/DONE
+
+${ANNOTATION_DIR}/DONE: ${geneCheckDir}/%.gene-check
 	if [ -d ${jobTreeDir} ]; then rm -rf ${jobTreeDir}; fi
 	if [ ! -d ${ANNOTATION_DIR} ]; then mkdir ${ANNOTATION_DIR}; fi
 	if [ ! -d ${ANNOTATION_DIR} ]; then mkdir ${ANNOTATION_DIR}; fi
@@ -155,15 +156,15 @@ annotation: ${ANNOTATION_DIR}/DONE
 		--maxThreads ${maxThreads} --stats --outDir ${ANNOTATION_DIR} --sizes ${targetChromSizes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} &> ${log} ;\
 	fi
-
-${ANNOTATION_DIR}/DONE:
-	touch ${DONE}
+	touch ${ANNOTATION_DIR}/DONE
 
 ####################################################################################################
 # Building assemblyHub. Can't be run on ku due to weird issues with halLodExtract.
 # TODO: this creates all of the fastas/2bits from the hal again, unnecessarily.
 ####################################################################################################
 assemblyHub: ${ASSEMBLY_HUB_DIR}/DONE
+
+${ASSEMBLY_HUB_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 	if [ -d ${halJobTreeDir} ]; then rm -rf ${halJobTreeDir}; fi
 	bigBedDirs="$(shell /bin/ls -1d ${ANNOTATION_DIR}/bedfiles/* | paste -s -d ",")" ;\
 	python hal/assemblyHub/hal2assemblyHub.py ${HAL} ${ASSEMBLY_HUB_DIR} \
@@ -171,6 +172,4 @@ assemblyHub: ${ASSEMBLY_HUB_DIR}/DONE
 	--defaultMemory=${defaultMemory} --jobTree ${halJobTreeDir} \
 	--maxJobDuration ${maxJobDuration} --stats --shortLabel ${MSCA_VERSION} \
 	--longLabel ${MSCA_VERSION} --hub ${MSCA_VERSION} &>> ${log}
-
-${ASSEMBLY_HUB_DIR}/DONE:
-	touch ${DONE}
+	touch ${ASSEMBLY_HUB_DIR}/DONE
