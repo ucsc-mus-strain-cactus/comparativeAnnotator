@@ -134,9 +134,8 @@ ${geneCheckDir}/%.gene-check.bed: ${geneCheckDir}/%.gene-check
 ####################################################################################################
 annotation: ${ANNOTATION_DIR}/DONE
 
-${ANNOTATION_DIR}/DONE: ${geneCheckDir}/%.gene-check
+${ANNOTATION_DIR}/DONE: ${geneCheckEvalsBed}
 	if [ -d ${jobTreeDir} ]; then rm -rf ${jobTreeDir}; fi
-	if [ ! -d ${ANNOTATION_DIR} ]; then mkdir ${ANNOTATION_DIR}; fi
 	if [ ! -d ${ANNOTATION_DIR} ]; then mkdir ${ANNOTATION_DIR}; fi
 	if [ "${batchSystem}" = "parasol" ]; then \
 		cwd="$(shell pwd)" ;\

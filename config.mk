@@ -6,7 +6,7 @@
 
 # Genomes in this analysis
 genomes = Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ CAROLIEiJ PAHARIEiJ
-#genomes = 129S1
+#genomes = 129S1 Rattus
 refGenome = C57B6J
 
 # Data directories
@@ -95,7 +95,7 @@ geneCheckEvalsBed = ${genomes:%=${geneCheckDir}/%.gene-check.bed}
 # annotation
 targetBedFiles = ${geneCheckEvalsBed}
 jobTreeDir = .${MSCA_VERSION}_jobTree
-log = ${ANNOTATION_DIR}/log.txt
+log = log.txt
 
 # assemblyHub
 halJobTreeDir = .${MSCA_VERSION}_halJobTree
