@@ -63,6 +63,7 @@ class BuildTracks(Target):
         
         #build directory of transMap output
         for genome, bed, size in izip(self.genomes, self.beds, self.sizes):
+            assert genome == os.path.basename(size).split(".")[0], (genome, os.path.basename(size).split(".")[0])
             if not os.path.exists(os.path.join(self.bedDir, "transMap", genome)):
                 os.mkdir(os.path.join(self.bedDir, "transMap", genome))
             self.buildBigBed(bed, size, genome, "transMap")
@@ -80,14 +81,14 @@ class BuildTracks(Target):
             if not os.path.exists(os.path.join(self.bedDir, category.__name__)):
                 os.mkdir(os.path.join(self.bedDir, category.__name__))
             detailsFields, classifyFields, classifyValues, classifyOperations = category()
-            for genome in self.genomes:
+            for genome, sizePath in izip(self.genomes, self.sizes):
                 if not os.path.exists(os.path.join(self.bedDir, category.__name__, genome)):
                     os.mkdir(os.path.join(self.bedDir, category.__name__, genome))
                 bedPath = self.writeBed(genome, detailsFields, classifyFields, classifyValues, classifyOperations,
                                         category.__name__)
                 #dumb
                 if len(open(bedPath).readlines()) > 0:
-                    self.buildBigBed(bedPath, genome, category.__name__)
+                    self.buildBigBed(bedPath, sizePath, genome, category.__name__)
                 os.remove(bedPath)
 
         self.setFollowOnTarget(SummaryStatistics(self.outDir, self.genomes))
