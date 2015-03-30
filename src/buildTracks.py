@@ -1,9 +1,9 @@
 import os
-from itertools import izip_longest, product
+from itertools import izip_longest, product, izip
 import sqlite3 as sql
 from collections import defaultdict
 
-from queries import *
+from src.queries import *
 from src.summaryStatistics import SummaryStatistics
 
 import lib.sqlite_lib as sql_lib
@@ -21,14 +21,16 @@ class BuildTracks(Target):
         a matching list of values that the classify field should have.
         a matching list of AND/OR operations to link the logic together
     """
-    def __init__(self, outDir, genomes, primaryKeyColumn, dataDir, geneCheckBedDict, annotationBed):
+    def __init__(self, outDir, genomes, primaryKeyColumn, sizes, beds, annotationBed):
         Target.__init__(self)
         self.outDir = outDir
         self.bedDir = os.path.join(self.outDir, "bedfiles")
+        if not os.path.exists(self.bedDir):
+            os.mkdir(self.bedDir)
         self.genomes = genomes
         self.primaryKeyColumn = primaryKeyColumn
-        self.geneCheckBedDict = geneCheckBedDict
-        self.dataDir = dataDir
+        self.beds = beds
+        self.sizes = sizes
         self.annotationBed = annotationBed
         self.categories = [mutations, inFrameStop, interestingBiology, assemblyErrors, alignmentErrors, everything]
 
@@ -48,25 +50,22 @@ class BuildTracks(Target):
                             outf.write(x)+"\n"
         return bedPath
 
-    def buildBigBed(self, bedPath, genome, categoryName):
+    def buildBigBed(self, bedPath, sizePath, genome, categoryName):
         bigBedPath = os.path.join(self.bedDir, categoryName, genome, genome + ".bb")
-        chromSizesPath = os.path.join(self.dataDir, genome + ".chrom.sizes")
         #system("bedSort {} {}".format(bedPath, os.path.join(self.getLocalTempDir(), "tmp"))
         system("bedSort {} {}".format(bedPath, bedPath))
         #system("bedToBigBed {} {} {}".format(os.path.join(self.getLocalTempDir(), "tmp"), chromSizesPath, bigBedPath))
-        system("bedToBigBed -extraIndex=name {} {} {}".format(bedPath, chromSizesPath, bigBedPath))
+        system("bedToBigBed -extraIndex=name {} {} {}".format(bedPath, sizePath, bigBedPath))
 
     def run(self):
-        if not os.path.exists(self.bedDir):
-            os.mkdir(self.bedDir)
         if not os.path.exists(os.path.join(self.bedDir, "transMap")):
             os.mkdir(os.path.join(self.bedDir, "transMap"))
         
         #build directory of transMap output
-        for genome, bed in self.geneCheckBedDict.iteritems():
+        for genome, bed, size in izip(self.genomes, self.beds, self.sizes):
             if not os.path.exists(os.path.join(self.bedDir, "transMap", genome)):
                 os.mkdir(os.path.join(self.bedDir, "transMap", genome))
-            self.buildBigBed(bed, genome, "transMap")
+            self.buildBigBed(bed, size, genome, "transMap")
         #don't need if including self in original analysis
         if not os.path.exists(os.path.join(self.bedDir, "transMap", "C57B6J")):
             os.mkdir(os.path.join(self.bedDir, "transMap", "C57B6J"))
