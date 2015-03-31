@@ -4,7 +4,7 @@ include config.mk
 all: init srcData mapping chaining filtered extractFasta geneCheck annotation assemblyHub
 
 init:
-	# why does this error out?
+	# TODO: why does this error out?
 	#git submodule update --init
 	cd sonLib && make
 	cd jobTree && make
@@ -13,14 +13,14 @@ init:
 ####################################################################################################
 # Retrieve src data. Uses hgSql and related Kent tools.
 ####################################################################################################
-srcData: ${srcBasicGp} ${srcBasicBed} ${srcBasicPsl} ${srcBasicCds}
+srcData: ${srcBasicGp} ${srcBasicBed} ${srcBasicPsl} ${srcBasicCds} ${srcAttrs}
 
 # awk expression to edit chrom names in UCSC format.  Assumse all alts are version 1.
 # chr1_GL456211_random, chrUn_GL456239
 editUcscChrom = $$chromCol=="chrM"{$$chromCol="MT"} {$$chromCol = gensub("_random$$","", "g", $$chromCol);$$chromCol = gensub("^chr.*_([0-9A-Za-z]+)$$","\\1.1", "g", $$chromCol);  gsub("^chr","",$$chromCol); print $$0}
 ${srcBasicGp}:
 	@mkdir -p $(dir $@)
-	hgsql -Ne 'select * from ${srcGencodeSet}' mm10 | cut -f 2- | tawk -v chromCol=2 '${editUcscChrom}' >$@.${tmpExt}
+	hgsql -Ne 'select * from ${srcGencodeSet}' ${refGenomeSQLName} | cut -f 2- | tawk -v chromCol=2 '${editUcscChrom}' >$@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ${srcBasicCds}: ${srcBasicPsl}
@@ -33,6 +33,11 @@ ${srcBasicBed}: ${srcBasicGp}
 ${srcBasicPsl}: ${srcBasicGp}
 	@mkdir -p $(dir $@)
 	genePredToFakePsl mm10 ${srcGencodeSet} stdout ${srcBasicCds} | tawk -v chromCol=14 '${editUcscChrom}' >$@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${srcAttrs}:
+	@mkdir -p $(dir $@)
+	hgsql -Ne 'select geneId,geneName,geneType,transcriptId,transcriptType from $(notdir $@)' ${refGenomeSQLName} > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ####################################################################################################

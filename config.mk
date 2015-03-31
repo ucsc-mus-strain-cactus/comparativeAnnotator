@@ -6,24 +6,21 @@
 
 # Genomes in this analysis
 genomes = Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ CAROLIEiJ PAHARIEiJ
-#genomes = 129S1 Rattus
 refGenome = C57B6J
+refGenomeSQLName = mm10
 
 # Data directories
 #MSCA_PROJ_DIR = /hive/groups/recon/projs/mus_strain_cactus
 MSCA_PROJ_DIR = .
 MSCA_DATA_DIR = ${MSCA_PROJ_DIR}/pipeline_data
 MSCA_VERSION = 1412v2
-GENCODE_VERSION = VM2
+GENCODE_VERSION = VM4
 ANNOTATION_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/comparativeAnnotation
 TRANS_MAP_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/transMap
 ASSEMBLY_HUB_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/assemblyHub
 
 # Input files
 HAL = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/cactus/${MSCA_VERSION}.hal
-# TODO: write a target for extracting this on the fly
-ATTRS = /hive/users/ifiddes/mouse_release_data/wgEncodeGencodeAttrsVM2.attrs
-#ATTRS = ${MSCA_PROJ_DIR}/data/wgEncodeGencodeBasicVM2.attrs
 
 # jobTree configuration
 batchSystem = parasol
@@ -47,8 +44,8 @@ ppid = $(shell echo $$PPID)
 tmpExt = ${host}.${ppid}.tmp
 
 # Can run hgSql commands on Kolossus
-ifneq ($(wildcard ${HOME}/.hg.rem.conf),)
-    export HGDB_CONF=${HOME}/.hg.rem.conf
+ifneq ($(wildcard ${HOME}/.hg.conf),)
+    export HGDB_CONF=${HOME}/.hg.conf
 endif
 
 # Options to pass to pslCDnaFilter
@@ -57,6 +54,7 @@ filterOpts = -localNearBest=0.0001
 # Gencode src data files
 srcGencodeSet = wgEncodeGencodeBasic${GENCODE_VERSION}
 srcDataDir = ${TRANS_MAP_DIR}/data
+srcAttrs = ${srcDataDir}/wgEncodeGencodeAttrs${GENCODE_VERSION}
 srcBasicPre = ${srcDataDir}/${srcGencodeSet}
 srcBasicGp = ${srcBasicPre}.gp
 srcBasicCds = ${srcBasicPre}.cds
