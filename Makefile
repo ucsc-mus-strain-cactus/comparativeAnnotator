@@ -148,14 +148,14 @@ ${ANNOTATION_DIR}/DONE: ${geneCheckEvalsBed}
 		PATH=./bin/:./sonLib/bin:./submodules/jobTree/bin:${PATH} && \
 		python src/annotationPipeline.py --refGenome ${refGenome} --genomes ${genomes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} --fastas ${targetFastaFiles} --refTwoBit ${queryTwoBit} \
-		--annotationBed ${srcBasicBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${ATTRS} \
+		--annotationBed ${srcBasicBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
 		--defaultMemory ${defaultMemory} --jobTree ${jobTreeDir} --maxJobDuration ${maxJobDuration} \
 		--maxCpus ${maxCpus} --stats --outDir ${ANNOTATION_DIR} --sizes ${targetChromSizes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} &> ${log}" ;\
 	else \
 		python src/annotationPipeline.py --refGenome ${refGenome} --genomes ${genomes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} --fastas ${targetFastaFiles} --refTwoBit ${queryTwoBit} \
-		--annotationBed ${srcBasicBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${ATTRS} \
+		--annotationBed ${srcBasicBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
 		--defaultMemory ${defaultMemory} --jobTree ${jobTreeDir} --maxJobDuration ${maxJobDuration} \
 		--maxThreads ${maxThreads} --stats --outDir ${ANNOTATION_DIR} --sizes ${targetChromSizes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} &> ${log} ;\
