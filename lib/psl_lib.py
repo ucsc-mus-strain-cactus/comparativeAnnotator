@@ -5,8 +5,8 @@ Original Author: Dent Earl
 Modified by Ian Fiddes
 """
 
-
 from collections import defaultdict, Counter
+from itertools import izip
 
 class PslRow(object):
     """ Represents a single row in a PSL file.
@@ -186,3 +186,8 @@ def uniqifyPslRow(row, val):
     """
     row.qName = "-".join([row.qName, str(val)])
     return row
+
+
+def enumerate_reversed(L):
+   for index in reversed(xrange(len(L))):
+      yield index, L[index]

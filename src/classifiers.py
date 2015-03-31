@@ -10,7 +10,6 @@ from jobTree.src.bioio import logger, reverseComplement
 from src.abstractClassifier import AbstractClassifier
 from src.helperClasses import GapFinder, SpliceSiteAnalysis
 from src.helperFunctions import deletionIterator, insertionIterator, frameShiftIterator, codonPairIterator
-from src.helperFunctions import rearrangementIterator
 
 class CodingInsertions(AbstractClassifier):
     """
@@ -39,7 +38,7 @@ class CodingInsertions(AbstractClassifier):
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             insertions = [seq_lib.chromosomeRegionToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, \
-                          size in insertionIterator(a, t, aln, mult3, rearrangement=False) if start >= t.thickStart \
+                          size in insertionIterator(a, t, aln, mult3) if start >= t.thickStart \
                            and stop <= t.thickStop]
             if len(insertions) > 0:
                 detailsDict[aId] = insertions
@@ -83,7 +82,7 @@ class CodingDeletions(AbstractClassifier):
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             deletions = [seq_lib.chromosomeRegionToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, 
-                         size in deletionIterator(a, t, aln, mult3, rearrangement=False) if start >= t.thickStart and stop \
+                         size in deletionIterator(a, t, aln, mult3) if start >= t.thickStart and stop \
                          <= t.thickStop]            
             if len(deletions) > 0:
                 detailsDict[aId] = deletions
@@ -99,37 +98,6 @@ class CodingMult3Deletions(CodingDeletions):
     """
     def run(self):
         CodingDeletions.run(self, mult3=True)
-
-
-class Rearrangements(AbstractClassifier):
-    """
-
-    Are there any rearrangements in these alignments? Will show both insertion and deletion style rearrangements
-
-    """
-    def rgb(self):
-        return self.colors["mutation"]
-
-    def run(self):
-        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
-        self.getAlignmentDict()
-        self.getTranscriptDict()
-        self.getAnnotationDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            if aId not in self.transcriptDict:
-                continue
-            t = self.transcriptDict[aId]
-            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            rearrangements = [seq_lib.chromosomeRegionToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop,
-                          size in rearrangementIterator(a, t, aln)]
-            if len(rearrangements) > 0:
-                detailsDict[aId] = rearrangements
-                classifyDict[aId] = 1
-            else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class FrameMismatch(AbstractClassifier):
