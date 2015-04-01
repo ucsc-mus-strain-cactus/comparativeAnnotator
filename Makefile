@@ -1,7 +1,7 @@
 # modify config.mk to modify the pipeline
 include config.mk
 
-all: init srcData mapping chaining filtered extractFasta geneCheck annotation assemblyHub
+all: init srcData mapping chaining filtered extractFasta geneCheck annotation assemblyHub plots
 
 init:
 	# TODO: why does this error out?
@@ -13,7 +13,7 @@ init:
 ####################################################################################################
 # Retrieve src data. Uses hgSql and related Kent tools.
 ####################################################################################################
-srcData: ${srcBasicGp} ${srcBasicBed} ${srcBasicPsl} ${srcBasicCds} ${srcAttrs}
+srcData: ${srcBasicGp} ${srcBasicCheckBed} ${srcBasicPsl} ${srcBasicCds} ${srcAttrs} ${srcBasicCheckDetails} ${srcBasicCheck} ${srcBasicCheckDetailsBed}
 
 # awk expression to edit chrom names in UCSC format.  Assumse all alts are version 1.
 # chr1_GL456211_random, chrUn_GL456239
@@ -25,7 +25,7 @@ ${srcBasicGp}:
 
 ${srcBasicCds}: ${srcBasicPsl}
 
-${srcBasicBed}: ${srcBasicGp}
+${srcBasicCheckBed}: ${srcBasicGp}
 	@mkdir -p $(dir $@)
 	genePredToBed $< $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
@@ -40,13 +40,30 @@ ${srcAttrs}:
 	hgsql -Ne 'select geneId,geneName,geneType,transcriptId,transcriptType from $(notdir $@)' ${refGenomeSQLName} > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
+${srcBasicCheckDetails}: ${srcBasicCheck}
+
+${srcBasicCheck}: ${srcBasicGp} ${queryTwoBit}
+	@mkdir -p $(dir $@)
+	sort -k2,2 -k 4,4n $< | gene-check --allow-non-coding --genome-seqs=${queryTwoBit} --details-out=$@-details stdin $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${srcBasicCheckBed}: ${srcBasicCheck}
+	@mkdir -p $(dir $@)
+	genePredCheckToBed ${srcBasicGp} ${srcBasicCheck} $@.${tmpExt}
+	mv -f $@.${tmpExt} $@	
+
+${srcBasicCheckDetailsBed}: ${srcBasicCheckDetails}
+	@mkdir -p $(dir $@)
+	geneCheckDetailsToBed ${srcBasicCheckDetails} $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
 ####################################################################################################
 # Mapping. Also uses hgSql and related Kent tools.
 ####################################################################################################
 mapping: ${mappedRegionIdPsls} ${mappedBlockPsls}
-${mappedDataDir}/%.region.idpsl: ${srcBasicBed}
+${mappedDataDir}/%.region.idpsl: ${srcBasicCheckBed}
 	@mkdir -p $(dir $@)
-	halLiftover --tab --outPSLWithName ${HAL} ${refGenome} ${srcBasicBed} $* $@.${tmpExt}
+	halLiftover --tab --outPSLWithName ${HAL} ${refGenome} ${srcBasicCheckBed} $* $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ${mappedDataDir}/%.block.psl: ${mappedDataDir}/%.region.idpsl
@@ -116,22 +133,26 @@ ${queryChromSizes}: ${queryTwoBit}
 ####################################################################################################
 # Running gene-check
 ####################################################################################################
-geneCheck: ${geneCheckGps} ${geneCheckEvals} ${geneCheckEvalsBed}
+geneCheck: ${geneCheckGps} ${geneCheckEvals} ${geneCheckEvalsBed} ${geneCheckDetails} ${geneCheckDetailsBed}
 
 ${geneCheckDir}/%.gp: ${filteredDataDir}/%.filtered.psl ${srcBasicCds}
 	@mkdir -p $(dir $@)
 	mrnaToGene -keepInvalid -quiet -genePredExt -ignoreUniqSuffix -insertMergeSize=0 -cdsFile=${srcBasicCds} $< stdout | tawk '$$6<$$7' >$@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
-# pattern rules only execute once for mutiple targets
-${geneCheckDir}/%.gene-check: ${geneCheckDir}/%.gp ${targetSequenceDir}/%.2bit
-	@mkdir -p ${geneCheckDir}
-	sort -k2,2 -k 4,4n $< | gene-check --allow-non-coding --genome-seqs=${targetSequenceDir}/$*.2bit stdin ${geneCheckDir}/$*.gene-check.${tmpExt}
+${geneCheckDir}/%.gene-check ${geneCheckDir}/%.gene-check-details: ${geneCheckDir}/%.gp ${targetSequenceDir}/%.2bit
+	@mkdir -p $(dir $@)
+	sort -k2,2 -k 4,4n $< | gene-check --allow-non-coding --genome-seqs=${targetSequenceDir}/$*.2bit --details-out=${geneCheckDir}/$*.gene-check-details stdin ${geneCheckDir}/$*.gene-check.${tmpExt}
 	mv -f ${geneCheckDir}/$*.gene-check.${tmpExt} ${geneCheckDir}/$*.gene-check
 
 ${geneCheckDir}/%.gene-check.bed: ${geneCheckDir}/%.gene-check
 	@mkdir -p $(dir $@)
 	genePredCheckToBed ${geneCheckDir}/$*.gp ${geneCheckDir}/$*.gene-check $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${geneCheckDir}/%.gene-check-details.bed: ${geneCheckDir}/%.gene-check-details
+	@mkdir -p $(dir $@)
+	geneCheckDetailsToBed ${geneCheckDir}/$*.gene-check-details $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ####################################################################################################
@@ -148,14 +169,14 @@ ${ANNOTATION_DIR}/DONE: ${geneCheckEvalsBed}
 		PATH=./bin/:./sonLib/bin:./submodules/jobTree/bin:${PATH} && \
 		python src/annotationPipeline.py --refGenome ${refGenome} --genomes ${genomes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} --fastas ${targetFastaFiles} --refTwoBit ${queryTwoBit} \
-		--annotationBed ${srcBasicBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
+		--annotationBed ${srcBasicCheckBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
 		--defaultMemory ${defaultMemory} --jobTree ${jobTreeDir} --maxJobDuration ${maxJobDuration} \
 		--maxCpus ${maxCpus} --stats --outDir ${ANNOTATION_DIR} --sizes ${targetChromSizes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} &> ${log}" ;\
 	else \
 		python src/annotationPipeline.py --refGenome ${refGenome} --genomes ${genomes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} --fastas ${targetFastaFiles} --refTwoBit ${queryTwoBit} \
-		--annotationBed ${srcBasicBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
+		--annotationBed ${srcBasicCheckBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
 		--defaultMemory ${defaultMemory} --jobTree ${jobTreeDir} --maxJobDuration ${maxJobDuration} \
 		--maxThreads ${maxThreads} --stats --outDir ${ANNOTATION_DIR} --sizes ${targetChromSizes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} &> ${log} ;\
@@ -177,3 +198,12 @@ ${ASSEMBLY_HUB_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 	--maxJobDuration ${maxJobDuration} --stats --shortLabel ${MSCA_VERSION} \
 	--longLabel ${MSCA_VERSION} --hub ${MSCA_VERSION} &>> ${log}
 	touch ${ASSEMBLY_HUB_DIR}/DONE
+
+
+####################################################################################################
+# Generating some plots.
+####################################################################################################
+plots: ${coverageMetricPdf}
+
+${METRICS_DIR}/${MSCA_VERSION}_coverage: ${filteredPslStats}
+	python scripts/coverage_plotter.py --flip --ratio --out ${coverageMetricPdf} ${filteredPslStats}

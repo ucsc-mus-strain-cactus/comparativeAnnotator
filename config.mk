@@ -18,6 +18,7 @@ GENCODE_VERSION = VM4
 ANNOTATION_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/comparativeAnnotation
 TRANS_MAP_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/transMap
 ASSEMBLY_HUB_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/assemblyHub
+METRICS_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/assemblyHub
 
 # Input files
 HAL = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/cactus/${MSCA_VERSION}.hal
@@ -58,8 +59,13 @@ srcAttrs = ${srcDataDir}/wgEncodeGencodeAttrs${GENCODE_VERSION}
 srcBasicPre = ${srcDataDir}/${srcGencodeSet}
 srcBasicGp = ${srcBasicPre}.gp
 srcBasicCds = ${srcBasicPre}.cds
-srcBasicBed = ${srcBasicPre}.bed
 srcBasicPsl = ${srcBasicPre}.psl
+# for Dent's legacy code - TODO: use this in annotation-database-constructor to produce previously existing classifiers
+srcBasicCheck = ${srcBasicPre}.gene-check
+srcBasicCheckBed = ${srcBasicPre}.gene-check.bed
+srcBasicCheckDetails = ${srcBasicPre}.gene-check-details
+srcBasicCheckDetailsBed = ${srcBasicPre}.gene-check-details.bed
+
 
 # mapping files
 mappedDataDir = ${TRANS_MAP_DIR}/mapped
@@ -89,6 +95,9 @@ geneCheckDir = ${TRANS_MAP_DIR}/results/geneCheck
 geneCheckGps = ${genomes:%=${geneCheckDir}/%.gp}
 geneCheckEvals = ${genomes:%=${geneCheckDir}/%.gene-check}
 geneCheckEvalsBed = ${genomes:%=${geneCheckDir}/%.gene-check.bed}
+# for Dent's legacy code comparisons
+geneCheckDetails = ${genomes:%=${geneCheckDir}/%.gene-check-details}
+geneCheckDetailsBed = ${genomes:%=${geneCheckDir}/%.gene-check-details.bed}
 
 # annotation
 targetBedFiles = ${geneCheckEvalsBed}
@@ -97,3 +106,6 @@ log = log.txt
 
 # assemblyHub
 halJobTreeDir = .${MSCA_VERSION}_halJobTree
+
+# plots
+coverageMetricPdf = ${METRICS_DIR}/${MSCA_VERSION}_coverage

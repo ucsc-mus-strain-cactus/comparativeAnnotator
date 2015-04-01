@@ -1094,7 +1094,7 @@ def getTranscriptAttributeDict(attributeFile):
             if line[0] == "geneId": 
                 continue
             geneId, geneName, geneType, transcriptId, transcriptType = line
-            attribute_dict[transcriptID] = Attribute(geneID, geneName, geneType, transcriptID, transcriptType)
+            attribute_dict[transcriptId] = Attribute(geneId, geneName, geneType, transcriptId, transcriptType)
     return attribute_dict
 
 
