@@ -1,5 +1,6 @@
 # modify config.mk to modify the pipeline
-include config.mk
+#include config.mk
+include config_1411.mk
 
 all: init srcData mapping chaining filtered extractFasta geneCheck annotation assemblyHub plots
 
@@ -24,11 +25,6 @@ ${srcBasicGp}:
 	mv -f $@.${tmpExt} $@
 
 ${srcBasicCds}: ${srcBasicPsl}
-
-${srcBasicCheckBed}: ${srcBasicGp}
-	@mkdir -p $(dir $@)
-	genePredToBed $< $@.${tmpExt}
-	mv -f $@.${tmpExt} $@
 
 ${srcBasicPsl}: ${srcBasicGp}
 	@mkdir -p $(dir $@)
