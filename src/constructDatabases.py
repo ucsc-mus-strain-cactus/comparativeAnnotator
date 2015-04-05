@@ -22,8 +22,14 @@ class ConstructDatabases(Target):
     def run(self):
         logger.info("Merging pickled files into databases")
         classifyDb = os.path.join(self.outDir, "classify.db")
+        if os.path.exists(classifyDb):
+            os.remove(classifyDb)
         detailsDb = os.path.join(self.outDir, "details.db")
+        if os.path.exists(detailsDb):
+            os.remove(detailsDb)
         attributesDb = os.path.join(self.outDir, "attributes.db")
+        if os.path.exists(attributesDb):
+            os.remove(attributesDb)
         self.initializeDb(classifyDb, self.classifiers, dataType="INTEGER")
         self.initializeDb(detailsDb, self.classifiers, dataType="TEXT")
         for classifier, genome in product(self.classifiers, self.genomes):

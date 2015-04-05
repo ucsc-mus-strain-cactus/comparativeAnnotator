@@ -25,8 +25,6 @@ class BuildTracks(Target):
         Target.__init__(self)
         self.outDir = outDir
         self.bedDir = os.path.join(self.outDir, "bedfiles")
-        if not os.path.exists(self.bedDir):
-            os.mkdir(self.bedDir)
         self.genomes = genomes
         self.primaryKeyColumn = primaryKeyColumn
         self.beds = beds
@@ -58,6 +56,8 @@ class BuildTracks(Target):
         system("bedToBigBed -extraIndex=name {} {} {}".format(bedPath, sizePath, bigBedPath))
 
     def run(self):
+        if not os.path.exists(self.bedDir):
+            os.mkdir(self.bedDir)
         if not os.path.exists(os.path.join(self.bedDir, "transMap")):
             os.mkdir(os.path.join(self.bedDir, "transMap"))
         
