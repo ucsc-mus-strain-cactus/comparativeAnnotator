@@ -193,8 +193,7 @@ class Transcript(object):
             if prevExon is not None:
                 assert exon.start > prevExon.stop
                 assert exon.strand == prevExon.strand
-                intron = ChromosomeInterval(exon.chromosome, prevExon.stop, 
-                        exon.start, exon.strand)
+                intron = ChromosomeInterval(exon.chromosome, prevExon.stop, exon.start, exon.strand)
                 introns.append(intron)
             prevExon = exon
         return introns
