@@ -108,4 +108,9 @@ log = log.txt
 halJobTreeDir = .${MSCA_VERSION}_halJobTree
 
 # plots
-coverageMetricPdf = ${METRICS_DIR}/${MSCA_VERSION}_coverage
+coverageMetric = ${METRICS_DIR}/${MSCA_VERSION}_coverage
+
+# tmp metrics
+C57B6NJannotation = ${ANNOTATION_DIR}/bedfiles/everything/C57B6NJ/C57B6NJ.bb
+C57B6NJgeneCheck = ${TRANS_MAP_DIR}/results/geneCheck/C57B6NJ.gene-check-details.bed
+tmpMetrics = ${METRICS_DIR}/${MSCA_VERSION}_tmp_metrics.tsv
