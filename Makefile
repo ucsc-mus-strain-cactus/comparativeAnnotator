@@ -200,7 +200,7 @@ ${ASSEMBLY_HUB_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 ####################################################################################################
 metrics: ${tmpMetrics}
 
-${METRICS_DIR}/${MSCA_VERSION}_tmp_metrics.tsv: ${ASSEMBLY_HUB_DIR}/DONE
+${METRICS_DIR}/${MSCA_VERSION}_tmp_metrics.tsv: ${ANNOTATION_DIR}/DONE
 	bigBedToBed ${C57B6NJannotation} tmp
 	python scripts/compare_annotation_gene_check.py ${C57B6NJgeneCheck} tmp $@.${tmpExt}
 	rm tmp

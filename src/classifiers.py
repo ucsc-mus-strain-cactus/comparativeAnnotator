@@ -471,7 +471,7 @@ class EndStop(AbstractClassifier):
             s = t.getCdsLength()
             cds_positions = [t.chromosomeCoordinateToCds(aln.queryCoordinateToTarget(a.cdsCoordinateToTranscript(i))) 
                              for i in xrange(s - 1, s - 4, -1)]
-            if None in cds_positions or t.getCds(self.seqDict)[:3] not in stopCodons:
+            if None in cds_positions or t.getCds(self.seqDict)[-3:] not in stopCodons:
                 detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, s - 3, s, self.rgb(), self.getColumn())
                 classifyDict[aId] = 1
             else:
@@ -692,31 +692,6 @@ class Paralogy(AbstractClassifier):
             if counts[psl_lib.removeAlignmentNumber(aId)] > 1:
                 detailsDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn() + "_{}_Copies".format( \
                                                            counts[psl_lib.removeAlignmentNumber(aId)] - 1))
-                classifyDict[aId] = 1
-            else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
-
-class IntronSuppressed(AbstractClassifier):
-    """
-    Does this transcript have percentSuppressed fewer introns than the original transcript?
-    Ignores short introns that are likely assembly errors (shortIntronSize)
-    """
-    def rgb(self):
-        return self.colors["mutation"]
-
-    def run(self, shortIntronSize=30, percentSuppressed=0.85):
-        logger.info("Starting details analysis {} on {}".format(self.getColumn(), self.genome))
-        self.getTranscriptDict()
-        self.getAnnotationDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            a_introns = len([x for x in a.intronIntervals if len(x) >= shortIntronSize])
-            t_introns = len([x for x in t.intronIntervals if len(x) >= shortIntronSize])
-            if 1.0 * a_introns / (t_introns + a_introns) >= percentSuppressed:
-                detailsDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn())
                 classifyDict[aId] = 1
             else:
                 classifyDict[aId] = 0

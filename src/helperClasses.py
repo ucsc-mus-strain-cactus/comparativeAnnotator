@@ -66,16 +66,18 @@ class SpliceSiteAnalysis(AbstractClassifier):
 
     def canonicalSplice(self, donor, acceptor):
         """Is this splice site canonical?"""
-        
         if donor in self.canonical and self.canonical[donor] != acceptor:
+            return False
+        elif donor not in self.canonical:
             return False
         else:
             return True
 
     def unknownSplice(self, donor, acceptor):
         """Is this splice site neither canonical or noncanonical?"""
-        
         if donor in self.non_canonical and self.non_canonical[donor] != acceptor:
+            return False
+        elif donor not in self.non_canonical:
             return False
         else:
             return True
@@ -84,7 +86,7 @@ class SpliceSiteAnalysis(AbstractClassifier):
         logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
-        detailsDict = {}
+        detailsDict = defaultdict(list)
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
             for intron in t.intronIntervals:
@@ -94,19 +96,19 @@ class SpliceSiteAnalysis(AbstractClassifier):
                     seq = intron.getSequence(self.seqDict, strand=True)
                     if canonical is True and self.canonicalSplice(seq[:2], seq[-2:]) is False:
                         classifyDict[aId] = 1
-                        detailsDict[aId] = seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn())
+                        detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
                     elif canonical is False and self.unknownSplice(seq[:2], seq[-2:]) is False:
                         classifyDict[aId] = 1
-                        detailsDict[aId] = seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn())
+                        detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
                 elif ((intron.stop <= t.thickStart and intron.start <= t.thickStart) or (intron.start >= t.thickStop and \
                         intron.stop >= t.thickStop)) and (coding is False or coding is None):
                     seq = intron.getSequence(self.seqDict, strand=True)
                     if canonical is True and self.canonicalSplice(seq[:2], seq[-2:]) is False:
                         classifyDict[aId] = 1
-                        detailsDict[aId] = seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn())
+                        detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
                     elif canonical is False and self.unknownSplice(seq[:2], seq[-2:]) is False:
                         classifyDict[aId] = 1
-                        detailsDict[aId] = seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn())
+                        detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
             if aId not in classifyDict:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
