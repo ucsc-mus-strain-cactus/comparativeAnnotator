@@ -18,7 +18,7 @@ GENCODE_VERSION = VM4
 ANNOTATION_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/comparativeAnnotation
 TRANS_MAP_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/transMap
 ASSEMBLY_HUB_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/assemblyHub
-METRICS_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/assemblyHub
+METRICS_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/metrics
 
 # Input files
 HAL = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/cactus/${MSCA_VERSION}.hal
@@ -66,7 +66,6 @@ srcBasicCheckBed = ${srcBasicPre}.gene-check.bed
 srcBasicCheckDetails = ${srcBasicPre}.gene-check-details
 srcBasicCheckDetailsBed = ${srcBasicPre}.gene-check-details.bed
 
-
 # mapping files
 mappedDataDir = ${TRANS_MAP_DIR}/mapped
 mappedRegionIdPsls = ${genomes:%=${mappedDataDir}/%.region.idpsl}
@@ -108,4 +107,9 @@ log = log.txt
 halJobTreeDir = .${MSCA_VERSION}_halJobTree
 
 # plots
-coverageMetricPdf = ${METRICS_DIR}/${MSCA_VERSION}_coverage
+coverageMetric = ${METRICS_DIR}/${MSCA_VERSION}_coverage
+
+# tmp metrics
+C57B6NJannotation = ${ANNOTATION_DIR}/bedfiles/everything/C57B6NJ/C57B6NJ.bb
+C57B6NJgeneCheck = ${TRANS_MAP_DIR}/results/geneCheck/C57B6NJ.gene-check-details.bed
+tmpMetrics = ${METRICS_DIR}/${MSCA_VERSION}_tmp_metrics.tsv

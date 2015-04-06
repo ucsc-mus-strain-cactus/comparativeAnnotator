@@ -102,6 +102,35 @@ class CodingMult3Deletions(CodingDeletions):
 
 class FrameMismatch(AbstractClassifier):
     """
+    FrameMismatches are caused when the starting CDS base of the lifted over transcript is not in the original frame.
+    If True, reports the entire CDS.
+    """
+    def rgb(self):
+        return self.colors["alignment"]
+
+    def run(self):
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getAlignmentDict()
+        self.getTranscriptDict()
+        self.getAnnotationDict()
+        detailsDict = {}
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            aln = self.alignmentDict[aId]
+            # do not include noncoding transcripts or lift-overs that contain less than 1 codon
+            if a.getCdsLength() < 3 or t.getCdsLength() < 3:
+                continue
+            if a.transcriptCoordinateToCds(aln.targetCoordinateToQuery(t.cdsCoordinateToChromosome(0))) % 3 != 0:
+                classifyDict[aId] = 1
+                detailsDict[aId] = seq_lib.chromosomeCoordinateToBed(t, t.thickStart, t.thickStop, self.rgb(), self.getColumn())
+            else:
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
+
+
+class FrameShift(AbstractClassifier):
+    """
     Frameshifts are caused by coding indels that are not a multiple of 3. Reports a BED entry
     spanning all blocks of coding bases that are frame-shifted.
     """
@@ -120,7 +149,14 @@ class FrameMismatch(AbstractClassifier):
                 continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            # do not include noncoding transcripts or lift-overs that contain less than 1 codon
+            if a.getCdsLength() < 3 or t.getCdsLength() < 3:
+                continue
             s = list(frameShiftIterator(a, t, aln))
+            # do we start in a frame shift? we can try and save it
+            #cur_shift = a.transcriptCoordinateToCds(aln.targetCoordinateToQuery(t.cdsCoordinateToChromosome(0))) % 3
+            #if cur_shift != 0:
+            #    s.insert(0, [t.start, t.start, cur_shift])
             if len(s) == 0:
                 classifyDict[aId] = 0
                 continue
@@ -259,8 +295,7 @@ class BadFrame(AbstractClassifier):
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
             if t.getCdsLength() % 3 != 0:
-                detailsDict[aId] = seq_lib.chromosomeCoordinateToBed(t, t.thickStart, t.thickStop, self.rgb(),
-                                                                     self.getColumn())
+                detailsDict[aId] = seq_lib.chromosomeCoordinateToBed(t, t.thickStart, t.thickStop, self.rgb(), self.getColumn())
                 classifyDict[aId] = 1
             else:
                 classifyDict[aId] = 0
@@ -269,7 +304,8 @@ class BadFrame(AbstractClassifier):
 
 class BeginStart(AbstractClassifier):
     """
-    Does the annotated CDS have a start codon (ATG) in the first 3 bases?
+    Does the lifted over CDS have the same 3 start bases as the original transcript?
+    AND are these bases 'ATG'?
 
     Returns a BED record of the first 3 bases if this is NOT true
     """
@@ -279,14 +315,19 @@ class BeginStart(AbstractClassifier):
     def run(self):
         logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
+        self.getAlignmentDict()
+        self.getAnnotationDict()
         self.getSeqDict()
         detailsDict = {}
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
-            if t.thickStart == t.thickStop == 0 or t.thickStop - t.thickStart < 3:
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            aln = self.alignmentDict[aId]
+            # do not include noncoding transcripts or lift-overs that contain less than 1 codon
+            if a.getCdsLength() < 3 or t.getCdsLength() < 3:
                 continue
-            s = t.getCds(self.seqDict)
-            if not s.startswith("ATG"):
+            cds_positions = [t.chromosomeCoordinateToCds(aln.queryCoordinateToTarget(a.cdsCoordinateToTranscript(i))) for i in xrange(3)]
+            if None in cds_positions or t.getCds(self.seqDict)[:3] != "ATG":
                 detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, 0, 2, self.rgb(), self.getColumn())
                 classifyDict[aId] = 1
             else:
@@ -329,7 +370,7 @@ class UtrGap(GapFinder):
     def rgb(self):
         return self.colors["alignment"]
 
-    def run(self, shortIntronSize=30, mult3=False, coding=False):
+    def run(self, shortIntronSize=30, mult3=None, coding=False):
         GapFinder.run(self, shortIntronSize=shortIntronSize, mult3=mult3, coding=coding)
 
 
@@ -412,16 +453,26 @@ class EndStop(AbstractClassifier):
     def run(self):
         logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         stopCodons = ('TAA', 'TGA', 'TAG')
+        self.getAlignmentDict()
         self.getTranscriptDict()
+        self.getAnnotationDict()
         self.getSeqDict()
         detailsDict = {}
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
-            if t.getCdsLength() <= 9:
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            aln = self.alignmentDict[aId]
+            # do not include noncoding transcripts
+            if a.thickStart == a.thickStop == 0 or a.thickStop - a.thickStart < 3:
                 continue
-            cds = t.getCds(self.seqDict)
-            if cds[-3:] not in stopCodons:
-                detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, len(cds) - 3, len(cds), self.rgb(), self.getColumn())
+            # this transcript isn't really lifted over anyways. TODO: include this?
+            if t.thickStop - t.thickStart < 3:
+                continue
+            s = t.getCdsLength()
+            cds_positions = [t.chromosomeCoordinateToCds(aln.queryCoordinateToTarget(a.cdsCoordinateToTranscript(i))) 
+                             for i in xrange(s - 1, s - 4, -1)]
+            if None in cds_positions or t.getCds(self.seqDict)[:3] not in stopCodons:
+                detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, s - 3, s, self.rgb(), self.getColumn())
                 classifyDict[aId] = 1
             else:
                 classifyDict[aId] = 0

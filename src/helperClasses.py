@@ -22,15 +22,13 @@ class GapFinder(AbstractClassifier):
         for i, intron in enumerate(t.intronIntervals):
             if len(intron) >= shortIntronSize:
                 continue
-            elif "N" in intron.getSequence(self.seqDict):
-                continue
-            if intron.start >= t.thickStart and intron.stop <= t.thickStop and (coding is True or coding is None):
+            if (intron.start >= t.thickStart and intron.stop <= t.thickStop) and (coding is True or coding is None):
                 if len(intron) % 3 == 0 and (mult3 is True or mult3 is None):
                     records.append(seq_lib.intervalToBed(t, intron, self.rgb(), self.getColumn()))
                 elif len(intron) % 3 != 0 and (mult3 is False or mult3 is None):
                     records.append(seq_lib.intervalToBed(t, intron, self.rgb(), self.getColumn()))
-            elif (intron.stop <= t.thickStart and intron.start >= t.thickStart) or (intron.start >= t.thickStop and \
-                        intron.stop <= t.thickStop) and (coding is False or coding is None):
+            elif ((intron.stop <= t.thickStart and intron.start <= t.thickStart) or (intron.start >= t.thickStop and \
+                        intron.stop >= t.thickStop)) and (coding is False or coding is None):
                 if len(intron) % 3 == 0 and (mult3 is True or mult3 is None):
                     records.append(seq_lib.intervalToBed(t, intron, self.rgb(), self.getColumn()))
                 elif len(intron) % 3 != 0 and (mult3 is False or mult3 is None):
@@ -92,7 +90,7 @@ class SpliceSiteAnalysis(AbstractClassifier):
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
-                if intron.start >= t.thickStart and intron.stop <= t.thickStop and (coding is True or coding is None):
+                if (intron.start >= t.thickStart and intron.stop <= t.thickStop) and (coding is True or coding is None):
                     seq = intron.getSequence(self.seqDict, strand=True)
                     if canonical is True and self.canonicalSplice(seq[:2], seq[-2:]) is False:
                         classifyDict[aId] = 1
@@ -100,7 +98,8 @@ class SpliceSiteAnalysis(AbstractClassifier):
                     elif canonical is False and self.unknownSplice(seq[:2], seq[-2:]) is False:
                         classifyDict[aId] = 1
                         detailsDict[aId] = seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn())
-                elif intron.start <= t.thickStart or intron.stop >= t.thickStop and (coding is False or coding is None):
+                elif ((intron.stop <= t.thickStart and intron.start <= t.thickStart) or (intron.start >= t.thickStop and \
+                        intron.stop >= t.thickStop)) and (coding is False or coding is None):
                     seq = intron.getSequence(self.seqDict, strand=True)
                     if canonical is True and self.canonicalSplice(seq[:2], seq[-2:]) is False:
                         classifyDict[aId] = 1

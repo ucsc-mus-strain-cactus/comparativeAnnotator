@@ -195,11 +195,25 @@ ${ASSEMBLY_HUB_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 	--longLabel ${MSCA_VERSION} --hub ${MSCA_VERSION} &>> ${log}
 	touch ${ASSEMBLY_HUB_DIR}/DONE
 
+####################################################################################################
+# Generating some (temporary) metrics.
+####################################################################################################
+metrics: ${tmpMetrics}
+
+${METRICS_DIR}/${MSCA_VERSION}_tmp_metrics.tsv: ${ASSEMBLY_HUB_DIR}/DONE
+	bigBedToBed ${C57B6NJannotation} tmp
+	python scripts/compare_annotation_gene_check.py ${C57B6NJgeneCheck} tmp $@.${tmpExt}
+	rm tmp
+	mv $@.${tmpExt} $@
+
 
 ####################################################################################################
 # Generating some plots.
 ####################################################################################################
-plots: ${coverageMetricPdf}
+plots: ${coverageMetric}.pdf
 
-${METRICS_DIR}/${MSCA_VERSION}_coverage: ${filteredPslStats}
-	python scripts/coverage_plotter.py --flip --ratio --out ${coverageMetricPdf} ${filteredPslStats}
+${METRICS_DIR}/${MSCA_VERSION}_coverage.pdf: ${filteredPslStats}
+	@echo $@
+	@mkdir -p $(dir $@)
+	python scripts/coverage_plotter.py --flip --ratio --out $@.${tmpExt} ${filteredPslStats}
+	mv $@.${tmpExt} $@
