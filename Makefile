@@ -2,7 +2,7 @@
 #include config.mk
 include config_1411.mk
 
-all: init srcData mapping chaining filtered extractFasta geneCheck annotation assemblyHub plots
+all: init srcData mapping chaining filtered extractFasta geneCheck annotation assemblyHub plots metrics
 
 init:
 	# TODO: why does this error out?
@@ -216,4 +216,4 @@ ${METRICS_DIR}/${MSCA_VERSION}_coverage.pdf: ${filteredPslStats}
 	@echo $@
 	@mkdir -p $(dir $@)
 	python scripts/coverage_plotter.py --flip --ratio --out $@.${tmpExt} ${filteredPslStats}
-	mv $@.${tmpExt} $@
+	mv $@.${tmpExt}.pdf $@

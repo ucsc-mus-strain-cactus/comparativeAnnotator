@@ -8,7 +8,6 @@ import lib.psl_lib as psl_lib
 from jobTree.src.bioio import logger, reverseComplement
 
 from src.abstractClassifier import AbstractClassifier
-from src.helperClasses import GapFinder
 from src.helperFunctions import deletionIterator, insertionIterator, frameShiftIterator, codonPairIterator
 
 class CodingInsertions(AbstractClassifier):
@@ -335,33 +334,61 @@ class BeginStart(AbstractClassifier):
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
-class CdsGap(GapFinder):
+class CdsGap(AbstractClassifier):
     """
     Are any of the CDS introns too short? Too short default is 30 bases.
 
     Reports a BED record for each intron interval that is too short.
-
-    If mult3 is true, will only report on multiple of 3 gaps.
     """
     def rgb(self):
         return self.colors["alignment"]
 
-    def run(self, shortIntronSize=30, mult3=False, coding=True):
-        GapFinder.run(self, shortIntronSize=shortIntronSize, mult3=mult3, coding=coding)
+    def run(self, shortIntronSize=30):
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getTranscriptDict()
+        self.getSeqDict()
+        detailsDict = defaultdict(list)
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
+            for i, intron in enumerate(t.intronIntervals):
+                if len(intron) >= shortIntronSize:
+                    continue
+                elif "N" in intron.getSequence(self.seqDict):
+                    continue
+                elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
+                    continue
+                detailsDict[aId].append(seq_lib.intervalToBed(t, intron, self.rgb(), self.getColumn()))
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
-class CdsMult3Gap(GapFinder):
+class CdsMult3Gap(AbstractClassifier):
     """
-    See CdsGap for details. Runs it in mult3 mode.
+    Same as CdsGap, but only reports on multiple of 3s.
     """
     def rgb(self):
-        return self.colors["alignment"]    
+        return self.colors["mutation"]    
 
-    def run(self, shortIntronSize=30, mult3=True, coding=True):
-        GapFinder.run(self, shortIntronSize=shortIntronSize, mult3=mult3, coding=coding)
+    def run(self, shortIntronSize=30):
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getTranscriptDict()
+        self.getSeqDict()
+        detailsDict = defaultdict(list)
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
+            for i, intron in enumerate(t.intronIntervals):
+                if len(intron) >= shortIntronSize:
+                    continue
+                elif len(intron) % 3 != 0:
+                    continue
+                elif "N" in intron.getSequence(self.seqDict):
+                    continue
+                elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
+                    continue
+                detailsDict[aId].append(seq_lib.intervalToBed(t, intron, self.rgb(), self.getColumn()))
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
-class UtrGap(GapFinder):
+class UtrGap(AbstractClassifier):
     """
     Are any UTR introns too short? Too short is defined as less than 30bp
 
@@ -370,14 +397,27 @@ class UtrGap(GapFinder):
     def rgb(self):
         return self.colors["alignment"]
 
-    def run(self, shortIntronSize=30, mult3=None, coding=False):
-        GapFinder.run(self, shortIntronSize=shortIntronSize, mult3=mult3, coding=coding)
+    def run(self, shortIntronSize=30):
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getTranscriptDict()
+        self.getSeqDict()
+        detailsDict = defaultdict(list)
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
+            for i, intron in enumerate(t.intronIntervals):
+                if len(intron) >= shortIntronSize:
+                    continue
+                elif "N" in intron.getSequence(self.seqDict):
+                    continue
+                elif intron.start >= t.thickStart and intron.stop <= t.thickStop:
+                    continue
+                detailsDict[aId].append(seq_lib.intervalToBed(t, intron, self.rgb(), self.getColumn()))
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class UnknownGap(AbstractClassifier):
     """
-    A pared down version of GapFinder that simply looks for short introns that contain unknown bases.
-    Any number of unknown bases is fine.
+    Looks for short introns that contain unknown bases.Any number of unknown bases is fine.
     """
     def rgb(self):
         return self.colors["assembly"]
@@ -389,8 +429,8 @@ class UnknownGap(AbstractClassifier):
         detailsDict = {}
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
-            records = [seq_lib.intervalToBed(t, x, self.rgb(), self.getColumn()) for x in \
-                       t.intronIntervals if "N" in x.getSequence(self.seqDict)]
+            records = [seq_lib.intervalToBed(t, x, self.rgb(), self.getColumn()) for x in  t.intronIntervals if "N" in \
+                       x.getSequence(self.seqDict) and len(x) <= shortIntronSize]
             if len(records) == 0:
                 classifyDict[aId] = 0
             else:
@@ -424,7 +464,7 @@ class CdsNonCanonSplice(AbstractClassifier):
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
-                elif intron.start >= t.thickStart and intron.stop <= t.thickStop:
+                elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
@@ -459,7 +499,7 @@ class CdsUnknownSplice(AbstractClassifier):
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
-                elif intron.start >= t.thickStart and intron.stop <= t.thickStop:
+                elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
@@ -494,7 +534,7 @@ class UtrNonCanonSplice(AbstractClassifier):
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
-                elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
+                elif intron.start >= t.thickStart and intron.stop <= t.thickStop:
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
