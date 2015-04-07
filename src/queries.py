@@ -8,7 +8,7 @@ def mutations():
     """
     detailsFields = ["CodingInsertions", "CodingDeletions", "CodingMult3Insertions", "CodingMult3Deletions",
                      "CdsNonCanonSplice", "UtrNonCanonSplice", "CdsUnknownSplice", "UtrUnknownSplice", "CdsMult3Gap", "InFrameStop",
-                     "Synonymous", "Nonsynonymous", "FrameMismatch", "CdsGap", "UtrGap"]
+                     "Synonymous", "Nonsynonymous", "StartOutOfFrame", "CdsGap", "UtrGap"]
     classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "NoCds", 
                      "AlignmentPartialMap", "BadFrame"]
     classifyOperations = ["AND"] * (len(classifyFields) - 1)
@@ -30,7 +30,7 @@ def everything():
     return detailsFields, classifyFields, classifyValues, classifyOperations
 
 def interestingBiology():
-    detailsFields = ["InFrameStop", "CodingMult3Insertions", "CodingMult3Deletions", "CdsMult3Gap", "FrameMismatch", "Nonsynonymous"]
+    detailsFields = ["InFrameStop", "CodingMult3Insertions", "CodingMult3Deletions", "CdsMult3Gap", "StartOutOfFrame", "Nonsynonymous"]
     classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "NoCds", 
                      "AlignmentPartialMap", "BadFrame", "CdsGap", "UtrGap"]
     classifyOperations = ["AND"] * (len(classifyFields) - 1)

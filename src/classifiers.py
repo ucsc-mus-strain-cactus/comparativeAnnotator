@@ -8,7 +8,7 @@ import lib.psl_lib as psl_lib
 from jobTree.src.bioio import logger, reverseComplement
 
 from src.abstractClassifier import AbstractClassifier
-from src.helperClasses import GapFinder, SpliceSiteAnalysis
+from src.helperClasses import GapFinder
 from src.helperFunctions import deletionIterator, insertionIterator, frameShiftIterator, codonPairIterator
 
 class CodingInsertions(AbstractClassifier):
@@ -399,7 +399,7 @@ class UnknownGap(AbstractClassifier):
         self.dumpValueDicts(classifyDict, detailsDict)        
 
 
-class CdsNonCanonSplice(SpliceSiteAnalysis):
+class CdsNonCanonSplice(AbstractClassifier):
     """
     Are any of the CDS introns splice sites not of the canonical form
     GT..AG
@@ -409,14 +409,34 @@ class CdsNonCanonSplice(SpliceSiteAnalysis):
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
+    non_canonical = {"GT": "AG", "GC": "AG", "AT": "AC"}
+
     def rgb(self):
         return self.colors["mutation"]
 
-    def run(self, shortIntronSize=30, coding=True, canonical=True):
-        SpliceSiteAnalysis.run(self, canonical=canonical, coding=coding, shortIntronSize=shortIntronSize)
+    def run(self, shortIntronSize=30):
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getTranscriptDict()
+        self.getSeqDict()
+        detailsDict = defaultdict(list)
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
+            for intron in t.intronIntervals:
+                if len(intron) <= shortIntronSize:
+                    continue
+                elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
+                    continue
+                seq = intron.getSequence(self.seqDict, strand=True)
+                donor, acceptor = seq[:2], seq[-2:]
+                if donor not in self.non_canonical or (donor in self.non_canonical and self.non_canonical[donor] != acceptor):
+                    classifyDict[aId] = 1
+                    detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
+            if aId not in classifyDict:
+                classifyDict[aId] = 1
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
-class CdsUnknownSplice(SpliceSiteAnalysis):
+class CdsUnknownSplice(AbstractClassifier):
     """
     Are any of the CDS introns splice sites not of the form
     GT..AG, GC..AG, AT..AC
@@ -424,14 +444,34 @@ class CdsUnknownSplice(SpliceSiteAnalysis):
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
+    canonical = {"GT": "AG"}
+
     def rgb(self):
-        return self.colors["assembly"]
+        return self.colors["mutation"]
 
-    def run(self, shortIntronSize=30, coding=True, canonical=False):
-        SpliceSiteAnalysis.run(self, canonical=canonical, coding=coding, shortIntronSize=shortIntronSize)
+    def run(self, shortIntronSize=30):
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getTranscriptDict()
+        self.getSeqDict()
+        detailsDict = defaultdict(list)
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
+            for intron in t.intronIntervals:
+                if len(intron) <= shortIntronSize:
+                    continue
+                elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
+                    continue
+                seq = intron.getSequence(self.seqDict, strand=True)
+                donor, acceptor = seq[:2], seq[-2:]
+                if donor not in self.canonical or (donor in self.canonical and self.canonical[donor] != acceptor):
+                    classifyDict[aId] = 1
+                    detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
+            if aId not in classifyDict:
+                classifyDict[aId] = 1
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
-class UtrNonCanonSplice(SpliceSiteAnalysis):
+class UtrNonCanonSplice(AbstractClassifier):
     """
     Are any of the UTR introns splice sites not of the canonical form
     GT..AG
@@ -439,14 +479,34 @@ class UtrNonCanonSplice(SpliceSiteAnalysis):
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
+    non_canonical = {"GT": "AG", "GC": "AG", "AT": "AC"}
+
     def rgb(self):
         return self.colors["mutation"]
 
-    def run(self, shortIntronSize=30, coding=False, canonical=True):
-        SpliceSiteAnalysis.run(self, canonical=canonical, coding=coding, shortIntronSize=shortIntronSize)
+    def run(self, shortIntronSize=30):
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getTranscriptDict()
+        self.getSeqDict()
+        detailsDict = defaultdict(list)
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
+            for intron in t.intronIntervals:
+                if len(intron) <= shortIntronSize:
+                    continue
+                elif intron.start >= t.thickStart and intron.stop <= t.thickStop:
+                    continue
+                seq = intron.getSequence(self.seqDict, strand=True)
+                donor, acceptor = seq[:2], seq[-2:]
+                if donor not in self.non_canonical or (donor in self.non_canonical and self.non_canonical[donor] != acceptor):
+                    classifyDict[aId] = 1
+                    detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
+            if aId not in classifyDict:
+                classifyDict[aId] = 1
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
-class UtrUnknownSplice(SpliceSiteAnalysis):
+class UtrUnknownSplice(AbstractClassifier):
     """
     Are any of the UTR introns splice sites not of the form
     GT..AG, GC..AG, AT..AC
@@ -454,11 +514,31 @@ class UtrUnknownSplice(SpliceSiteAnalysis):
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
-    def rgb(self):
-        return self.colors["assembly"]
+    canonical = {"GT": "AG"}
 
-    def run(self, shortIntronSize=30, coding=False, canonical=False):
-        SpliceSiteAnalysis.run(self, canonical=canonical, coding=coding, shortIntronSize=shortIntronSize)
+    def rgb(self):
+        return self.colors["mutation"]
+
+    def run(self, shortIntronSize=30):
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getTranscriptDict()
+        self.getSeqDict()
+        detailsDict = defaultdict(list)
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
+            for intron in t.intronIntervals:
+                if len(intron) <= shortIntronSize:
+                    continue
+                elif intron.start >= t.thickStart and intron.stop <= t.thickStop:
+                    continue
+                seq = intron.getSequence(self.seqDict, strand=True)
+                donor, acceptor = seq[:2], seq[-2:]
+                if donor not in self.canonical or (donor in self.canonical and self.canonical[donor] != acceptor):
+                    classifyDict[aId] = 1
+                    detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
+            if aId not in classifyDict:
+                classifyDict[aId] = 1
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class EndStop(AbstractClassifier):
