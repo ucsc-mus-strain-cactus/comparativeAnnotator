@@ -424,11 +424,11 @@ class CdsNonCanonSplice(AbstractClassifier):
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
-                elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
+                elif intron.start >= t.thickStart and intron.stop <= t.thickStop:
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
-                if donor not in self.non_canonical or (donor in self.non_canonical and self.non_canonical[donor] != acceptor):
+                if donor not in self.canonical or (donor in self.canonical and self.canonical[donor] != acceptor):
                     classifyDict[aId] = 1
                     detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
             if aId not in classifyDict:
@@ -459,11 +459,11 @@ class CdsUnknownSplice(AbstractClassifier):
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
-                elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
+                elif intron.start >= t.thickStart and intron.stop <= t.thickStop:
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
-                if donor not in self.canonical or (donor in self.canonical and self.canonical[donor] != acceptor):
+                if donor not in self.non_canonical or (donor in self.non_canonical and self.non_canonical[donor] != acceptor):
                     classifyDict[aId] = 1
                     detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
             if aId not in classifyDict:
@@ -494,11 +494,11 @@ class UtrNonCanonSplice(AbstractClassifier):
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
-                elif intron.start >= t.thickStart and intron.stop <= t.thickStop:
+                elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
-                if donor not in self.non_canonical or (donor in self.non_canonical and self.non_canonical[donor] != acceptor):
+                if donor not in self.canonical or (donor in self.canonical and self.canonical[donor] != acceptor):
                     classifyDict[aId] = 1
                     detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
             if aId not in classifyDict:
@@ -533,7 +533,7 @@ class UtrUnknownSplice(AbstractClassifier):
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
-                if donor not in self.canonical or (donor in self.canonical and self.canonical[donor] != acceptor):
+                if donor not in self.non_canonical or (donor in self.non_canonical and self.non_canonical[donor] != acceptor):
                     classifyDict[aId] = 1
                     detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
             if aId not in classifyDict:
