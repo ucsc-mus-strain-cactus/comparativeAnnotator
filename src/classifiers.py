@@ -409,7 +409,7 @@ class CdsNonCanonSplice(AbstractClassifier):
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
-    non_canonical = {"GT": "AG", "GC": "AG", "AT": "AC"}
+    canonical = {"GT": "AG"}
 
     def rgb(self):
         return self.colors["mutation"]
@@ -444,7 +444,7 @@ class CdsUnknownSplice(AbstractClassifier):
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
-    canonical = {"GT": "AG"}
+    non_canonical = {"GT": "AG", "GC": "AG", "AT": "AC"}
 
     def rgb(self):
         return self.colors["mutation"]
@@ -479,7 +479,7 @@ class UtrNonCanonSplice(AbstractClassifier):
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
-    non_canonical = {"GT": "AG", "GC": "AG", "AT": "AC"}
+    canonical = {"GT": "AG"}
 
     def rgb(self):
         return self.colors["mutation"]
@@ -514,7 +514,7 @@ class UtrUnknownSplice(AbstractClassifier):
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
-    canonical = {"GT": "AG"}
+    non_canonical = {"GT": "AG", "GC": "AG", "AT": "AC"}
 
     def rgb(self):
         return self.colors["mutation"]
