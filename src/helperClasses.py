@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
 
@@ -6,7 +8,7 @@ from src.abstractClassifier import AbstractClassifier
 
 class GapFinder(AbstractClassifier):
     """
-    Finds improperly sized UTRs. 
+    Finds improperly sized introns.
     """
 
     def gapFinder(self, t, shortIntronSize, mult3, coding):
@@ -21,6 +23,8 @@ class GapFinder(AbstractClassifier):
         records = []
         for i, intron in enumerate(t.intronIntervals):
             if len(intron) >= shortIntronSize:
+                continue
+            if "N" in intron.getSequence(self.seqDict):
                 continue
             if (intron.start >= t.thickStart and intron.stop <= t.thickStop) and (coding is True or coding is None):
                 if len(intron) % 3 == 0 and (mult3 is True or mult3 is None):

@@ -422,3 +422,15 @@ bigBedDirs="test_output/bedfiles/transMap,test_output/bedfiles/everything,test_o
 python hal/assemblyHub/hal2assemblyHub.py /cluster/home/jcarmstr/public_html/mouseBrowser_1411/1411.hal test_trackHub  --jobTree test_haljobtree --finalBigBedDirs ${bigBedDirs} --batchSystem=singleMachine --stats --shortLabel test --longLabel test --hub test --maxThreads 30 &> test.log &
 
 for f in /cluster/home/ifiddes/ifiddes_hive/mus_strain_cactus/pipeline/results_1411/*/*details*; do n=`echo $f | cut -d "/" -f 9 | cut -d "." -f 2`; mkdir $n; bedToBigBed $f ~/ifiddes_hive/mouse_release_data/1411/$n.chrom.sizes $n/$n.bb; done
+
+
+# testing rescuing starting frameshifts
+# the below manual creation starts +1 bp
+aln = PslRow("12 0 0 0 0 0 1 2 + chr1 290094216 4 20 chr1 290094216 4 20 3 2,1,9, 4,8,11, 4,8,11,")
+a = seq_lib.Transcript("chr1 0 20 query 0 + 3 17 0 2 6,12, 0,8,".split())
+t = seq_lib.Transcript("chr1 4 20 target 0 + 4 17 0 3 2,1,10, 0,4,6,".split())
+
+#the below manual creation starts -1 bp
+aln = PslRow("12 0 0 0 0 0 1 2 + chr1 290094216 5 20 chr1 290094216 5 20 3 1,1,10, 5,8,10, 5,8,10,")
+a = seq_lib.Transcript("chr1 0 20 query 0 + 3 17 0 2 6,12, 0,8,".split())
+t = seq_lib.Transcript("chr1 5 20 target 0 + 5 17 0 3 1,2,10, 0,2,5,".split())

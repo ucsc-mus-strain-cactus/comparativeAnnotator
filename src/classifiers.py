@@ -100,9 +100,9 @@ class CodingMult3Deletions(CodingDeletions):
         CodingDeletions.run(self, mult3=True)
 
 
-class FrameMismatch(AbstractClassifier):
+class StartOutOfFrame(AbstractClassifier):
     """
-    FrameMismatches are caused when the starting CDS base of the lifted over transcript is not in the original frame.
+    StartOutOfFrame are caused when the starting CDS base of the lifted over transcript is not in the original frame.
     If True, reports the entire CDS.
     """
     def rgb(self):
@@ -154,9 +154,9 @@ class FrameShift(AbstractClassifier):
                 continue
             s = list(frameShiftIterator(a, t, aln))
             # do we start in a frame shift? we can try and save it
-            #cur_shift = a.transcriptCoordinateToCds(aln.targetCoordinateToQuery(t.cdsCoordinateToChromosome(0))) % 3
-            #if cur_shift != 0:
-            #    s.insert(0, [t.start, t.start, cur_shift])
+            cur_shift =  - a.transcriptCoordinateToCds(aln.targetCoordinateToQuery(t.cdsCoordinateToChromosome(0))) % 3
+            if cur_shift != 0:
+                s.insert(0, (t.start, t.start, cur_shift))
             if len(s) == 0:
                 classifyDict[aId] = 0
                 continue
@@ -328,7 +328,7 @@ class BeginStart(AbstractClassifier):
                 continue
             cds_positions = [t.chromosomeCoordinateToCds(aln.queryCoordinateToTarget(a.cdsCoordinateToTranscript(i))) for i in xrange(3)]
             if None in cds_positions or t.getCds(self.seqDict)[:3] != "ATG":
-                detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, 0, 2, self.rgb(), self.getColumn())
+                detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, 0, 3, self.rgb(), self.getColumn())
                 classifyDict[aId] = 1
             else:
                 classifyDict[aId] = 0
@@ -372,6 +372,31 @@ class UtrGap(GapFinder):
 
     def run(self, shortIntronSize=30, mult3=None, coding=False):
         GapFinder.run(self, shortIntronSize=shortIntronSize, mult3=mult3, coding=coding)
+
+
+class UnknownGap(AbstractClassifier):
+    """
+    A pared down version of GapFinder that simply looks for short introns that contain unknown bases.
+    Any number of unknown bases is fine.
+    """
+    def rgb(self):
+        return self.colors["assembly"]
+
+    def run(self, shortIntronSize=30):
+        logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
+        self.getTranscriptDict()
+        self.getSeqDict()
+        detailsDict = {}
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
+            records = [seq_lib.intervalToBed(t, x, self.rgb(), self.getColumn()) for x in \
+                       t.intronIntervals if "N" in x.getSequence(self.seqDict)]
+            if len(records) == 0:
+                classifyDict[aId] = 0
+            else:
+                classifyDict[aId] = 1
+                detailsDict[aId] = records
+        self.dumpValueDicts(classifyDict, detailsDict)        
 
 
 class CdsNonCanonSplice(SpliceSiteAnalysis):
@@ -466,11 +491,11 @@ class EndStop(AbstractClassifier):
             if a.thickStart == a.thickStop == 0 or a.thickStop - a.thickStart < 3:
                 continue
             # this transcript isn't really lifted over anyways. TODO: include this?
-            if t.thickStop - t.thickStart < 3:
+            if t.thickStop - t.thickStart <= 3:
                 continue
             s = t.getCdsLength()
             cds_positions = [t.chromosomeCoordinateToCds(aln.queryCoordinateToTarget(a.cdsCoordinateToTranscript(i))) 
-                             for i in xrange(s - 1, s - 4, -1)]
+                             for i in xrange(s - 4, s - 1)]
             if None in cds_positions or t.getCds(self.seqDict)[-3:] not in stopCodons:
                 detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, s - 3, s, self.rgb(), self.getColumn())
                 classifyDict[aId] = 1
