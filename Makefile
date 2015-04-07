@@ -180,19 +180,22 @@ ${ANNOTATION_DIR}/DONE: ${geneCheckEvalsBed}
 	touch ${ANNOTATION_DIR}/DONE
 
 ####################################################################################################
-# Building assemblyHub. Can't be run on ku due to weird issues with halLodExtract.
+# Building assemblyHub. Can't be run on ku due to weird issues with halLodExtract. SSH to kolossus.
 # TODO: this creates all of the fastas/2bits from the hal again, unnecessarily.
 ####################################################################################################
 assemblyHub: ${ASSEMBLY_HUB_DIR}/DONE
 
 ${ASSEMBLY_HUB_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 	if [ -d ${halJobTreeDir} ]; then rm -rf ${halJobTreeDir}; fi
+	cwd="$(shell pwd)" ;\
 	bigBedDirs="$(shell /bin/ls -1d ${ANNOTATION_DIR}/bedfiles/* | paste -s -d ",")" ;\
+	ssh kolossus.sdsc.edu -t "cd $$cwd && export PYTHONPATH=./ && export \
+	PATH=./bin/:./sonLib/bin:./submodules/jobTree/bin:${PATH} && \
 	python hal/assemblyHub/hal2assemblyHub.py ${HAL} ${ASSEMBLY_HUB_DIR} \
 	--finalBigBedDirs $$bigBedDirs --maxThreads=${maxThreads} --batchSystem=singleMachine \
 	--defaultMemory=${defaultMemory} --jobTree ${halJobTreeDir} \
 	--maxJobDuration ${maxJobDuration} --stats --shortLabel ${MSCA_VERSION} \
-	--longLabel ${MSCA_VERSION} --hub ${MSCA_VERSION} &>> ${log}
+	--longLabel ${MSCA_VERSION} --hub ${MSCA_VERSION} &>> ${log}"
 	touch ${ASSEMBLY_HUB_DIR}/DONE
 
 ####################################################################################################
@@ -201,8 +204,10 @@ ${ASSEMBLY_HUB_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 metrics: ${tmpMetrics}
 
 ${METRICS_DIR}/${MSCA_VERSION}_tmp_metrics.tsv: ${ANNOTATION_DIR}/DONE
+	@mkdir -p $(dir $@)
 	bigBedToBed ${C57B6NJannotation} tmp
 	python scripts/compare_annotation_gene_check.py ${C57B6NJgeneCheck} tmp $@.${tmpExt}
+	sh scripts/compare.sh ${C57B6NJgeneCheck} tmp $(dir $@)
 	rm tmp
 	mv $@.${tmpExt} $@
 
@@ -213,7 +218,6 @@ ${METRICS_DIR}/${MSCA_VERSION}_tmp_metrics.tsv: ${ANNOTATION_DIR}/DONE
 plots: ${coverageMetric}.pdf
 
 ${METRICS_DIR}/${MSCA_VERSION}_coverage.pdf: ${filteredPslStats}
-	@echo $@
 	@mkdir -p $(dir $@)
 	python scripts/coverage_plotter.py --flip --ratio --out $@.${tmpExt} ${filteredPslStats}
 	mv $@.${tmpExt}.pdf $@

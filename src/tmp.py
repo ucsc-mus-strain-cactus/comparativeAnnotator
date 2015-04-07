@@ -426,11 +426,16 @@ for f in /cluster/home/ifiddes/ifiddes_hive/mus_strain_cactus/pipeline/results_1
 
 # testing rescuing starting frameshifts
 # the below manual creation starts +1 bp
-aln = PslRow("12 0 0 0 0 0 1 2 + chr1 290094216 4 20 chr1 290094216 4 20 3 2,1,9, 4,8,11, 4,8,11,")
+aln = psl_lib.PslRow("12 0 0 0 0 0 1 2 + chr1 290094216 4 20 chr1 290094216 4 20 3 2,1,9, 4,8,11, 4,8,11,")
 a = seq_lib.Transcript("chr1 0 20 query 0 + 3 17 0 2 6,12, 0,8,".split())
 t = seq_lib.Transcript("chr1 4 20 target 0 + 4 17 0 3 2,1,10, 0,4,6,".split())
 
-#the below manual creation starts -1 bp
-aln = PslRow("12 0 0 0 0 0 1 2 + chr1 290094216 5 20 chr1 290094216 5 20 3 1,1,10, 5,8,10, 5,8,10,")
+#the below manual creation starts +2 bp
+aln = psl_lib.PslRow("12 0 0 0 0 0 1 2 + chr1 290094216 5 20 chr1 290094216 5 20 3 1,1,10, 5,8,10, 5,8,10,")
 a = seq_lib.Transcript("chr1 0 20 query 0 + 3 17 0 2 6,12, 0,8,".split())
 t = seq_lib.Transcript("chr1 5 20 target 0 + 5 17 0 3 1,2,10, 0,2,5,".split())
+
+#the below manual creation starts at +2 and has an insertion instead of deletion
+aln = psl_lib.PslRow("13 0 0 0 1 2 0 0 + chr1 290094216 5 20 chr1 17 0 17 3 1,3,9, 5,8,11, 0,3,8,")
+a = seq_lib.Transcript("chr1 0 20 query 0 + 3 17 0 2 6,12, 0,8,".split())
+t = seq_lib.Transcript("chr1 0 17 target 0 + 0 14 0 1 17, 0,".split())

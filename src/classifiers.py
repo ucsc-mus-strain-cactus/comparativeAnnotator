@@ -153,7 +153,7 @@ class FrameShift(AbstractClassifier):
                 continue
             s = list(frameShiftIterator(a, t, aln))
             # do we start in a frame shift? we can try and save it
-            cur_shift =  - a.transcriptCoordinateToCds(aln.targetCoordinateToQuery(t.cdsCoordinateToChromosome(0))) % 3
+            cur_shift =  -a.transcriptCoordinateToCds(aln.targetCoordinateToQuery(t.cdsCoordinateToChromosome(0))) % 3
             if cur_shift != 0:
                 s.insert(0, (t.start, t.start, cur_shift))
             if len(s) == 0:
@@ -426,7 +426,7 @@ class UtrGap(AbstractClassifier):
 
 class UnknownGap(AbstractClassifier):
     """
-    Looks for short introns that contain unknown bases.Any number of unknown bases is fine.
+    Looks for short introns that contain unknown bases. Any number of unknown bases is fine.
     """
     def rgb(self):
         return self.colors["assembly"]

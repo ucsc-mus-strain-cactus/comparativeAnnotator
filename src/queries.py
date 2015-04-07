@@ -8,9 +8,9 @@ def mutations():
     """
     detailsFields = ["CodingInsertions", "CodingDeletions", "CodingMult3Insertions", "CodingMult3Deletions",
                      "CdsNonCanonSplice", "UtrNonCanonSplice", "CdsUnknownSplice", "UtrUnknownSplice", "CdsMult3Gap", "InFrameStop",
-                     "Synonymous", "Nonsynonymous", "StartOutOfFrame", "CdsGap", "UtrGap"]
+                     "Synonymous", "Nonsynonymous", "CdsGap", "UtrGap", "FrameShift"]
     classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "NoCds", 
-                     "AlignmentPartialMap", "BadFrame"]
+                     "AlignmentPartialMap", "BadFrame", "StartOutOfFrame", "UnknownGap"]
     classifyOperations = ["AND"] * (len(classifyFields) - 1)
     classifyValues = [0] * len(classifyFields)
     return detailsFields, classifyFields, classifyValues, classifyOperations
@@ -32,7 +32,7 @@ def everything():
 def interestingBiology():
     detailsFields = ["InFrameStop", "CodingMult3Insertions", "CodingMult3Deletions", "CdsMult3Gap", "StartOutOfFrame", "Nonsynonymous"]
     classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "NoCds", 
-                     "AlignmentPartialMap", "BadFrame", "CdsGap", "UtrGap"]
+                     "AlignmentPartialMap", "BadFrame", "CdsGap", "UtrGap", "UnknownGap"]
     classifyOperations = ["AND"] * (len(classifyFields) - 1)
     classifyValues = [0] * len(classifyFields)  
     return detailsFields, classifyFields, classifyValues, classifyOperations
@@ -41,7 +41,7 @@ def assemblyErrors():
     """
     Looks for assembly errors. Reports transcripts with assembly errors.
     """
-    detailsFields = classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "NoCds"]
+    detailsFields = classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "NoCds", "UnknownGap"]
     classifyOperations = ["OR"] * (len(classifyFields) - 1)
     classifyValues = [1] * len(classifyFields)
     return detailsFields, classifyFields, classifyValues, classifyOperations
