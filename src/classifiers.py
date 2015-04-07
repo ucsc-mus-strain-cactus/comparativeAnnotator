@@ -358,6 +358,9 @@ class CdsGap(AbstractClassifier):
                 elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
                     continue
                 detailsDict[aId].append(seq_lib.intervalToBed(t, intron, self.rgb(), self.getColumn()))
+                classifyDict[aId] = 1
+            if aId not in classifyDict:
+                classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
@@ -385,6 +388,9 @@ class CdsMult3Gap(AbstractClassifier):
                 elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
                     continue
                 detailsDict[aId].append(seq_lib.intervalToBed(t, intron, self.rgb(), self.getColumn()))
+                classifyDict[aId] = 1
+            if aId not in classifyDict:
+                classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
@@ -412,6 +418,9 @@ class UtrGap(AbstractClassifier):
                 elif intron.start >= t.thickStart and intron.stop <= t.thickStop:
                     continue
                 detailsDict[aId].append(seq_lib.intervalToBed(t, intron, self.rgb(), self.getColumn()))
+                classifyDict[aId] = 1
+            if aId not in classifyDict:
+                classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
@@ -426,16 +435,18 @@ class UnknownGap(AbstractClassifier):
         logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
-        detailsDict = {}
+        detailsDict = defaultdict(list)
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
-            records = [seq_lib.intervalToBed(t, x, self.rgb(), self.getColumn()) for x in  t.intronIntervals if "N" in \
-                       x.getSequence(self.seqDict) and len(x) <= shortIntronSize]
-            if len(records) == 0:
-                classifyDict[aId] = 0
-            else:
+            for i, intron in enumerate(t.intronIntervals):
+                if len(intron) >= shortIntronSize:
+                    continue
+                elif "N" not in intron.getSequence(self.seqDict):
+                    continue
+                detailsDict[aId].append(seq_lib.intervalToBed(t, intron, self.rgb(), self.getColumn()))
                 classifyDict[aId] = 1
-                detailsDict[aId] = records
+            if aId not in classifyDict:
+                classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)        
 
 
