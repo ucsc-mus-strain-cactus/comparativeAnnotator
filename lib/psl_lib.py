@@ -76,11 +76,11 @@ class PslRow(object):
         """
         if p < self.qStart: return None
         if p >= self.qEnd: return None
+        if self.strand not in ['+', '-']:
+            raise RuntimeError('Unanticipated strand: %s' % self.strand)        
         # this is the easier one to write
         if self.strand == '-':
             p = self.qSize - p - 1
-        else:
-            raise RuntimeError('Unanticipated strand: %s' % self.strand)
         for i, q in enumerate(self.qStarts):
             if p < q:
                 continue
