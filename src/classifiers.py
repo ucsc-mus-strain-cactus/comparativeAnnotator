@@ -432,7 +432,7 @@ class CdsNonCanonSplice(AbstractClassifier):
                     classifyDict[aId] = 1
                     detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
             if aId not in classifyDict:
-                classifyDict[aId] = 1
+                classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
@@ -467,7 +467,7 @@ class CdsUnknownSplice(AbstractClassifier):
                     classifyDict[aId] = 1
                     detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
             if aId not in classifyDict:
-                classifyDict[aId] = 1
+                classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
@@ -502,7 +502,7 @@ class UtrNonCanonSplice(AbstractClassifier):
                     classifyDict[aId] = 1
                     detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
             if aId not in classifyDict:
-                classifyDict[aId] = 1
+                classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
@@ -537,7 +537,7 @@ class UtrUnknownSplice(AbstractClassifier):
                     classifyDict[aId] = 1
                     detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
             if aId not in classifyDict:
-                classifyDict[aId] = 1
+                classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
