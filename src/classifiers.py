@@ -479,7 +479,7 @@ class CdsNonCanonSplice(AbstractClassifier):
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
-                if donor not in self.canonical or (donor in self.canonical and self.canonical[donor] != acceptor):
+                if donor not in self.canonical or self.canonical[donor] != acceptor:
                     classifyDict[aId] = 1
                     detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
             if aId not in classifyDict:
@@ -514,12 +514,12 @@ class CdsUnknownSplice(AbstractClassifier):
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
-                if donor not in self.non_canonical or (donor in self.non_canonical and self.non_canonical[donor] != acceptor):
+                if donor not in self.non_canonical or self.non_canonical[donor] != acceptor:
                     classifyDict[aId] = 1
                     detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
             if aId not in classifyDict:
                 classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+        #self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class UtrNonCanonSplice(AbstractClassifier):
@@ -549,7 +549,7 @@ class UtrNonCanonSplice(AbstractClassifier):
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
-                if donor not in self.canonical or (donor in self.canonical and self.canonical[donor] != acceptor):
+                if donor not in self.canonical or self.canonical[donor] != acceptor:
                     classifyDict[aId] = 1
                     detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
             if aId not in classifyDict:
@@ -584,7 +584,7 @@ class UtrUnknownSplice(AbstractClassifier):
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
-                if donor not in self.non_canonical or (donor in self.non_canonical and self.non_canonical[donor] != acceptor):
+                if donor not in self.non_canonical or self.non_canonical[donor] != acceptor:
                     classifyDict[aId] = 1
                     detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb(), self.getColumn()))
             if aId not in classifyDict:
@@ -789,8 +789,8 @@ class Nonsynonymous(AbstractClassifier):
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
-                if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) != \
-                                                                                  seq_lib.codonToAminoAcid(query_codon):
+                if "N" not in target_codon and target_codon != query_codon and \
+                        seq_lib.codonToAminoAcid(target_codon) != seq_lib.codonToAminoAcid(query_codon):
                     detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i - 3, i, self.rgb(), self.getColumn()))
                     classifyDict[aId] = 1
             if aId not in classifyDict:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import sys, os
-fields = (("UtrGap", "utrGap"), ("CdsGap", "cdsGap"), ("BeginStart", "noStart"), ("EndStop", "noStop"), 
+fields = (("UtrGap", "utrGap"), ("CdsGap", "cdsGap"), ("UnknownGap", ""), ("BeginStart", "noStart"), ("EndStop", "noStop"), 
           ("CdsUnknownSplice", "unknownCdsSplice"), )
 
 def main():

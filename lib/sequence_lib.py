@@ -1010,12 +1010,14 @@ def readTwoBit(file_path):
     return TwoBitFile(file_path)
 
 
-def getSequenceDict(file_path):
+def getSequenceDict(file_path, upper=True):
     """
     Returns a dictionary of fasta records.
     """
     fastaDict = {}
     for name, seq in fastaRead(file_path):
+        if upper is True:
+            seq = seq.upper()
         fastaDict[name] = seq
     return fastaDict
 

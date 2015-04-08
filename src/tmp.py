@@ -8,14 +8,14 @@ from collections import defaultdict, Counter
 from itertools import izip
 
 
-transcripts = seq_lib.getTranscripts("pipeline_data/comparative/1412v2/transMap/results/geneCheck/AKRJ.gene-check.bed")
+transcripts = seq_lib.getTranscripts("pipeline_data/comparative/1411/transMap/results/geneCheck/C57B6NJ.gene-check.bed")
 transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
-annotations = seq_lib.getTranscripts("pipeline_data/comparative/1412v2/transMap/data/wgEncodeGencodeBasicVM2.bed")
+annotations = seq_lib.getTranscripts("pipeline_data/comparative/1411/transMap/data/wgEncodeGencodeBasicVM4.gene-check.bed")
 annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
-alignments = psl_lib.readPsl("pipeline_data/comparative/1412v2/transMap/results/filtered/AKRJ.filtered.psl")
+alignments = psl_lib.readPsl("pipeline_data/comparative/1411/transMap/results/filtered/C57B6NJ.filtered.psl")
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
-seqDict = seq_lib.readTwoBit("pipeline_data/comparative/1412v2/transMap/data/genomes/AKRJ.2bit")
-refTwoBit = seq_lib.readTwoBit("pipeline_data/comparative/1412v2/transMap/data/genomes/C57B6J.2bit")
+seqDict = seq_lib.readTwoBit("pipeline_data/comparative/1411/transMap/data/genomes/C57B6NJ.2bit")
+refTwoBit = seq_lib.readTwoBit("pipeline_data/comparative/1411/transMap/data/genomes/C57B6J.2bit")
 #refDict = seq_lib.getSequenceDict("../mouse_release_data/1411/C57B6J.fa")
 
 aId = "ENSMUST00000114167.2-1"
