@@ -992,6 +992,7 @@ def readCodons(seq):
         if i + 3 <= l:
             yield seq[i:i + 3]
 
+
 def readCodonsWithPosition(seq):
     """
     Provides an iterator that reads through a sequence one codon at a time,
@@ -1001,6 +1002,7 @@ def readCodonsWithPosition(seq):
     for i in xrange(0, l, 3):
         if i + 3 <= l:
             yield i, seq[i:i + 3]
+
 
 def readTwoBit(file_path):
     """
