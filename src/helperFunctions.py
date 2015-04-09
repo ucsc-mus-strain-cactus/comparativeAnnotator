@@ -80,7 +80,7 @@ def frameShiftIterator(a, t, aln):
         initial.append([0, start_shift])
     deletions = [[t.chromosomeCoordinateToCds(x), z] for x, y, z in deletionIterator(a, t, aln, mult3=False) if x > t.thickStart and y < t.thickStop]
     if t.strand is True:
-        insertions = [[t.chromosomeCoordinateToCds(x - 1), z] for x, y, z in insertionIterator(a, t, aln, mult3=False) if x >= t.thickStart and y < t.thickStop]
+        insertions = [[t.chromosomeCoordinateToCds(x - 1), z] for x, y, z in insertionIterator(a, t, aln, mult3=False) if x > t.thickStart and y < t.thickStop]
         d = defaultdict(int)
         for p, s in deletions + insertions + initial:
             d[p] += s

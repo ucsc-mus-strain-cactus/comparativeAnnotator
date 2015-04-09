@@ -50,7 +50,7 @@ def alignmentErrors():
     """
     Looks for alignment errors. Reports details for all fields that are likely alignment errors.
     """
-    classifyFields = detailsFields = ["BadFrame", "CdsGap", "UtrGap", "Paralogy"]
+    classifyFields = detailsFields = ["BadFrame", "CdsGap", "UtrGap", "Paralogy", "StartOutOfFrame"]
     classifyOperations = ["OR"] * (len(classifyFields) - 1)
     classifyValues = [1] * len(classifyFields)
     return detailsFields, classifyFields, classifyValues, classifyOperations
