@@ -177,6 +177,8 @@ ${ANNOTATION_DIR}/DONE: ${geneCheckEvalsBed}
 		--maxThreads ${maxThreads} --stats --outDir ${ANNOTATION_DIR} --sizes ${targetChromSizes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} &> ${log} ;\
 	fi
+	# TODO: fix this hack
+	mv ${ANNOTATION_DIR}/comparativeAnnotationsummary.tsv ${METRICS_DIR}/comparativeAnnotationsummary.tsv
 	touch ${ANNOTATION_DIR}/DONE
 
 ####################################################################################################

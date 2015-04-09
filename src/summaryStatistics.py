@@ -33,7 +33,7 @@ class SummaryStatistics(Target):
             self.statistics["paralogy"].append(self.paralogy(self.cur, genome))
             self.statistics["coding_OK"].append(self.ok_coding(self.cur, genome))
             for biotype in ["protein_coding", "miRNA", "lincRNA", "processed_transcript"]:
-                self.statistics[biotype].append(self.coverage_biotype(self.cur, genome, biotype))
+                self.statistics[biotype + "_coverage"].append(self.coverage_biotype(self.cur, genome, biotype))
             for category in categories:
                 detailsFields, classifyFields, classifyValues, classifyOperations = category()
                 self.statistics[category.__name__].append(round(100.0 * self.numberCategorized(self.cur, genome, classifyFields, detailsFields, classifyValues, classifyOperations) / self.numberRows(self.cur, genome), 3))
