@@ -6,6 +6,7 @@ import lib.sqlite_lib as sql_lib
 from src.abstractClassifier import AbstractClassifier
 from collections import defaultdict, Counter
 from itertools import izip
+from src.helperFunctions import *
 
 
 transcripts = seq_lib.getTranscripts("pipeline_data/comparative/1411/transMap/results/geneCheck/C57B6NJ.gene-check.bed")
@@ -18,10 +19,16 @@ seqDict = seq_lib.readTwoBit("pipeline_data/comparative/1411/transMap/data/genom
 refTwoBit = seq_lib.readTwoBit("pipeline_data/comparative/1411/transMap/data/genomes/C57B6J.2bit")
 #refDict = seq_lib.getSequenceDict("../mouse_release_data/1411/C57B6J.fa")
 
-aId = "ENSMUST00000114167.2-1"
+aId = "ENSMUST00000121953.1-1" #disc1
 a = annotationDict[aId[:-2]]
 t = transcriptDict[aId]
 aln = alignmentDict[aId]
+
+aId = "ENSMUST00000112514.1-2" #start is out of frame
+a = annotationDict[aId[:-2]]
+t = transcriptDict[aId]
+aln = alignmentDict[aId]
+
 
 valueDict = {}
 for aId, aln in alignmentDict.iteritems():
@@ -363,13 +370,13 @@ from src.constructDatabases import ConstructDatabases
 from src.buildTracks import BuildTracks
 
 
-genomes_1412 = "C57B6J Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ AKRJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ CAROLIEiJ PAHARIEiJ"
+genomes_1412 = "C57B6J Rattus 129S1 AJ C57B6NJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ CAROLIEiJ PAHARIEiJ"
 genomes_1412 = genomes_1412.split()
 
-genomes_1411 = "Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ AKRJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ"
+genomes_1411 = "Rattus 129S1 AJ C57B6NJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ"
 genomes_1411 = genomes_1411.split()
 
-genomes_test = "AKRJ AKRJ"
+genomes_test = "C57B6NJ C57B6NJ"
 genomes_test = genomes_test.split()
 
 # hard coded file extension types that we are looking for

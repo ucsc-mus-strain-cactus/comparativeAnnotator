@@ -9,7 +9,7 @@ def mutations():
     detailsFields = ["CodingInsertions", "CodingDeletions", "CodingMult3Insertions", "CodingMult3Deletions",
                      "CdsNonCanonSplice", "UtrNonCanonSplice", "CdsUnknownSplice", "UtrUnknownSplice", "CdsMult3Gap", "InFrameStop",
                      "Synonymous", "Nonsynonymous", "CdsGap", "UtrGap", "FrameShift"]
-    classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "NoCds", 
+    classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "ShortCds", 
                      "AlignmentPartialMap", "BadFrame", "StartOutOfFrame", "UnknownGap"]
     classifyOperations = ["AND"] * (len(classifyFields) - 1)
     classifyValues = [0] * len(classifyFields)
@@ -17,7 +17,7 @@ def mutations():
 
 def inFrameStop():
     detailsFields = ["InFrameStop"]
-    classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "NoCds", 
+    classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "ShortCds", 
                      "AlignmentPartialMap", "BadFrame", "CdsGap", "UtrGap"]
     classifyOperations = ["AND"] * (len(classifyFields) - 1)
     classifyValues = [0] * len(classifyFields)
@@ -31,7 +31,7 @@ def everything():
 
 def interestingBiology():
     detailsFields = ["InFrameStop", "CodingMult3Insertions", "CodingMult3Deletions", "CdsMult3Gap", "StartOutOfFrame", "Nonsynonymous"]
-    classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "NoCds", 
+    classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "ShortCds", 
                      "AlignmentPartialMap", "BadFrame", "CdsGap", "UtrGap", "UnknownGap"]
     classifyOperations = ["AND"] * (len(classifyFields) - 1)
     classifyValues = [0] * len(classifyFields)  
@@ -41,7 +41,7 @@ def assemblyErrors():
     """
     Looks for assembly errors. Reports transcripts with assembly errors.
     """
-    detailsFields = classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "NoCds", "UnknownGap"]
+    detailsFields = classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "ShortCds", "UnknownGap"]
     classifyOperations = ["OR"] * (len(classifyFields) - 1)
     classifyValues = [1] * len(classifyFields)
     return detailsFields, classifyFields, classifyValues, classifyOperations

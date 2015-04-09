@@ -1,3 +1,4 @@
+from collections import defaultdict
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
 
@@ -71,12 +72,26 @@ def deletionIterator(a, t, aln, mult3=None):
 def frameShiftIterator(a, t, aln):
     """
     Yields frameshift-causing mutations. These are defined as non mult3 indels within CDS.
+    These are returned in CDS coordinates.
     """
-    deletions = list(deletionIterator(a, t, aln, mult3=False))
-    insertions = list(insertionIterator(a, t, aln, mult3=False))
-    for start, stop, span in sorted(deletions + insertions, key = lambda x: x[0]):
-        if start >= t.thickStart and stop <= t.thickStop:
-            yield start, stop, span
+    initial = []
+    start_shift = - (a.transcriptCoordinateToCds(aln.targetCoordinateToQuery(t.cdsCoordinateToChromosome(0))) % 3)
+    if start_shift != 0:
+        initial.append([0, start_shift])
+    deletions = [[t.chromosomeCoordinateToCds(x), z] for x, y, z in deletionIterator(a, t, aln, mult3=False) if x > t.thickStart and y < t.thickStop]
+    if t.strand is True:
+        insertions = [[t.chromosomeCoordinateToCds(x - 1), z] for x, y, z in insertionIterator(a, t, aln, mult3=False) if x >= t.thickStart and y < t.thickStop]
+        d = defaultdict(int)
+        for p, s in deletions + insertions + initial:
+            d[p] += s
+    else:
+        insertions = [[t.chromosomeCoordinateToCds(y), z] for x, y, z in insertionIterator(a, t, aln, mult3=False) if x > t.thickStart and y < t.thickStop]
+        d = defaultdict(int)
+        for p, s in deletions + insertions + initial:
+            d[p] += s
+    combined = sorted(d.iteritems(), key = lambda x: x[0])
+    for cds_pos, span in combined:
+        yield cds_pos, span
 
 
 def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
@@ -86,37 +101,16 @@ def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
     PslRow object that represents the alignment between the transcript objects.
     SeqDicts/TwoBitFileObjs that contain the genomic sequence for these two transcripts
 
-    Yields matching codon pairs, taking into account indels. Out of frame pairs will not be returned
-
     Order is (target_cds_pos, target, query)
     """
     target_cds = t.getCds(targetSeqDict)
     query_cds = a.getCds(querySeqDict)
-    if len(target_cds) == 0 or len(query_cds) == 0:
-        yield None
-    frame_shifts = list(frameShiftIterator(a, t, aln))
-    if len(frame_shifts) > 0:
-        frame_shifts = {start: size for start, stop, size in frame_shifts}
-    frame_shift = False
-    last_3_shift = None
-    # iterate over the cds looking for codon pairs
-    for target_cds_i in xrange(1, len(target_cds) - len(target_cds) % 3):
-        target_i = t.cdsCoordinateToChromosome(target_cds_i)
-        query_i = aln.targetCoordinateToQuery(target_i)
-        # the if statements below determine if we are moving in or out of frame
-        if frame_shift is False and target_i in frame_shifts:
-            frame_shift = True
-            shift_size = frame_shifts[target_i]
-        elif frame_shift is True and target_i in frame_shifts:
-            shift_size += frame_shifts[target_i]
-            if shift_size % 3 == 0:
-                frame_shift = False
-                last_3_shift = target_cds_i
-        # if we are in frame and have been in frame for 3 bases, we start yielding codon pairs
-        if last_3_shift is not None and target_cds_i - last_3_shift < 3:
+    for i in xrange(0, a.getCdsLength(), 3):
+        target_cds_positions = [t.chromosomeCoordinateToCds(aln.queryCoordinateToTarget(a.cdsCoordinateToTranscript(j))) 
+                                for j in xrange(i, i + 3)]
+        if None in target_cds_positions:
             continue
-        elif last_3_shift is not None and target_cds_i - last_3_shift == 3:
-            last_3_shift = None
-        if frame_shift is False and target_cds_i % 3 == 0:
-            query_cds_i = a.transcriptCoordinateToCds(query_i)
-            yield target_cds_i, target_cds[target_cds_i - 3:target_cds_i], query_cds[query_cds_i - 3:query_cds_i]
+        assert all([target_cds_positions[2] - target_cds_positions[1] == 1, target_cds_positions[1] - target_cds_positions[0] == 1, target_cds_positions[2] - target_cds_positions[0] == 2])
+        target_codon = target_cds[target_cds_positions[0]:target_cds_positions[0] + 3]
+        query_codon = query_cds[i:i + 3]
+        yield target_cds_positions[0], target_codon, query_codon

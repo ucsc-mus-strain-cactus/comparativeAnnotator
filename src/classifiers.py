@@ -38,7 +38,7 @@ class CodingInsertions(AbstractClassifier):
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             insertions = [seq_lib.chromosomeRegionToBed(t, start, stop, self.rgb(), self.getColumn()) for start, stop, \
                           size in insertionIterator(a, t, aln, mult3) if start >= t.thickStart \
-                           and stop <= t.thickStop]
+                           and stop < t.thickStop]
             if len(insertions) > 0:
                 detailsDict[aId] = insertions
                 classifyDict[aId] = 1
@@ -141,7 +141,7 @@ class FrameShift(AbstractClassifier):
         self.getAlignmentDict()
         self.getTranscriptDict()
         self.getAnnotationDict()
-        detailsDict = {}
+        detailsDict = defaultdict(list)
         classifyDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
@@ -151,33 +151,24 @@ class FrameShift(AbstractClassifier):
             # do not include noncoding transcripts or lift-overs that contain less than 1 codon
             if a.getCdsLength() < 3 or t.getCdsLength() < 3:
                 continue
-            s = list(frameShiftIterator(a, t, aln))
-            # do we start in a frame shift? we can try and save it
-            cur_shift =  -a.transcriptCoordinateToCds(aln.targetCoordinateToQuery(t.cdsCoordinateToChromosome(0))) % 3
-            if cur_shift != 0:
-                s.insert(0, (t.start, t.start, cur_shift))
-            if len(s) == 0:
+            frame_shifts = list(frameShiftIterator(a, t, aln))
+            if len(frame_shifts) == 0:
                 classifyDict[aId] = 0
                 continue
-            elif len(s) == 1:
-                start, stop, size = s[0]
-                if stop > t.thickStop:
-                    stop = t.thickStop
-                detailsDict[aId] = seq_lib.chromosomeCoordinateToBed(t, start, t.stop, self.rgb(), self.getColumn())
-                classifyDict[aId] = 1
-            else:
-                tmp = []
-                for i in xrange(1, len(s), 2):
-                    start = s[i-1][0]
-                    stop = s[i][1]
-                    if stop > t.thickStop:
-                        stop = t.thickStop
-                    tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
-                if i % 2 == 0 and i < len(s):
-                    start = s[-1][0]
-                    tmp.append(seq_lib.chromosomeCoordinateToBed(t, start, t.thickStop, self.rgb(), self.getColumn()))
-                detailsDict[aId] = tmp
-                classifyDict[aId] = 1
+            indel_positions, spans = zip(*frameShiftIterator(a, t, aln))
+            cum_frame = map(lambda x: x % 3, reduce(lambda l, v: (l.append(l[-1] + v) or l), spans, [0]))[1:]
+            windowed_positions = [x for x, y in izip(indel_positions, cum_frame) if y == 0 or x == indel_positions[0]]
+            for i in xrange(1, len(windowed_positions), 2):
+                start = windowed_positions[i - 1]
+                stop = windowed_positions[i]
+                if stop > t.getCdsLength() - 1:
+                    stop = t.getCdsLength() - 1
+                detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
+            if len(windowed_positions) % 2 == 1:
+                start = windowed_positions[-1]
+                stop = t.getCdsLength() - 1
+                detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
+            classifyDict[aId] = 1
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
@@ -355,7 +346,7 @@ class CdsGap(AbstractClassifier):
                     continue
                 elif "N" in intron.getSequence(self.seqDict):
                     continue
-                elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
+                elif not (intron.start >= t.thickStart and intron.stop < t.thickStop):
                     continue
                 detailsDict[aId].append(seq_lib.intervalToBed(t, intron, self.rgb(), self.getColumn()))
                 classifyDict[aId] = 1
@@ -385,7 +376,7 @@ class CdsMult3Gap(AbstractClassifier):
                     continue
                 elif "N" in intron.getSequence(self.seqDict):
                     continue
-                elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
+                elif not (intron.start >= t.thickStart and intron.stop < t.thickStop):
                     continue
                 detailsDict[aId].append(seq_lib.intervalToBed(t, intron, self.rgb(), self.getColumn()))
                 classifyDict[aId] = 1
@@ -415,7 +406,7 @@ class UtrGap(AbstractClassifier):
                     continue
                 elif "N" in intron.getSequence(self.seqDict):
                     continue
-                elif intron.start >= t.thickStart and intron.stop <= t.thickStop:
+                elif intron.start >= t.thickStart and intron.stop < t.thickStop:
                     continue
                 detailsDict[aId].append(seq_lib.intervalToBed(t, intron, self.rgb(), self.getColumn()))
                 classifyDict[aId] = 1
@@ -475,7 +466,7 @@ class CdsNonCanonSplice(AbstractClassifier):
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
-                elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
+                elif not (intron.start >= t.thickStart and intron.stop < t.thickStop):
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
@@ -510,7 +501,7 @@ class CdsUnknownSplice(AbstractClassifier):
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
-                elif not (intron.start >= t.thickStart and intron.stop <= t.thickStop):
+                elif not (intron.start >= t.thickStart and intron.stop < t.thickStop):
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
@@ -545,7 +536,7 @@ class UtrNonCanonSplice(AbstractClassifier):
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
-                elif intron.start >= t.thickStart and intron.stop <= t.thickStop:
+                elif intron.start >= t.thickStart and intron.stop < t.thickStop:
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
@@ -580,7 +571,7 @@ class UtrUnknownSplice(AbstractClassifier):
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
-                elif intron.start >= t.thickStart and intron.stop <= t.thickStop:
+                elif intron.start >= t.thickStart and intron.stop < t.thickStop:
                     continue
                 seq = intron.getSequence(self.seqDict, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
@@ -650,24 +641,23 @@ class InFrameStop(AbstractClassifier):
         logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
-        detailsDict = {}
+        detailsDict = defaultdict(list)
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
             # make sure this transcript has CDS
             #and more than 2 codons - can't have in frame stop without that
             if t.getCdsLength() < 9:
                 continue
-            for i in xrange(9, t.getCdsLength() - 3, 3):
-                c = t.cdsCoordinateToAminoAcid(i, self.seqDict)
-                if c == "*":
-                    detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn())
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
+                if seq_lib.codonToAminoAcid(target_codon) == "*":
+                    detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))
                     classifyDict[aId] = 1
             if aId not in classifyDict:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
-class NoCds(AbstractClassifier):
+class ShortCds(AbstractClassifier):
     """
     Looks to see if this transcript actually has a CDS, which is defined as having a
     thickStop-thickStart region of at least 10 codons. Adjusting cdsCutoff can change this.
@@ -682,9 +672,14 @@ class NoCds(AbstractClassifier):
     def run(self, cdsCutoff=30):
         logger.info("Starting analysis {} on {}".format(self.getColumn(), self.genome))
         self.getTranscriptDict()
+        self.getAnnotationDict()
         detailsDict = {}
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
+            # do not include noncoding transcripts
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            if a.thickStart == a.thickStop == 0 or a.thickStop - a.thickStart < 3:
+                continue
             if t.getCdsLength() < cdsCutoff:
                 detailsDict[aId] = seq_lib.transcriptToBed(t, self.rgb(), self.getColumn())
                 classifyDict[aId] = 1
@@ -791,7 +786,7 @@ class Nonsynonymous(AbstractClassifier):
             for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
                 if "N" not in target_codon and target_codon != query_codon and \
                         seq_lib.codonToAminoAcid(target_codon) != seq_lib.codonToAminoAcid(query_codon):
-                    detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i - 3, i, self.rgb(), self.getColumn()))
+                    detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))
                     classifyDict[aId] = 1
             if aId not in classifyDict:
                 classifyDict[aId] = 0

@@ -30,7 +30,8 @@ class BuildTracks(Target):
         self.beds = beds
         self.sizes = sizes
         self.annotationBed = annotationBed
-        self.categories = [mutations, inFrameStop, interestingBiology, assemblyErrors, alignmentErrors, everything]
+        self.categories = [everything]
+        #self.categories = [mutations, inFrameStop, interestingBiology, assemblyErrors, alignmentErrors, everything]
 
     def writeBed(self, genome, detailsFields, classifyFields, classifyValues, classifyOperations, categoryName):
         bedPath = os.path.join(self.bedDir, categoryName, genome, genome + ".bed")
