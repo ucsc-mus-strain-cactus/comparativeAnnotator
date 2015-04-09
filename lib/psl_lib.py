@@ -5,8 +5,8 @@ Original Author: Dent Earl
 Modified by Ian Fiddes
 """
 
-
 from collections import defaultdict, Counter
+from itertools import izip
 
 class PslRow(object):
     """ Represents a single row in a PSL file.
@@ -51,8 +51,7 @@ class PslRow(object):
 
     def targetCoordinateToQuery(self, p):
         """ Take position P in target coordinates (positive) and convert it
-        to query coordinates (positive). If P is not in target coordinates throw
-        assert, if P does not map to query coordinates return None.
+        to query coordinates (positive).
         """
         if p < self.tStart: return None
         if p >= self.tEnd: return None
@@ -73,18 +72,15 @@ class PslRow(object):
 
     def queryCoordinateToTarget(self, p):
         """ Take position P in query coordinates (positive) and convert it
-        to target coordinates (positive). If P is not in query coordinates throw
-        assert, if P does not map to target coordinates return None.
+        to target coordinates (positive). 
         """
-        # this is the easier one to write
-        if self.strand == '+':
-            pass
-        elif self.strand == '-':
-            p = self.qSize - p - 1
-        else:
-            raise RuntimeError('Unanticipated strand: %s' % self.strand)
         if p < self.qStart: return None
         if p >= self.qEnd: return None
+        if self.strand not in ['+', '-']:
+            raise RuntimeError('Unanticipated strand: %s' % self.strand)        
+        # this is the easier one to write
+        if self.strand == '-':
+            p = self.qSize - p - 1
         for i, q in enumerate(self.qStarts):
             if p < q:
                 continue

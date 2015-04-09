@@ -1,5 +1,5 @@
 import os
-from itertools import izip_longest, product
+from itertools import izip_longest, product, izip
 import cPickle as pickle
 
 import src.classifiers, src.attributes
@@ -9,30 +9,37 @@ from jobTree.src.bioio import logger
 
 
 class ConstructDatabases(Target):
-    def __init__(self, outDir, genomes, classifiers, attributes, alnPslDict, primaryKeyColumn):
+    def __init__(self, outDir, dataDir, genomes, classifiers, attributes, psls, primaryKeyColumn):
         Target.__init__(self)
         self.outDir = outDir
         self.genomes = genomes
         self.classifiers = classifiers
         self.attributes = attributes
-        self.alnPslDict = alnPslDict
+        self.psls = psls
         self.primaryKeyColumn = primaryKeyColumn
+        self.tmpDir = dataDir
 
     def run(self):
         logger.info("Merging pickled files into databases")
         classifyDb = os.path.join(self.outDir, "classify.db")
+        if os.path.exists(classifyDb):
+            os.remove(classifyDb)
         detailsDb = os.path.join(self.outDir, "details.db")
+        if os.path.exists(detailsDb):
+            os.remove(detailsDb)
         attributesDb = os.path.join(self.outDir, "attributes.db")
+        if os.path.exists(attributesDb):
+            os.remove(attributesDb)
         self.initializeDb(classifyDb, self.classifiers, dataType="INTEGER")
         self.initializeDb(detailsDb, self.classifiers, dataType="TEXT")
         for classifier, genome in product(self.classifiers, self.genomes):
-            classifyDict = pickle.load(open(os.path.join(self.outDir, genome, "Classify" + classifier.__name__ + genome), "rb"))
+            classifyDict = pickle.load(open(os.path.join(self.tmpDir, genome, "Classify" + classifier.__name__ + genome), "rb"))
             self.simpleUpdateWrapper(classifyDict, classifyDb, genome, classifier.__name__)
-            detailsDict = pickle.load(open(os.path.join(self.outDir, genome, "Details" + classifier.__name__ + genome), "rb"))
+            detailsDict = pickle.load(open(os.path.join(self.tmpDir, genome, "Details" + classifier.__name__ + genome), "rb"))
             self.simpleBedUpdateWrapper(detailsDict, detailsDb, genome, classifier.__name__)
         self.initializeDb(attributesDb, self.attributes)
         for attribute, genome in product(self.attributes, self.genomes):
-            attributeDict = pickle.load(open(os.path.join(self.outDir, genome, "Attribute" + attribute.__name__ + genome), "rb"))
+            attributeDict = pickle.load(open(os.path.join(self.tmpDir, genome, "Attribute" + attribute.__name__ + genome), "rb"))
             self.simpleUpdateWrapper(attributeDict, attributesDb, genome, attribute.__name__)
 
     def invertDict(self, d):
@@ -76,8 +83,8 @@ class ConstructDatabases(Target):
         else:
             columnDefinitions = [[x.__name__, dataType] for x in classifiers]
         #find alignment IDs from PSLs (primary key for database)
-        for genome in self.genomes:
-            aIds = set(x.split()[9] for x in open(self.alnPslDict[genome]))
+        for genome, psl in izip(self.genomes, self.psls):
+            aIds = set(x.split()[9] for x in open(psl))
             self.initializeSqlTable(dbPath, genome, columnDefinitions, self.primaryKeyColumn)
             self.initializeSqlRows(dbPath, genome, aIds, self.primaryKeyColumn)
 

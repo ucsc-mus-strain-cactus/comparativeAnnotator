@@ -7,21 +7,29 @@ from src.abstractClassifier import AbstractClassifier
 from collections import defaultdict, Counter
 from src.helperFunctions import *
 from itertools import izip
+from src.helperFunctions import *
 
 
-transcripts = seq_lib.getTranscripts("../mouse_release_data/1412/NZOHlLtJ.gene-check.bed")
+transcripts = seq_lib.getTranscripts("pipeline_data/comparative/1411/transMap/results/geneCheck/C57B6NJ.gene-check.bed")
 transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
-annotations = seq_lib.getTranscripts("../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
+annotations = seq_lib.getTranscripts("pipeline_data/comparative/1411/transMap/data/wgEncodeGencodeBasicVM4.gene-check.bed")
 annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
-alignments = psl_lib.readPsl("../mouse_release_data/1412/NZOHlLtJ.filtered.psl")
+alignments = psl_lib.readPsl("pipeline_data/comparative/1411/transMap/results/filtered/C57B6NJ.filtered.psl")
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
-seqDict = seq_lib.readTwoBit("../mouse_release_data/1412/NZOHlLtJ.2bit")
-refDict = seq_lib.readTwoBit("../mouse_release_data/1411/C57B6J.2bit")
+seqDict = seq_lib.readTwoBit("pipeline_data/comparative/1411/transMap/data/genomes/C57B6NJ.2bit")
+refTwoBit = seq_lib.readTwoBit("pipeline_data/comparative/1411/transMap/data/genomes/C57B6J.2bit")
+#refDict = seq_lib.getSequenceDict("../mouse_release_data/1411/C57B6J.fa")
 
-aId = "ENSMUST00000114167.2-1"
+aId = "ENSMUST00000121953.1-1" #disc1
 a = annotationDict[aId[:-2]]
 t = transcriptDict[aId]
 aln = alignmentDict[aId]
+
+aId = "ENSMUST00000112514.1-2" #start is out of frame
+a = annotationDict[aId[:-2]]
+t = transcriptDict[aId]
+aln = alignmentDict[aId]
+
 
 valueDict = {}
 for aId, aln in alignmentDict.iteritems():
@@ -412,3 +420,20 @@ bigBedDirs="test_output/bedfiles/transMap,test_output/bedfiles/everything,test_o
 python hal/assemblyHub/hal2assemblyHub.py /cluster/home/jcarmstr/public_html/mouseBrowser_1411/1411.hal test_trackHub  --jobTree test_haljobtree --finalBigBedDirs ${bigBedDirs} --batchSystem=singleMachine --stats --shortLabel test --longLabel test --hub test --maxThreads 30 &> test.log &
 
 for f in /cluster/home/ifiddes/ifiddes_hive/mus_strain_cactus/pipeline/results_1411/*/*details*; do n=`echo $f | cut -d "/" -f 9 | cut -d "." -f 2`; mkdir $n; bedToBigBed $f ~/ifiddes_hive/mouse_release_data/1411/$n.chrom.sizes $n/$n.bb; done
+
+
+# testing rescuing starting frameshifts
+# the below manual creation starts +1 bp
+aln = psl_lib.PslRow("12 0 0 0 0 0 1 2 + chr1 290094216 4 20 chr1 290094216 4 20 3 2,1,9, 4,8,11, 4,8,11,")
+a = seq_lib.Transcript("chr1 0 20 query 0 + 3 17 0 2 6,12, 0,8,".split())
+t = seq_lib.Transcript("chr1 4 20 target 0 + 4 17 0 3 2,1,10, 0,4,6,".split())
+
+#the below manual creation starts +2 bp
+aln = psl_lib.PslRow("12 0 0 0 0 0 1 2 + chr1 290094216 5 20 chr1 290094216 5 20 3 1,1,10, 5,8,10, 5,8,10,")
+a = seq_lib.Transcript("chr1 0 20 query 0 + 3 17 0 2 6,12, 0,8,".split())
+t = seq_lib.Transcript("chr1 5 20 target 0 + 5 17 0 3 1,2,10, 0,2,5,".split())
+
+#the below manual creation starts at +2 and has an insertion instead of deletion
+aln = psl_lib.PslRow("13 0 0 0 1 2 0 0 + chr1 290094216 5 20 chr1 17 0 17 3 1,3,9, 5,8,11, 0,3,8,")
+a = seq_lib.Transcript("chr1 0 20 query 0 + 3 17 0 2 6,12, 0,8,".split())
+t = seq_lib.Transcript("chr1 0 17 target 0 + 0 14 0 1 17, 0,".split())

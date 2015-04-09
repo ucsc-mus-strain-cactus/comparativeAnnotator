@@ -1,89 +1,223 @@
-batchSystem = parasol
-maxThreads = 20
-maxCpus = 1024
-defaultMemory = 8589934592
-1411jobTree = jobTree_1411
-1412jobTree = jobTree_1412
-testjobTree = testJobTree
-1411halJobTree = halJobTree_1411
-1412halJobTree = halJobTree_1412
-testhalJobTree = testHalJobTree
-1411log = log_1411.log
-1412log = log_1412.log
-testlog = test.log
-maxJobDuration = 36000
-h5prefix = ~
+# modify config.mk to modify the pipeline
+#include config.mk
+include config_1412v3.mk
 
-export PYTHONPATH:=./:${PYTHONPATH}
-export PATH:=./sonLib/bin:./submodules/jobTree/bin:./hal/bin/:${PATH}
+all: init srcData mapping chaining filtered extractFasta geneCheck annotation assemblyHub plots metrics
 
-1412genomes = 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ CAROLIEiJ PAHARIEiJ
-1411genomes = 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ
-refGenome = C57B6J
-testgenomes = C57B6NJ AKRJ
-
-1411dataDir = /hive/users/ifiddes/mouse_release_data/1411
-1412dataDir = /hive/users/ifiddes/mouse_release_data/1412
-testdataDir = ${1411dataDir}
-annotationBed = /hive/users/ifiddes/mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed
-gencodeAttributeMap = /hive/users/ifiddes/mouse_release_data/wgEncodeGencodeAttrsVM2.attrs
-1411hal = /cluster/home/jcarmstr/public_html/mouseBrowser_1411/1411.hal
-1412hal = /hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1412/cactus/1412.hal
-testhal = ${1411hal}
-1411trackHub = trackHub_1411/
-1412trackHub = trackHub_1412/
-testtrackHub = test_trackHub
-
-
-all : 1411 1412
-
-init :
-	git submodule update --init
+init:
+	# TODO: why does this error out?
+	#git submodule update --init
 	cd sonLib && make
 	cd jobTree && make
 	cd hal && make
 
-1411 : init
-	if [ -d ${1411jobTree} ]; then rm -rf ${1411jobTree}; fi
-	python src/main.py --refGenome ${refGenome} --genomes ${1411genomes} --annotationBed ${annotationBed} \
-	--dataDir ${1411dataDir} --gencodeAttributeMap ${gencodeAttributeMap} --outDir 1411_output/ \
-	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
-	--jobTree ${1411jobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
-	--stats &> ${1411log}
-	if [ -d ${1411halJobTree} ]; then rm -rf ${1411halJobTree}; fi ;\
-	if [ -d {1411trackHub} ]; then rm -rf ${1411trackHub}; fi ;\
-	bigBedDirs="$(shell /bin/ls -1d 1411_output/bedfiles/* | paste -s -d ",")" ;\
-	python hal/assemblyHub/hal2assemblyHub.py ${1411hal} ${1411trackHub} --finalBigBedDirs $$bigBedDirs \
-	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
-	--jobTree ${1411halJobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
-	--stats --shortLabel 1411 --longLabel 1411 --hub 1411 &> ${1411log}
+####################################################################################################
+# Retrieve src data. Uses hgSql and related Kent tools.
+####################################################################################################
+srcData: ${srcBasicGp} ${srcBasicCheckBed} ${srcBasicPsl} ${srcBasicCds} ${srcAttrs} ${srcBasicCheckDetails} ${srcBasicCheck} ${srcBasicCheckDetailsBed}
 
-1412 : init
-	if [ -d ${1412jobTree} ]; then rm -rf ${1412jobTree}; fi
-	python src/main.py --refGenome ${refGenome} --genomes ${1412genomes} --annotationBed ${annotationBed} \
-	--dataDir ${1412dataDir} --gencodeAttributeMap ${gencodeAttributeMap} --outDir 1412_output/ \
-	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
-	--jobTree ${1412jobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
-	--stats &> ${1412log}
-	if [ -d ${1412halJobTree} ]; then rm -rf ${1412halJobTree}; fi ;\
-	if [ -d {1412trackHub} ]; then rm -rf ${1412trackHub}; fi ;\
-	bigBedDirs="$(shell /bin/ls -1d 1412_output/bedfiles/* | paste -s -d ",")" ;\
-	python hal/assemblyHub/hal2assemblyHub.py ${1412hal} ${1412trackHub} --finalBigBedDirs $$bigBedDirs \
-	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
-	--jobTree ${1412halJobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
-	--stats --shortLabel 1412 --longLabel 1412 --hub 1412 &> ${1412log}	
+# awk expression to edit chrom names in UCSC format.  Assumse all alts are version 1.
+# chr1_GL456211_random, chrUn_GL456239
+editUcscChrom = $$chromCol=="chrM"{$$chromCol="MT"} {$$chromCol = gensub("_random$$","", "g", $$chromCol);$$chromCol = gensub("^chr.*_([0-9A-Za-z]+)$$","\\1.1", "g", $$chromCol);  gsub("^chr","",$$chromCol); print $$0}
+${srcBasicGp}:
+	@mkdir -p $(dir $@)
+	hgsql -Ne 'select * from ${srcGencodeSet}' ${refGenomeSQLName} | cut -f 2- | tawk -v chromCol=2 '${editUcscChrom}' >$@.${tmpExt}
+	mv -f $@.${tmpExt} $@
 
-test : init
-	if [ -d ${testjobTree} ]; then rm -rf ${testjobTree}; fi
-	python src/main.py --refGenome ${refGenome} --genomes ${testgenomes} --annotationBed ${annotationBed} \
-	--dataDir ${testdataDir} --gencodeAttributeMap ${gencodeAttributeMap} --outDir test_output/ \
-	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
-	--jobTree ${testjobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
-	--stats &> ${testlog}
-	if [ -d ${testhalJobTree} ]; then rm -rf ${testhalJobTree}; fi ;\
-	if [ -d {testtrackHub} ]; then rm -rf ${testtrackHub}; fi ;\
-	bigBedDirs="test_output/bedfiles/transMap,test_output/bedfiles/everything,test_output/bedfiles/GPIP" ;\
-	python hal/assemblyHub/hal2assemblyHub.py ${testhal} ${testtrackHub} --finalBigBedDirs $$bigBedDirs \
-	--maxThreads=${maxThreads} --batchSystem=${batchSystem} --defaultMemory=${defaultMemory} \
-	--jobTree ${testhalJobTree} --logLevel DEBUG --maxCpus ${maxCpus} --maxJobDuration ${maxJobDuration} \
-	--stats --shortLabel test --longLabel test --hub test &> ${testlog}	
+${srcBasicCds}: ${srcBasicPsl}
+
+${srcBasicPsl}: ${srcBasicGp}
+	@mkdir -p $(dir $@)
+	genePredToFakePsl mm10 ${srcGencodeSet} stdout ${srcBasicCds} | tawk -v chromCol=14 '${editUcscChrom}' >$@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${srcAttrs}:
+	@mkdir -p $(dir $@)
+	hgsql -Ne 'select geneId,geneName,geneType,transcriptId,transcriptType from $(notdir $@)' ${refGenomeSQLName} > $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${srcBasicCheckDetails}: ${srcBasicCheck}
+
+${srcBasicCheck}: ${srcBasicGp} ${queryTwoBit}
+	@mkdir -p $(dir $@)
+	sort -k2,2 -k 4,4n $< | gene-check --allow-non-coding --genome-seqs=${queryTwoBit} --details-out=$@-details stdin $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${srcBasicCheckBed}: ${srcBasicCheck}
+	@mkdir -p $(dir $@)
+	genePredCheckToBed ${srcBasicGp} ${srcBasicCheck} $@.${tmpExt}
+	mv -f $@.${tmpExt} $@	
+
+${srcBasicCheckDetailsBed}: ${srcBasicCheckDetails}
+	@mkdir -p $(dir $@)
+	geneCheckDetailsToBed ${srcBasicCheckDetails} $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+####################################################################################################
+# Mapping. Also uses hgSql and related Kent tools.
+####################################################################################################
+mapping: ${mappedRegionIdPsls} ${mappedBlockPsls}
+${mappedDataDir}/%.region.idpsl: ${srcBasicCheckBed}
+	@mkdir -p $(dir $@)
+	halLiftover --tab --outPSLWithName ${HAL} ${refGenome} ${srcBasicCheckBed} $* $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${mappedDataDir}/%.block.psl: ${mappedDataDir}/%.region.idpsl
+	pslMap -mapFileWithInQName ${srcBasicPsl} $< $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+####################################################################################################
+# Chaining alignments. Uses Kent tools, but does not need hgSql access.
+####################################################################################################
+chaining: ${chainedPsls} 
+
+${chainedDataDir}/%.chained.psl: ${mappedDataDir}/%.block.psl
+	@mkdir -p $(dir $@)
+	simpleChain -outPsl $< $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+
+####################################################################################################
+# Filtering chained alignments.
+####################################################################################################
+filtered: ${filteredPsls} ${filteredPslStats}
+
+${filteredDataDir}/%.filtered.psl: ${chainedDataDir}/%.chained.psl
+	@mkdir -p $(dir $@)
+	(pslCDnaFilter ${filterOpts} $< stdout | pslQueryUniq >$@.${tmpExt}) 2> /dev/null
+	mv -f $@.${tmpExt} $@
+
+${filteredDataDir}/%.filtered.psl.basestats: ${filteredDataDir}/%.filtered.psl
+	@mkdir -p $(dir $@)
+	generateBaseStats $< $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+####################################################################################################
+# Generating sequence files.
+####################################################################################################
+extractFasta: ${targetFastaFiles} ${targetTwoBitFiles} ${targetChromSizes} ${queryFasta} ${queryTwoBit} ${queryChromSizes}
+
+${targetSequenceDir}/%.fa:
+	@mkdir -p $(dir $@)
+	n="$(shell basename $@ | cut -d "." -f 1)" ;\
+	hal2fasta ${HAL} $$n > $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${targetSequenceDir}/%.2bit: ${targetSequenceDir}/%.fa
+	@mkdir -p $(dir $@)
+	faToTwoBit $< $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${targetSequenceDir}/%.chrom.sizes:
+	n="$(shell basename $@ | cut -d "." -f 1)" ;\
+	halStats --chromSizes $$n ${HAL} > $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${queryFasta}:
+	n="$(shell basename $@ | cut -d "." -f 1)" ;\
+	hal2fasta ${HAL} $$n > $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${queryTwoBit}: ${queryFasta}
+	faToTwoBit ${queryFasta} $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${queryChromSizes}: ${queryTwoBit}
+	twoBitInfo ${queryTwoBit} stdout | sort -k2rn > $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+####################################################################################################
+# Running gene-check
+####################################################################################################
+geneCheck: ${geneCheckGps} ${geneCheckEvals} ${geneCheckEvalsBed} ${geneCheckDetails} ${geneCheckDetailsBed}
+
+${geneCheckDir}/%.gp: ${filteredDataDir}/%.filtered.psl ${srcBasicCds}
+	@mkdir -p $(dir $@)
+	mrnaToGene -keepInvalid -quiet -genePredExt -ignoreUniqSuffix -insertMergeSize=0 -cdsFile=${srcBasicCds} $< stdout | tawk '$$6<$$7' >$@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${geneCheckDir}/%.gene-check ${geneCheckDir}/%.gene-check-details: ${geneCheckDir}/%.gp ${targetSequenceDir}/%.2bit
+	@mkdir -p $(dir $@)
+	sort -k2,2 -k 4,4n $< | gene-check --allow-non-coding --genome-seqs=${targetSequenceDir}/$*.2bit --details-out=${geneCheckDir}/$*.gene-check-details stdin ${geneCheckDir}/$*.gene-check.${tmpExt}
+	mv -f ${geneCheckDir}/$*.gene-check.${tmpExt} ${geneCheckDir}/$*.gene-check
+
+${geneCheckDir}/%.gene-check.bed: ${geneCheckDir}/%.gene-check
+	@mkdir -p $(dir $@)
+	genePredCheckToBed ${geneCheckDir}/$*.gp ${geneCheckDir}/$*.gene-check $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${geneCheckDir}/%.gene-check-details.bed: ${geneCheckDir}/%.gene-check-details
+	@mkdir -p $(dir $@)
+	geneCheckDetailsToBed ${geneCheckDir}/$*.gene-check-details $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+####################################################################################################
+# Annotation pipeline. Going to ssh to ku to use the cluster if batch system is parasol.
+####################################################################################################
+annotation: ${ANNOTATION_DIR}/DONE
+
+${ANNOTATION_DIR}/DONE: ${geneCheckEvalsBed}
+	if [ -d ${jobTreeDir} ]; then rm -rf ${jobTreeDir}; fi
+	if [ ! -d ${ANNOTATION_DIR} ]; then mkdir ${ANNOTATION_DIR}; fi
+	if [ "${batchSystem}" = "parasol" ]; then \
+		cwd="$(shell pwd)" ;\
+		ssh ku -t "cd $$cwd && export PYTHONPATH=./ && export \
+		PATH=./bin/:./sonLib/bin:./submodules/jobTree/bin:${PATH} && \
+		python src/annotationPipeline.py --refGenome ${refGenome} --genomes ${genomes} \
+		--psls ${filteredPsls} --beds ${targetBedFiles} --fastas ${targetFastaFiles} --refTwoBit ${queryTwoBit} \
+		--annotationBed ${srcBasicCheckBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
+		--defaultMemory ${defaultMemory} --jobTree ${jobTreeDir} --maxJobDuration ${maxJobDuration} \
+		--maxCpus ${maxCpus} --stats --outDir ${ANNOTATION_DIR} --sizes ${targetChromSizes} \
+		--psls ${filteredPsls} --beds ${targetBedFiles} &> ${log}" ;\
+	else \
+		python src/annotationPipeline.py --refGenome ${refGenome} --genomes ${genomes} \
+		--psls ${filteredPsls} --beds ${targetBedFiles} --fastas ${targetFastaFiles} --refTwoBit ${queryTwoBit} \
+		--annotationBed ${srcBasicCheckBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
+		--defaultMemory ${defaultMemory} --jobTree ${jobTreeDir} --maxJobDuration ${maxJobDuration} \
+		--maxThreads ${maxThreads} --stats --outDir ${ANNOTATION_DIR} --sizes ${targetChromSizes} \
+		--psls ${filteredPsls} --beds ${targetBedFiles} &> ${log} ;\
+	fi
+	touch ${ANNOTATION_DIR}/DONE
+
+####################################################################################################
+# Building assemblyHub. Can't be run on ku due to weird issues with halLodExtract. SSH to kolossus.
+# TODO: this creates all of the fastas/2bits from the hal again, unnecessarily.
+####################################################################################################
+assemblyHub: ${ASSEMBLY_HUB_DIR}/DONE
+
+${ASSEMBLY_HUB_DIR}/DONE: ${ANNOTATION_DIR}/DONE
+	if [ -d ${halJobTreeDir} ]; then rm -rf ${halJobTreeDir}; fi
+	cwd="$(shell pwd)" ;\
+	bigBedDirs="$(shell /bin/ls -1d ${ANNOTATION_DIR}/bedfiles/* | paste -s -d ",")" ;\
+	ssh kolossus.sdsc.edu -t "cd $$cwd && export PYTHONPATH=./ && export \
+	PATH=./bin/:./sonLib/bin:./submodules/jobTree/bin:${PATH} && \
+	python hal/assemblyHub/hal2assemblyHub.py ${HAL} ${ASSEMBLY_HUB_DIR} \
+	--finalBigBedDirs $$bigBedDirs --maxThreads=${maxThreads} --batchSystem=singleMachine \
+	--defaultMemory=${defaultMemory} --jobTree ${halJobTreeDir} \
+	--maxJobDuration ${maxJobDuration} --stats --shortLabel ${MSCA_VERSION} \
+	--longLabel ${MSCA_VERSION} --hub ${MSCA_VERSION} &>> ${log}"
+	touch ${ASSEMBLY_HUB_DIR}/DONE
+
+####################################################################################################
+# Generating some (temporary) metrics.
+####################################################################################################
+metrics: ${tmpMetrics}
+
+${METRICS_DIR}/${MSCA_VERSION}_tmp_metrics.tsv: ${ANNOTATION_DIR}/DONE
+	@mkdir -p $(dir $@)
+	bigBedToBed ${C57B6NJannotation} tmp
+	python scripts/compare_annotation_gene_check.py ${C57B6NJgeneCheck} tmp $@.${tmpExt}
+	sh scripts/compare.sh ${C57B6NJgeneCheck} tmp $(dir $@)
+	rm tmp
+	mv $@.${tmpExt} $@
+
+
+####################################################################################################
+# Generating some plots.
+####################################################################################################
+plots: ${coverageMetric}.pdf
+
+${METRICS_DIR}/${MSCA_VERSION}_coverage.pdf: ${filteredPslStats}
+	@mkdir -p $(dir $@)
+	python scripts/coverage_plotter.py --flip --ratio --out $@.${tmpExt} ${filteredPslStats}
+	mv $@.${tmpExt}.pdf $@

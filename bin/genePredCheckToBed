@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+# Copyright 2006-2012 Mark Diekhans
+
+import sys, os
+# FIXME: should use virtualenv
+sys.path.append(os.path.expanduser("/hive/groups/recon/projs/mus_strain_cactus/src/pycbio/lib"))
+from optparse import OptionParser
+from pycbio.hgdata import genePred, geneCheck
+from pycbio.sys import fileOps
+
+class CmdOpts(object):
+    usage="""%prog [options] genePred genePredCheck outputBed
+
+    """
+    def __init__(self):
+        parser = OptionParser(usage=CmdOpts.usage)
+        (opts, args) = parser.parse_args()
+        if len(args) != 3:
+            parser.error("wrong number of arguments")
+        self.genePred, self.genePredCheck, self.outputBed = args
+        self.__dict__.update(opts.__dict__)
+
+
+def getCheck(gp, geneChecks):
+    "find check for the specific mapping"
+    for check in geneChecks.idIndex[gp.name]:
+        if (check.chr == gp.chrom) and (check.chrStart == gp.txStart) and (check.chrEnd == gp.txEnd):
+            return check
+    raise Exception("no gene-check record for " + str(gp))
+
+
+def createBedRec(gp, geneChecks, bedFh):
+    check = getCheck(gp, geneChecks)
+    itemRgb = "0,128,0" if check.stat else "128,0,0"
+    fileOps.prRowv(bedFh, gp.chrom, gp.txStart, gp.txEnd, gp.name, 0,
+                   gp.strand, gp.cdsStart, gp.cdsEnd, itemRgb,
+                   str(len(gp.exons)),
+                   ",".join([str(e.size()) for e in gp.exons]),
+                   ",".join([str(e.start-gp.txStart) for e in gp.exons]))
+
+opts = CmdOpts()
+geneChecks = geneCheck.GeneCheckTbl(opts.genePredCheck)
+genePreds = genePred.GenePredTbl(opts.genePred)
+genePreds.sort(key=lambda g: (g.chrom, g.txStart, g.txEnd))
+
+with open(opts.outputBed, "w") as bedFh:
+    for gp in genePreds:
+        createBedRec(gp, geneChecks, bedFh)

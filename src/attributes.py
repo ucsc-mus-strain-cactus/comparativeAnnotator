@@ -252,4 +252,3 @@ class AlignmentIdentity(Attribute):
         logger.info(
             "Attribute {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
-

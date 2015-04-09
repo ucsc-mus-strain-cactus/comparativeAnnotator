@@ -193,8 +193,7 @@ class Transcript(object):
             if prevExon is not None:
                 assert exon.start > prevExon.stop
                 assert exon.strand == prevExon.strand
-                intron = ChromosomeInterval(exon.chromosome, prevExon.stop, 
-                        exon.start, exon.strand)
+                intron = ChromosomeInterval(exon.chromosome, prevExon.stop, exon.start, exon.strand)
                 introns.append(intron)
             prevExon = exon
         return introns
@@ -880,9 +879,17 @@ class ChromosomeInterval(object):
         Returns the sequence for this intron in transcript orientation (reverse complement as necessary)
         If strand is False, returns the + strand regardless of transcript orientation.
         """
+<<<<<<< HEAD
         if strand is True or self.strand is True:
             return seqDict[self.chromosome][self.start:self.stop]
         elif strand is False or self.strand is False:
+=======
+        if strand is False:
+            return seqDict[self.chromosome][self.start:self.stop]
+        if self.strand is True:
+            return seqDict[self.chromosome][self.start:self.stop]
+        if self.strand is False:
+>>>>>>> unified_pipeline
             return reverseComplement(seqDict[self.chromosome][self.start:self.stop])
         assert False
 
@@ -991,6 +998,7 @@ def readCodons(seq):
         if i + 3 <= l:
             yield seq[i:i + 3]
 
+
 def readCodonsWithPosition(seq):
     """
     Provides an iterator that reads through a sequence one codon at a time,
@@ -1001,6 +1009,7 @@ def readCodonsWithPosition(seq):
         if i + 3 <= l:
             yield i, seq[i:i + 3]
 
+
 def readTwoBit(file_path):
     """
     Returns a dictionary that can randomly access two bit files.
@@ -1009,12 +1018,14 @@ def readTwoBit(file_path):
     return TwoBitFile(file_path)
 
 
-def getSequenceDict(file_path):
+def getSequenceDict(file_path, upper=True):
     """
     Returns a dictionary of fasta records.
     """
     fastaDict = {}
     for name, seq in fastaRead(file_path):
+        if upper is True:
+            seq = seq.upper()
         fastaDict[name] = seq
     return fastaDict
 
@@ -1093,9 +1104,14 @@ def getTranscriptAttributeDict(attributeFile):
             line = line.split("\t")
             if line[0] == "geneId": 
                 continue
+<<<<<<< HEAD
             geneID, geneName, geneType, geneStatus, transcriptID, transcriptName, transcriptType, transcriptStatus, \
                     havanaGeneID, havanaTranscriptID, ccdsID, level, transcriptClass = line
             attribute_dict[transcriptID] = Attribute(geneID, geneName, geneType, transcriptID, transcriptType)
+=======
+            geneId, geneName, geneType, transcriptId, transcriptType = line
+            attribute_dict[transcriptId] = Attribute(geneId, geneName, geneType, transcriptId, transcriptType)
+>>>>>>> unified_pipeline
     return attribute_dict
 
 
@@ -1208,4 +1224,7 @@ def chromosomeRegionToBed(t, start, stop, rgb, name):
         print t.name, start, stop, name
         assert False
     return [chrom, start, stop, name + "/" + t.name, 0, strand, start, stop, rgb, 1, stop - start, 0]        
+<<<<<<< HEAD
 
+=======
+>>>>>>> unified_pipeline
