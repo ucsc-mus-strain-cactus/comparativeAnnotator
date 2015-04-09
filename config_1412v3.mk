@@ -5,8 +5,7 @@
 ####################################################################################################
 
 # Genomes in this analysis
-#genomes = Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ
-genomes = C57B6NJ AKRJ
+genomes = Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ CAROLIEiJ PAHARIEiJ
 refGenome = C57B6J
 refGenomeSQLName = mm10
 
@@ -14,7 +13,7 @@ refGenomeSQLName = mm10
 #MSCA_PROJ_DIR = /hive/groups/recon/projs/mus_strain_cactus
 MSCA_PROJ_DIR = .
 MSCA_DATA_DIR = ${MSCA_PROJ_DIR}/pipeline_data
-MSCA_VERSION = 1411
+MSCA_VERSION = 1412v3
 GENCODE_VERSION = VM4
 GENOMES_DIR = ${MSCA_DATA_DIR}/assemblies/${MSCA_VERSION}
 ANNOTATION_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/comparativeAnnotation
@@ -23,7 +22,7 @@ ASSEMBLY_HUB_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/assemblyHub
 METRICS_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/metrics
 
 # Input files
-HAL = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/cactus/${MSCA_VERSION}.hal
+HAL = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/cactus/${MSCA_VERSION}_dev.hal
 
 # jobTree configuration
 batchSystem = parasol
@@ -54,6 +53,14 @@ endif
 # Options to pass to pslCDnaFilter
 filterOpts = -localNearBest=0.0001
 
+# sequence files
+targetFastaFiles = ${genomes:%=${GENOMES_DIR}/%.fa}
+targetTwoBitFiles = ${genomes:%=${GENOMES_DIR}/%.2bit}
+targetChromSizes = ${genomes:%=${GENOMES_DIR}/%.chrom.sizes}
+queryFasta = ${GENOMES_DIR}/${refGenome}.fa
+queryTwoBit = ${GENOMES_DIR}/${refGenome}.2bit
+queryChromSizes = ${GENOMES_DIR}/${refGenome}.chrom.sizes
+
 # Gencode src data files
 srcGencodeSet = wgEncodeGencodeBasic${GENCODE_VERSION}
 srcDataDir = ${TRANS_MAP_DIR}/data
@@ -81,14 +88,6 @@ chainedPsls = ${genomes:%=${chainedDataDir}/%.chained.psl}
 filteredDataDir = ${TRANS_MAP_DIR}/results/filtered
 filteredPsls = ${genomes:%=${filteredDataDir}/%.filtered.psl}
 filteredPslStats = ${genomes:%=${filteredDataDir}/%.filtered.psl.basestats}
-
-# sequence files
-targetFastaFiles = ${genomes:%=${GENOMES_DIR}/%.fa}
-targetTwoBitFiles = ${genomes:%=${GENOMES_DIR}/%.2bit}
-targetChromSizes = ${genomes:%=${GENOMES_DIR}/%.chrom.sizes}
-queryFasta = ${GENOMES_DIR}/${refGenome}.fa
-queryTwoBit = ${GENOMES_DIR}/${refGenome}.2bit
-queryChromSizes = ${GENOMES_DIR}/${refGenome}.chrom.sizes
 
 # gene-check
 geneCheckDir = ${TRANS_MAP_DIR}/results/geneCheck

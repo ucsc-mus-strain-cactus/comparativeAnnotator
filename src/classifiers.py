@@ -642,6 +642,7 @@ class InFrameStop(AbstractClassifier):
         self.getTranscriptDict()
         self.getAnnotationDict()
         self.getSeqDict()
+        self.getRefDict()
         self.getAlignmentDict()
         detailsDict = defaultdict(list)
         classifyDict = {}
@@ -652,7 +653,7 @@ class InFrameStop(AbstractClassifier):
             #and more than 2 codons - can't have in frame stop without that
             if t.getCdsLength() < 9:
                 continue
-            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refTwoBit):
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
                 if seq_lib.codonToAminoAcid(target_codon) == "*":
                     detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))
                     classifyDict[aId] = 1

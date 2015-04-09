@@ -1,6 +1,6 @@
 # modify config.mk to modify the pipeline
 #include config.mk
-include config_1411.mk
+include config_1412v3.mk
 
 all: init srcData mapping chaining filtered extractFasta geneCheck annotation assemblyHub plots metrics
 
