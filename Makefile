@@ -1,6 +1,6 @@
 # modify config.mk to modify the pipeline
 #include config.mk
-include config_1412v3.mk
+include config_1411.mk
 
 all: init srcData mapping chaining filtered extractFasta geneCheck annotation assemblyHub plots metrics
 
@@ -109,20 +109,24 @@ ${targetSequenceDir}/%.2bit: ${targetSequenceDir}/%.fa
 	mv -f $@.${tmpExt} $@
 
 ${targetSequenceDir}/%.chrom.sizes:
+	@mkdir -p $(dir $@)
 	n="$(shell basename $@ | cut -d "." -f 1)" ;\
 	halStats --chromSizes $$n ${HAL} > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ${queryFasta}:
+	@mkdir -p $(dir $@)
 	n="$(shell basename $@ | cut -d "." -f 1)" ;\
 	hal2fasta ${HAL} $$n > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ${queryTwoBit}: ${queryFasta}
+	@mkdir -p $(dir $@)
 	faToTwoBit ${queryFasta} $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ${queryChromSizes}: ${queryTwoBit}
+	@mkdir -p $(dir $@)
 	twoBitInfo ${queryTwoBit} stdout | sort -k2rn > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
