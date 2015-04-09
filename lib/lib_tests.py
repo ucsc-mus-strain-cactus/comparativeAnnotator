@@ -360,7 +360,7 @@ class NegativeStrandTranscriptTests(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
     def test_amino_acid_slicing(self):
         """
@@ -521,7 +521,7 @@ class PositiveStrandTranscriptTests(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
     def test_amino_acid_slicing(self):
         """
@@ -671,7 +671,7 @@ class SingleExonTranscript1(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
     def test_amino_acid_slicing(self):
         """
@@ -798,7 +798,7 @@ class SingleExonTranscript2(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
 
 class SingleExonTranscript3(unittest.TestCase):
@@ -913,7 +913,7 @@ class SingleExonTranscript3(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
 
 class SingleExonTranscript4(unittest.TestCase):
@@ -1061,7 +1061,7 @@ class NoncodingTranscript(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
 
 class ComplicatedTranscript1(unittest.TestCase):
@@ -1176,7 +1176,7 @@ class ComplicatedTranscript1(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
 
 class ComplicatedTranscript2(unittest.TestCase):
@@ -1293,7 +1293,7 @@ class ComplicatedTranscript2(unittest.TestCase):
         self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+        self.assertEqual(self.t.getIntrons(self.chrom_seq), self.introns)
 
 
 if __name__ == '__main__':

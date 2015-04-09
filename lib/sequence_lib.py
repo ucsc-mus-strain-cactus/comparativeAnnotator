@@ -879,17 +879,11 @@ class ChromosomeInterval(object):
         Returns the sequence for this intron in transcript orientation (reverse complement as necessary)
         If strand is False, returns the + strand regardless of transcript orientation.
         """
-<<<<<<< HEAD
-        if strand is True or self.strand is True:
-            return seqDict[self.chromosome][self.start:self.stop]
-        elif strand is False or self.strand is False:
-=======
         if strand is False:
             return seqDict[self.chromosome][self.start:self.stop]
         if self.strand is True:
             return seqDict[self.chromosome][self.start:self.stop]
         if self.strand is False:
->>>>>>> unified_pipeline
             return reverseComplement(seqDict[self.chromosome][self.start:self.stop])
         assert False
 
@@ -1104,14 +1098,8 @@ def getTranscriptAttributeDict(attributeFile):
             line = line.split("\t")
             if line[0] == "geneId": 
                 continue
-<<<<<<< HEAD
-            geneID, geneName, geneType, geneStatus, transcriptID, transcriptName, transcriptType, transcriptStatus, \
-                    havanaGeneID, havanaTranscriptID, ccdsID, level, transcriptClass = line
-            attribute_dict[transcriptID] = Attribute(geneID, geneName, geneType, transcriptID, transcriptType)
-=======
             geneId, geneName, geneType, transcriptId, transcriptType = line
             attribute_dict[transcriptId] = Attribute(geneId, geneName, geneType, transcriptId, transcriptType)
->>>>>>> unified_pipeline
     return attribute_dict
 
 
@@ -1224,7 +1212,3 @@ def chromosomeRegionToBed(t, start, stop, rgb, name):
         print t.name, start, stop, name
         assert False
     return [chrom, start, stop, name + "/" + t.name, 0, strand, start, stop, rgb, 1, stop - start, 0]        
-<<<<<<< HEAD
-
-=======
->>>>>>> unified_pipeline
