@@ -101,7 +101,7 @@ geneCheckDetailsBed = ${genomes:%=${geneCheckDir}/%.gene-check-details.bed}
 # annotation
 targetBedFiles = ${geneCheckEvalsBed}
 jobTreeDir = .${MSCA_VERSION}_jobTree
-log = log.txt
+log = ${MSCA_VERSION}_log.txt
 
 # assemblyHub
 halJobTreeDir = .${MSCA_VERSION}_halJobTree

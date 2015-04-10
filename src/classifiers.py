@@ -155,19 +155,26 @@ class FrameShift(AbstractClassifier):
             if len(frame_shifts) == 0:
                 classifyDict[aId] = 0
                 continue
-            indel_positions, spans = zip(*frameShiftIterator(a, t, aln))
-            cum_frame = map(lambda x: x % 3, reduce(lambda l, v: (l.append(l[-1] + v) or l), spans, [0]))[1:]
-            windowed_positions = [x for x, y in izip(indel_positions, cum_frame) if y == 0 or x == indel_positions[0]]
-            for i in xrange(1, len(windowed_positions), 2):
-                start = windowed_positions[i - 1]
-                stop = windowed_positions[i]
-                if stop > t.getCdsLength() - 1:
-                    stop = t.getCdsLength() - 1
-                detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
-            if len(windowed_positions) % 2 == 1:
-                start = windowed_positions[-1]
-                stop = t.getCdsLength() - 1
-                detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
+            indel_starts, indel_stops, spans = zip(*frame_shifts)
+            # calculate cumulative frame by adding each span and taking mod 3 - zeroes imply regaining frame
+            cumulative_frame = map(lambda x: x % 3, reduce(lambda l, v: (l.append(l[-1] + v) or l), spans, [0]))
+            # every start is when a zero existed in the previous frame
+            windowed_starts = [x for x, y in izip(indel_starts[:-1], cumulative_frame) if y == 0 or x == indel_starts[0]]
+            # every stop is when a zero exists at this current spot
+            windowed_stops = [x for x, y in izip(indel_stops, cumulative_frame[1:]) if y == 0]
+            # sanity check
+            assert any([len(windowed_starts) == len(windowed_stops), len(windowed_starts) - 1 == len(windowed_stops)]), (self.genome, self.getColumn(), aId)
+            # now we need to fix frame and stops - if this shift extends to the end of the transcript, add that stop
+            # but also flip starts/stops so that start is always < stop
+            if len(windowed_stops) < len(windowed_starts) and t.strand is False:
+                windowed_stops.append(t.thickStart)
+                windowed_stops, windowed_starts = windowed_starts, windowed_stops
+            elif len(windowed_stops) < len(windowed_starts):
+                windowed_stops.append(t.thickStop)
+            elif t.strand is False:
+                windowed_stops, windowed_starts = windowed_starts, windowed_stops
+            for start, stop in izip(windowed_starts, windowed_stops):
+                detailsDict[aId].append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb(), self.getColumn()))
             classifyDict[aId] = 1
         self.dumpValueDicts(classifyDict, detailsDict)
 
@@ -653,8 +660,7 @@ class InFrameStop(AbstractClassifier):
             #and more than 2 codons - can't have in frame stop without that
             if t.getCdsLength() < 9:
                 continue
-            codons = list(codonPairIterator(a, t, aln, self.seqDict, self.refDict))[:-1]
-            for i, target_codon, query_codon in codons:
+            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
                 if seq_lib.codonToAminoAcid(target_codon) == "*":
                     detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))
                     classifyDict[aId] = 1

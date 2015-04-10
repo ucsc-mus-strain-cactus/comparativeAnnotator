@@ -69,29 +69,31 @@ def deletionIterator(a, t, aln, mult3=None):
         prev_query_i = query_i
 
 
-def frameShiftIterator(a, t, aln):
+def frameShiftIterator(a, t, aln): 
     """
     Yields frameshift-causing mutations. These are defined as non mult3 indels within CDS.
-    These are returned in CDS coordinates.
     """
-    initial = []
-    start_shift = - (a.transcriptCoordinateToCds(aln.targetCoordinateToQuery(t.cdsCoordinateToChromosome(0))) % 3)
-    if start_shift != 0:
-        initial.append([0, start_shift])
-    deletions = [[t.chromosomeCoordinateToCds(x), z] for x, y, z in deletionIterator(a, t, aln, mult3=False) if x > t.thickStart and y < t.thickStop]
-    if t.strand is True:
-        insertions = [[t.chromosomeCoordinateToCds(x - 1), z] for x, y, z in insertionIterator(a, t, aln, mult3=False) if x > t.thickStart and y < t.thickStop]
-        d = defaultdict(int)
-        for p, s in deletions + insertions + initial:
-            d[p] += s
+    deletions = list(deletionIterator(a, t, aln, mult3=False))
+    insertions = list(insertionIterator(a, t, aln, mult3=False))
+    # need to fix case where indel immediately precedes indel by merging overlapping ranges and combining spans
+    merged = []
+    for higher in sorted(deletions + insertions):
+        if not merged:
+            merged.append(higher)
+        else:
+            lower = merged[-1]
+            if higher[0] <= lower[1]:
+                upper_bound = max(lower[1], higher[1])
+                merged[-1] = (lower[0], upper_bound, merged[-1][2] + higher[2])
+            else:
+                merged.append(higher)
+    if t.strand is False:
+        merged = [[y, x, z] for x, y, z in reversed(merged) if z % 3 != 0]
     else:
-        insertions = [[t.chromosomeCoordinateToCds(y), z] for x, y, z in insertionIterator(a, t, aln, mult3=False) if x > t.thickStart and y < t.thickStop]
-        d = defaultdict(int)
-        for p, s in deletions + insertions + initial:
-            d[p] += s
-    combined = sorted(d.iteritems(), key = lambda x: x[0])
-    for cds_pos, span in combined:
-        yield cds_pos, span
+        merged = [[x, y, z] for x, y, z in merged if z % 3 != 0]
+    for start, stop, span in merged:
+        if start >= t.thickStart and stop < t.thickStop:
+            yield start, stop, span
 
 
 def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):

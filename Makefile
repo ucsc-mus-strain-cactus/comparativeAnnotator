@@ -1,6 +1,10 @@
 # modify config.mk to modify the pipeline
 #include config.mk
+#include config_1412v3.mk
 include config_1411.mk
+
+#debugging trick
+print-%: ; @echo $*=$($*)
 
 all: init srcData mapping chaining filtered extractFasta geneCheck annotation assemblyHub plots metrics
 
@@ -63,6 +67,7 @@ ${mappedDataDir}/%.region.idpsl: ${srcBasicCheckBed}
 	mv -f $@.${tmpExt} $@
 
 ${mappedDataDir}/%.block.psl: ${mappedDataDir}/%.region.idpsl
+	@mkdir -p $(dir $@)
 	pslMap -mapFileWithInQName ${srcBasicPsl} $< $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
@@ -97,18 +102,18 @@ ${filteredDataDir}/%.filtered.psl.basestats: ${filteredDataDir}/%.filtered.psl
 ####################################################################################################
 extractFasta: ${targetFastaFiles} ${targetTwoBitFiles} ${targetChromSizes} ${queryFasta} ${queryTwoBit} ${queryChromSizes}
 
-${targetSequenceDir}/%.fa:
+${GENOMES_DIR}/%.fa:
 	@mkdir -p $(dir $@)
 	n="$(shell basename $@ | cut -d "." -f 1)" ;\
 	hal2fasta ${HAL} $$n > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
-${targetSequenceDir}/%.2bit: ${targetSequenceDir}/%.fa
+${GENOMES_DIR}/%.2bit: ${GENOMES_DIR}/%.fa
 	@mkdir -p $(dir $@)
 	faToTwoBit $< $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
-${targetSequenceDir}/%.chrom.sizes:
+${GENOMES_DIR}/%.chrom.sizes:
 	@mkdir -p $(dir $@)
 	n="$(shell basename $@ | cut -d "." -f 1)" ;\
 	halStats --chromSizes $$n ${HAL} > $@.${tmpExt}
@@ -140,9 +145,9 @@ ${geneCheckDir}/%.gp: ${filteredDataDir}/%.filtered.psl ${srcBasicCds}
 	mrnaToGene -keepInvalid -quiet -genePredExt -ignoreUniqSuffix -insertMergeSize=0 -cdsFile=${srcBasicCds} $< stdout | tawk '$$6<$$7' >$@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
-${geneCheckDir}/%.gene-check ${geneCheckDir}/%.gene-check-details: ${geneCheckDir}/%.gp ${targetSequenceDir}/%.2bit
+${geneCheckDir}/%.gene-check ${geneCheckDir}/%.gene-check-details: ${geneCheckDir}/%.gp ${GENOMES_DIR}/%.2bit
 	@mkdir -p $(dir $@)
-	sort -k2,2 -k 4,4n $< | gene-check --allow-non-coding --genome-seqs=${targetSequenceDir}/$*.2bit --details-out=${geneCheckDir}/$*.gene-check-details stdin ${geneCheckDir}/$*.gene-check.${tmpExt}
+	sort -k2,2 -k 4,4n $< | gene-check --allow-non-coding --genome-seqs=${GENOMES_DIR}/$*.2bit --details-out=${geneCheckDir}/$*.gene-check-details stdin ${geneCheckDir}/$*.gene-check.${tmpExt}
 	mv -f ${geneCheckDir}/$*.gene-check.${tmpExt} ${geneCheckDir}/$*.gene-check
 
 ${geneCheckDir}/%.gene-check.bed: ${geneCheckDir}/%.gene-check
