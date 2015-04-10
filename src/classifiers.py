@@ -592,8 +592,8 @@ class UtrUnknownSplice(AbstractClassifier):
 
 class EndStop(AbstractClassifier):
     """
-    Looks at the end of the coding region (thickEnd) and sees if the last
-    three bases are a stop codon ('TAA', 'TGA', 'TAG')
+    Looks at the last three bases of the annotated transcript and determines if they properly match the last 3 bases 
+    of the lifted over transcript AND that those bases are in ('TAA', 'TGA', 'TAG')
 
     If this is NOT true, will report a BED record of the last 3 bases.
     
@@ -619,10 +619,9 @@ class EndStop(AbstractClassifier):
             # do not include noncoding transcripts
             if a.thickStart == a.thickStop == 0 or a.thickStop - a.thickStart < 3:
                 continue
-            # this transcript isn't really lifted over anyways. TODO: include this?
-            if t.thickStop - t.thickStart <= 3:
-                continue
             s = t.getCdsLength()
+            if s <= 3:
+                continue
             cds_positions = [t.chromosomeCoordinateToCds(aln.queryCoordinateToTarget(a.cdsCoordinateToTranscript(i))) 
                              for i in xrange(s - 4, s - 1)]
             if None in cds_positions or t.getCds(self.seqDict)[-3:] not in stopCodons:
@@ -660,7 +659,8 @@ class InFrameStop(AbstractClassifier):
             #and more than 2 codons - can't have in frame stop without that
             if t.getCdsLength() < 9:
                 continue
-            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
+            codons = list(codonPairIterator(a, t, aln, self.seqDict, self.refDict))[:-1]
+            for i, target_codon, query_codon in codons:
                 if seq_lib.codonToAminoAcid(target_codon) == "*":
                     detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb(), self.getColumn()))
                     classifyDict[aId] = 1

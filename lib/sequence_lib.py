@@ -1108,7 +1108,7 @@ def intervalToBed(t, interval, rgb, name):
     If you are turning interval objects into BED records, look here. t is a transcript object.
     Interval objects should always have start <= stop (+ strand chromosome ordering)
     """
-    assert interval.stop >= interval.start
+    assert interval.stop >= interval.start, (t.name, t.chromosome)
     return [interval.chromosome, interval.start, interval.stop, name + "/" + t.name, 0, convertStrand(interval.strand),
             interval.start, interval.stop, rgb, 1, interval.stop - interval.start, 0]
 
@@ -1118,7 +1118,7 @@ def spliceIntronIntervalToBed(t, intronInterval, rgb, name):
     Specific case of turning an intron interval into the first and last two bases (splice sites)
     """
     interval = intronInterval
-    assert interval.stop >= interval.start
+    assert interval.stop >= interval.start, (t.name, t.chromosome)
     blockStarts = "0,{}".format(interval.stop - interval.start - 2)
     return [interval.chromosome, interval.start, interval.stop, name + "/" + t.name, 0, convertStrand(interval.strand), 
             interval.start, interval.stop, rgb, 2, "2,2", blockStarts]
@@ -1153,7 +1153,7 @@ def transcriptCoordinateToBed(t, start, stop, rgb, name):
         else:
             chromStart = t.transcriptCoordinateToChromosome(stop) + 1
         chromStop = t.transcriptCoordinateToChromosome(start) + 1
-    assert chromStop >= chromStart, (t.name, start, stop, name)
+    assert chromStop >= chromStart, (t.name, t.chromosome, start, stop, name)
     return chromosomeCoordinateToBed(t, chromStart, chromStop, rgb, name)
 
 
@@ -1193,8 +1193,8 @@ def chromosomeCoordinateToBed(t, start, stop, rgb, name):
     """
     strand = convertStrand(t.strand)
     chrom = t.chromosome
-    assert start != None and stop != None, (t.name, start, stop, name)
-    assert stop >= start, (t.name, start, stop, name)
+    assert start != None and stop != None, (t.name, t.chromosome, start, stop, name)
+    assert stop >= start, (t.name, t.chromosome, start, stop, name)
     return t.getBed(name=name, rgb=rgb, start_offset=start, stop_offset=stop)
 
 
@@ -1205,10 +1205,6 @@ def chromosomeRegionToBed(t, start, stop, rgb, name):
     """
     strand = convertStrand(t.strand)
     chrom = t.chromosome
-    try:
-        assert start != None and stop != None
-        assert stop >= start
-    except:
-        print t.name, start, stop, name
-        assert False
+    assert start != None and stop != None, (t.name, start, stop, name)
+    assert stop >= start, (t.name, start, stop, name)
     return [chrom, start, stop, name + "/" + t.name, 0, strand, start, stop, rgb, 1, stop - start, 0]        

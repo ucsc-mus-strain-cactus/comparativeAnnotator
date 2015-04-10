@@ -1,7 +1,7 @@
 # modify config.mk to modify the pipeline
 #include config.mk
-#include config_1412v3.mk
-include config_1411.mk
+include config_1412v3.mk
+#include config_1411.mk
 
 #debugging trick
 print-%: ; @echo $*=$($*)

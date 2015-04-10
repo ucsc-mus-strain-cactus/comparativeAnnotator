@@ -7,18 +7,17 @@ from src.abstractClassifier import AbstractClassifier
 from collections import defaultdict, Counter
 from src.helperFunctions import *
 from itertools import izip
-from src.helperFunctions import *
 
 
-transcripts = seq_lib.getTranscripts("pipeline_data/comparative/1411/transMap/results/geneCheck/C57B6NJ.gene-check.bed")
+transcripts = seq_lib.getTranscripts("pipeline_data/comparative/1412v3/transMap/results/geneCheck/FVBNJ.gene-check.bed")
 transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
-annotations = seq_lib.getTranscripts("pipeline_data/comparative/1411/transMap/data/wgEncodeGencodeBasicVM4.gene-check.bed")
+annotations = seq_lib.getTranscripts("pipeline_data/comparative/1412v3/transMap/data/wgEncodeGencodeBasicVM4.gene-check.bed")
 annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
-alignments = psl_lib.readPsl("pipeline_data/comparative/1411/transMap/results/filtered/C57B6NJ.filtered.psl")
+alignments = psl_lib.readPsl("pipeline_data/comparative/1412v3/transMap/results/filtered/FVBNJ.filtered.psl")
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
-seqDict = seq_lib.readTwoBit("pipeline_data/comparative/1411/transMap/data/genomes/C57B6NJ.2bit")
-refTwoBit = seq_lib.readTwoBit("pipeline_data/comparative/1411/transMap/data/genomes/C57B6J.2bit")
-#refDict = seq_lib.getSequenceDict("../mouse_release_data/1411/C57B6J.fa")
+seqDict = seq_lib.readTwoBit("pipeline_data/assemblies/1412v3/FVBNJ.2bit")
+refTwoBit = seq_lib.readTwoBit("pipeline_data/assemblies/1412v3/C57B6J.2bit")
+#refDict = seq_lib.getSequenceDict("../mouse_release_data/1412v3/C57B6J.fa")
 
 aId = "ENSMUST00000121953.1-1" #disc1
 a = annotationDict[aId[:-2]]
@@ -390,9 +389,9 @@ def parseDir(genomes, targetDir, ext):
         pathDict[g] = path
     return pathDict
 
-geneCheckBedDict = parseDir(genomes_1411, "../mouse_release_data/1411", gene_check_ext)
+geneCheckBedDict = parseDir(genomes_1412v3, "../mouse_release_data/1412v3", gene_check_ext)
 
-p = BuildTracks("1411_output", genomes_1411, "AlignmentId", "../mouse_release_data/1411", geneCheckBedDict, "../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
+p = BuildTracks("1412v3_output", genomes_1412v3, "AlignmentId", "../mouse_release_data/1412v3", geneCheckBedDict, "../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
 
 p.run()
 
@@ -401,25 +400,25 @@ geneCheckBedDict = parseDir(genomes_1412, "../mouse_release_data/1412", gene_che
 
 p2 = BuildTracks("1412_output", genomes_1412, "AlignmentId", "../mouse_release_data/1412", geneCheckBedDict, "../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
 
-geneCheckBedDict = parseDir(genomes_test, "../mouse_release_data/1411", gene_check_ext)
+geneCheckBedDict = parseDir(genomes_test, "../mouse_release_data/1412v3", gene_check_ext)
 
 p2.run()
 
-p3 = BuildTracks("test_output", genomes_test, "AlignmentId", "../mouse_release_data/1411", geneCheckBedDict, "../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
+p3 = BuildTracks("test_output", genomes_test, "AlignmentId", "../mouse_release_data/1412v3", geneCheckBedDict, "../mouse_release_data/wgEncodeGencodeBasicVM2.gene-check.bed")
 
 bigBedDirs=`/bin/ls -1d 1412_output/bedfiles/* | paste -s -d ","`
 python hal/assemblyHub/hal2assemblyHub.py /hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1412/cactus/1412.hal 1412_trackHub  --jobTree 1412_haljobtree --finalBigBedDirs ${bigBedDirs} --batchSystem=singleMachine --stats --shortLabel 1412 --longLabel 1412 --hub 1412 --maxThreads 20 &> 1412.log &
 
-bigBedDirs=`/bin/ls -1d 1411_output/bedfiles/* | paste -s -d ","`
-python hal/assemblyHub/hal2assemblyHub.py /cluster/home/jcarmstr/public_html/mouseBrowser_1411/1411.hal 1411_GPIP_trackHub --jobTree 1411_haljobtree --finalBigBedDirs ${bigBedDirs} --batchSystem=singleMachine --stats --shortLabel 1411_GPIP --longLabel 1411_GPIP --hub 1411_GPIP --maxThreads 20
+bigBedDirs=`/bin/ls -1d 1412v3_output/bedfiles/* | paste -s -d ","`
+python hal/assemblyHub/hal2assemblyHub.py /cluster/home/jcarmstr/public_html/mouseBrowser_1412v3/1412v3.hal 1412v3_GPIP_trackHub --jobTree 1412v3_haljobtree --finalBigBedDirs ${bigBedDirs} --batchSystem=singleMachine --stats --shortLabel 1412v3_GPIP --longLabel 1412v3_GPIP --hub 1412v3_GPIP --maxThreads 20
 
 export PYTHONPATH=./:${PYTHONPATH}
 export PATH=./sonLib/bin:./submodules/jobTree/bin:./hal/bin/:${PATH}
 
 bigBedDirs="test_output/bedfiles/transMap,test_output/bedfiles/everything,test_output/bedfiles/GPIP"
-python hal/assemblyHub/hal2assemblyHub.py /cluster/home/jcarmstr/public_html/mouseBrowser_1411/1411.hal test_trackHub  --jobTree test_haljobtree --finalBigBedDirs ${bigBedDirs} --batchSystem=singleMachine --stats --shortLabel test --longLabel test --hub test --maxThreads 30 &> test.log &
+python hal/assemblyHub/hal2assemblyHub.py /cluster/home/jcarmstr/public_html/mouseBrowser_1412v3/1412v3.hal test_trackHub  --jobTree test_haljobtree --finalBigBedDirs ${bigBedDirs} --batchSystem=singleMachine --stats --shortLabel test --longLabel test --hub test --maxThreads 30 &> test.log &
 
-for f in /cluster/home/ifiddes/ifiddes_hive/mus_strain_cactus/pipeline/results_1411/*/*details*; do n=`echo $f | cut -d "/" -f 9 | cut -d "." -f 2`; mkdir $n; bedToBigBed $f ~/ifiddes_hive/mouse_release_data/1411/$n.chrom.sizes $n/$n.bb; done
+for f in /cluster/home/ifiddes/ifiddes_hive/mus_strain_cactus/pipeline/results_1412v3/*/*details*; do n=`echo $f | cut -d "/" -f 9 | cut -d "." -f 2`; mkdir $n; bedToBigBed $f ~/ifiddes_hive/mouse_release_data/1412v3/$n.chrom.sizes $n/$n.bb; done
 
 
 # testing rescuing starting frameshifts
