@@ -656,9 +656,11 @@ class InFrameStop(AbstractClassifier):
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             aln = self.alignmentDict[aId]
             # make sure this transcript has CDS
-            #and more than 2 codons - can't have in frame stop without that
+            # and more than 2 codons - can't have in frame stop without that
             if t.getCdsLength() < 9:
                 continue
+            # TODO: this will miss an inframe stop if it is the last 3 bases that are not the annotated stop.
+            # use the logic from EndStop to flag this
             codons = list(codonPairIterator(a, t, aln, self.seqDict, self.refDict))[:-1]
             for i, target_codon, query_codon in codons:
                 if seq_lib.codonToAminoAcid(target_codon) == "*":

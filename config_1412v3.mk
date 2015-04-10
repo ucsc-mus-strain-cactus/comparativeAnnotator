@@ -105,6 +105,7 @@ log = ${MSCA_VERSION}_log.txt
 
 # assemblyHub
 halJobTreeDir = .${MSCA_VERSION}_halJobTree
+halLog = ${MSCA_VERSION}_assembly_hub_log.txt
 
 # plots
 coverageMetric = ${METRICS_DIR}/${MSCA_VERSION}_coverage

@@ -206,7 +206,7 @@ ${ASSEMBLY_HUB_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 	--finalBigBedDirs $$bigBedDirs --maxThreads=${maxThreads} --batchSystem=singleMachine \
 	--defaultMemory=${defaultMemory} --jobTree ${halJobTreeDir} \
 	--maxJobDuration ${maxJobDuration} --stats --shortLabel ${MSCA_VERSION} \
-	--longLabel ${MSCA_VERSION} --hub ${MSCA_VERSION} &>> ${log}"
+	--longLabel ${MSCA_VERSION} --hub ${MSCA_VERSION} &>> ${halLog}"
 	touch ${ASSEMBLY_HUB_DIR}/DONE
 
 ####################################################################################################
