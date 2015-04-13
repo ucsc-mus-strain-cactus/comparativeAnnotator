@@ -1,12 +1,9 @@
 # modify config.mk to modify the pipeline
 #include config.mk
-include config_1412v3.mk
-#include config_1411.mk
+#include config_1412v3.mk
+include config_1411.mk
 
-#debugging trick
-print-%: ; @echo $*=$($*)
-
-all: init srcData mapping chaining filtered extractFasta geneCheck annotation assemblyHub plots metrics
+all: init srcData mapping chaining filtered extractFasta geneCheck annotation assemblyHub plots
 
 init:
 	# TODO: why does this error out?
@@ -166,28 +163,24 @@ ${geneCheckDir}/%.gene-check-details.bed: ${geneCheckDir}/%.gene-check-details
 annotation: ${ANNOTATION_DIR}/DONE
 
 ${ANNOTATION_DIR}/DONE: ${geneCheckEvalsBed}
+	@mkdir -p $(dir $@)
 	if [ -d ${jobTreeDir} ]; then rm -rf ${jobTreeDir}; fi
-	if [ ! -d ${ANNOTATION_DIR} ]; then mkdir ${ANNOTATION_DIR}; fi
 	if [ "${batchSystem}" = "parasol" ]; then \
 		cwd="$(shell pwd)" ;\
-		ssh ku -t "cd $$cwd && export PYTHONPATH=./ && export \
-		PATH=./bin/:./sonLib/bin:./submodules/jobTree/bin:${PATH} && \
-		python src/annotationPipeline.py --refGenome ${refGenome} --genomes ${genomes} \
+		ssh ku -t "cd $$cwd && export PYTHONPATH=./ && \
+		export PATH=./bin/:./sonLib/bin:./submodules/jobTree/bin:${PATH} && \
+		python src/annotationPipeline.py --refGenome ${refGenome} --genomes ${genomes} --sizes ${targetChromSizes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} --fastas ${targetFastaFiles} --refTwoBit ${queryTwoBit} \
 		--annotationBed ${srcBasicCheckBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
 		--defaultMemory ${defaultMemory} --jobTree ${jobTreeDir} --maxJobDuration ${maxJobDuration} \
-		--maxCpus ${maxCpus} --stats --outDir ${ANNOTATION_DIR} --sizes ${targetChromSizes} \
-		--psls ${filteredPsls} --beds ${targetBedFiles} &> ${log}" ;\
+		--maxThreads ${maxThreads} --stats --outDir ${ANNOTATION_DIR} &> ${log}" ;\
 	else \
-		python src/annotationPipeline.py --refGenome ${refGenome} --genomes ${genomes} \
+		python src/annotationPipeline.py --refGenome ${refGenome} --genomes ${genomes} --sizes ${targetChromSizes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} --fastas ${targetFastaFiles} --refTwoBit ${queryTwoBit} \
 		--annotationBed ${srcBasicCheckBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
 		--defaultMemory ${defaultMemory} --jobTree ${jobTreeDir} --maxJobDuration ${maxJobDuration} \
-		--maxThreads ${maxThreads} --stats --outDir ${ANNOTATION_DIR} --sizes ${targetChromSizes} \
-		--psls ${filteredPsls} --beds ${targetBedFiles} &> ${log} ;\
+		--maxThreads ${maxThreads} --stats --outDir ${ANNOTATION_DIR} &> ${log} ;\
 	fi
-	# TODO: fix this hack
-	mv ${ANNOTATION_DIR}/comparativeAnnotationsummary.tsv ${METRICS_DIR}/comparativeAnnotationsummary.tsv
 	touch ${ANNOTATION_DIR}/DONE
 
 ####################################################################################################
@@ -210,25 +203,12 @@ ${ASSEMBLY_HUB_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 	touch ${ASSEMBLY_HUB_DIR}/DONE
 
 ####################################################################################################
-# Generating some (temporary) metrics.
-####################################################################################################
-metrics: ${tmpMetrics}
-
-${METRICS_DIR}/${MSCA_VERSION}_tmp_metrics.tsv: ${ANNOTATION_DIR}/DONE
-	@mkdir -p $(dir $@)
-	bigBedToBed ${C57B6NJannotation} tmp
-	python scripts/compare_annotation_gene_check.py ${C57B6NJgeneCheck} tmp $@.${tmpExt}
-	sh scripts/compare.sh ${C57B6NJgeneCheck} tmp $(dir $@)
-	rm tmp
-	mv $@.${tmpExt} $@
-
-
-####################################################################################################
 # Generating some plots.
 ####################################################################################################
-plots: ${coverageMetric}.pdf
+plots: ${METRICS_DIR}/DONE
 
-${METRICS_DIR}/${MSCA_VERSION}_coverage.pdf: ${filteredPslStats}
+${METRICS_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 	@mkdir -p $(dir $@)
-	python scripts/coverage_plotter.py --flip --ratio --out $@.${tmpExt} ${filteredPslStats}
-	mv $@.${tmpExt}.pdf $@
+	python scripts/coverage_identity_ok_plots.py --outDir ${METRICS_DIR} --genomes ${genomes} \
+	--comparativeAnnotationDir ${ANNOTATION_DIR} --header ${MSCA_VERSION}
+	touch ${METRICS_DIR}/DONE

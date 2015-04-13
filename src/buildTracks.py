@@ -4,7 +4,6 @@ import sqlite3 as sql
 from collections import defaultdict
 
 from src.queries import *
-from src.summaryStatistics import SummaryStatistics
 
 import lib.sqlite_lib as sql_lib
 from jobTree.scriptTree.target import Target
@@ -91,7 +90,3 @@ class BuildTracks(Target):
                 if len(open(bedPath).readlines()) > 0:
                     self.buildBigBed(bedPath, sizePath, genome, category.__name__)
                 os.remove(bedPath)
-
-        self.setFollowOnTarget(SummaryStatistics(self.outDir, self.genomes))
-
-
