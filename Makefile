@@ -139,7 +139,7 @@ geneCheck: ${geneCheckGps} ${geneCheckEvals} ${geneCheckEvalsBed} ${geneCheckDet
 
 ${geneCheckDir}/%.gp: ${filteredDataDir}/%.filtered.psl ${srcBasicCds}
 	@mkdir -p $(dir $@)
-	mrnaToGene -keepInvalid -quiet -genePredExt -ignoreUniqSuffix -insertMergeSize=0 -cdsFile=${srcBasicCds} $< stdout | tawk '$$6<$$7' >$@.${tmpExt}
+	mrnaToGene -keepInvalid -quiet -genePredExt -ignoreUniqSuffix -insertMergeSize=0 -cdsFile=${srcBasicCds} $< $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ${geneCheckDir}/%.gene-check ${geneCheckDir}/%.gene-check-details: ${geneCheckDir}/%.gp ${GENOMES_DIR}/%.2bit
@@ -210,5 +210,5 @@ plots: ${METRICS_DIR}/DONE
 ${METRICS_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 	@mkdir -p $(dir $@)
 	python scripts/coverage_identity_ok_plots.py --outDir ${METRICS_DIR} --genomes ${genomes} \
-	--comparativeAnnotationDir ${ANNOTATION_DIR} --header ${MSCA_VERSION} --annotation ${srcBasicCheckBed}
+	--comparativeAnnotationDir ${ANNOTATION_DIR} --header ${MSCA_VERSION} --attrs ${srcAttrs}
 	touch ${METRICS_DIR}/DONE
