@@ -221,22 +221,21 @@ def plot_stacked_barplot(results, bins, biotype, name, header, out_dir, width, h
 
 
 def plot_unstacked_barplot(results, out_dir, name, header, width, height, num_transcripts, bar_width=0.4):
-    results = {genome: 1.0 * num_ok / total for genome, (num_ok, total) in results.iteritems()}
-    results = sorted(results.iteritems(), key = lambda x: -x[1])
+    results= [(genome, 1.0 * num_ok / total, num_ok) for genome, (num_ok, total) in results.iteritems()]
     fig, pdf = init_image(out_dir, header + "_" + name, width, height)
     ax = establish_axes(fig, width, height, border=False)
-    plt.text(0.5, 1.08, "Proportion of successfully transMapped\nprotein coding transcripts that are categorized as {}".format(name))
+    plt.text(0.5, 1.08, "Proportion of successfully transMapped\nprotein coding transcripts that are categorized as {}".format(name.split("_")[0]))
     ax.set_ylabel("Proportion of transcripts")
     ax.set_ylim([0, 1.0])
     plt.tick_params(axis='both', labelsize=8)
     ax.yaxis.set_ticks(np.arange(0.0, 101.0, 10.0) / 100.0)
-    ax.yaxis.set_ticklabels([''] * 10)
+    ax.yaxis.set_ticklabels([str(x) + "%" for x in range(0, 101, 10)])
     ax.xaxis.set_ticks(np.arange(0, len(results)) + bar_width / 2.0)
     ax.xaxis.set_ticklabels(zip(*results)[0], rotation=55)
     bars = ax.bar(range(len(results)), zip(*results)[1], bar_width, color=color_palette[0])
-    for rect in bars:
-        ax.text(rect.get_x() - bar_width / 2.0, 0.05 + rect.get_height(), 
-                "{0:.1f}%".format(100.0 * rect.get_height(), ha='center', va='bottom'), size=6)
+    results_num = zip(*results)[2]
+    for i, rect in enumerate(bars):
+        ax.text(rect.get_x() + bar_width / 2.0, 0.03 + rect.get_height(), results_num[i], ha='center', va='bottom', size=6)
     fig.savefig(pdf, format='pdf')
     pdf.close()    
 
