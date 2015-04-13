@@ -206,7 +206,7 @@ def plot_stacked_barplot(results, bins, biotype, name, header, out_dir, width, h
     ax.xaxis.set_ticks(np.arange(0, len(results)) + bar_width / 2.0)
     ax.xaxis.set_ticklabels(zip(*results)[0], rotation=55)
     bars = plot_bars(ax, zip(*results)[1], bar_width)
-    legend_labels = ["< {}".format(x) for x in bins[1:-2]] + ["< {}".format(bins[-1]), str(bins[-1])]
+    legend_labels = ["= {}%".format(100.0 * bins[0]), "< {}%".format(100.0 * bins[0])] + ["< {}%".format(round(100.0 * x, 3)) for x in bins[2:-1]]
     legend = fig.legend([x[0] for x in bars], legend_labels, bbox_to_anchor=(1,0.8), fontsize=12, frameon=True, title=short_name)
     fig.savefig(pdf, format='pdf')
     pdf.close()
@@ -240,12 +240,12 @@ def main():
     coverage_bins = [0, 0.5, 0.9, 0.95, 0.99999999, 1.0]
 
     # the order of genomes by best average coverage will determine order for all plots and the table
-    genomes = []
-    for genome in args.genomes:
-        val = [float(y) for x, y in attribute_by_biotype(cur, genome, "protein_coding", "AlignmentCoverage", coverage_bins).iteritems()]
-        val = 1.0 * sum(val) / len(val)
-        genomes.append([genome, val])
-    genomes = [x[0] for x in sorted(genomes, key = lambda x: -x[1])]
+    attribute = "AlignmentCoverage"
+    biotype = "protein_coding"
+    results = {genome: attribute_by_biotype(cur, genome, biotype, attribute) for genome in args.genomes}
+    results_hist = OrderedDict((genome, np.histogram(t, coverage_bins)[0]) for genome, t in results.iteritems())
+    tmp = sorted({genome: x[-1] for genome, x in results_hist.iteritems()}.iteritems(), key = lambda x: -x[1])
+    genomes = [x[0] for x in tmp]
 
     # stores stats for everything we test to be dumped in a tsv at the end
     statistics = DefaultOrderedDict(list)
