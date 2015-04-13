@@ -160,7 +160,7 @@ def number_categorized(cur, genome, classifyFields, detailsFields, classifyValue
     if len(detailsFields) == 1:
         cmd += " AND main.'{}'.'{}' = 1".format(genome, detailsFields[0])
     categorized = [x[0] for x in cur.execute(cmd, classifyValues).fetchall() if x[0] in ids]
-    return len(categorized), len(ids)
+    return len(categorized)
 
 
 def ok_coding(cur, genome):
@@ -276,10 +276,6 @@ def main():
                                  args.height, len(transcripts), shorten_name=True)
     
     results = OrderedDict((genome, ok_coding(cur, genome)) for genome in genomes)
-    for genome, vals in results.iteritems():
-        for name in transcripts:
-            if name not in vals:
-                vals[name] = 0
     for genome, num_ok in results.iteritems():
         statistics["OK_coding"].append(round(100.0 * num_ok / len(transcripts), 3))
     plot_unstacked_barplot(results, args.outDir, "OK_coding", args.header, args.width, args.height, len(transcripts))
@@ -289,11 +285,7 @@ def main():
         detailsFields, classifyFields, classifyValues, classifyOperations = category()
         results = OrderedDict((g, number_categorized(cur, g, classifyFields, detailsFields, classifyValues, 
                                                      classifyOperations)) for g in genomes)
-        for genome, vals in results.iteritems():
-            for name in transcripts:
-                if name not in vals:
-                    vals[name] = 0
-        percent_results = OrderedDict((g, round(100.0 * c / t, 3)) for g, (c, t) in results.iteritems())
+        percent_results = OrderedDict((g, round(100.0 * c / len(transcripts), 3)) for g, c in results.iteritems())
         for genome, percent in percent_results.iteritems():
             statistics[category.__name__].append(percent)
         plot_unstacked_barplot(results, args.outDir, category.__name__, args.header, args.width, args.height, len(transcripts))
