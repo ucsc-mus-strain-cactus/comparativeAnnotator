@@ -1097,9 +1097,7 @@ def getTranscriptAttributeDict(attributeFile):
     attribute_dict = {}
     with open(attributeFile) as f: 
         for line in f:
-            line = line.rstrip().split("\t")
-            if line[0] == "geneId": 
-                continue
+            line = line.split()
             geneId, geneName, geneType, transcriptId, transcriptType = line
             attribute_dict[transcriptId] = Attribute(geneId, geneName, geneType, transcriptId, transcriptType)
     return attribute_dict
