@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument("--comparativeAnnotationDir", type=DirType, required=True, help="directory containing databases")
     parser.add_argument("--width", default=8.0, type=float, help="figure width in inches")
     parser.add_argument("--height", default=4.0, type=float, help="figure height in inches")
-    parser.add_argument("--biotypes", nargs="+", default=["protein_coding", "lincRNA", "miRNA", "processed_transcript", "processed_pseudogene", "unprocessed_pseudogene"])
+    parser.add_argument("--biotypes", nargs="+", default=["protein_coding", "lincRNA", "miRNA", "snoRNA", "snRNA", "processed_transcript", "processed_pseudogene", "unprocessed_pseudogene", "pseudogene"])
     parser.add_argument("--header", type=str, required=True)
     parser.add_argument("--attrs", type=str, required=True, help="attrs")
     args = parser.parse_args()
@@ -260,6 +260,27 @@ def paralogy_plot(results, bins, out_dir, header, width, height, bar_width=0.4):
     pdf.close()
 
 
+def biotype_plot(results, out_dir, header, width, height, bar_width=0.4):
+    fig, pdf = init_image(out_dir, header + "_paralogy", width, height)
+    ax = establish_axes(fig, width, height, border=True)
+    plt.text(0.5, 1.08, "Proportion of transMapped transcripts in C56B6NJ by biotype",
+             horizontalalignment='center', fontsize=12, transform=ax.transAxes)
+    biotypes, mapped, total = zip(*results)
+    r = list(np.asarray(map(float, mapped)) / np.asarray(total))
+    ax.set_ylabel("Proportion of transcripts")
+    ax.set_ylim([0, 1.0])
+    plt.tick_params(axis='both', labelsize=8)
+    ax.yaxis.set_ticks(np.arange(0.0, 101.0, 10.0) / 100.0)
+    ax.yaxis.set_ticklabels([str(x) + "%" for x in range(0, 101, 10)])
+    ax.xaxis.set_ticks(np.arange(0, len(results)) + bar_width / 2.0)
+    ax.xaxis.set_ticklabels(biotypes, rotation=55)
+    bars = ax.bar(range(len(results)), r, bar_width, color=color_palette[0])
+    for i, rect in enumerate(bars):
+        ax.text(rect.get_x() + bar_width / 2.0, 0.03 + rect.get_height(), mapped[i], ha='center', va='bottom', size=6)
+    fig.savefig(pdf, format='pdf')
+    pdf.close()    
+
+
 def main():
     args = parse_args()
     con, cur = connect_databases(args.comparativeAnnotationDir)
@@ -267,6 +288,7 @@ def main():
     coverage_bins = [0, 0.0001, 0.9, 0.95, 0.99999999, 1.000001]
     paralogy_bins = [1, 2, 3, 4, 5, 100000]
     transcripts = get_list_of_transcripts(args.attrs)
+    num_by_biotype = Counter(transcripts.values())
     num_coding = len([x for x, y in transcripts.iteritems() if y == "protein_coding"])
 
     # the order of genomes by best average coverage will determine order for all plots and the table
@@ -300,7 +322,11 @@ def main():
                                  args.height, num_biotype, shorten_name=True)
     
     genome = "C57B6NJ"
-    
+    results = OrderedDict((biotype, attribute_by_biotype(cur, genome, biotype, attribute)) for biotype in args.biotypes)
+    tmp = []
+    for biotype, vals in results.iteritems():
+        tmp.append([biotype, len([x for x in vals if transcripts[x] ==  biotype]), num_by_biotype[biotype]])
+    biotype_plot(tmp, args.outDir, args.header, args.width, args.height)
 
     results = OrderedDict((genome, ok_coding(cur, genome)) for genome in genomes)
     for genome, (num_ok, total) in results.iteritems():
