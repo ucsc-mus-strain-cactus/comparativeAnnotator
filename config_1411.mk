@@ -64,6 +64,7 @@ queryChromSizes = ${GENOMES_DIR}/${refGenome}.chrom.sizes
 
 # Gencode src data files
 srcGencodeSet = wgEncodeGencodeBasic${GENCODE_VERSION}
+srcPseudoGenes = wgEncodeGencodePseudoGene${GENCODE_VERSION}
 srcDataDir = ${TRANS_MAP_DIR}/data
 srcAttrs = ${srcDataDir}/wgEncodeGencodeAttrs${GENCODE_VERSION}
 srcBasicPre = ${srcDataDir}/${srcGencodeSet}

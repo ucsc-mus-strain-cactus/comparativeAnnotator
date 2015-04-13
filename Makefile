@@ -22,7 +22,7 @@ srcData: ${srcBasicGp} ${srcBasicCheckBed} ${srcBasicPsl} ${srcBasicCds} ${srcAt
 editUcscChrom = $$chromCol=="chrM"{$$chromCol="MT"} {$$chromCol = gensub("_random$$","", "g", $$chromCol);$$chromCol = gensub("^chr.*_([0-9A-Za-z]+)$$","\\1.1", "g", $$chromCol);  gsub("^chr","",$$chromCol); print $$0}
 ${srcBasicGp}:
 	@mkdir -p $(dir $@)
-	hgsql -Ne 'select * from ${srcGencodeSet}' ${refGenomeSQLName} | cut -f 2- | tawk -v chromCol=2 '${editUcscChrom}' >$@.${tmpExt}
+	cat <(hgsql -Ne 'select * from ${srcGencodeSet}' ${refGenomeSQLName}) <(hgsql -Ne 'select * from ${srcPseudoGenes}' ${refGenome}) | cut -f 2- | tawk -v chromCol=2 '${editUcscChrom}' >$@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ${srcBasicCds}: ${srcBasicPsl}
