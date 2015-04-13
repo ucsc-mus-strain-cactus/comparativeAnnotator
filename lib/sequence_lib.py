@@ -206,6 +206,8 @@ class Transcript(object):
         exons = []
         chrom_start, chrom_stop = int(bed_tokens[1]), int(bed_tokens[2])
         thick_start, thick_stop = int(bed_tokens[6]), int(bed_tokens[7])
+        if thick_start == thick_stop:
+            thick_start = thick_stop = 0
         chrom, strand = bed_tokens[0], convertStrand(bed_tokens[5])
 
         block_count = int(bed_tokens[9])
