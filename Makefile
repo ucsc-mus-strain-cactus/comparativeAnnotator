@@ -210,5 +210,5 @@ plots: ${METRICS_DIR}/DONE
 ${METRICS_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 	@mkdir -p $(dir $@)
 	python scripts/coverage_identity_ok_plots.py --outDir ${METRICS_DIR} --genomes ${genomes} \
-	--comparativeAnnotationDir ${ANNOTATION_DIR} --header ${MSCA_VERSION}
+	--comparativeAnnotationDir ${ANNOTATION_DIR} --header ${MSCA_VERSION} --annotation ${srcBasicCheckBed}
 	touch ${METRICS_DIR}/DONE

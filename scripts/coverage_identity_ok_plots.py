@@ -43,6 +43,7 @@ def parse_args():
     parser.add_argument("--height", default=4.0, type=float, help="figure height in inches")
     parser.add_argument("--biotypes", nargs="+", default=["protein_coding", "lincRNA", "miRNA", "processed_transcript"])
     parser.add_argument("--header", type=str, required=True)
+    parser.add_argument("--annotation", type=str, required=True, help="annotation BED.")
     args = parser.parse_args()
     return args
 
@@ -60,6 +61,10 @@ def init_image(out_folder, comparison_name, width, height):
     # width by height in inches
     fig = plt.figure(figsize=(width, height), dpi=300, facecolor='w')
     return fig, pdf
+
+
+def get_list_of_transcripts(annotation):
+    return {x.split()[3] for x in open(annotation)}
 
 
 def establish_axes(fig, width, height, border=True):
@@ -148,7 +153,7 @@ def number_categorized(cur, genome, classifyFields, detailsFields, classifyValue
     """
     biotype="protein_coding"
     ids = best_alignment(cur, genome, biotype)
-    cmd = """SELECT (AlignmentId) FROM main.'{0}' JOIN attributes.'{0}'  USING ('AlignmentId') WHERE (""".format(genome)
+    cmd = """SELECT (AlignmentId) FROM main.'{0}' JOIN attributes.'{0}' USING ('AlignmentId') WHERE (""".format(genome)
     for col, mod in izip(classifyFields[:-1], classifyOperations):
         cmd += " main.'{}'.'{}' = ? {}".format(genome, col, mod)
     cmd += " main.'{0}'.'{1}' = ? AND ATTRIBUTES.'{0}'.'GeneType' = '{2}')".format(genome, classifyFields[-1], biotype)
@@ -181,10 +186,10 @@ def ok_coding(cur, genome):
     ids = best_alignment(cur, genome, biotype)
     ok_alignments = cur.execute(cmd, vals).fetchall()
     ok_transcripts = [x[0] for x in cur.execute(cmd, vals).fetchall() if x[0] in ids]
-    return len(ok_transcripts), len(ids)
+    return len(ok_transcripts)
 
 
-def plot_stacked_barplot(results, bins, biotype, name, header, out_dir, width, height, bar_width=0.4, shorten_name=False):
+def plot_stacked_barplot(results, bins, biotype, name, header, out_dir, width, height, num_transcripts, bar_width=0.4, shorten_name=False):
     # fix attribute name
     if shorten_name == True:
         short_name = re.findall("[A-Z][a-z]+", name)[1].lower()
@@ -196,7 +201,7 @@ def plot_stacked_barplot(results, bins, biotype, name, header, out_dir, width, h
     results = sorted(results.iteritems(), key = lambda x: -x[1][0])
     fig, pdf = init_image(out_dir, header + "_" + biotype + "_" + name, width, height)
     ax = establish_axes(fig, width, height, border=True)
-    plt.text(0.5, 1.08, "Proportions of transcripts in biotype '{0}'\nmapped to other strains / species by {1}".format(biotype, short_name),
+    plt.text(0.5, 1.08, "Proportions of {2} transcripts in biotype '{0}'\nmapped to other strains / species by {1}".format(biotype, short_name, num_transcripts),
              horizontalalignment='center', fontsize=12, transform=ax.transAxes)
     ax.set_ylabel("Proportion of transcripts")
     ax.set_ylim([0, 1.0])
@@ -206,14 +211,15 @@ def plot_stacked_barplot(results, bins, biotype, name, header, out_dir, width, h
     ax.xaxis.set_ticks(np.arange(0, len(results)) + bar_width / 2.0)
     ax.xaxis.set_ticklabels(zip(*results)[0], rotation=55)
     bars = plot_bars(ax, zip(*results)[1], bar_width)
-    legend_labels = ["= {}%".format(100.0 * bins[0]), "< {}%".format(100.0 * bins[0])] + ["< {}%".format(round(100.0 * x, 3)) for x in bins[2:-1]]
-    legend = fig.legend([x[0] for x in bars], legend_labels, bbox_to_anchor=(1,0.8), fontsize=12, frameon=True, title=short_name)
+    bins = bins[::-1]
+    legend_labels = ["= {}%".format(100.0 * bins[0]), "< {}%".format(100.0 * bins[0])] + ["< {}%".format(round(100.0 * x, 3)) for x in bins[2:-2]] + ["= 0%"]
+    legend = fig.legend([x[0] for x in bars], legend_labels, bbox_to_anchor=(1,0.8), fontsize=11, frameon=True, title=short_name)
     fig.savefig(pdf, format='pdf')
     pdf.close()
 
 
-def plot_unstacked_barplot(results, out_dir, name, header, width, height, bar_width=0.4):
-    results = {genome: 1.0 * num_ok / total for genome, (num_ok, total) in results.iteritems()}
+def plot_unstacked_barplot(results, out_dir, name, header, width, height, num_transcripts, bar_width=0.4):
+    results = {genome: 1.0 * num_ok / num_transcripts for genome, num_ok in results.iteritems()}
     results = sorted(results.iteritems(), key = lambda x: -x[1])
     fig, pdf = init_image(out_dir, header + "_" + name, width, height)
     ax = establish_axes(fig, width, height, border=False)
@@ -236,8 +242,9 @@ def plot_unstacked_barplot(results, out_dir, name, header, width, height, bar_wi
 def main():
     args = parse_args()
     con, cur = connect_databases(args.comparativeAnnotationDir)
-    identity_bins = [0.98, 0.99, 0.995, 0.999999, 1.0]
-    coverage_bins = [0, 0.5, 0.9, 0.95, 0.99999999, 1.0]
+    identity_bins = [0, 0.0001, 0.98, 0.99, 0.995, 0.999999, 1.0]
+    coverage_bins = [0, 0.0001, 0.9, 0.95, 0.99999999, 1.0]
+    transcripts = get_list_of_transcripts(args.annotation)
 
     # the order of genomes by best average coverage will determine order for all plots and the table
     attribute = "AlignmentCoverage"
@@ -256,27 +263,40 @@ def main():
             bins = coverage_bins
         for biotype in args.biotypes:
             results = OrderedDict((genome, attribute_by_biotype(cur, genome, biotype, attribute)) for genome in genomes)
+            # add in unmapped transcripts as 0
+            for genome, vals in results.iteritems():
+                for name in transcripts:
+                    if name not in vals:
+                        vals[name] = 0
             results_hist = OrderedDict((genome, np.histogram(t.values(), bins)[0]) for genome, t in results.iteritems())
             for genome, t in results.iteritems():
                 val = [float(y) for x, y in t.iteritems()]
                 statistics[biotype + "_" + attribute].append(round(100.0 * sum(val) / len(val), 3))
             plot_stacked_barplot(results_hist, bins, biotype, attribute, args.header, args.outDir, args.width, 
-                                 args.height, shorten_name=True)
+                                 args.height, len(transcripts), shorten_name=True)
     
     results = OrderedDict((genome, ok_coding(cur, genome)) for genome in genomes)
-    for genome, (num_ok, total) in results.iteritems():
-        statistics["OK_coding"].append(round(100.0 * num_ok / total, 3))
-    plot_unstacked_barplot(results, args.outDir, "OK_coding", args.header, args.width, args.height)
+    for genome, vals in results.iteritems():
+        for name in transcripts:
+            if name not in vals:
+                vals[name] = 0
+    for genome, num_ok in results.iteritems():
+        statistics["OK_coding"].append(round(100.0 * num_ok / len(transcripts), 3))
+    plot_unstacked_barplot(results, args.outDir, "OK_coding", args.header, args.width, args.height, len(transcripts))
 
     categories = functionsInModule(src.queries)
     for category in categories:
         detailsFields, classifyFields, classifyValues, classifyOperations = category()
         results = OrderedDict((g, number_categorized(cur, g, classifyFields, detailsFields, classifyValues, 
                                                      classifyOperations)) for g in genomes)
+        for genome, vals in results.iteritems():
+            for name in transcripts:
+                if name not in vals:
+                    vals[name] = 0
         percent_results = OrderedDict((g, round(100.0 * c / t, 3)) for g, (c, t) in results.iteritems())
         for genome, percent in percent_results.iteritems():
             statistics[category.__name__].append(percent)
-        plot_unstacked_barplot(results, args.outDir, category.__name__, args.header, args.width, args.height)
+        plot_unstacked_barplot(results, args.outDir, category.__name__, args.header, args.width, args.height, len(transcripts))
 
     with open(os.path.join(args.outDir, args.outDir, "summary.tsv"), "w") as outf:
         outf.write("genomes\t"+"\t".join(args.genomes)+"\n")

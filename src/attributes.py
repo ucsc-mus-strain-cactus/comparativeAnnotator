@@ -33,6 +33,7 @@ class GeneId(Attribute):
     def run(self):
         logger.info("Starting attribute {} on {}".format(self.getColumn(), self.genome))
         self.getAttributeDict()
+        self.getAnnotationDict()
         valueDict = {aId: self.attributeDict[psl_lib.removeAlignmentNumber(aId)].geneId for aId in self.aIds}
         self.dumpValueDict(valueDict)
 
@@ -207,6 +208,7 @@ class DestStrand(Attribute):
                      self.transcriptDict}
         self.dumpValueDict(valueDict)
 
+
 class AlignmentCoverage(Attribute):
     """
     Calculates alignment coverage:
@@ -225,8 +227,6 @@ class AlignmentCoverage(Attribute):
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             valueDict[aId] = formatRatio(aln.matches + aln.misMatches, aln.qSize)
-        logger.info(
-            "Attribute {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
 
 
@@ -249,6 +249,4 @@ class AlignmentIdentity(Attribute):
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
             valueDict[aId] = formatRatio(aln.matches, aln.matches + aln.misMatches + aln.qNumInsert)
-        logger.info(
-            "Attribute {} on {} is finished. {} records failed".format(self.genome, self.getColumn(), len(valueDict)))
         self.dumpValueDict(valueDict)
