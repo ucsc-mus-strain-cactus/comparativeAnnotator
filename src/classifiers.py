@@ -102,7 +102,7 @@ class CodingMult3Deletions(CodingDeletions):
 class StartOutOfFrame(AbstractClassifier):
     """
     StartOutOfFrame are caused when the starting CDS base of the lifted over transcript is not in the original frame.
-    If True, reports the entire CDS.
+    If True, reports the first 3 bases.
     """
     def rgb(self):
         return self.colors["alignment"]
@@ -122,7 +122,7 @@ class StartOutOfFrame(AbstractClassifier):
                 continue
             if a.transcriptCoordinateToCds(aln.targetCoordinateToQuery(t.cdsCoordinateToChromosome(0))) % 3 != 0:
                 classifyDict[aId] = 1
-                detailsDict[aId] = seq_lib.chromosomeCoordinateToBed(t, t.thickStart, t.thickStop, self.rgb(), self.getColumn())
+                detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, 0, 3, self.rgb(), self.getColumn())
             else:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
@@ -159,7 +159,7 @@ class FrameShift(AbstractClassifier):
             # calculate cumulative frame by adding each span and taking mod 3 - zeroes imply regaining frame
             cumulative_frame = map(lambda x: x % 3, reduce(lambda l, v: (l.append(l[-1] + v) or l), spans, [0]))
             # every start is when a zero existed in the previous frame
-            windowed_starts = [x for x, y in izip(indel_starts[:-1], cumulative_frame) if y == 0 or x == indel_starts[0]]
+            windowed_starts = [x for x, y in izip(indel_starts, cumulative_frame) if y == 0 or x == indel_starts[0]]
             # every stop is when a zero exists at this current spot
             windowed_stops = [x for x, y in izip(indel_stops, cumulative_frame[1:]) if y == 0]
             # sanity check

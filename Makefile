@@ -22,7 +22,8 @@ srcData: ${srcBasicGp} ${srcBasicCheckBed} ${srcBasicPsl} ${srcBasicCds} ${srcAt
 editUcscChrom = $$chromCol=="chrM"{$$chromCol="MT"} {$$chromCol = gensub("_random$$","", "g", $$chromCol);$$chromCol = gensub("^chr.*_([0-9A-Za-z]+)$$","\\1.1", "g", $$chromCol);  gsub("^chr","",$$chromCol); print $$0}
 ${srcBasicGp}:
 	@mkdir -p $(dir $@)
-	cat <(hgsql -Ne 'select * from ${srcGencodeSet}' ${refGenomeSQLName}) <(hgsql -Ne 'select * from ${srcPseudoGenes}' ${refGenomeSQLName}) | cut -f 2- | tawk -v chromCol=2 '${editUcscChrom}' >$@.${tmpExt}
+	hgsql -Ne 'select * from ${srcGencodeSet}' ${refGenomeSQLName} | cut -f 2- | tawk -v chromCol=2 '${editUcscChrom}' >$@.${tmpExt}
+	#hgsql -Ne 'select * from ${srcPseudoGenes}' ${refGenomeSQLName}
 	mv -f $@.${tmpExt} $@
 
 ${srcBasicCds}: ${srcBasicPsl}
@@ -210,5 +211,6 @@ plots: ${METRICS_DIR}/DONE
 ${METRICS_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 	@mkdir -p $(dir $@)
 	python scripts/coverage_identity_ok_plots.py --outDir ${METRICS_DIR} --genomes ${genomes} \
-	--comparativeAnnotationDir ${ANNOTATION_DIR} --header ${MSCA_VERSION} --attrs ${srcAttrs}
+	--comparativeAnnotationDir ${ANNOTATION_DIR} --header ${MSCA_VERSION} --attrs ${srcAttrs} \
+	--annotationBed ${srcBasicCheckBed}
 	touch ${METRICS_DIR}/DONE

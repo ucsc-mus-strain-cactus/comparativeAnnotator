@@ -59,7 +59,10 @@ def deletionIterator(a, t, aln, mult3=None):
         if prev_query_i is not None and abs(query_i - prev_query_i) != 1:
             # jumped over a deletion
             deleteSize = abs(query_i - prev_query_i) - 1
-            start = stop = target_chrom_i
+            if t.strand is True:
+                start = stop = target_chrom_i - 1
+            else:
+                start = stop = target_chrom_i + 1
             if mult3 is True and deleteSize % 3 == 0:
                 yield start, stop, -deleteSize
             elif mult3 is False and deleteSize % 3 != 0:

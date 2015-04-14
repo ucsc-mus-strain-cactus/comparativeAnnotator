@@ -39,9 +39,10 @@ def parse_args():
     parser.add_argument("--genomes", type=str, nargs="+", required=True, help="genomes in this comparison")
     parser.add_argument("--outDir", type=DirType, required=True, help="output directory")
     parser.add_argument("--comparativeAnnotationDir", type=DirType, required=True, help="directory containing databases")
+    parser.add_argument("--annotationBed", type=str, required=True, help="annotation bed")
     parser.add_argument("--width", default=8.0, type=float, help="figure width in inches")
     parser.add_argument("--height", default=4.0, type=float, help="figure height in inches")
-    parser.add_argument("--biotypes", nargs="+", default=["protein_coding", "lincRNA", "miRNA", "snoRNA", "snRNA", "processed_transcript", "processed_pseudogene", "unprocessed_pseudogene", "pseudogene"])
+    parser.add_argument("--biotypes", nargs="+", default=["protein_coding", "lincRNA", "miRNA", "snoRNA", "snRNA"])
     parser.add_argument("--header", type=str, required=True)
     parser.add_argument("--attrs", type=str, required=True, help="attrs")
     args = parser.parse_args()
@@ -63,8 +64,11 @@ def init_image(out_folder, comparison_name, width, height):
     return fig, pdf
 
 
-def get_list_of_transcripts(attrs):
-    return {x.split()[3]: x.split()[4] for x in open(attrs)}
+def get_biotype_transcript_map(attrs, annotation_bed):
+    attr_map = {x.split()[3]: x.split()[4] for x in open(attrs)}
+    biotype_map = {x.split()[3]: attr_map[x.split()[3]] for x in open(annotation_bed)}
+    biotype_counts = Counter(biotype_map.itervalues())
+    return biotype_map, biotype_counts
 
 
 def establish_axes(fig, width, height, border=True):
@@ -145,8 +149,7 @@ def paralogy(cur, genome):
     alignment.
     """
     cmd = """SELECT attributes.'{0}'.TranscriptId FROM attributes.'{0}'""".format(genome)
-    tmp = Counter([x[0] for x in cur.execute(cmd).fetchall()])
-    return Counter(tmp.itervalues())
+    return Counter([x[0] for x in cur.execute(cmd).fetchall()])
 
 
 def number_categorized(cur, genome, classifyFields, detailsFields, classifyValues, classifyOperations):
@@ -168,9 +171,9 @@ def number_categorized(cur, genome, classifyFields, detailsFields, classifyValue
 
 def ok_coding(cur, genome):
     """
-    Finds the number of TRANSCRIPTS whose best alignment has no problems.
+    Finds the number of biotype_map whose best alignment has no problems.
     
-    OK is defined as transcripts who do not hit any classifier except for nonsynonymous/synonymous/noncanon splices
+    OK is defined as biotype_map who do not hit any classifier except for nonsynonymous/synonymous/noncanon splices
 
     returns the # of OK and the total #
     """
@@ -188,11 +191,11 @@ def ok_coding(cur, genome):
     r = cur.execute(b_cmd).fetchall()
     ids = best_alignment(cur, genome, biotype)
     ok_alignments = cur.execute(cmd, vals).fetchall()
-    ok_transcripts = [x[0] for x in cur.execute(cmd, vals).fetchall() if x[0] in ids]
-    return len(ok_transcripts), len(ids)
+    ok_biotype_map = [x[0] for x in cur.execute(cmd, vals).fetchall() if x[0] in ids]
+    return len(ok_biotype_map), len(ids)
 
 
-def plot_stacked_barplot(results, bins, biotype, name, header, out_dir, width, height, num_transcripts, bar_width=0.4, shorten_name=False):
+def plot_stacked_barplot(results, bins, biotype, name, header, out_dir, width, height, num_biotype_map, bar_width=0.4, shorten_name=False):
     # fix attribute name
     if shorten_name == True:
         short_name = re.findall("[A-Z][a-z]+", name)[1].lower()
@@ -202,7 +205,7 @@ def plot_stacked_barplot(results, bins, biotype, name, header, out_dir, width, h
     results = [(genome, (val / (1.0 * sum(val)))[::-1]) for genome, val in results.iteritems()]
     fig, pdf = init_image(out_dir, header + "_" + biotype + "_" + name, width, height)
     ax = establish_axes(fig, width, height, border=True)
-    plt.text(0.5, 1.08, "Proportions of {2} transcripts in biotype '{0}'\nmapped to other strains / species by {1}".format(biotype, short_name, num_transcripts),
+    plt.text(0.5, 1.08, "Proportions of {2} transcripts in biotype '{0}'\nmapped to other strains / species by {1}".format(biotype, short_name, num_biotype_map),
              horizontalalignment='center', fontsize=12, transform=ax.transAxes)
     ax.set_ylabel("Proportion of transcripts")
     ax.set_ylim([0, 1.0])
@@ -214,12 +217,12 @@ def plot_stacked_barplot(results, bins, biotype, name, header, out_dir, width, h
     bars = plot_bars(ax, zip(*results)[1], bar_width)
     bins = bins[::-1]
     legend_labels = ["= {0:.0f}%".format(100.0 * bins[0]), "< {0:.0f}%".format(100.0 * bins[0])] + ["< {}%".format(round(100.0 * x, 3)) for x in bins[2:-2]] + ["= 0%"]
-    legend = fig.legend([x[0] for x in bars], legend_labels, bbox_to_anchor=(1,0.8), fontsize=11, frameon=True, title=short_name)
+    legend = fig.legend([x[0] for x in bars][::-1], legend_labels[::-1], bbox_to_anchor=(1,0.8), fontsize=11, frameon=True, title=short_name)
     fig.savefig(pdf, format='pdf')
     pdf.close()
 
 
-def plot_unstacked_barplot(results, out_dir, name, header, width, height, num_transcripts, bar_width=0.4):
+def plot_unstacked_barplot(results, out_dir, name, header, width, height, num_biotype_map, bar_width=0.4):
     results = [(genome, 1.0 * num_ok / total, num_ok) for genome, (num_ok, total) in results.iteritems()]
     fig, pdf = init_image(out_dir, header + "_" + name, width, height)
     ax = establish_axes(fig, width, height, border=False)
@@ -241,7 +244,7 @@ def plot_unstacked_barplot(results, out_dir, name, header, width, height, num_tr
 
 def paralogy_plot(results, bins, out_dir, header, width, height, bar_width=0.4):
     # make a ratio, reverse order
-    results = [(genome, (val / (1.0 * sum(val)))[::-1]) for genome, val in results.iteritems()]
+    results = [(genome, (val / (1.0 * sum(val)))) for genome, val in results.iteritems()]
     fig, pdf = init_image(out_dir, header + "_paralogy", width, height)
     ax = establish_axes(fig, width, height, border=True)
     plt.text(0.5, 1.08, "Number of alignments of protein_coding transcripts",
@@ -254,16 +257,17 @@ def paralogy_plot(results, bins, out_dir, header, width, height, bar_width=0.4):
     ax.xaxis.set_ticks(np.arange(0, len(results)) + bar_width / 2.0)
     ax.xaxis.set_ticklabels(zip(*results)[0], rotation=55)
     bars = plot_bars(ax, zip(*results)[1], bar_width)
-    legend_labels = ["> {0:.0f}".format(bins[1] - 1)] + ["= {0:.0f}".format(x - 1) for x in bins[1:]]
-    legend = fig.legend([x[0] for x in bars], legend_labels, bbox_to_anchor=(1,0.8), fontsize=11, frameon=True, title="paralogy")
+    bins = bins[:-1]
+    legend_labels = ["> {0:.0f}".format(bins[-1] )] + ["= {0:.0f}".format(x) for x in bins[:-1][::-1]]
+    legend = fig.legend([x[0] for x in bars], legend_labels[::-1], bbox_to_anchor=(1,0.8), fontsize=10, frameon=True, title="Number\nAlignments")
     fig.savefig(pdf, format='pdf')
     pdf.close()
 
 
-def biotype_plot(results, out_dir, header, width, height, bar_width=0.4):
-    fig, pdf = init_image(out_dir, header + "_paralogy", width, height)
+def biotype_plot(results, genome, out_dir, header, width, height, bar_width=0.4):
+    fig, pdf = init_image(out_dir, header + "_" + genome + "_biotype", width, height)
     ax = establish_axes(fig, width, height, border=True)
-    plt.text(0.5, 1.08, "Proportion of transMapped transcripts in C56B6NJ by biotype",
+    plt.text(0.5, 1.08, "Proportion of reference transcripts with mapping to {} by biotype".format(genome),
              horizontalalignment='center', fontsize=12, transform=ax.transAxes)
     biotypes, mapped, total = zip(*results)
     r = list(np.asarray(map(float, mapped)) / np.asarray(total))
@@ -273,7 +277,8 @@ def biotype_plot(results, out_dir, header, width, height, bar_width=0.4):
     ax.yaxis.set_ticks(np.arange(0.0, 101.0, 10.0) / 100.0)
     ax.yaxis.set_ticklabels([str(x) + "%" for x in range(0, 101, 10)])
     ax.xaxis.set_ticks(np.arange(0, len(results)) + bar_width / 2.0)
-    ax.xaxis.set_ticklabels(biotypes, rotation=55)
+    tmp_biotypes = [x.replace("_", "\n") for x in biotypes]
+    ax.xaxis.set_ticklabels(tmp_biotypes, rotation=55)
     bars = ax.bar(range(len(results)), r, bar_width, color=color_palette[0])
     for i, rect in enumerate(bars):
         ax.text(rect.get_x() + bar_width / 2.0, 0.03 + rect.get_height(), mapped[i], ha='center', va='bottom', size=6)
@@ -286,10 +291,9 @@ def main():
     con, cur = connect_databases(args.comparativeAnnotationDir)
     identity_bins = [0, 0.0001, 0.995, 0.998, 0.99999999, 1.000001]
     coverage_bins = [0, 0.0001, 0.9, 0.95, 0.99999999, 1.000001]
-    paralogy_bins = [1, 2, 3, 4, 5, 100000]
-    transcripts = get_list_of_transcripts(args.attrs)
-    num_by_biotype = Counter(transcripts.values())
-    num_coding = len([x for x, y in transcripts.iteritems() if y == "protein_coding"])
+    paralogy_bins = [1, 2, 3, 4, 100000]
+    biotype_map, biotype_counts = get_biotype_transcript_map(args.attrs, args.annotationBed)
+    num_coding = biotype_counts['protein_coding']
 
     # the order of genomes by best average coverage will determine order for all plots and the table
     attribute = "AlignmentCoverage"
@@ -308,25 +312,25 @@ def main():
             bins = coverage_bins
         for biotype in args.biotypes:
             results = OrderedDict((genome, attribute_by_biotype(cur, genome, biotype, attribute)) for genome in genomes)
-            # add in unmapped transcripts as 0
+            # add in unmapped biotype_map as 0
             for genome, vals in results.iteritems():
-                for name in transcripts:
-                    if transcripts[name] == biotype and name not in vals:
+                for name in biotype_map:
+                    if biotype_map[name] == biotype and name not in vals:
                         vals[name] = 0
             results_hist = OrderedDict((genome, np.histogram(t.values(), bins)[0]) for genome, t in results.iteritems())
             for genome, t in results.iteritems():
                 val = [float(y) for x, y in t.iteritems()]
                 statistics[biotype + "_" + attribute].append(round(100.0 * sum(val) / len(val), 3))
-            num_biotype = len([x for x, y in transcripts.iteritems() if y == biotype])
+            num_biotype = biotype_counts[biotype]
             plot_stacked_barplot(results_hist, bins, biotype, attribute, args.header, args.outDir, args.width, 
                                  args.height, num_biotype, shorten_name=True)
     
-    genome = "C57B6NJ"
-    results = OrderedDict((biotype, attribute_by_biotype(cur, genome, biotype, attribute)) for biotype in args.biotypes)
-    tmp = []
-    for biotype, vals in results.iteritems():
-        tmp.append([biotype, len([x for x in vals if transcripts[x] ==  biotype]), num_by_biotype[biotype]])
-    biotype_plot(tmp, args.outDir, args.header, args.width, args.height)
+    for genome in genomes:
+        results = OrderedDict((biotype, attribute_by_biotype(cur, genome, biotype, attribute)) for biotype in args.biotypes)
+        tmp = []
+        for biotype, vals in results.iteritems():
+            tmp.append([biotype, len([x for x in vals if biotype_map[x] ==  biotype]), biotype_counts[biotype]])
+        biotype_plot(tmp, genome, args.outDir, args.header, args.width, args.height)
 
     results = OrderedDict((genome, ok_coding(cur, genome)) for genome in genomes)
     for genome, (num_ok, total) in results.iteritems():
@@ -348,6 +352,14 @@ def main():
         for genome, percent in percent_results.iteritems():
             statistics[category.__name__].append(percent)
         plot_unstacked_barplot(results, args.outDir, category.__name__, args.header, args.width, args.height, num_coding)
+
+    # try interesting_biology without nonsynonymous
+    detailsFields, classifyFields, classifyValues, classifyOperations =  src.queries.interestingBiology()
+    detailsFields = detailsFields[:-1]
+    results = OrderedDict((g, number_categorized(cur, g, classifyFields, detailsFields, classifyValues, 
+                                                     classifyOperations)) for g in genomes)    
+    percent_results = OrderedDict((g, round(100.0 * c / t, 3)) for g, (c, t) in results.iteritems())
+    plot_unstacked_barplot(results, args.outDir, "PutativeBiologicalDifferences", args.header, args.width, args.height, num_coding)    
 
     with open(os.path.join(args.outDir, args.outDir, "summary.tsv"), "w") as outf:
         outf.write("genomes\t"+"\t".join(args.genomes)+"\n")
