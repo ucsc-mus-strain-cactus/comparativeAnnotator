@@ -817,10 +817,10 @@ class Nonsynonymous(AbstractClassifier):
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
-            if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
-                continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
+                continue
             for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
                 if "N" not in target_codon and target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) != seq_lib.codonToAminoAcid(query_codon):
                     detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb, self.column))
@@ -852,10 +852,10 @@ class Synonymous(AbstractClassifier):
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
-            if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
-                continue
             t = self.transcriptDict[aId]
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
+                continue
             for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
                 if target_codon != query_codon and seq_lib.codonToAminoAcid(target_codon) == seq_lib.codonToAminoAcid(query_codon):
                     detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb, self.column))
