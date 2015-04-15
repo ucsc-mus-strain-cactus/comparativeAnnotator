@@ -15,7 +15,7 @@ init:
 ####################################################################################################
 # Retrieve src data. Uses hgSql and related Kent tools.
 ####################################################################################################
-srcData: ${srcAttrs} ${srcBasicGp} ${srcPseudoGp} ${srcBasicPsl} ${srcPseudoPsl} ${srcBasicCds} ${srcPseudoCds} ${srcCombinedCheckBed} ${srcCombinedCheck}
+srcData: ${srcAttrs} ${srcBasicGp} ${srcPseudoGp} ${srcBasicPsl} ${srcPseudoPsl} ${srcBasicCds} ${srcPseudoCds} ${srcCombinedPsl} ${srcCombinedCheckBed} ${srcCombinedCheck}
 
 ${srcAttrs}:
 	@mkdir -p $(dir $@)
@@ -27,12 +27,12 @@ ${srcAttrs}:
 editUcscChrom = $$chromCol=="chrM"{$$chromCol="MT"} {$$chromCol = gensub("_random$$","", "g", $$chromCol);$$chromCol = gensub("^chr.*_([0-9A-Za-z]+)$$","\\1.1", "g", $$chromCol);  gsub("^chr","",$$chromCol); print $$0}
 ${srcBasicGp}:
 	@mkdir -p $(dir $@)
-	hgsql -Ne 'select * from ${srcGencodeSet}' ${refGenomeSQLName} | cut -f 2- | tawk -v chromCol=2 '${editUcscChrom}' >$@.${tmpExt}
+	hgsql -Ne 'select * from ${srcGencodeSet}' ${refGenomeSQLName} | cut -f 2- | tawk -v chromCol=2 '${editUcscChrom}' > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ${srcPseudoGp}:
 	@mkdir -p $(dir $@)
-	hgsql -Ne 'select * from ${srcPseudoGeneSet}' ${refGenomeSQLName} | cut -f 2- | tawk -v chromCol=2 '${editUcscChrom}' >$@.${tmpExt}
+	hgsql -Ne 'select * from ${srcPseudoGeneSet}' ${refGenomeSQLName} | cut -f 2- | tawk -v chromCol=2 '${editUcscChrom}' > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ${srcBasicCds}: ${srcBasicPsl}
@@ -41,13 +41,18 @@ ${srcPseudoCds}: ${srcPseudoPsl}
 
 ${srcBasicPsl}: ${srcBasicGp}
 	@mkdir -p $(dir $@)
-	genePredToFakePsl mm10 ${srcGencodeSet} stdout ${srcBasicCds} | tawk -v chromCol=14 '${editUcscChrom}' >$@.${tmpExt}
+	genePredToFakePsl mm10 ${srcGencodeSet} stdout ${srcBasicCds} | tawk -v chromCol=14 '${editUcscChrom}' > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ${srcPseudoPsl}: ${srcPseudoGp}
 	@mkdir -p $(dir $@)
-	genePredToFakePsl mm10 ${srcPseudoGeneSet} stdout ${srcPseudoCds} | tawk -v chromCol=14 '${editUcscChrom}' >$@.${tmpExt}
+	genePredToFakePsl mm10 ${srcPseudoGeneSet} stdout ${srcPseudoCds} | tawk -v chromCol=14 '${editUcscChrom}' > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@	
+
+${srcCombinedPsl}: ${srcbasicPsl} ${srcPseudoPsl}
+	@mkdir -p $(dir $@)
+	cat ${srcBasicPsl} ${srcPseudoPsl} | sort -k 10 > $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
 
 ${srcCombinedGp}: ${srcPseudoGp} ${srcBasicGp}
 	@mkdir -p $(dir $@)
@@ -101,7 +106,7 @@ filtered: ${filteredPsls} ${filteredPslStats}
 
 ${filteredDataDir}/%.filtered.psl: ${chainedDataDir}/%.chained.psl
 	@mkdir -p $(dir $@)
-	(pslCDnaFilter ${filterOpts} $< stdout | pslQueryUniq >$@.${tmpExt}) 2> /dev/null
+	(pslCDnaFilter ${filterOpts} $< stdout | pslQueryUniq > $@.${tmpExt}) 2> /dev/null
 	mv -f $@.${tmpExt} $@
 
 ${filteredDataDir}/%.filtered.psl.basestats: ${filteredDataDir}/%.filtered.psl
