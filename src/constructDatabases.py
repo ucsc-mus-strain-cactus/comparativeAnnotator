@@ -79,7 +79,7 @@ class ConstructDatabases(Target):
 
     def initializeDb(self, dbPath, classifiers, dataType=None):
         if dataType is None:
-            columnDefinitions = [[x.__name__, x._getType()] for x in classifiers]
+            columnDefinitions = [[x.__name__, x.dataType] for x in classifiers]
         else:
             columnDefinitions = [[x.__name__, dataType] for x in classifiers]
         #find alignment IDs from PSLs (primary key for database)

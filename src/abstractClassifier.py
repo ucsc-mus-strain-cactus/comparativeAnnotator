@@ -16,11 +16,10 @@ class AbstractClassifier(Target):
                'nonsynon': '181,216,139',  # avocado
                'generic': '152,156,45'     # grey-yellow
                }
-    def __init__(self, genome, alnPsl, fasta, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
-                 primaryKey, outDir):
+    def __init__(self, genome, alnPsl, fasta, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome, primaryKey, outDir):
         #initialize the Target
         Target.__init__(self)
-        #primary key this will be keyed on (alignmentID usually)
+        #primary key this will be keyed on (AlignmentId usually)
         self.primaryKey = primaryKey
         self.genome = genome
         self.refGenome = refGenome
@@ -35,8 +34,6 @@ class AbstractClassifier(Target):
             os.mkdir(outDir)
         if not os.path.exists(self.outDir):
             os.mkdir(self.outDir)
-        # alignment IDs
-        self.aIds = set(x.split()[9] for x in open(alnPsl))
 
     def getTranscriptDict(self):
         self.transcripts = seq_lib.getTranscripts(self.geneCheckBed)
@@ -64,10 +61,8 @@ class AbstractClassifier(Target):
         """
         Dumps a pair of classify/details dicts to disk in the globalTempDir for later merging.
         """
-        #with open(os.path.join(self.getGlobalTempDir(), "Details" + self.getColumn() + self.genome), "wb") as outf:
         with open(os.path.join(self.outDir, "Details" + self.column + self.genome), "wb") as outf:
             pickle.dump(detailsDict, outf)
-        #with open(os.path.join(self.getGlobalTempDir(), "Classify" + self.getColumn() + self.genome), "wb") as outf:
         with open(os.path.join(self.outDir, "Classify" + self.column + self.genome), "wb") as outf:
             pickle.dump(classifyDict, outf)            
 
@@ -81,6 +76,5 @@ class Attribute(AbstractClassifier):
         """
         Dumps a attribute dict.
         """
-        #with open(os.path.join(self.getGlobalTempDir(), "Attribute" + self.genome), "wb") as outf:
-        with open(os.path.join(self.outDir, "Attribute" + self.getColumn() + self.genome), "wb") as outf:
+        with open(os.path.join(self.outDir, "Attribute" + self.column + self.genome), "wb") as outf:
             pickle.dump(valueDict, outf)

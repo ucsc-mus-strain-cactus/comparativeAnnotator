@@ -299,9 +299,11 @@ class BadFrame(AbstractClassifier):
         logger.info("Starting analysis {} on {}".format(self.column, self.genome))
         self.getAlignmentDict()
         self.getTranscriptDict()
+        self.getAnnotationDict()
         detailsDict = {}
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
                 continue
             if t.getCdsLength() % 3 != 0:
@@ -874,7 +876,7 @@ class Paralogy(AbstractClassifier):
     def run(self):
         logger.info("Starting details analysis {} on {}".format(self.column, self.genome))
         self.getTranscriptDict()
-        counts = Counter(psl_lib.removeAlignmentNumber(aId) for aId in self.aIds if aId in self.transcriptDict)
+        counts = Counter(psl_lib.removeAlignmentNumber(aId) for aId in self.transcriptDict)
         detailsDict = {}
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
