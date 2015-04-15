@@ -353,14 +353,6 @@ def main():
             statistics[category.__name__].append(percent)
         plot_unstacked_barplot(results, args.outDir, category.__name__, args.header, args.width, args.height, num_coding)
 
-    # try interesting_biology without nonsynonymous
-    detailsFields, classifyFields, classifyValues, classifyOperations =  src.queries.interestingBiology()
-    detailsFields = detailsFields[:-1]
-    results = OrderedDict((g, number_categorized(cur, g, classifyFields, detailsFields, classifyValues, 
-                                                     classifyOperations)) for g in genomes)    
-    percent_results = OrderedDict((g, round(100.0 * c / t, 3)) for g, (c, t) in results.iteritems())
-    plot_unstacked_barplot(results, args.outDir, "PutativeBiologicalDifferences", args.header, args.width, args.height, num_coding)    
-
     with open(os.path.join(args.outDir, args.outDir, "summary.tsv"), "w") as outf:
         outf.write("genomes\t"+"\t".join(args.genomes)+"\n")
         for category in statistics:

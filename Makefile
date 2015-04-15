@@ -15,7 +15,12 @@ init:
 ####################################################################################################
 # Retrieve src data. Uses hgSql and related Kent tools.
 ####################################################################################################
-srcData: ${srcBasicGp} ${srcBasicCheckBed} ${srcBasicPsl} ${srcBasicCds} ${srcAttrs} ${srcBasicCheckDetails} ${srcBasicCheck} ${srcBasicCheckDetailsBed}
+srcData: ${srcAttrs} ${srcBasicGp} ${srcPseudoGp} ${srcBasicPsl} ${srcPseudoPsl} ${srcBasicCds} ${srcPseudoCds} ${srcCombinedCheckBed} ${srcCombinedCheck}
+
+${srcAttrs}:
+	@mkdir -p $(dir $@)
+	hgsql -Ne 'select geneId,geneName,geneType,transcriptId,transcriptType from $(notdir $@)' ${refGenomeSQLName} > $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
 
 # awk expression to edit chrom names in UCSC format.  Assumse all alts are version 1.
 # chr1_GL456211_random, chrUn_GL456239
@@ -23,50 +28,59 @@ editUcscChrom = $$chromCol=="chrM"{$$chromCol="MT"} {$$chromCol = gensub("_rando
 ${srcBasicGp}:
 	@mkdir -p $(dir $@)
 	hgsql -Ne 'select * from ${srcGencodeSet}' ${refGenomeSQLName} | cut -f 2- | tawk -v chromCol=2 '${editUcscChrom}' >$@.${tmpExt}
-	#hgsql -Ne 'select * from ${srcPseudoGenes}' ${refGenomeSQLName}
+	mv -f $@.${tmpExt} $@
+
+${srcPseudoGp}:
+	@mkdir -p $(dir $@)
+	hgsql -Ne 'select * from ${srcPseudoGeneSet}' ${refGenomeSQLName} | cut -f 2- | tawk -v chromCol=2 '${editUcscChrom}' >$@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ${srcBasicCds}: ${srcBasicPsl}
+
+${srcPseudoCds}: ${srcPseudoPsl}
 
 ${srcBasicPsl}: ${srcBasicGp}
 	@mkdir -p $(dir $@)
 	genePredToFakePsl mm10 ${srcGencodeSet} stdout ${srcBasicCds} | tawk -v chromCol=14 '${editUcscChrom}' >$@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
-${srcAttrs}:
+${srcPseudoPsl}: ${srcPseudoGp}
 	@mkdir -p $(dir $@)
-	hgsql -Ne 'select geneId,geneName,geneType,transcriptId,transcriptType from $(notdir $@)' ${refGenomeSQLName} > $@.${tmpExt}
-	mv -f $@.${tmpExt} $@
-
-${srcBasicCheckDetails}: ${srcBasicCheck}
-
-${srcBasicCheck}: ${srcBasicGp} ${queryTwoBit}
-	@mkdir -p $(dir $@)
-	sort -k2,2 -k 4,4n $< | gene-check --allow-non-coding --genome-seqs=${queryTwoBit} --details-out=$@-details stdin $@.${tmpExt}
-	mv -f $@.${tmpExt} $@
-
-${srcBasicCheckBed}: ${srcBasicCheck}
-	@mkdir -p $(dir $@)
-	genePredCheckToBed ${srcBasicGp} ${srcBasicCheck} $@.${tmpExt}
+	genePredToFakePsl mm10 ${srcPseudoGeneSet} stdout ${srcPseudoCds} | tawk -v chromCol=14 '${editUcscChrom}' >$@.${tmpExt}
 	mv -f $@.${tmpExt} $@	
 
-${srcBasicCheckDetailsBed}: ${srcBasicCheckDetails}
+${srcCombinedGp}: ${srcPseudoGp} ${srcBasicGp}
 	@mkdir -p $(dir $@)
-	geneCheckDetailsToBed ${srcBasicCheckDetails} $@.${tmpExt}
+	cat ${srcPseudoGp} ${srcBasicGp} > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
+
+${srcCombinedCds}: ${srcBasicCds} ${srcPseudoCds}
+	@mkdir -p $(dir $@)
+	cat ${srcPseudoCds} ${srcBasicCds} > $@.${tmpExt}
+	mv -f $@.${tmpExt} $@	
+
+${srcCombinedCheck}: ${srcCombinedGp} ${queryTwoBit}
+	@mkdir -p $(dir $@)
+	sort -k2,2 -k 4,4n $< | gene-check --allow-non-coding --genome-seqs=${queryTwoBit} stdin $@.${tmpExt}
+	mv -f $@.${tmpExt} $@
+
+${srcCombinedCheckBed}: ${srcCombinedCheck}
+	@mkdir -p $(dir $@)
+	genePredCheckToBed ${srcCombinedGp} ${srcCombinedCheck} $@.${tmpExt}
+	mv -f $@.${tmpExt} $@	
 
 ####################################################################################################
 # Mapping. Also uses hgSql and related Kent tools.
 ####################################################################################################
 mapping: ${mappedRegionIdPsls} ${mappedBlockPsls}
-${mappedDataDir}/%.region.idpsl: ${srcBasicCheckBed}
+${mappedDataDir}/%.region.idpsl: ${srcCombinedCheckBed}
 	@mkdir -p $(dir $@)
-	halLiftover --tab --outPSLWithName ${HAL} ${refGenome} ${srcBasicCheckBed} $* $@.${tmpExt}
+	halLiftover --tab --outPSLWithName ${HAL} ${refGenome} ${srcCombinedCheckBed} $* $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ${mappedDataDir}/%.block.psl: ${mappedDataDir}/%.region.idpsl
 	@mkdir -p $(dir $@)
-	pslMap -mapFileWithInQName ${srcBasicPsl} $< $@.${tmpExt}
+	pslMap -mapFileWithInQName ${srcCombinedPsl} $< $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
 ####################################################################################################
@@ -136,16 +150,16 @@ ${queryChromSizes}: ${queryTwoBit}
 ####################################################################################################
 # Running gene-check
 ####################################################################################################
-geneCheck: ${geneCheckGps} ${geneCheckEvals} ${geneCheckEvalsBed} ${geneCheckDetails} ${geneCheckDetailsBed}
+geneCheck: ${geneCheckGps} ${geneCheckEvals} ${geneCheckEvalsBed}
 
-${geneCheckDir}/%.gp: ${filteredDataDir}/%.filtered.psl ${srcBasicCds}
+${geneCheckDir}/%.gp: ${filteredDataDir}/%.filtered.psl ${srcCombinedCds}
 	@mkdir -p $(dir $@)
-	mrnaToGene -keepInvalid -quiet -genePredExt -ignoreUniqSuffix -insertMergeSize=0 -cdsFile=${srcBasicCds} $< $@.${tmpExt}
+	mrnaToGene -keepInvalid -quiet -genePredExt -ignoreUniqSuffix -insertMergeSize=0 -cdsFile=${srcCombinedCds} $< $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
-${geneCheckDir}/%.gene-check ${geneCheckDir}/%.gene-check-details: ${geneCheckDir}/%.gp ${GENOMES_DIR}/%.2bit
+${geneCheckDir}/%.gene-check: ${geneCheckDir}/%.gp ${GENOMES_DIR}/%.2bit
 	@mkdir -p $(dir $@)
-	sort -k2,2 -k 4,4n $< | gene-check --allow-non-coding --genome-seqs=${GENOMES_DIR}/$*.2bit --details-out=${geneCheckDir}/$*.gene-check-details stdin ${geneCheckDir}/$*.gene-check.${tmpExt}
+	sort -k2,2 -k 4,4n $< | gene-check --allow-non-coding --genome-seqs=${GENOMES_DIR}/$*.2bit stdin ${geneCheckDir}/$*.gene-check.${tmpExt}
 	mv -f ${geneCheckDir}/$*.gene-check.${tmpExt} ${geneCheckDir}/$*.gene-check
 
 ${geneCheckDir}/%.gene-check.bed: ${geneCheckDir}/%.gene-check
@@ -153,17 +167,12 @@ ${geneCheckDir}/%.gene-check.bed: ${geneCheckDir}/%.gene-check
 	genePredCheckToBed ${geneCheckDir}/$*.gp ${geneCheckDir}/$*.gene-check $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
 
-${geneCheckDir}/%.gene-check-details.bed: ${geneCheckDir}/%.gene-check-details
-	@mkdir -p $(dir $@)
-	geneCheckDetailsToBed ${geneCheckDir}/$*.gene-check-details $@.${tmpExt}
-	mv -f $@.${tmpExt} $@
-
 ####################################################################################################
 # Annotation pipeline. Going to ssh to ku to use the cluster if batch system is parasol.
 ####################################################################################################
 annotation: ${ANNOTATION_DIR}/DONE
 
-${ANNOTATION_DIR}/DONE: ${geneCheckEvalsBed}
+${ANNOTATION_DIR}/DONE: ${geneCheckEvalsBed} ${srcCombinedCheckBed}
 	@mkdir -p $(dir $@)
 	if [ -d ${jobTreeDir} ]; then rm -rf ${jobTreeDir}; fi
 	if [ "${batchSystem}" = "parasol" ]; then \
@@ -172,17 +181,17 @@ ${ANNOTATION_DIR}/DONE: ${geneCheckEvalsBed}
 		export PATH=./bin/:./sonLib/bin:./submodules/jobTree/bin:${PATH} && \
 		python src/annotationPipeline.py --refGenome ${refGenome} --genomes ${genomes} --sizes ${targetChromSizes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} --fastas ${targetFastaFiles} --refTwoBit ${queryTwoBit} \
-		--annotationBed ${srcBasicCheckBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
+		--annotationBed ${srcCombinedCheckBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
 		--defaultMemory ${defaultMemory} --jobTree ${jobTreeDir} --maxJobDuration ${maxJobDuration} \
 		--maxThreads ${maxThreads} --stats --outDir ${ANNOTATION_DIR} &> ${log}" ;\
 	else \
 		python src/annotationPipeline.py --refGenome ${refGenome} --genomes ${genomes} --sizes ${targetChromSizes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} --fastas ${targetFastaFiles} --refTwoBit ${queryTwoBit} \
-		--annotationBed ${srcBasicCheckBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
+		--annotationBed ${srcCombinedCheckBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
 		--defaultMemory ${defaultMemory} --jobTree ${jobTreeDir} --maxJobDuration ${maxJobDuration} \
 		--maxThreads ${maxThreads} --stats --outDir ${ANNOTATION_DIR} &> ${log} ;\
 	fi
-	touch ${ANNOTATION_DIR}/DONE
+	touch $@
 
 ####################################################################################################
 # Building assemblyHub. Can't be run on ku due to weird issues with halLodExtract. SSH to kolossus.
@@ -201,7 +210,7 @@ ${ASSEMBLY_HUB_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 	--defaultMemory=${defaultMemory} --jobTree ${halJobTreeDir} \
 	--maxJobDuration ${maxJobDuration} --stats --shortLabel ${MSCA_VERSION} \
 	--longLabel ${MSCA_VERSION} --hub ${MSCA_VERSION} &>> ${halLog}"
-	touch ${ASSEMBLY_HUB_DIR}/DONE
+	touch $@
 
 ####################################################################################################
 # Generating some plots.
@@ -212,5 +221,5 @@ ${METRICS_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 	@mkdir -p $(dir $@)
 	python scripts/coverage_identity_ok_plots.py --outDir ${METRICS_DIR} --genomes ${genomes} \
 	--comparativeAnnotationDir ${ANNOTATION_DIR} --header ${MSCA_VERSION} --attrs ${srcAttrs} \
-	--annotationBed ${srcBasicCheckBed}
-	touch ${METRICS_DIR}/DONE
+	--annotationBed ${srcCombinedCheckBed}
+	touch $@

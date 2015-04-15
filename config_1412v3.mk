@@ -51,7 +51,7 @@ ifneq ($(wildcard ${HOME}/.hg.conf),)
 endif
 
 # Options to pass to pslCDnaFilter
-filterOpts = -localNearBest=0.0001
+#filterOpts = -localNearBest=0.0001
 
 # sequence files
 targetFastaFiles = ${genomes:%=${GENOMES_DIR}/%.fa}
@@ -63,17 +63,20 @@ queryChromSizes = ${GENOMES_DIR}/${refGenome}.chrom.sizes
 
 # Gencode src data files
 srcGencodeSet = wgEncodeGencodeBasic${GENCODE_VERSION}
+srcPseudoGeneSet = wgEncodeGencodePseudoGene${GENCODE_VERSION}
 srcDataDir = ${TRANS_MAP_DIR}/data
 srcAttrs = ${srcDataDir}/wgEncodeGencodeAttrs${GENCODE_VERSION}
-srcBasicPre = ${srcDataDir}/${srcGencodeSet}
-srcBasicGp = ${srcBasicPre}.gp
-srcBasicCds = ${srcBasicPre}.cds
-srcBasicPsl = ${srcBasicPre}.psl
-# for Dent's legacy code - TODO: use this in annotation-database-constructor to produce previously existing classifiers
-srcBasicCheck = ${srcBasicPre}.gene-check
-srcBasicCheckBed = ${srcBasicPre}.gene-check.bed
-srcBasicCheckDetails = ${srcBasicPre}.gene-check-details
-srcBasicCheckDetailsBed = ${srcBasicPre}.gene-check-details.bed
+srcBasicGp = ${srcDataDir}/${srcGencodeSet}.gp
+srcPseudoGp = ${srcDataDir}/${srcPseudoGeneSet}.gp
+srcBasicCds = ${srcDataDir}/${srcGencodeSet}.cds
+srcPseudoCds = ${srcDataDir}/${srcPseudoGeneSet}.cds
+srcBasicPsl = ${srcDataDir}/${srcGencodeSet}.psl
+srcPseudoPsl = ${srcDataDir}/${srcPseudoGeneSet}.psl
+srcCombinedGp = ${srcDataDir}/${GENCODE_VERSION}.BasicPseudoCombined.gp
+srcCombinedPsl = ${srcDataDir}/${GENCODE_VERSION}.BasicPseudoCombined.psl
+srcCombinedCds = ${srcDataDir}/${GENCODE_VERSION}.BasicPseudoCombined.cds
+srcCombinedCheck = ${srcDataDir}/${GENCODE_VERSION}.BasicPseudoCombined.gene-check
+srcCombinedCheckBed = ${srcDataDir}/${GENCODE_VERSION}.BasicPseudoCombined.gene-check.bed
 
 # mapping files
 mappedDataDir = ${TRANS_MAP_DIR}/mapped
@@ -106,3 +109,4 @@ log = ${MSCA_VERSION}_log.txt
 # assemblyHub
 halJobTreeDir = .${MSCA_VERSION}_halJobTree
 halLog = ${MSCA_VERSION}_assembly_hub_log.txt
+

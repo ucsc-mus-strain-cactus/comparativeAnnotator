@@ -1,20 +1,6 @@
 import src.classifiers
 from lib.general_lib import classesInModule
 
-def mutations():
-    """
-    Hunts for likely real mutations by excluding assembly and alignment errors.
-    Any transcript which has errors in the classify fields specified will not have the details shown.
-    """
-    detailsFields = ["CodingInsertions", "CodingDeletions", "CodingMult3Insertions", "CodingMult3Deletions",
-                     "CdsNonCanonSplice", "UtrNonCanonSplice", "CdsUnknownSplice", "UtrUnknownSplice", "CdsMult3Gap", "InFrameStop",
-                     "Synonymous", "Nonsynonymous", "CdsGap", "UtrGap", "FrameShift"]
-    classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "ShortCds", 
-                     "AlignmentPartialMap", "BadFrame", "StartOutOfFrame", "UnknownGap"]
-    classifyOperations = ["AND"] * (len(classifyFields) - 1)
-    classifyValues = [0] * len(classifyFields)
-    return detailsFields, classifyFields, classifyValues, classifyOperations
-
 def inFrameStop():
     detailsFields = ["InFrameStop"]
     classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "ShortCds", 
@@ -30,11 +16,17 @@ def everything():
     return detailsFields, classifyFields, classifyValues, classifyOperations
 
 def interestingBiology():
-    detailsFields = ["InFrameStop", "CodingMult3Insertions", "CodingMult3Deletions", "CdsMult3Gap", "StartOutOfFrame", "Nonsynonymous"]
-    classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "ShortCds", 
-                     "AlignmentPartialMap", "BadFrame", "CdsGap", "UtrGap", "UnknownGap"]
-    classifyOperations = ["AND"] * (len(classifyFields) - 1)
-    classifyValues = [0] * len(classifyFields)  
+    detailsFields = ["InFrameStop", "CodingMult3Insertions", "CodingMult3Deletions", "StartOutOfFrame", "Nonsynonymous", "FrameShift"]
+    excludedClassifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "ShortCds", 
+                              "AlignmentPartialMap", "BadFrame", "CdsGap", "UtrGap", "UnknownGap"]
+    excludedClassifyValues = [0] * len(excludedClassifyFields)
+    excludedClassifyOperations = ["AND"] * len(excludedClassifyFields)
+    includedClassifyFields = detailsFields
+    includedClassifyValues = [1] * len(includedClassifyFields)
+    includedClassifyOperations = ["OR"] * (len(includedClassifyFields) - 1)
+    classifyFields = includedClassifyFields + excludedClassifyFields
+    classifyValues = includedClassifyValues + excludedClassifyValues
+    classifyOperations = includedClassifyOperations + excludedClassifyOperations
     return detailsFields, classifyFields, classifyValues, classifyOperations
 
 def assemblyErrors():
@@ -50,7 +42,7 @@ def alignmentErrors():
     """
     Looks for alignment errors. Reports details for all fields that are likely alignment errors.
     """
-    classifyFields = detailsFields = ["BadFrame", "CdsGap", "UtrGap", "Paralogy", "StartOutOfFrame"]
+    classifyFields = detailsFields = ["BadFrame", "CdsGap", "CdsMult3Gap", "UtrGap", "Paralogy", "StartOutOfFrame"]
     classifyOperations = ["OR"] * (len(classifyFields) - 1)
     classifyValues = [1] * len(classifyFields)
     return detailsFields, classifyFields, classifyValues, classifyOperations

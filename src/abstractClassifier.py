@@ -8,6 +8,14 @@ import lib.psl_lib as psl_lib
 import lib.sqlite_lib as sql_lib
 
 class AbstractClassifier(Target):
+    colors = {'input': '219,220,222',     # grey
+               'mutation': '132,35,27',    # red-ish
+               'assembly': '167,206,226',  # light blue
+               'alignment': '35,125,191',  # blue
+               'synon': '163,116,87',      # light brown
+               'nonsynon': '181,216,139',  # avocado
+               'generic': '152,156,45'     # grey-yellow
+               }
     def __init__(self, genome, alnPsl, fasta, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome,
                  primaryKey, outDir):
         #initialize the Target
@@ -27,19 +35,8 @@ class AbstractClassifier(Target):
             os.mkdir(outDir)
         if not os.path.exists(self.outDir):
             os.mkdir(self.outDir)
-
         # alignment IDs
         self.aIds = set(x.split()[9] for x in open(alnPsl))
-
-        # for details classifiers, color codes for types of names for BED record
-        self.colors = {'input': '219,220,222',     # grey
-                       'mutation': '132,35,27',    # red-ish
-                       'assembly': '167,206,226',  # light blue
-                       'alignment': '35,125,191',  # blue
-                       'synon': '163,116,87',      # light brown
-                       'nonsynon': '181,216,139',  # avocado
-                       'generic': '152,156,45'     # grey-yellow
-                      }
 
     def getTranscriptDict(self):
         self.transcripts = seq_lib.getTranscripts(self.geneCheckBed)
@@ -59,7 +56,8 @@ class AbstractClassifier(Target):
         self.annotations = seq_lib.getTranscripts(self.annotationBed)
         self.annotationDict = seq_lib.transcriptListToDict(self.annotations, noDuplicates=True)
 
-    def getColumn(self):
+    @property
+    def column(self):
         return self.__class__.__name__
 
     def dumpValueDicts(self, classifyDict, detailsDict):
@@ -67,10 +65,10 @@ class AbstractClassifier(Target):
         Dumps a pair of classify/details dicts to disk in the globalTempDir for later merging.
         """
         #with open(os.path.join(self.getGlobalTempDir(), "Details" + self.getColumn() + self.genome), "wb") as outf:
-        with open(os.path.join(self.outDir, "Details" + self.getColumn() + self.genome), "wb") as outf:
+        with open(os.path.join(self.outDir, "Details" + self.column + self.genome), "wb") as outf:
             pickle.dump(detailsDict, outf)
         #with open(os.path.join(self.getGlobalTempDir(), "Classify" + self.getColumn() + self.genome), "wb") as outf:
-        with open(os.path.join(self.outDir, "Classify" + self.getColumn() + self.genome), "wb") as outf:
+        with open(os.path.join(self.outDir, "Classify" + self.column + self.genome), "wb") as outf:
             pickle.dump(classifyDict, outf)            
 
 
