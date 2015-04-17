@@ -517,9 +517,14 @@ class CdsNonCanonSplice(AbstractClassifier):
         logger.info("Starting analysis {} on {}".format(self.column, self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
+        self.getRefDict()
+        self.getAnnotationDict()
+        self.getAlignmentDict()
         detailsDict = defaultdict(list)
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            aln = self.alignmentDict[aId]
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
@@ -557,9 +562,14 @@ class CdsUnknownSplice(AbstractClassifier):
         logger.info("Starting analysis {} on {}".format(self.column, self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
+        self.getRefDict()
+        self.getAnnotationDict()
+        self.getAlignmentDict()
         detailsDict = defaultdict(list)
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            aln = self.alignmentDict[aId]
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
@@ -597,9 +607,14 @@ class UtrNonCanonSplice(AbstractClassifier):
         logger.info("Starting analysis {} on {}".format(self.column, self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
+        self.getRefDict()
+        self.getAnnotationDict()
+        self.getAlignmentDict()
         detailsDict = defaultdict(list)
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            aln = self.alignmentDict[aId]
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
@@ -637,9 +652,14 @@ class UtrUnknownSplice(AbstractClassifier):
         logger.info("Starting analysis {} on {}".format(self.column, self.genome))
         self.getTranscriptDict()
         self.getSeqDict()
+        self.getAlignmentDict()
+        self.getAnnotationDict()
+        self.getRefDict()
         detailsDict = defaultdict(list)
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            aln = self.alignmentDict[aId]
             for intron in t.intronIntervals:
                 if len(intron) <= shortIntronSize:
                     continue
@@ -681,6 +701,7 @@ class EndStop(AbstractClassifier):
         self.getTranscriptDict()
         self.getAnnotationDict()
         self.getSeqDict()
+        self.getRefDict()
         detailsDict = {}
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
