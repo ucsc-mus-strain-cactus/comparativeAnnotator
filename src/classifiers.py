@@ -348,6 +348,7 @@ class BeginStart(AbstractClassifier):
         self.getAlignmentDict()
         self.getAnnotationDict()
         self.getSeqDict()
+        self.getRefDict()
         detailsDict = {}
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
@@ -361,7 +362,7 @@ class BeginStart(AbstractClassifier):
                 detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, 0, 3, self.rgb, self.column)
                 classifyDict[aId] = 1
             elif t.getCds(self.seqDict)[:3] != "ATG":
-                if a.getCds(self.refTwoBit)[:3] != "ATG":
+                if a.getCds(self.refDict)[:3] != "ATG":
                     detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, 0, 3, self.colors["input"], self.column)
                 else:
                     detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, 0, 3, self.rgb, self.column)
