@@ -12,8 +12,8 @@ class TranscriptId(Attribute):
     """
     Creates a column representing the transcript Id
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "TEXT"
 
     def run(self):
@@ -27,8 +27,8 @@ class GeneId(Attribute):
     """
     Creates a column representing the gene Id
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "TEXT"
 
     def run(self):
@@ -43,8 +43,8 @@ class GeneName(Attribute):
     """
     Creates a column representing the gene name
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "TEXT"
 
     def run(self):
@@ -59,8 +59,8 @@ class GeneType(Attribute):
     """
     Creates a column representing the gene type
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "TEXT"
 
     def run(self):
@@ -75,8 +75,8 @@ class TranscriptType(Attribute):
     """
     Creates a column representing the transcript type
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "TEXT"
 
     def run(self):
@@ -91,8 +91,8 @@ class SourceChrom(Attribute):
     """
     Creates a column representing the source chromosome
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "INTEGER"
 
     def run(self):
@@ -108,8 +108,8 @@ class SourceStart(Attribute):
     Creates a column representing the source genomic start location.
     (+) strand value, so always smaller than sourceEnd.
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "INTEGER"
 
     def run(self):
@@ -125,8 +125,8 @@ class SourceStop(Attribute):
     Creates a column representing the source genomic stop location.
     (+) strand value, so always smaller than sourceEnd.
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "INTEGER"
 
     def run(self):
@@ -141,8 +141,8 @@ class SourceStrand(Attribute):
     """
     Creates a column representing the source genomic strand.
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "TEXT"
 
     def run(self):
@@ -157,8 +157,8 @@ class DestChrom(Attribute):
     """
     Creates a column representing the dest chromosome
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "INTEGER"
 
     def run(self):
@@ -173,8 +173,8 @@ class DestStart(Attribute):
     Creates a column representing the dest genomic start location.
     (+) strand value, so always smaller than destEnd.
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "INTEGER"
 
     def run(self):
@@ -189,8 +189,8 @@ class DestStop(Attribute):
     Creates a column representing the dest genomic stop location.
     (+) strand value, so always larger tha destStart
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "INTEGER"
 
     def run(self):
@@ -204,8 +204,8 @@ class DestStrand(Attribute):
     """
     Creates a column representing the dest genomic strand.
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "TEXT"
 
     def run(self):
@@ -223,8 +223,8 @@ class AlignmentCoverage(Attribute):
 
     Reports the value as a REAL between 0 and 1
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "REAL"
 
     def run(self):
@@ -245,8 +245,8 @@ class AlignmentIdentity(Attribute):
 
     Reports the value as a REAL between 0 and 1
     """
-    @property
-    def getType(self):
+    @staticmethod
+    def dataType():
         return "REAL"
 
     def run(self):

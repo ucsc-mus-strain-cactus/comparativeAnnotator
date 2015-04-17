@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument("--annotationBed", type=str, required=True, help="annotation bed")
     parser.add_argument("--width", default=8.0, type=float, help="figure width in inches")
     parser.add_argument("--height", default=4.0, type=float, help="figure height in inches")
-    parser.add_argument("--biotypes", nargs="+", default=["protein_coding", "lincRNA", "miRNA", "snoRNA", "snRNA"])
+    parser.add_argument("--biotypes", nargs="+", default=["protein_coding", "lincRNA", "miRNA", "snoRNA", "snRNA", "processed_pseudogene", "pseudogene", "unprocessed_pseudogene"])
     parser.add_argument("--header", type=str, required=True)
     parser.add_argument("--attrs", type=str, required=True, help="attrs")
     args = parser.parse_args()

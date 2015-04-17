@@ -51,8 +51,7 @@ def buildAnalyses(target, psls, fastas, refSeqTwoBit, beds, gencodeAttributeMap,
 
 def databaseWrapper(target, outDir, genomes, classifiers, attributes, psls, primaryKeyColumn,
                      sizes, beds, annotationBed):
-    target.addChildTarget(ConstructDatabases(outDir, target.getGlobalTempDir(), genomes, classifiers, attributes, 
-                                             psls, primaryKeyColumn))
+    target.addChildTarget(ConstructDatabases(outDir, target.getGlobalTempDir(), genomes, psls, primaryKeyColumn))
     target.setFollowOnTarget(BuildTracks(outDir, genomes, primaryKeyColumn, sizes, beds, annotationBed))
 
 
