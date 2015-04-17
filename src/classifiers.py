@@ -8,7 +8,7 @@ import lib.psl_lib as psl_lib
 from jobTree.src.bioio import logger, reverseComplement
 
 from src.abstractClassifier import AbstractClassifier
-from src.helperFunctions import deletionIterator, insertionIterator, frameShiftIterator, codonPairIterator
+from src.helperFunctions import deletionIterator, insertionIterator, frameShiftIterator, codonPairIterator, compareIntronToReference
 
 class CodingInsertions(AbstractClassifier):
     """
@@ -20,6 +20,8 @@ class CodingInsertions(AbstractClassifier):
 
     query:   AATTAT--GCATGGA
     target:  AATTATAAGCATGGA
+
+    Doesn't need a check for existing in the reference because that is impossible.
     """
     @property
     def rgb(self):
@@ -66,6 +68,8 @@ class CodingDeletions(AbstractClassifier):
 
     query:   AATTATAAGCATGGA
     target:  AATTAT--GCATGGA
+
+    Doesn't need a check for existing in the reference because that is impossible.
     """
     @property
     def rgb(self):
@@ -107,6 +111,8 @@ class StartOutOfFrame(AbstractClassifier):
     """
     StartOutOfFrame are caused when the starting CDS base of the lifted over transcript is not in the original frame.
     If True, reports the first 3 bases.
+
+    Doesn't need a check for existing in the reference because that is impossible.
     """
     @property
     def rgb(self):
@@ -137,6 +143,8 @@ class FrameShift(AbstractClassifier):
     """
     Frameshifts are caused by coding indels that are not a multiple of 3. Reports a BED entry
     spanning all blocks of coding bases that are frame-shifted. Must have at least 25 codons.
+
+    Doesn't need a check for existing in the reference because that is impossible.
     """
     @property
     def rgb(self):
@@ -196,6 +204,8 @@ class AlignmentAbutsLeft(AbstractClassifier):
     aligned: #  unaligned: -  whatever: .  edge: |
              query  |---#####....
              target    |#####....
+
+    Doesn't need a check for pre-existing because that doesn't matter.
     """
     @property
     def rgb(self):
@@ -231,6 +241,8 @@ class AlignmentAbutsRight(AbstractClassifier):
     aligned: #  unaligned: -  whatever: .  edge: |
              query  ...######---|
              target ...######|
+
+    Doesn't need a check for pre-existing because that doesn't matter.
     """
     @property
     def rgb(self):
@@ -263,6 +275,8 @@ class AlignmentPartialMap(AbstractClassifier):
     a.qSize != a.qEnd - a.qStart
 
     If so, reports the entire transcript
+
+    Doesn't need a check for pre-existing because that is impossible.
     """
     @property
     def rgb(self):
@@ -306,9 +320,12 @@ class BadFrame(AbstractClassifier):
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
                 continue
-            if t.getCdsLength() % 3 != 0:
-                detailsDict[aId] = seq_lib.chromosomeCoordinateToBed(t, t.thickStart, t.thickStop, self.rgb, self.column)
+            if t.getCdsLength() % 3 != 0 and a.getCdsLength() % 3 != 0:
+                detailsDict[aId] = seq_lib.chromosomeCoordinateToBed(t, t.thickStart, t.thickStop, self.colors["input"], self.column)
                 classifyDict[aId] = 1
+            elif t.getCdsLength() % 3 != 0:
+                detailsDict[aId] = seq_lib.chromosomeCoordinateToBed(t, t.thickStart, t.thickStop, self.rgb, self.column)
+                classifyDict[aId] = 1                
             else:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
@@ -340,8 +357,14 @@ class BeginStart(AbstractClassifier):
             if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
                 continue
             cds_positions = [t.chromosomeCoordinateToCds(aln.queryCoordinateToTarget(a.cdsCoordinateToTranscript(i))) for i in xrange(3)]
-            if None in cds_positions or t.getCds(self.seqDict)[:3] != "ATG":
+            if None in cds_positions:
                 detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, 0, 3, self.rgb, self.column)
+                classifyDict[aId] = 1
+            elif t.getCds(self.seqDict)[:3] != "ATG":
+                if a.getCds(self.refTwoBit)[:3] != "ATG":
+                    detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, 0, 3, self.colors["input"], self.column)
+                else:
+                    detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, 0, 3, self.rgb, self.column)
                 classifyDict[aId] = 1
             else:
                 classifyDict[aId] = 0
@@ -353,6 +376,8 @@ class CdsGap(AbstractClassifier):
     Are any of the CDS introns too short? Too short default is 30 bases.
 
     Reports a BED record for each intron interval that is too short.
+
+    Not currently implementing checking for pre-existing because its so rare (none in VM4)
     """
     @property
     def rgb(self):
@@ -415,6 +440,8 @@ class UtrGap(AbstractClassifier):
     Are any UTR introns too short? Too short is defined as less than 30bp
 
     Reports on all such introns.
+
+    Not currently implementing checking for pre-existing because its so rare (397 in VM4)
     """
     @property
     def rgb(self):
@@ -444,6 +471,8 @@ class UtrGap(AbstractClassifier):
 class UnknownGap(AbstractClassifier):
     """
     Looks for short introns that contain unknown bases. Any number of unknown bases is fine.
+
+    Not implementing looking for pre-existing because that doesn't make sense.
     """
     @property
     def rgb(self):
@@ -500,7 +529,11 @@ class CdsNonCanonSplice(AbstractClassifier):
                 donor, acceptor = seq[:2], seq[-2:]
                 if donor not in self.canonical or self.canonical[donor] != acceptor:
                     classifyDict[aId] = 1
-                    detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb, self.column))
+                    # is this a intron that exists in the reference that also has this problem?
+                    if compareIntronToReference(intron, a, t, aln, self.canonical, self.refDict) is True:
+                        detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.colors["input"], self.column))
+                    else:
+                        detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb, self.column))
             if aId not in classifyDict:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
@@ -536,7 +569,11 @@ class CdsUnknownSplice(AbstractClassifier):
                 donor, acceptor = seq[:2], seq[-2:]
                 if donor not in self.non_canonical or self.non_canonical[donor] != acceptor:
                     classifyDict[aId] = 1
-                    detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb, self.column))
+                    # is this a intron that exists in the reference that also has this problem?
+                    if compareIntronToReference(intron, a, t, aln, self.non_canonical, self.refDict) is True:
+                        detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.colors["input"], self.column))
+                    else:
+                        detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb, self.column))
             if aId not in classifyDict:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
@@ -572,7 +609,11 @@ class UtrNonCanonSplice(AbstractClassifier):
                 donor, acceptor = seq[:2], seq[-2:]
                 if donor not in self.canonical or self.canonical[donor] != acceptor:
                     classifyDict[aId] = 1
-                    detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb, self.column))
+                    # is this a intron that exists in the reference that also has this problem?
+                    if compareIntronToReference(intron, a, t, aln, self.canonical, self.refDict) is True:
+                        detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.colors["input"], self.column))
+                    else:
+                        detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb, self.column))
             if aId not in classifyDict:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
@@ -608,7 +649,11 @@ class UtrUnknownSplice(AbstractClassifier):
                 donor, acceptor = seq[:2], seq[-2:]
                 if donor not in self.non_canonical or self.non_canonical[donor] != acceptor:
                     classifyDict[aId] = 1
-                    detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb, self.column))
+                    # is this a intron that exists in the reference that also has this problem?
+                    if compareIntronToReference(intron, a, t, aln, self.non_canonical, self.refDict) is True:
+                        detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.colors["input"], self.column))
+                    else:
+                        detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb, self.column))
             if aId not in classifyDict:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
@@ -646,7 +691,11 @@ class EndStop(AbstractClassifier):
             s = t.getCdsLength()
             cds_positions = [t.chromosomeCoordinateToCds(aln.queryCoordinateToTarget(a.cdsCoordinateToTranscript(i))) for i in xrange(s - 4, s - 1)]
             if None in cds_positions or t.getCds(self.seqDict)[-3:] not in stopCodons:
-                detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, s - 3, s, self.rgb, self.column)
+                # does this problem exist in the reference?
+                if a.getCds(self.refDict)[-3:] not in stopCodons:
+                    detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, s - 3, s, self.colors["input"], self.column)
+                else:
+                    detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, s - 3, s, self.rgb, self.column)
                 classifyDict[aId] = 1
             else:
                 classifyDict[aId] = 0
@@ -684,7 +733,10 @@ class InFrameStop(AbstractClassifier):
             codons = list(codonPairIterator(a, t, aln, self.seqDict, self.refDict))[:-1]
             for i, target_codon, query_codon in codons:
                 if seq_lib.codonToAminoAcid(target_codon) == "*":
-                    detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb, self.column))
+                    if target_codon == query_codon:
+                        detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.colors["input"], self.column))
+                    else:
+                        detailsDict[aId].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, self.rgb, self.column))
                     classifyDict[aId] = 1
             if aId not in classifyDict:
                 classifyDict[aId] = 0
@@ -715,7 +767,10 @@ class ShortCds(AbstractClassifier):
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             if a.getCdsLength() < 3:
                 continue
-            if t.getCdsLength() <= cdsCutoff:
+            elif a.getCdsLength() <= cdsCutoff:
+                detailsDict[aId] = seq_lib.transcriptToBed(t, self.colors["input"], self.column)
+                classifyDict[aId] = 1                
+            elif t.getCdsLength() <= cdsCutoff:
                 detailsDict[aId] = seq_lib.transcriptToBed(t, self.rgb, self.column)
                 classifyDict[aId] = 1
             else:
@@ -797,9 +852,8 @@ class UnknownCdsBases(UnknownBases):
 
 class Nonsynonymous(AbstractClassifier):
     """
-    Do any base changes introduce nonsynonmous changes?
-
-    This is filtered for codons within frameshifts, unless another frameshift restores the frame.
+    Do any base changes introduce nonsynonmous changes? Only looks at aligned pairs of codons in the frame
+    of the reference annotation.
     """
     @property
     def rgb(self):
@@ -832,9 +886,8 @@ class Nonsynonymous(AbstractClassifier):
 
 class Synonymous(AbstractClassifier):
     """
-    Do any base changes introduce nonsynonmous changes?
-
-    This is filtered for codons within frameshifts, unless another frameshift restores the frame.
+    Do any base changes introduce nonsynonmous changes? Only looks at aligned pairs of codons in the frame
+    of the reference annotation.
     """
     @property
     def rgb(self):

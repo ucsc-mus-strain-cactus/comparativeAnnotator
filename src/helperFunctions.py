@@ -119,3 +119,23 @@ def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
         target_codon = target_cds[target_cds_positions[0]:target_cds_positions[0] + 3]
         query_codon = query_cds[i:i + 3]
         yield target_cds_positions[0], target_codon, query_codon
+
+
+def compareIntronToReference(intron, a, t, aln, compare_dict, refDict):
+    """
+    For use with the splicing classifiers. Given an index of an intron in t that has a problem,
+    determines if this intron exists in the reference. Then, determines if this reference splice
+    also has the problem defined by compare_dict. Returns True if the reference also has a splicing problem.
+    """
+    a_start = a.transcriptCoordinateToChromosome(aln.targetCoordinateToQuery(t_intron.start - 1))
+    a_stop = a.transcriptCoordinateToChromosome(aln.targetCoordinateToQuery(t_intron.stop))
+    if a_start is None or a_stop is None:
+        return False
+    a_start += 1
+    for a_intron in a.intronIntervals:
+        if a_intron.start == a_start and a_intron.stop == a_stop:
+            ref_seq = a_intron.getSequence(refDict, strand=True)
+            donor, acceptor = ref_seq[:2], ref_seq[-2:]
+            if donor not in compare_dict or compare_dict[donor] != acceptor:
+                return True
+    return False
