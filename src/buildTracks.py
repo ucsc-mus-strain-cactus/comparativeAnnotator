@@ -5,6 +5,7 @@ from collections import defaultdict
 
 import src.queries
 import lib.sqlite_lib as sql_lib
+import lib.psl_lib as psl_lib
 from lib.general_lib import functionsInModule
 from src.abstractClassifier import AbstractClassifier
 from jobTree.scriptTree.target import Target
@@ -58,7 +59,7 @@ class BuildTracks(Target):
     def recolorTransMap(self, genome, bed):
         """
         Recolors the comparativeAnnotation results based on the scheme assembly > alignment > biology. Transcripts not in
-        one of these categories will become black.
+        one of these categories will become black. Also removes the unique tag from transcript IDs.
         """
         records = [x.split() for x in open(bed)]
         # first we recolor everything black
@@ -82,6 +83,9 @@ class BuildTracks(Target):
         for x in records:
             if x[3] in aIds:
                 x[8] = self.colors["assembly"]
+        # remove alignment IDs
+        for x in records:
+            x[3] = psl_lib.removeAlignmentNumber(x[3])
         return ["\t".join(x) for x in records]
 
     def run(self):
@@ -115,6 +119,6 @@ class BuildTracks(Target):
                     os.mkdir(os.path.join(self.bedDir, category.__name__, genome))
                 bedPath = self.writeBed(genome, detailsFields, classifyFields, classifyValues, classifyOperations, category.__name__)
                 # dumb - checks to make sure the BED is not empty so bedToBigBed doesn't crash
-                if len(open(bedPath).readlines()) > 0:
+                if os.stat(bedPath).st_size != 0:
                     self.buildBigBed(bedPath, sizePath, genome, category.__name__)
                 os.remove(bedPath)

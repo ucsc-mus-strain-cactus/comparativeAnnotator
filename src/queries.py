@@ -9,7 +9,7 @@ def inFrameStop():
     classifyValues = [0] * len(classifyFields)
     return detailsFields, classifyFields, classifyValues, classifyOperations
 
-def everything():
+def allProblems():
     detailsFields = classifyFields = [x.__name__ for x in classesInModule(src.classifiers)]
     classifyOperations = ["OR"] * (len(classifyFields) - 1)
     classifyValues = [1] * len(classifyFields)
