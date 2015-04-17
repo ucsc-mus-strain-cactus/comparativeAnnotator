@@ -127,8 +127,8 @@ def compareIntronToReference(intron, a, t, aln, compare_dict, refDict):
     determines if this intron exists in the reference. Then, determines if this reference splice
     also has the problem defined by compare_dict. Returns True if the reference also has a splicing problem.
     """
-    a_start = a.transcriptCoordinateToChromosome(aln.targetCoordinateToQuery(t_intron.start - 1))
-    a_stop = a.transcriptCoordinateToChromosome(aln.targetCoordinateToQuery(t_intron.stop))
+    a_start = a.transcriptCoordinateToChromosome(aln.targetCoordinateToQuery(intron.start - 1))
+    a_stop = a.transcriptCoordinateToChromosome(aln.targetCoordinateToQuery(intron.stop))
     if a_start is None or a_stop is None:
         return False
     a_start += 1
