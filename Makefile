@@ -206,7 +206,7 @@ assemblyHub: ${ASSEMBLY_HUB_DIR}/DONE
 
 ${ASSEMBLY_HUB_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 	if [ -d ${halJobTreeDir} ]; then rm -rf ${halJobTreeDir}; fi
-	if [ -d ${ASSEMBLY_HUB_DIR} ]; then rm -rf ${ASSEMBLY_HUB_DIR}/*; fi
+	if [ -d ${ASSEMBLY_HUB_DIR} ]; then rm -rf ${ASSEMBLY_HUB_DIR}; mkdir ${ASSEMBLY_HUB_DIR}; fi
 	cwd="$(shell pwd)" ;\
 	bigBedDirs="$(shell /bin/ls -1d ${ANNOTATION_DIR}/bedfiles/* | paste -s -d ",")" ;\
 	ssh kolossus.sdsc.edu -t "cd $$cwd && export PYTHONPATH=./ && export \
