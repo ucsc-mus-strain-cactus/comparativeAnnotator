@@ -77,6 +77,7 @@ srcCombinedPsl = ${srcDataDir}/${GENCODE_VERSION}.BasicPseudoCombined.psl
 srcCombinedCds = ${srcDataDir}/${GENCODE_VERSION}.BasicPseudoCombined.cds
 srcCombinedCheck = ${srcDataDir}/${GENCODE_VERSION}.BasicPseudoCombined.gene-check
 srcCombinedCheckBed = ${srcDataDir}/${GENCODE_VERSION}.BasicPseudoCombined.gene-check.bed
+srcCombinedFasta = ${srcDataDir}/${GENCODE_VERSION}.BasicPseudoCombined.fasta
 
 # mapping files
 mappedDataDir = ${TRANS_MAP_DIR}/mapped

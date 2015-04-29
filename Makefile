@@ -15,7 +15,7 @@ init:
 ####################################################################################################
 # Retrieve src data. Uses hgSql and related Kent tools.
 ####################################################################################################
-srcData: ${srcAttrs} ${srcBasicGp} ${srcPseudoGp} ${srcBasicPsl} ${srcPseudoPsl} ${srcBasicCds} ${srcPseudoCds} ${srcCombinedPsl} ${srcCombinedCheckBed} ${srcCombinedCheck}
+srcData: ${srcAttrs} ${srcBasicGp} ${srcPseudoGp} ${srcBasicPsl} ${srcPseudoPsl} ${srcBasicCds} ${srcPseudoCds} ${srcCombinedPsl} ${srcCombinedCheckBed} ${srcCombinedCheck} ${srcCombinedFasta}
 
 ${srcAttrs}:
 	@mkdir -p $(dir $@)
@@ -72,7 +72,11 @@ ${srcCombinedCheck}: ${srcCombinedGp} ${queryTwoBit}
 ${srcCombinedCheckBed}: ${srcCombinedCheck}
 	@mkdir -p $(dir $@)
 	genePredCheckToBed ${srcCombinedGp} ${srcCombinedCheck} $@.${tmpExt}
-	mv -f $@.${tmpExt} $@	
+	mv -f $@.${tmpExt} $@
+
+${srcCombinedFasta}: ${srcCombinedCheckBed} ${queryFasta}
+	@mkdir -p $(dir $@)
+	fastaFromBed -fi ${queryFasta} -fo ${srcCombinedFasta} -bed ${srcCombinedCheckBed} -name -s -split
 
 ####################################################################################################
 # Mapping. Also uses hgSql and related Kent tools.
