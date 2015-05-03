@@ -52,8 +52,8 @@ class BuildTracks(Target):
 
     def buildBigBed(self, bedPath, sizePath, genome, categoryName):
         bigBedPath = os.path.join(self.bigBedDir, categoryName, genome, genome + ".bb")
-        system("bedSort {} {}".format(bedPath, os.path.join(self.getLocalTempDir(), genome + "_tmp.bed")))
-        system("bedToBigBed -extraIndex=name {} {} {}".format(os.path.join(self.getLocalTempDir(), genome + "_tmp.bed"), sizePath, bigBedPath))
+        system("bedSort {} {}".format(bedPath, bedPath))
+        system("bedToBigBed -extraIndex=name {} {} {}".format(bedPath, sizePath, bigBedPath))
 
     def recolorTransMap(self, genome, bed):
         """
