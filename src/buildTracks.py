@@ -26,6 +26,7 @@ class BuildTracks(Target):
         Target.__init__(self)
         self.outDir = outDir
         self.bedDir = os.path.join(self.outDir, "bedfiles")
+        self.bigBedDir = os.path.join(self.outDir, "bigBedfiles")
         self.genomes = genomes
         self.primaryKeyColumn = primaryKeyColumn
         self.beds = beds
@@ -50,11 +51,9 @@ class BuildTracks(Target):
         return bedPath
 
     def buildBigBed(self, bedPath, sizePath, genome, categoryName):
-        bigBedPath = os.path.join(self.bedDir, categoryName, genome, genome + ".bb")
+        bigBedPath = os.path.join(self.bigBedDir, categoryName, genome, genome + ".bb")
         system("bedSort {} {}".format(bedPath, os.path.join(self.getLocalTempDir(), genome + "_tmp.bed")))
-        #system("bedSort {} {}".format(bedPath, bedPath))
         system("bedToBigBed -extraIndex=name {} {} {}".format(os.path.join(self.getLocalTempDir(), genome + "_tmp.bed"), sizePath, bigBedPath))
-        #system("bedToBigBed -extraIndex=name {} {} {}".format(bedPath, sizePath, bigBedPath))
 
     def recolorTransMap(self, genome, bed):
         """
@@ -121,4 +120,3 @@ class BuildTracks(Target):
                 # dumb - checks to make sure the BED is not empty so bedToBigBed doesn't crash
                 if os.stat(bedPath).st_size != 0:
                     self.buildBigBed(bedPath, sizePath, genome, category.__name__)
-                os.remove(bedPath)

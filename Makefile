@@ -2,6 +2,7 @@
 #include config.mk
 #include config_1412v3.mk
 include config_1411.mk
+SHELL = umask a+rw; exec /bin/sh
 
 all: init srcData mapping chaining filtered extractFasta geneCheck annotation assemblyHub plots
 
@@ -212,7 +213,7 @@ ${ASSEMBLY_HUB_DIR}/DONE: ${ANNOTATION_DIR}/DONE
 	if [ -d ${halJobTreeDir} ]; then rm -rf ${halJobTreeDir}; fi
 	if [ -d ${ASSEMBLY_HUB_DIR} ]; then rm -rf ${ASSEMBLY_HUB_DIR}; mkdir ${ASSEMBLY_HUB_DIR}; fi
 	cwd="$(shell pwd)" ;\
-	bigBedDirs="$(shell /bin/ls -1d ${ANNOTATION_DIR}/bedfiles/* | paste -s -d ",")" ;\
+	bigBedDirs="$(shell /bin/ls -1d ${ANNOTATION_DIR}/bigBedfiles/* | paste -s -d ",")" ;\
 	ssh kolossus.sdsc.edu -t "cd $$cwd && export PYTHONPATH=./ && export \
 	PATH=./bin/:./sonLib/bin:./submodules/jobTree/bin:${PATH} && \
 	python hal/assemblyHub/hal2assemblyHub.py ${HAL} ${ASSEMBLY_HUB_DIR} \

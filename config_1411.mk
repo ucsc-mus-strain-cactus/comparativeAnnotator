@@ -10,8 +10,7 @@ refGenome = C57B6J
 refGenomeSQLName = mm10
 
 # Data directories
-#MSCA_PROJ_DIR = /hive/groups/recon/projs/mus_strain_cactus
-MSCA_PROJ_DIR = .
+MSCA_PROJ_DIR = /hive/groups/recon/projs/mus_strain_cactus
 MSCA_DATA_DIR = ${MSCA_PROJ_DIR}/pipeline_data
 MSCA_VERSION = 1411
 GENCODE_VERSION = VM4
