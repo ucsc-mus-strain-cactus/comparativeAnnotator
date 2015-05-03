@@ -50,7 +50,7 @@ ${srcPseudoPsl}: ${srcPseudoGp}
 	genePredToFakePsl mm10 ${srcPseudoGeneSet} stdout ${srcPseudoCds} | tawk -v chromCol=14 '${editUcscChrom}' > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@	
 
-${srcCombinedPsl}: ${srcbasicPsl} ${srcPseudoPsl}
+${srcCombinedPsl}: ${srcBasicPsl} ${srcPseudoPsl}
 	@mkdir -p $(dir $@)
 	cat ${srcBasicPsl} ${srcPseudoPsl} | sort -k 10 > $@.${tmpExt}
 	mv -f $@.${tmpExt} $@
