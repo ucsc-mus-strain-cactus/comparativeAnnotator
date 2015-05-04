@@ -109,7 +109,7 @@ class BuildTracks(Target):
             if not os.path.exists(os.path.join(self.bigBedDir, "comparativeAnnotation", genome)):
                 os.mkdir(os.path.join(self.bigBedDir, "comparativeAnnotation", genome))
             recolored_records = self.recolorTransMap(genome, bed)
-            new_bed_path = os.path.join(self.bedDir, "comparativeAnnotation", genome, genome + "_recolored.bed")
+            new_bed_path = os.path.join(self.bedDir, "comparativeAnnotation", genome, genome + ".bed")
             with open(new_bed_path, 'w') as outf:
                 for l in recolored_records:
                     outf.write(l + "\n")
