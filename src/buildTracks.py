@@ -94,16 +94,22 @@ class BuildTracks(Target):
 
         if not os.path.exists(self.bedDir):
             os.mkdir(self.bedDir)
+        if not os.path.exists(self.bigBedDir):
+            os.mkdir(self.bigBedDir)
         if not os.path.exists(os.path.join(self.bedDir, "comparativeAnnotation")):
             os.mkdir(os.path.join(self.bedDir, "comparativeAnnotation"))
-        
+        if not os.path.exists(os.path.join(self.bigBedDir, "comparativeAnnotation")):
+            os.mkdir(os.path.join(self.bigBedDir, "comparativeAnnotation"))
+
         #build directory of comparativeAnnotation output
         for genome, bed, size in izip(self.genomes, self.beds, self.sizes):
             assert genome == os.path.basename(size).split(".")[0], (genome, os.path.basename(size).split(".")[0])
             if not os.path.exists(os.path.join(self.bedDir, "comparativeAnnotation", genome)):
                 os.mkdir(os.path.join(self.bedDir, "comparativeAnnotation", genome))
+            if not os.path.exists(os.path.join(self.bigBedDir, "comparativeAnnotation", genome)):
+                os.mkdir(os.path.join(self.bigBedDir, "comparativeAnnotation", genome))
             recolored_records = self.recolorTransMap(genome, bed)
-            new_bed_path = os.path.join(self.getLocalTempDir(), genome + "_recolored.bed")
+            new_bed_path = os.path.join(self.bedDir, "comparativeAnnotation", genome, genome + "_recolored.bed")
             with open(new_bed_path, 'w') as outf:
                 for l in recolored_records:
                     outf.write(l + "\n")
@@ -112,10 +118,14 @@ class BuildTracks(Target):
         for category in self.categories:
             if not os.path.exists(os.path.join(self.bedDir, category.__name__)):
                 os.mkdir(os.path.join(self.bedDir, category.__name__))
+            if not os.path.exists(os.path.join(self.bigBedDir, category.__name__)):
+                os.mkdir(os.path.join(self.bigBedDir, category.__name__))
             detailsFields, classifyFields, classifyValues, classifyOperations = category()
             for genome, sizePath in izip(self.genomes, self.sizes):
                 if not os.path.exists(os.path.join(self.bedDir, category.__name__, genome)):
                     os.mkdir(os.path.join(self.bedDir, category.__name__, genome))
+                if not os.path.exists(os.path.join(self.bigBedDir, category.__name__, genome)):
+                    os.mkdir(os.path.join(self.bigBedDir, category.__name__, genome))
                 bedPath = self.writeBed(genome, detailsFields, classifyFields, classifyValues, classifyOperations, category.__name__)
                 # dumb - checks to make sure the BED is not empty so bedToBigBed doesn't crash
                 if os.stat(bedPath).st_size != 0:
