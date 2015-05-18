@@ -8,7 +8,8 @@ from jobTree.src.bioio import setLoggingFromOptions, system, logger
 from lib.general_lib import classesInModule
 import lib.sqlite_lib as sql_lib
 
-import src.classifiers, src.attributes
+import src.classifiers
+import src.attributes
 from src.constructDatabases import ConstructDatabases
 from src.buildTracks import BuildTracks
 
@@ -74,20 +75,19 @@ def main():
 
     for x in args.psls:
             if not os.path.exists(x):
-                raise RuntimeError("PSL not present at {}".format(y))
+                raise RuntimeError("PSL not present at {}".format(x))
 
     for x in args.beds:
             if not os.path.exists(x):
-                raise RuntimeError("BED not present at {}".format(y))
+                raise RuntimeError("BED not present at {}".format(x))
 
     for x in args.fastas:
             if not os.path.exists(x):
-                raise RuntimeError("Fasta not present at {}".format(y))
+                raise RuntimeError("Fasta not present at {}".format(x))
 
     for x in args.sizes:
             if not os.path.exists(x):
-                raise RuntimeError("chrom.sizes not present at {}".format(y))
-
+                raise RuntimeError("chrom.sizes not present at {}".format(x))
 
     i = Stack(Target.makeTargetFn(buildAnalyses, args=(sorted(args.psls), sorted(args.fastas), args.refTwoBit,
                                                        sorted(args.beds), args.gencodeAttributeMap, sorted(args.genomes),

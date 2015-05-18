@@ -354,7 +354,7 @@ class BeginStart(AbstractClassifier):
         for aId, t in self.transcriptDict.iteritems():
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
             aln = self.alignmentDict[aId]
-            # do not include noncoding transcripts or lift-overs that contain less than 1 codon
+            # do not include noncoding transcripts or lift-overs that contain less than 25 codons
             if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
                 continue
             cds_positions = [t.chromosomeCoordinateToCds(aln.queryCoordinateToTarget(a.cdsCoordinateToTranscript(i))) for i in xrange(3)]
@@ -686,7 +686,7 @@ class EndStop(AbstractClassifier):
     of the lifted over transcript AND that those bases are in ('TAA', 'TGA', 'TAG'). Must have at least 25 codons.
 
     If this is NOT true, will report a BED record of the last 3 bases.
-    
+
     Value will be NULL if there is insufficient information, which is defined as:
         1) thickStop - thickStart <= 9: (no useful CDS annotation)
         2) this alignment was not trans-mapped
@@ -791,7 +791,7 @@ class ShortCds(AbstractClassifier):
                 continue
             elif a.getCdsLength() <= cdsCutoff:
                 detailsDict[aId] = seq_lib.transcriptToBed(t, self.colors["input"], self.column)
-                classifyDict[aId] = 1                
+                classifyDict[aId] = 1
             elif t.getCdsLength() <= cdsCutoff:
                 detailsDict[aId] = seq_lib.transcriptToBed(t, self.rgb, self.column)
                 classifyDict[aId] = 1
@@ -874,7 +874,7 @@ class UnknownCdsBases(UnknownBases):
 
 class Nonsynonymous(AbstractClassifier):
     """
-    Do any base changes introduce nonsynonmous changes? Only looks at aligned pairs of codons in the frame
+    Do any base changes introduce nonsynonymous changes? Only looks at aligned pairs of codons in the frame
     of the reference annotation.
     """
     @property
@@ -908,12 +908,12 @@ class Nonsynonymous(AbstractClassifier):
 
 class Synonymous(AbstractClassifier):
     """
-    Do any base changes introduce nonsynonmous changes? Only looks at aligned pairs of codons in the frame
+    Do any base changes introduce synonymous changes? Only looks at aligned pairs of codons in the frame
     of the reference annotation.
     """
     @property
     def rgb(self):
-        return self.colors["synon"]        
+        return self.colors["synon"]
 
     def run(self):
         logger.info("Starting details analysis {} on {}".format(self.column, self.genome))
@@ -946,7 +946,7 @@ class Paralogy(AbstractClassifier):
     """
     @property
     def rgb(self):
-        return self.colors["mutation"]       
+        return self.colors["mutation"]
 
     def run(self):
         logger.info("Starting details analysis {} on {}".format(self.column, self.genome))
