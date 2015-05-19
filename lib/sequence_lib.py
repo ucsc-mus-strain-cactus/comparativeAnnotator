@@ -563,12 +563,13 @@ class GenePredTranscript(Transcript):
     To be more efficient, the cds and mRNA slots are saved for if those sequences are ever retrieved.
     Then they will be stored so we don't slice the same thing over and over.
     """
-    # adding slots for cdsStartStat, cdsEndStat, exonFrames
+    # adding slots for new fields
     __slots__ = ('cdsStartStat', 'cdsEndStat', 'exonFrames')
 
     def __init__(self, gene_pred_tokens):
         # Text genePred fields
         self.name = gene_pred_tokens[0]
+        self.chromosome = gene_pred_tokens[1]
         self.strand = convertStrand(gene_pred_tokens[2])
         # Integer genePred fields
         self.score = 0                                  # no score in genePred files
@@ -581,14 +582,15 @@ class GenePredTranscript(Transcript):
         self.cdsStartStat = gene_pred_tokens[12]
         self.cdsEndStat = gene_pred_tokens[13]
         self.exonFrames = [int(x) for x in gene_pred_tokens[14].split(",") if x != ""]
-        # create a fake BED entry to pass to the interval making stuff
-        blockCount = gene_pred_tokens[7]
+        # convert genePred format coordinates to BED-like coordinates to make intervals
+        self.blockCount = gene_pred_tokens[7]
         blockStarts = [int(x) for x in gene_pred_tokens[8].split(",") if x != ""]
         blockEnds = [int(x) for x in gene_pred_tokens[9].split(",") if x != ""]
-        blockSizes = [e - s for e, s in izip(blockEnds, blockStarts)]
+        self.blockSizes = [e - s for e, s in izip(blockEnds, blockStarts)]
+        self.blockStarts = [x - self.start for x in blockStarts]
         bed_tokens = [gene_pred_tokens[1], self.start, self.stop, self.name, self.score, gene_pred_tokens[2],
-                      self.thickStart, self.thickStop, ",".join(map(str, self.rgb)), blockCount,
-                      ",".join(map(str, blockSizes)), ",".join(map(str, blockStarts))]
+                      self.thickStart, self.thickStop, ",".join(map(str, self.rgb)), self.blockCount,
+                      ",".join(map(str, self.blockSizes)), ",".join(map(str, self.blockStarts))]
         # build chromosome intervals for exons and introns
         self.exonIntervals = self._getExonIntervals(bed_tokens)
         self.intronIntervals = self._getIntronIntervals()

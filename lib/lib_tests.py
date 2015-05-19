@@ -207,11 +207,10 @@ def simplePsl(strand, qSize, qStart, qEnd, tSize, tStart, tEnd,
     return psl_lib.PslRow(line)
 
 
-
 ##############################################################################
 ##############################################################################
 #
-#The classes below test functions and classes in the sequence_lib library
+# The classes below test functions and classes in the sequence_lib library
 #
 ##############################################################################
 ##############################################################################
@@ -240,7 +239,7 @@ class NegativeStrandTranscriptTests(unittest.TestCase):
         self.amino_acid = "AR"
         self.introns = ["GT", "A"]
         tmp = os.path.abspath(makeTempDir())
-        createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
+        createSequenceFile({"chr1": "GTATTCTTGGACCTAA"}, tmp)
         runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
         self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
         self.addCleanup(removeDir, tmp)
@@ -1205,7 +1204,6 @@ class ComplicatedTranscript2(unittest.TestCase):
         self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
         self.addCleanup(removeDir, tmp)
 
-
     def test_sizes(self):
         """
         Make sure sizes are correct
@@ -1294,6 +1292,53 @@ class ComplicatedTranscript2(unittest.TestCase):
         self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
         self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
         self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+
+
+class NegativeStrandGenePredTranscript(NegativeStrandTranscriptTests):
+    """
+    Tests the GenePred functionality by copying the negative strand transcript being inherited.
+
+    """
+    def setUp(self):
+        self.t = seq_lib.GenePredTranscript(['A', 'chr1', '-', '2', '15', '4', '13', '3', '2,7,12', '6,10,15', '1',
+                                             'q2', 'cmpl', 'cmpl', '2,0,0'])
+        self.transcript_seq = "TAGCCAGAAT"
+        self.cds_seq = "GCCAGA"
+        self.amino_acid = "AR"
+        self.introns = ["GT", "A"]
+        tmp = os.path.abspath(makeTempDir())
+        createSequenceFile({"chr1": "GTATTCTTGGACCTAA"}, tmp)
+        runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
+        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.addCleanup(removeDir, tmp)
+
+
+class PositiveStrandGenePredTranscript(PositiveStrandTranscriptTests):
+    """
+    Tests the Transcript functionality part of sequence_lib.
+
+    Tests the example positive strand BED record drawn out below:
+
+    chrom    0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15
+    seq      G  T  A  T  T  C  T  T  G  G  A  C  C  T  A  A
+    tx       -  -  a  t  T  C  -  T  G  G  -  -  C  t  a  -
+    tx.pos         0  1  2  3     4  5  6        7  8  9
+    cds.pos              0  1     2  3  4        5
+
+    """
+
+    def setUp(self):
+        self.t = seq_lib.GenePredTranscript(['A', 'chr1', '+', '2', '15', '4', '13', '3', '2,7,12', '6,10,15', '1',
+                                             'q2', 'cmpl', 'cmpl', '2,0,0'])
+        self.transcript_seq = "ATTCTGGCTA"
+        self.cds_seq = "TCTGGC"
+        self.amino_acid = "SG"
+        self.introns = ["T", "AC"]
+        tmp = os.path.abspath(makeTempDir())
+        createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
+        runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
+        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.addCleanup(removeDir, tmp)
 
 
 if __name__ == '__main__':
