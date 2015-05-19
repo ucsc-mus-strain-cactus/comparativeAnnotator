@@ -8,6 +8,17 @@ from collections import defaultdict, Counter
 from src.helperFunctions import *
 from itertools import izip
 
+transcripts = seq_lib.getTranscripts("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1411/transMap/results/geneCheck/C57B6NJ.gene-check.bed")
+transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
+annotations = seq_lib.getTranscripts("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1411/transMap/data/VM4.BasicPseudoCombined.gene-check.bed")
+annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
+alignments = psl_lib.readPsl("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1411/transMap/results/filtered/C57B6NJ.filtered.psl")
+alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
+aId = "ENSMUST00000173512.1-1"
+a = annotationDict[aId[:-2]]
+t = transcriptDict[aId]
+aln = alignmentDict[aId]
+
 
 transcripts = seq_lib.getTranscripts("pipeline_data/comparative/1411/transMap/results/geneCheck/C57B6NJ.gene-check.bed")
 transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)

@@ -410,9 +410,9 @@ class Transcript(object):
         """
         Returns the chromosome-relative position of the CDS start.
         This is not thickStart if a negative strand gene.
-        Therefore, no gaurantee it is smaller than the stop.
+        Therefore, no guarantee it is smaller than the stop.
         """
-        if strand is True:
+        if self.strand is True:
             return self.thickStart
         else:
             return self.thickStop - 1
@@ -421,9 +421,9 @@ class Transcript(object):
         """
         Returns the chromosome-relative position of the CDS stop.
         This is not thickStart if a negative strand gene.
-        Therefore, no gaurantee it is larger than the stop.
+        Therefore, no guarantee it is larger than the stop.
         """
-        if strand is True:
+        if self.strand is True:
             return self.thickStop
         else:
             return self.thickStart - 1
@@ -589,10 +589,11 @@ class GenePredTranscript(Transcript):
     """
     #adding slots for cdsStartStat, cdsEndStat, exonFrames
     __slots__ = ('cdsStartStat', 'cdsEndStat', 'exonFrames')
-    
+
     def __init__(self, gene_pred_tokens):
         # Text genePred fields
         self.name = gene_pred_tokens[0]
+        self.chromosome = gene_pred_tokens[1]
         self.strand = convertStrand(gene_pred_tokens[2])
 
         # Integer genePred fields
@@ -601,32 +602,32 @@ class GenePredTranscript(Transcript):
         self.thickStop = int(gene_pred_tokens[6])
         self.start = int(gene_pred_tokens[3])
         self.stop = int(gene_pred_tokens[4])
-        self.rgb = [0, 128, 0] #no RGB in genePred files
+        self.rgb = "128,0,0" #no RGB in genePred files
 
         # genePred specific fields
         self.cdsStartStat = gene_pred_tokens[12]
         self.cdsEndStat = gene_pred_tokens[13]
         self.exonFrames = [int(x) for x in gene_pred_tokens[14].split(",") if x != ""]
 
-        #create a fake BED entry to pass to the interval making stuff
+        # create a fake BED entry to pass to the interval making stuff
         blockCount = gene_pred_tokens[7]
         blockStarts = [int(x) for x in gene_pred_tokens[8].split(",") if x != ""]
         blockEnds = [int(x) for x in gene_pred_tokens[9].split(",") if x != ""]
-        blockSizes = [e - s for e,s in izip(blockEnds, blockStarts)]
+        blockSizes = [e - s for e, s in izip(blockEnds, blockStarts)]
         bed_tokens = [gene_pred_tokens[1], self.start, self.stop, self.name, self.score, gene_pred_tokens[2], 
-                self.thickStart, self.thickStop, ",".join(map(str,self.rgb)), blockCount, 
-                ",".join(map(str,blockSizes)), ",".join(map(str,blockStarts))]
+                self.thickStart, self.thickStop, ",".join(map(str, self.rgb)), blockCount,
+                ",".join(map(str, blockSizes)), ",".join(map(str, blockStarts))]
 
-        #interval for entire transcript including introns
-        self = ChromosomeInterval(bed_tokens[0], self.start, 
-                self.stop, self.strand)
-
-        #build chromosome intervals for exons and introns
+        # build chromosome intervals for exons and introns
         self.exonIntervals = self._getExonIntervals(bed_tokens)
         self.intronIntervals = self._getIntronIntervals(bed_tokens)
 
-        #build Exons mapping transcript space coordinates to chromosome
+        # build Exons mapping transcript space coordinates to chromosome
         self.exons = self._getExons(bed_tokens)
+
+        # calculate sizes
+        self._getCdsSize()
+        self._getSize()
 
 
 class Exon(object):
@@ -665,7 +666,6 @@ class Exon(object):
 
     def __len__(self):
         return self.stop - self.start
-        
 
     def containsChromPos(self, p):
         """does this exon contain a given chromosome position?"""
@@ -826,7 +826,7 @@ class Exon(object):
         #all-coding and stop exons can be calculated the same way
         else:
             t_pos = p - self.cdsPos + self.start
-        
+
         #error checking to make sure p was a proper transcript pos and inside CDS
         if self.containsTranscriptPos(t_pos) is False:
             return None
