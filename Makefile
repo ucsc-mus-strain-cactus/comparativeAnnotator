@@ -188,7 +188,7 @@ ${ANNOTATION_DIR}/DONE: ${geneCheckEvalsBed} ${srcCombinedCheckBed}
 	if [ "${batchSystem}" = "parasol" ]; then \
 		cwd="$(shell pwd)" ;\
 		ssh ku -t "cd $$cwd && export PYTHONPATH=./ && \
-		export PATH=./bin/:./sonLib/bin:./submodules/jobTree/bin:${PATH} && \
+		export PATH=./bin/:./sonLib/bin:./jobTree/bin:${PATH} && \
 		python src/annotationPipeline.py --refGenome ${refGenome} --genomes ${genomes} --sizes ${targetChromSizes} \
 		--psls ${filteredPsls} --beds ${targetBedFiles} --fastas ${targetFastaFiles} --refTwoBit ${queryTwoBit} \
 		--annotationBed ${srcCombinedCheckBed} --batchSystem ${batchSystem} --gencodeAttributeMap ${srcAttrs} \
