@@ -54,14 +54,11 @@ class Transcript(object):
         self.blockCount = bed_tokens[9]
         self.blockSizes = bed_tokens[10]
         self.blockStarts = bed_tokens[11]
-
         # build chromosome intervals for exons and introns
         self.exonIntervals = self._getExonIntervals(bed_tokens)
         self.intronIntervals = self._getIntronIntervals()
-
         # build Exons mapping transcript space coordinates to chromosome
         self.exons = self._getExons(bed_tokens)
-
         # calculate sizes
         self._getCdsSize()
         self._getSize()
@@ -269,24 +266,24 @@ class Transcript(object):
                 elif thick_start == thick_stop == 0:
                     this_cds_start, this_cds_stop, this_cds_pos = None, None, None
                 # special case - start and stop codons are on the same exon
-                elif (thick_stop > this_chrom_start and thick_stop <= this_chrom_stop) and \
-                        (thick_start >= this_chrom_start and thick_start < this_chrom_stop):
+                elif (this_chrom_start < thick_stop <= this_chrom_stop and this_chrom_start <= thick_start <
+                         this_chrom_stop):
                     cds_pos = thick_stop - this_chrom_start
                     this_cds_pos = 0
                     this_cds_start = this_start + this_chrom_stop - thick_stop
                     this_cds_stop = this_start + this_chrom_stop - thick_start
                 # is this the start codon containing exon?
-                elif thick_stop > this_chrom_start and thick_stop <= this_chrom_stop:
+                elif this_chrom_start < thick_stop <= this_chrom_stop:
                     cds_pos = thick_stop - this_chrom_start
                     this_cds_pos = 0
                     this_cds_start = this_start + this_chrom_stop - thick_stop
                 # is this the stop codon containing exon?
-                elif thick_start >= this_chrom_start and thick_start < this_chrom_stop:
+                elif this_chrom_start <= thick_start < this_chrom_stop:
                     this_cds_pos = cds_pos
                     this_cds_stop = this_start + this_chrom_stop - thick_start
                 # is this exon all coding?
-                elif (this_cds_stop == None and this_cds_start == None and thick_stop >= 
-                        this_chrom_stop and thick_start < this_chrom_start):
+                elif (this_cds_stop is None and this_cds_start is None and thick_stop >=
+                      this_chrom_stop and thick_start < this_chrom_start):
                     this_cds_pos = cds_pos
                     cds_pos += block_size
             exons.append(Exon(this_start, this_stop, strand, this_chrom_start, this_chrom_stop, this_cds_start,
@@ -573,20 +570,17 @@ class GenePredTranscript(Transcript):
         # Text genePred fields
         self.name = gene_pred_tokens[0]
         self.strand = convertStrand(gene_pred_tokens[2])
-
         # Integer genePred fields
-        self.score = 0              # no score in genePred files
+        self.score = 0                                  # no score in genePred files
         self.thickStart = int(gene_pred_tokens[5])
         self.thickStop = int(gene_pred_tokens[6])
         self.start = int(gene_pred_tokens[3])
         self.stop = int(gene_pred_tokens[4])
-        self.rgb = [0, 128, 0]      # no RGB in genePred files
-
+        self.rgb = "128,0,0"                            # no RGB in genePred files
         # genePred specific fields
         self.cdsStartStat = gene_pred_tokens[12]
         self.cdsEndStat = gene_pred_tokens[13]
         self.exonFrames = [int(x) for x in gene_pred_tokens[14].split(",") if x != ""]
-
         # create a fake BED entry to pass to the interval making stuff
         blockCount = gene_pred_tokens[7]
         blockStarts = [int(x) for x in gene_pred_tokens[8].split(",") if x != ""]
@@ -786,9 +780,8 @@ class ChromosomeInterval(object):
     Represents an interval of a chromosome. BED coordinates, strand is True,
     False or None (if no strand)
     """
-    
     __slots__ = ('chromosome', 'start', 'stop', 'strand')    # conserve memory
-    
+
     def __init__(self, chromosome, start, stop, strand):
         self.chromosome = str(chromosome)
         self.start = int(start)    # 0 based
