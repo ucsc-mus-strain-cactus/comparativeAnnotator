@@ -586,11 +586,11 @@ class GenePredTranscript(Transcript):
         self.blockCount = gene_pred_tokens[7]
         blockStarts = [int(x) for x in gene_pred_tokens[8].split(",") if x != ""]
         blockEnds = [int(x) for x in gene_pred_tokens[9].split(",") if x != ""]
-        self.blockSizes = [e - s for e, s in izip(blockEnds, blockStarts)]
-        self.blockStarts = [x - self.start for x in blockStarts]
+        self.blockSizes = ",".join(map(str, [e - s for e, s in izip(blockEnds, blockStarts)]))
+        self.blockStarts = ",".join(map(str, [x - self.start for x in blockStarts]))
         bed_tokens = [gene_pred_tokens[1], self.start, self.stop, self.name, self.score, gene_pred_tokens[2],
-                      self.thickStart, self.thickStop, ",".join(map(str, self.rgb)), self.blockCount,
-                      ",".join(map(str, self.blockSizes)), ",".join(map(str, self.blockStarts))]
+                      self.thickStart, self.thickStop, self.rgb, self.blockCount,
+                      self.blockSizes, self.blockStarts]
         # build chromosome intervals for exons and introns
         self.exonIntervals = self._getExonIntervals(bed_tokens)
         self.intronIntervals = self._getIntronIntervals()
