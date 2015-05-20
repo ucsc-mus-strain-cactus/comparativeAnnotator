@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument("--genomes", type=str, nargs="+", required=True, help="genomes in this comparison")
     parser.add_argument("--outDir", type=DirType, required=True, help="output directory")
     parser.add_argument("--comparativeAnnotationDir", type=DirType, required=True, help="directory containing databases")
-    parser.add_argument("--annotationBed", type=str, required=True, help="annotation bed")
+    parser.add_argument("--annotationGp", type=str, required=True, help="annotation genePred")
     parser.add_argument("--width", default=8.0, type=float, help="figure width in inches")
     parser.add_argument("--height", default=4.0, type=float, help="figure height in inches")
     parser.add_argument("--biotypes", nargs="+", default=["protein_coding", "lincRNA", "miRNA", "snoRNA", "snRNA", "processed_pseudogene", "pseudogene", "unprocessed_pseudogene"])
@@ -64,9 +64,9 @@ def init_image(out_folder, comparison_name, width, height):
     return fig, pdf
 
 
-def get_biotype_transcript_map(attrs, annotation_bed):
+def get_biotype_transcript_map(attrs, annotation_gp):
     attr_map = {x.split()[3]: x.split()[4] for x in open(attrs)}
-    biotype_map = {x.split()[3]: attr_map[x.split()[3]] for x in open(annotation_bed)}
+    biotype_map = {x.split()[0]: attr_map[x.split()[0]] for x in open(annotation_gp)}
     biotype_counts = Counter(biotype_map.itervalues())
     return biotype_map, biotype_counts
 
