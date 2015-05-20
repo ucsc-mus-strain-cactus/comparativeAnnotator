@@ -5,7 +5,7 @@ from jobTree.scriptTree.target import Target
 
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
-import lib.sqlite_lib as sql_lib
+
 
 class AbstractClassifier(Target):
     colors = {'input': '219,220,222',     # grey
@@ -15,11 +15,13 @@ class AbstractClassifier(Target):
                'synon': '163,116,87',      # light brown
                'nonsynon': '181,216,139',  # avocado
                'generic': '152,156,45'     # grey-yellow
-               }
-    def __init__(self, genome, alnPsl, fasta, refSeqTwoBit, annotationBed, gencodeAttributeMap, geneCheckBed, refGenome, primaryKey, outDir):
-        #initialize the Target
+              }
+
+    def __init__(self, genome, alnPsl, fasta, refSeqTwoBit, annotationGp, gencodeAttributeMap, targetGp, refGenome,
+                 primaryKey, outDir):
+        # initialize the Target
         Target.__init__(self)
-        #primary key this will be keyed on (AlignmentId usually)
+        # primary key this will be keyed on (AlignmentId usually)
         self.primaryKey = primaryKey
         self.genome = genome
         self.refGenome = refGenome
@@ -27,8 +29,8 @@ class AbstractClassifier(Target):
         self.fasta = fasta
         self.refSeqTwoBit = refSeqTwoBit
         self.gencodeAttributeMap = gencodeAttributeMap
-        self.geneCheckBed = geneCheckBed
-        self.annotationBed = annotationBed
+        self.targetGp = targetGp
+        self.annotationGp = annotationGp
         self.outDir = os.path.join(outDir, self.genome)
         if not os.path.exists(outDir):
             os.mkdir(outDir)
@@ -36,7 +38,7 @@ class AbstractClassifier(Target):
             os.mkdir(self.outDir)
 
     def getTranscriptDict(self):
-        self.transcripts = seq_lib.getTranscripts(self.geneCheckBed)
+        self.transcripts = seq_lib.getGenePredTranscripts(self.targetGp)
         self.transcriptDict = seq_lib.transcriptListToDict(self.transcripts, noDuplicates=True)
 
     def getRefDict(self):
@@ -50,7 +52,7 @@ class AbstractClassifier(Target):
         self.alignmentDict = psl_lib.getPslDict(self.psls, noDuplicates=True)
 
     def getAnnotationDict(self):
-        self.annotations = seq_lib.getTranscripts(self.annotationBed)
+        self.annotations = seq_lib.getGenePredTranscripts(self.annotationGp)
         self.annotationDict = seq_lib.transcriptListToDict(self.annotations, noDuplicates=True)
 
     @property

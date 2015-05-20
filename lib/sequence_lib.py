@@ -971,12 +971,22 @@ def getSequenceDict(file_path, upper=True):
 
 def getTranscripts(bedFile):
     """
-    Given a path to a standard BED file and a details BED, return a list of
-    Transcript objects.
+    Given a path to a standard BED return a list of Transcript objects
     """
     transcripts = []
     bedFile = open(bedFile, 'r')
     for t in transcriptIterator(bedFile):
+        transcripts.append(t)
+    return transcripts
+
+
+def getGenePredTranscripts(gpFile):
+    """
+    Given a path to a standard genePred file return a list of GenePredTranscript objects
+    """
+    transcripts = []
+    gpFile = open(gpFile, 'r')
+    for t in genePredTranscriptIterator(gpFile):
         transcripts.append(t)
     return transcripts
 
@@ -1029,6 +1039,14 @@ def transcriptIterator(transcriptsBedStream):
     """
     for tokens in tokenizeBedStream(transcriptsBedStream):
         yield Transcript(tokens)
+
+
+def genePredTranscriptIterator(transcriptsGpStream):
+    """
+    Iterates over the transcript detailed in the bed stream producing Transcript objects.
+    """
+    for tokens in tokenizeBedStream(transcriptsGpStream):
+        yield GenePredTranscript(tokens)
 
 
 def getTranscriptAttributeDict(attributeFile):

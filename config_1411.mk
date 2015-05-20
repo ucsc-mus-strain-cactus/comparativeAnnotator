@@ -7,7 +7,6 @@
 # Genomes in this analysis
 genomes = C57B6J Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ
 refGenome = C57B6J
-refGenomeSQLName = mm10
 
 # Data directories
 MSCA_PROJ_DIR = /hive/groups/recon/projs/mus_strain_cactus
@@ -17,7 +16,6 @@ GENCODE_VERSION = VM4
 GENOMES_DIR = ${MSCA_DATA_DIR}/assemblies/${MSCA_VERSION}
 ANNOTATION_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/comparativeAnnotation
 TRANS_MAP_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/transMap
-ASSEMBLY_HUB_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/assemblyHub
 METRICS_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/metrics
 
 # Input files
