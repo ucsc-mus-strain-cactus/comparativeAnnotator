@@ -1028,8 +1028,7 @@ def tokenizeGenePredStream(genePredStream):
     """
     for line in genePredStream:
         if line != '':
-            tokens = line.split("\t")
-            tokens[-1].rstrip()
+            tokens = line.rstrip().split("\t")
             yield tokens
 
 
@@ -1045,7 +1044,7 @@ def genePredTranscriptIterator(transcriptsGpStream):
     """
     Iterates over the transcript detailed in the bed stream producing Transcript objects.
     """
-    for tokens in tokenizeBedStream(transcriptsGpStream):
+    for tokens in tokenizeGenePredStream(transcriptsGpStream):
         yield GenePredTranscript(tokens)
 
 

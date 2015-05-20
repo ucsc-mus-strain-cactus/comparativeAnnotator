@@ -5,7 +5,8 @@
 ####################################################################################################
 
 # Genomes in this analysis
-genomes = C57B6J Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ
+#genomes = C57B6J Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ
+genomes = C57B6NJ
 refGenome = C57B6J
 
 # Data directories
@@ -22,7 +23,7 @@ METRICS_DIR = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/metrics
 HAL = ${MSCA_DATA_DIR}/comparative/${MSCA_VERSION}/cactus/${MSCA_VERSION}.hal
 
 # jobTree configuration
-batchSystem = parasol
+batchSystem = singleMachine
 maxThreads = 30
 maxCpus = 1024
 defaultMemory = 8589934592
