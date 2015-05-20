@@ -5,8 +5,7 @@
 ####################################################################################################
 
 # Genomes in this analysis
-#genomes = C57B6J Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ
-genomes = C57B6NJ
+genomes = C57B6J Rattus 129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ
 refGenome = C57B6J
 
 # Data directories

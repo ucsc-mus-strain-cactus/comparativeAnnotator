@@ -114,7 +114,7 @@ def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
     if a.strand is True:
         a_offset = a_frames[0]
     else:
-        a_offset = a_frames[-1]
+        a_offset = 3 - a_frames[-1]
     for i in xrange(a_offset, a.getCdsLength(), 3):
         target_cds_positions = [t.chromosomeCoordinateToCds(aln.queryCoordinateToTarget(a.cdsCoordinateToTranscript(j))) 
                                 for j in xrange(i, i + 3)]
