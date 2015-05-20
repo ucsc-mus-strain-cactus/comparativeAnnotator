@@ -62,8 +62,8 @@ def main():
     setLoggingFromOptions(args)
 
     assert len(args.psls) == len(args.fastas) == len(args.genomes) == len(args.gps) == len(args.sizes)
-    assert all([os.path.basename(x).split(".")[0] in args.genomes for y in [args.psls, args.gps, args.fastas, args.sizes]
-                for x in y]), (args.genomes, args.psls, args.gps, args.fastas, args.sizes)
+    for genome, psl, gp, fasta, size in izip(args.genomes, args.psls, args.gps, args.fastas, args.sizes):
+        assert all([genome in x for x in [psl, gp, fasta, size]])
 
     if not os.path.exists(args.outDir):
         os.mkdir(args.outDir)
