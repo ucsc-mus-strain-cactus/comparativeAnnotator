@@ -6,6 +6,7 @@ from collections import defaultdict
 import src.queries
 import lib.sqlite_lib as sql_lib
 import lib.psl_lib as psl_lib
+import lib.sequence_lib as seq_lib
 from lib.general_lib import functionsInModule
 from src.abstractClassifier import AbstractClassifier
 from jobTree.scriptTree.target import Target
@@ -22,16 +23,16 @@ class BuildTracks(Target):
         a matching list of values that the classify field should have.
         a matching list of AND/OR operations to link the logic together
     """
-    def __init__(self, outDir, genomes, primaryKeyColumn, sizes, beds, annotationBed):
+    def __init__(self, outDir, genomes, primaryKeyColumn, sizes, gps, annotationGp):
         Target.__init__(self)
         self.outDir = outDir
         self.bedDir = os.path.join(self.outDir, "bedfiles")
         self.bigBedDir = os.path.join(self.outDir, "bigBedfiles")
         self.genomes = genomes
         self.primaryKeyColumn = primaryKeyColumn
-        self.beds = beds
+        self.gps = gps
         self.sizes = sizes
-        self.annotationBed = annotationBed
+        self.annotationGp = annotationGp
         self.categories = functionsInModule(src.queries)
         # bring in abstractClassifier colors
         self.colors = AbstractClassifier.colors
@@ -55,37 +56,34 @@ class BuildTracks(Target):
         system("bedSort {} {}".format(bedPath, bedPath))
         system("bedToBigBed -extraIndex=name {} {} {}".format(bedPath, sizePath, bigBedPath))
 
-    def recolorTransMap(self, genome, bed):
+    def recolorTransMap(self, genome, gp):
         """
         Recolors the comparativeAnnotation results based on the scheme assembly > alignment > biology. Transcripts not in
-        one of these categories will become black. Also removes the unique tag from transcript IDs.
+        one of these categories will become black.
         """
-        records = [x.split() for x in open(bed)]
+        records = seq_lib.getGenePredTranscripts(gp)
         # first we recolor everything black
         for x in records:
-            x[8] = "0"
+            x.rgb = "0"
         # now we find all interesting biology and color that the interesting biology color
         detailsFields, classifyFields, classifyValues, classifyOperations = src.queries.interestingBiology()
         aIds = {x[0] for x in sql_lib.selectBetweenDatabases(self.cur, "details", self.primaryKeyColumn, classifyFields, classifyValues, classifyOperations, self.primaryKeyColumn, genome)}
         for x in records:
-            if x[3] in aIds:
-                x[8] = self.colors["mutation"]
+            if x.name in aIds:
+                x.rgb = self.colors["mutation"]
         # now the alignment errors...
         detailsFields, classifyFields, classifyValues, classifyOperations = src.queries.alignmentErrors()
         aIds = {x[0] for x in sql_lib.selectBetweenDatabases(self.cur, "details", self.primaryKeyColumn, classifyFields, classifyValues, classifyOperations, self.primaryKeyColumn, genome)}
         for x in records:
-            if x[3] in aIds:
-                x[8] = self.colors["alignment"]
+            if x.name in aIds:
+                x.rgb = self.colors["alignment"]
         # finally the assembly
         detailsFields, classifyFields, classifyValues, classifyOperations = src.queries.assemblyErrors()
         aIds = {x[0] for x in sql_lib.selectBetweenDatabases(self.cur, "details", self.primaryKeyColumn, classifyFields, classifyValues, classifyOperations, self.primaryKeyColumn, genome)}
         for x in records:
-            if x[3] in aIds:
-                x[8] = self.colors["assembly"]
-        # remove alignment IDs
-        for x in records:
-            x[3] = psl_lib.removeAlignmentNumber(x[3])
-        return ["\t".join(x) for x in records]
+            if x.name in aIds:
+                x.rgb = self.colors["assembly"]
+        return ["\t".join(map(str, x.getBed())) for x in records]
 
     def run(self):
         self.con = sql.connect(os.path.join(self.outDir, "classify.db"))
@@ -102,7 +100,7 @@ class BuildTracks(Target):
             os.mkdir(os.path.join(self.bigBedDir, "comparativeAnnotation"))
 
         #build directory of comparativeAnnotation output
-        for genome, bed, size in izip(self.genomes, self.beds, self.sizes):
+        for genome, bed, size in izip(self.genomes, self.gps, self.sizes):
             assert genome == os.path.basename(size).split(".")[0], (genome, os.path.basename(size).split(".")[0])
             if not os.path.exists(os.path.join(self.bedDir, "comparativeAnnotation", genome)):
                 os.mkdir(os.path.join(self.bedDir, "comparativeAnnotation", genome))
