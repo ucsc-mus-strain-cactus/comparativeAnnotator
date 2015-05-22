@@ -12,11 +12,12 @@ from itertools import izip
 from math import ceil, floor
 from jobTree.src.bioio import fastaRead
 
-#in case you are running the tests
+# in case you are running the tests
 try:
     from lib.twobit import TwoBitFile, TwoBitSequence
-except:
+except ImportError:
     from twobit import TwoBitFile, TwoBitSequence
+
 
 class Transcript(object):
     """
@@ -35,11 +36,11 @@ class Transcript(object):
     To be more efficient, the cds and mRNA slots are saved for if those sequences are ever retrieved.
     Then they will be stored so we don't slice the same thing over and over.
     """
-    
+
     __slots__ = ('name', 'strand', 'score', 'thickStart', 'rgb', 'thickStop', 'start', 'stop', 'intronIntervals',
                  'exonIntervals', 'exons', 'cds', 'mRna', 'blockSizes', 'blockStarts', 'blockCount', 'chromosome',
                  'cdsSize', 'transcriptSize')
-    
+
     def __init__(self, bed_tokens):
         self.chromosome = bed_tokens[0]
         self.start = int(bed_tokens[1])
@@ -53,31 +54,20 @@ class Transcript(object):
         self.blockCount = bed_tokens[9]
         self.blockSizes = bed_tokens[10]
         self.blockStarts = bed_tokens[11]
-
-        #build chromosome intervals for exons and introns
+        # build chromosome intervals for exons and introns
         self.exonIntervals = self._getExonIntervals(bed_tokens)
-        self.intronIntervals = self._getIntronIntervals(bed_tokens)
-
-        #build Exons mapping transcript space coordinates to chromosome
+        self.intronIntervals = self._getIntronIntervals()
+        # build Exons mapping transcript space coordinates to chromosome
         self.exons = self._getExons(bed_tokens)
-
-        #calculate sizes
+        # calculate sizes
         self._getCdsSize()
         self._getSize()
 
     def __len__(self):
-        return  self.transcriptSize
+        return self.transcriptSize
 
     def __cmp__(self, transcript):
-        return cmp((self, self.name),
-                    (transcript, transcript.name))
-
-    def hashkey(self):
-        """
-        Return a string to use as dict key.
-        """
-        return '%s_%s_%d_%d' % (self.name, self.chromosome, 
-                self.start, self.stop)
+        return cmp((self, self.name), (transcript, transcript.name))
 
     def getBed(self, rgb=None, name=None, start_offset=None, stop_offset=None):
         """
@@ -98,13 +88,13 @@ class Transcript(object):
         else:
             name = self.name
         if start_offset is None and stop_offset is None:
-            return [self.chromosome, self.start, self.stop, name, self.score, convertStrand(self.strand), self.thickStart, 
-                    self.thickStop, rgb, self.blockCount, self.blockSizes, self.blockStarts]
+            return [self.chromosome, self.start, self.stop, name, self.score, convertStrand(self.strand),
+                    self.thickStart, self.thickStop, rgb, self.blockCount, self.blockSizes, self.blockStarts]
         elif start_offset == stop_offset:
-            assert self.chromosomeCoordinateToTranscript(start_offset) is not None #no intron records
-            return [self.chromosome, start_offset, stop_offset, name, self.score, convertStrand(self.strand), start_offset, 
-                    stop_offset, rgb, 1, 0, 0]
-        
+            assert self.chromosomeCoordinateToTranscript(start_offset) is not None   # no intron records
+            return [self.chromosome, start_offset, stop_offset, name, self.score, convertStrand(self.strand),
+                    start_offset, stop_offset, rgb, 1, 0, 0]
+
         def _moveStart(exonIntervals, blockCount, blockStarts, blockSizes, start, start_offset):
             toRemove = len([x for x in exonIntervals if x.start <= start_offset and x.stop <= start_offset])
             assert toRemove < len(exonIntervals)
@@ -121,7 +111,7 @@ class Transcript(object):
                 blockStarts[1:] = [x + start - start_offset for x in blockStarts[1:]]
                 start = start_offset
             return start, blockCount, blockStarts, blockSizes
-        
+
         def _moveStop(exonIntervals, blockCount, blockStarts, blockSizes, stop, start, stop_offset):
             toRemove = len([x for x in exonIntervals if x.stop >= stop_offset and x.start >= stop_offset])
             assert toRemove < len(exonIntervals)
@@ -134,11 +124,11 @@ class Transcript(object):
                     blockSizes = blockStarts = [0]
                     blockCount = 1
                 stop = start + blockSizes[-1] + blockStarts[-1]
-            if stop_offset < stop and stop_offset > start + blockStarts[-1]:
+            if start + blockStarts[-1] < stop_offset < stop:
                 blockSizes[-1] = stop_offset - start - blockStarts[-1] 
                 stop = stop_offset
             return stop, blockCount, blockStarts, blockSizes
-        
+
         blockCount = int(self.blockCount)
         blockStarts = map(int, self.blockStarts.split(","))
         blockSizes = map(int, self.blockSizes.split(","))
@@ -146,11 +136,13 @@ class Transcript(object):
         stop = self.stop
         thickStart = self.thickStart
         thickStop = self.thickStop
-        
+
         if start_offset is not None and start_offset > start:
-            start, blockCount, blockStarts, blockSizes = _moveStart(self.exonIntervals, blockCount, blockStarts, blockSizes, start, start_offset)
+            start, blockCount, blockStarts, blockSizes = _moveStart(self.exonIntervals, blockCount, blockStarts,
+                                                                    blockSizes, start, start_offset)
         if stop_offset is not None and stop_offset < stop:
-            stop, blockCount, blockStarts, blockSizes = _moveStop(self.exonIntervals, blockCount, blockStarts, blockSizes, stop, start, stop_offset)
+            stop, blockCount, blockStarts, blockSizes = _moveStop(self.exonIntervals, blockCount, blockStarts,
+                                                                  blockSizes, stop, start, stop_offset)
         if start > thickStart:
             thickStart = start
         if stop < thickStop:
@@ -160,8 +152,8 @@ class Transcript(object):
             thickStop = 0
         blockStarts = ",".join(map(str, blockStarts))
         blockSizes = ",".join(map(str, blockSizes))
-        return [self.chromosome, start, stop, name, self.score, convertStrand(self.strand), thickStart, thickStop, rgb, blockCount,
-                blockSizes, blockStarts]
+        return [self.chromosome, start, stop, name, self.score, convertStrand(self.strand), thickStart, thickStop, rgb,
+                blockCount, blockSizes, blockStarts]
 
     def _getExonIntervals(self, bed_tokens):
         """
@@ -177,11 +169,10 @@ class Transcript(object):
         block_starts = [int(x) for x in bed_tokens[11].split(",") if x != ""]
 
         for block_size, block_start in izip(block_sizes, block_starts):
-            exons.append(ChromosomeInterval(chrom, start + block_start, 
-                    start + block_start + block_size, strand))
+            exons.append(ChromosomeInterval(chrom, start + block_start, start + block_start + block_size, strand))
         return exons
 
-    def _getIntronIntervals(self, bed_tokens):
+    def _getIntronIntervals(self):
         """
         Get a list of ChromosomeIntervals representing the introns for this
         transcript. The introns are in *+ strand of CHROMOSOME* ordering,
@@ -215,9 +206,9 @@ class Transcript(object):
         block_starts = [int(x) for x in bed_tokens[11].split(",") if x != ""]
 
         ##################################################################
-        ## HERE BE DRAGONS
-        ## this is seriously ugly code to maintain proper mapping
-        ## between coordinate spaces. See the unit tests.
+        # HERE BE DRAGONS
+        # this is seriously ugly code to maintain proper mapping
+        # between coordinate spaces. See the unit tests.
         ##################################################################
         if strand is False:
             block_sizes = reversed(block_sizes)
@@ -225,81 +216,79 @@ class Transcript(object):
 
         t_pos, cds_pos = 0, None
         for block_size, block_start in izip(block_sizes, block_starts):
-            #calculate transcript relative coordinates
+            # calculate transcript relative coordinates
             this_start = t_pos
             this_stop = t_pos + block_size
-            #calculate chromosome relative coordinates
+            # calculate chromosome relative coordinates
             this_chrom_start = chrom_start + block_start
             this_chrom_stop = chrom_start + block_start + block_size
-            #calculate transcript-relative CDS positions
-            #cds_pos is pos of first coding base in CDS coordinates
+            # calculate transcript-relative CDS positions
+            # cds_pos is pos of first coding base in CDS coordinates
             this_cds_start, this_cds_stop, this_cds_pos = None, None, None
             if strand is True:
-                #special case - single exon
+                # special case - single exon
                 if block_count == 1:
                     this_cds_pos = 0
                     this_cds_start = thick_start - this_chrom_start
                     this_cds_stop = thick_stop - this_chrom_start
-                #special case - entirely non-coding
+                # special case - entirely non-coding
                 elif thick_start == thick_stop == 0:
                     this_cds_start, this_cds_stop, this_cds_pos = None, None, None
-                #special case - CDS starts and stops on the same exon
-                elif (thick_start >= this_chrom_start and thick_start < this_chrom_stop) and \
-                        (thick_stop > this_chrom_start and thick_stop <= this_chrom_stop):
+                # special case - CDS starts and stops on the same exon
+                elif (this_chrom_start <= thick_start < this_chrom_stop and this_chrom_start < thick_stop <=
+                        this_chrom_stop):
                     this_cds_pos = 0
                     cds_pos = this_chrom_stop - thick_start
                     this_cds_start = this_start + thick_start - this_chrom_start
                     this_cds_stop = this_stop + thick_stop - this_chrom_stop
-                #is this the start codon containing exon?
-                elif thick_start >= this_chrom_start and thick_start < this_chrom_stop:
+                # is this the start codon containing exon?
+                elif this_chrom_start <= thick_start < this_chrom_stop:
                     cds_pos = this_chrom_stop - thick_start
                     this_cds_pos = 0
                     this_cds_start = this_start + thick_start - this_chrom_start
-                #is this the stop codon containing exon?
-                elif thick_stop > this_chrom_start and thick_stop <= this_chrom_stop:
+                # is this the stop codon containing exon?
+                elif this_chrom_start < thick_stop <= this_chrom_stop:
                     this_cds_pos = cds_pos
                     cds_pos += thick_stop - this_chrom_start
                     this_cds_stop = this_stop + thick_stop - this_chrom_stop
-                #is this exon all coding?
-                elif (this_cds_stop == None and this_cds_start == None and thick_stop >= 
+                # is this exon all coding?
+                elif (this_cds_stop is None and this_cds_start is None and thick_stop >=
                       this_chrom_stop and thick_start < this_chrom_start):
                     this_cds_pos = cds_pos
                     cds_pos += block_size
             else:
-                #special case - single exon
+                # special case - single exon
                 if block_count == 1:
                     this_cds_pos = 0
                     this_cds_start = this_chrom_stop - thick_stop
                     this_cds_stop = thick_stop - this_chrom_start + this_cds_start
-                #special case - entirely non-coding
+                # special case - entirely non-coding
                 elif thick_start == thick_stop == 0:
                     this_cds_start, this_cds_stop, this_cds_pos = None, None, None
-                #special case - start and stop codons are on the same exon
-                elif (thick_stop > this_chrom_start and thick_stop <= this_chrom_stop) and \
-                        (thick_start >= this_chrom_start and thick_start < this_chrom_stop):
+                # special case - start and stop codons are on the same exon
+                elif (this_chrom_start < thick_stop <= this_chrom_stop and this_chrom_start <= thick_start <
+                         this_chrom_stop):
                     cds_pos = thick_stop - this_chrom_start
                     this_cds_pos = 0
                     this_cds_start = this_start + this_chrom_stop - thick_stop
                     this_cds_stop = this_start + this_chrom_stop - thick_start
-                #is this the start codon containing exon?
-                elif thick_stop > this_chrom_start and thick_stop <= this_chrom_stop:
+                # is this the start codon containing exon?
+                elif this_chrom_start < thick_stop <= this_chrom_stop:
                     cds_pos = thick_stop - this_chrom_start
                     this_cds_pos = 0
                     this_cds_start = this_start + this_chrom_stop - thick_stop
-                #is this the stop codon containing exon?
-                elif thick_start >= this_chrom_start and thick_start < this_chrom_stop:
+                # is this the stop codon containing exon?
+                elif this_chrom_start <= thick_start < this_chrom_stop:
                     this_cds_pos = cds_pos
                     this_cds_stop = this_start + this_chrom_stop - thick_start
-                    #cds_pos += this_chrom_stop - thick_start
-                #is this exon all coding?
-                elif (this_cds_stop == None and this_cds_start == None and thick_stop >= 
-                        this_chrom_stop and thick_start < this_chrom_start):
+                # is this exon all coding?
+                elif (this_cds_stop is None and this_cds_start is None and thick_stop >=
+                      this_chrom_stop and thick_start < this_chrom_start):
                     this_cds_pos = cds_pos
                     cds_pos += block_size
-            exons.append( Exon(this_start, this_stop, strand, this_chrom_start, 
-                    this_chrom_stop, this_cds_start, this_cds_stop, this_cds_pos) )
+            exons.append(Exon(this_start, this_stop, strand, this_chrom_start, this_chrom_stop, this_cds_start,
+                              this_cds_stop, this_cds_pos))
             t_pos += block_size
-
         return exons
 
     def _getSize(self):
@@ -311,15 +300,13 @@ class Transcript(object):
             if self.thickStart < e.start and e.stop < self.thickStop:
                 # squarely in the CDS
                 l += e.stop - e.start
-            elif (e.start <= self.thickStart and e.stop < self.thickStop
-                        and self.thickStart < e.stop):
+            elif e.start <= self.thickStart < e.stop < self.thickStop:
                 # thickStart marks the start of the CDS
                 l += e.stop - self.thickStart
             elif e.start <= self.thickStart and self.thickStop <= e.stop:
                 # thickStart and thickStop mark the whole CDS
                 l += self.thickStop - self.thickStart
-            elif (self.thickStart < e.start and self.thickStop <= e.stop
-                        and e.start < self.thickStop):
+            elif self.thickStart < e.start < self.thickStop <= e.stop:
                 # thickStop marks the end of the CDS
                 l += self.thickStop - e.start
         self.cdsSize = l
@@ -342,7 +329,7 @@ class Transcript(object):
         assert self.stop <= len(sequence)
         s = []
         for e in self.exonIntervals:
-            s.append(sequence[e.start : e.stop])
+            s.append(sequence[e.start:e.stop])
         if self.strand is True:
             mRna = "".join(s)
         else:
@@ -368,25 +355,23 @@ class Transcript(object):
             return self.cds
         sequence = seqDict[self.chromosome]
         assert self.stop <= len(sequence)
-        #make sure this isn't a non-coding gene
+        # make sure this isn't a non-coding gene
         if self.thickStart == self.thickStop == 0:
             return ""
         s = []
         for e in self.exonIntervals:
             if self.thickStart < e.start and e.stop < self.thickStop:
                 # squarely in the CDS
-                s.append(sequence[e.start : e.stop])
-            elif (e.start <= self.thickStart and e.stop < self.thickStop
-                        and self.thickStart < e.stop):
+                s.append(sequence[e.start:e.stop])
+            elif e.start <= self.thickStart < e.stop < self.thickStop:
                 # thickStart marks the start of the CDS
-                s.append(sequence[self.thickStart : e.stop])
+                s.append(sequence[self.thickStart:e.stop])
             elif e.start <= self.thickStart and self.thickStop <= e.stop:
                 # thickStart and thickStop mark the whole CDS
-                s.append(sequence[self.thickStart : self.thickStop])
-            elif (self.thickStart < e.start and self.thickStop <= e.stop
-                        and e.start < self.thickStop):
+                s.append(sequence[self.thickStart: self.thickStop])
+            elif self.thickStart < e.start < self.thickStop <= e.stop:
                 # thickStop marks the end of the CDS
-                s.append(sequence[e.start : self.thickStop])
+                s.append(sequence[e.start:self.thickStop])
         if not self.strand:
             cds = reverseComplement("".join(s)).upper()
         else:
@@ -412,7 +397,7 @@ class Transcript(object):
         This is not thickStart if a negative strand gene.
         Therefore, no gaurantee it is smaller than the stop.
         """
-        if strand is True:
+        if self.strand is True:
             return self.thickStart
         else:
             return self.thickStop - 1
@@ -423,7 +408,7 @@ class Transcript(object):
         This is not thickStart if a negative strand gene.
         Therefore, no gaurantee it is larger than the stop.
         """
-        if strand is True:
+        if self.strand is True:
             return self.thickStop
         else:
             return self.thickStart - 1
@@ -442,15 +427,18 @@ class Transcript(object):
         """
         Iterates over intron sequences in transcript order and strand
         """
-        chromSeq = seqDict[self.chromosome]
-        for intron in self.introns:
-            yield intron.getSequence(seqDict)
+        if self.strand is True:
+            for intron in self.intronIntervals:
+                yield intron.getSequence(seqDict)
+        else:
+            for intron in reversed(self.intronIntervals):
+                yield intron.getSequence(seqDict)
 
     def getIntronSequences(self, seqDict):
         """
         Wrapper for intronSequenceIterator that returns a list of sequences.
         """
-        return [x for x in self.intronSequenceIterator(seqDict)]
+        return list(self.intronSequenceIterator(seqDict))
 
     def transcriptCoordinateToCds(self, p):
         """
@@ -462,9 +450,7 @@ class Transcript(object):
             t = exon.transcriptPosToCdsPos(p)
             if t is not None:
                 return t
-        return None            
-        #    if exon.containsTranscriptPos(p):
-        #        return exon.transcriptPosToCdsPos(p)
+        return None
 
     def transcriptCoordinateToChromosome(self, p):
         """
@@ -477,8 +463,6 @@ class Transcript(object):
             if t is not None:
                 return t
         return None
-        #    if exon.containsTranscriptPos(p):
-        #        return exon.transcriptPosToChromPos(p)
 
     def chromosomeCoordinateToTranscript(self, p):
         """
@@ -490,9 +474,7 @@ class Transcript(object):
             t = exon.chromPosToTranscriptPos(p)
             if t is not None:
                 return t
-        return None            
-            #if exon.containsChromPos(p):
-            #    return exon.chromPosToTranscriptPos(p)
+        return None
 
     def chromosomeCoordinateToCds(self, p):
         """
@@ -504,8 +486,6 @@ class Transcript(object):
             if t is not None:
                 return t
         return None
-        #    if exon.containsChromPos(p):
-        #        return exon.chromPosToCdsPos(p)
 
     def cdsCoordinateToTranscript(self, p):
         """
@@ -516,8 +496,6 @@ class Transcript(object):
             if t is not None:
                 return t
         return None
-        #    if exon.containsCdsPos(p):
-        #        return exon.cdsPosToTranscriptPos(p)
 
     def cdsCoordinateToChromosome(self, p):
         """
@@ -528,8 +506,6 @@ class Transcript(object):
             if t is not None:
                 return t
         return None
-        #    if exon.containsCdsPos(p):
-        #        return exon.cdsPosToChromPos(p)
 
     def cdsCoordinateToAminoAcid(self, p, seqDict):
         """
@@ -540,11 +516,11 @@ class Transcript(object):
         cds = self.getCds(seqDict)
         if p >= len(cds) or p < 0:
             return None
-        #we add 0.1 to the ceiling to make multiples of 3 work
+        # we add 0.1 to the ceiling to make multiples of 3 work
         start, stop = int(floor(p / 3.0) * 3),  int(ceil((p + 0.1) / 3.0) * 3)
         if stop - start != 3:
             return None
-        codon = cds[start : stop]
+        codon = cds[start: stop]
         return codonToAminoAcid(codon)
 
     def transcriptCoordinateToAminoAcid(self, p, seqDict):
@@ -587,46 +563,42 @@ class GenePredTranscript(Transcript):
     To be more efficient, the cds and mRNA slots are saved for if those sequences are ever retrieved.
     Then they will be stored so we don't slice the same thing over and over.
     """
-    #adding slots for cdsStartStat, cdsEndStat, exonFrames
+    # adding slots for new fields
     __slots__ = ('cdsStartStat', 'cdsEndStat', 'exonFrames')
-    
+
     def __init__(self, gene_pred_tokens):
         # Text genePred fields
         self.name = gene_pred_tokens[0]
+        self.chromosome = gene_pred_tokens[1]
         self.strand = convertStrand(gene_pred_tokens[2])
-
         # Integer genePred fields
-        self.score = 0 # no score in genePred files
+        self.score = 0                                  # no score in genePred files
         self.thickStart = int(gene_pred_tokens[5])
         self.thickStop = int(gene_pred_tokens[6])
         self.start = int(gene_pred_tokens[3])
         self.stop = int(gene_pred_tokens[4])
-        self.rgb = [0, 128, 0] #no RGB in genePred files
-
+        self.rgb = "128,0,0"                            # no RGB in genePred files
         # genePred specific fields
         self.cdsStartStat = gene_pred_tokens[12]
         self.cdsEndStat = gene_pred_tokens[13]
         self.exonFrames = [int(x) for x in gene_pred_tokens[14].split(",") if x != ""]
-
-        #create a fake BED entry to pass to the interval making stuff
-        blockCount = gene_pred_tokens[7]
+        # convert genePred format coordinates to BED-like coordinates to make intervals
+        self.blockCount = gene_pred_tokens[7]
         blockStarts = [int(x) for x in gene_pred_tokens[8].split(",") if x != ""]
         blockEnds = [int(x) for x in gene_pred_tokens[9].split(",") if x != ""]
-        blockSizes = [e - s for e,s in izip(blockEnds, blockStarts)]
-        bed_tokens = [gene_pred_tokens[1], self.start, self.stop, self.name, self.score, gene_pred_tokens[2], 
-                self.thickStart, self.thickStop, ",".join(map(str,self.rgb)), blockCount, 
-                ",".join(map(str,blockSizes)), ",".join(map(str,blockStarts))]
-
-        #interval for entire transcript including introns
-        self = ChromosomeInterval(bed_tokens[0], self.start, 
-                self.stop, self.strand)
-
-        #build chromosome intervals for exons and introns
+        self.blockSizes = ",".join(map(str, [e - s for e, s in izip(blockEnds, blockStarts)]))
+        self.blockStarts = ",".join(map(str, [x - self.start for x in blockStarts]))
+        bed_tokens = [gene_pred_tokens[1], self.start, self.stop, self.name, self.score, gene_pred_tokens[2],
+                      self.thickStart, self.thickStop, self.rgb, self.blockCount,
+                      self.blockSizes, self.blockStarts]
+        # build chromosome intervals for exons and introns
         self.exonIntervals = self._getExonIntervals(bed_tokens)
-        self.intronIntervals = self._getIntronIntervals(bed_tokens)
-
-        #build Exons mapping transcript space coordinates to chromosome
+        self.intronIntervals = self._getIntronIntervals()
+        # build Exons mapping transcript space coordinates to chromosome
         self.exons = self._getExons(bed_tokens)
+        # calculate sizes
+        self._getCdsSize()
+        self._getSize()
 
 
 class Exon(object):
@@ -643,48 +615,48 @@ class Exon(object):
     in transcript coordinates. If this exon is coding, contains the
     CDS-coordinate position of the first base.
     """
-    __slots__ = ('start', 'stop', 'strand', 'chromStart', 'chromStop', 
-            'cdsStart', 'cdsStop', 'cdsPos')
+    __slots__ = ('start', 'stop', 'strand', 'chromStart', 'chromStop', 'cdsStart', 'cdsStop', 'cdsPos')
 
-    def __init__(self, start, stop, strand, chromStart, chromStop, cdsStart,
-                cdsStop, cdsPos):
+    def __init__(self, start, stop, strand, chromStart, chromStop, cdsStart, cdsStop, cdsPos):
         assert chromStop - chromStart == stop - start
         self.strand = strand
-        #start, stop are transcript-relative coordinates
+        # start, stop are transcript-relative coordinates
         self.start = start
         self.stop = stop
         self.strand = strand
         self.chromStart = chromStart
         self.chromStop = chromStop
-        #cdsStart/cdsStop are transcript-coordinate
-        #None if not stop/start codon in this exon
+        # cdsStart/cdsStop are transcript-coordinate
+        # None if not stop/start codon in this exon
         self.cdsStart = cdsStart
         self.cdsStop = cdsStop
-        #cdsPos is cds coordinate
+        # cdsPos is cds coordinate
         self.cdsPos = cdsPos
 
     def __len__(self):
         return self.stop - self.start
-        
 
     def containsChromPos(self, p):
         """does this exon contain a given chromosome position?"""
-        if p is None:  return None
-        elif p >= self.chromStart and p < self.chromStop:
+        if p is None:
+            return None
+        elif self.chromStart <= p < self.chromStop:
             return True
         return False
 
     def containsTranscriptPos(self, p):
         """does this exon contain a given transcript position?"""
-        if p is None: return None
-        elif p >= self.start and p < self.stop:
+        if p is None:
+            return None
+        elif self.start <= p < self.stop:
             return True
         return False
 
     def containsCdsPos(self, p):
         """does this exon contain a given CDS position?"""
-        if p is None: return None
-        #see cdsPosToTranscriptPos - it will return None on invalid CDS positions
+        if p is None:
+            return None
+        # see cdsPosToTranscriptPos - it will return None on invalid CDS positions
         elif self.cdsPosToTranscriptPos(p) is not None:
             return True
         return False
@@ -700,21 +672,9 @@ class Exon(object):
         Given a chromosome position, returns the transcript position
         if it is within this exon. Otherwise, returns None
         Chromosome position is always on (+) strand
-
-        (-) t.pos       4 3 2     1 0
-        (+) t.pos       0 1 2     3 4
-        transcript  - - A T T - - T G -
-        chrom seq   G T A T T C T T G G
-        chrom pos   0 1 2 3 4 5 6 7 8 9
-
-        equivalent (negative strand) BED record:
-        ['chr1', '2', '9', 'A', '0', '-', '2', '9', '0,128,0', '2', '3,2', '0,5']
-
-        equivalent (positive strand) BED record:
-        ['chr1', '2', '9', 'A', '0', '+', '2', '9', '0,128,0', '2', '3,2', '0,5']
-
         """
-        if p is None: return None
+        if p is None:
+            return None
         elif p < self.chromStart or p >= self.chromStop:
             return None
         elif self.strand is True:
@@ -727,7 +687,6 @@ class Exon(object):
         Given a chromosome position, returns the CDS position if the given
         chromosome position is in fact a CDS position on this exon.
         """
-        #convert to transcript space
         t_pos = self.chromPosToTranscriptPos(p)
         return self.transcriptPosToCdsPos(t_pos)
 
@@ -735,57 +694,32 @@ class Exon(object):
         """
         Given a transcript position, report cds-relative position.
         Returns None if this transcript position is not coding.
-        Some examples:
-
-        (+) cds.pos   0 1 2 3     4 5
-        (+) t.pos   0 1 2 3 4     5 6 7 
-        transcript  g T A T T - - T G g
-        chrom seq   G T A T T C T T G G
-        chrom pos   0 1 2 3 4 5 6 7 8 9
-        equivalent BED record:
-        ['chr1', '0', '10', 'A', '0', '+', '1', '9', '0,128,0', '2', '5,3', '0,7']
-
-        (-) cds.pos   5 4 3 2     1 0
-        (-) t.pos   7 6 5 4 3     2 1 0
-        transcript  g T A T T - - T G g
-        chrom seq   G T A T T C T T G G
-        chrom pos   0 1 2 3 4 5 6 7 8 9
-        equivalent BED record:
-        ['chr1', '0', '10', 'A', '0', '-', '1', '9', '0,128,0', '2', '5,3', '0,7']
-
-        (+) cds.pos   0 1   2 3     4
-        (+) t.pos   0 1 2   3 4     5 6
-        transcript  g T A - T C - - G g
-        chrom seq   G T A T T C T T G G
-        chrom pos   0 1 2 3 4 5 6 7 8 9
-        equivalent BED record:
-        ['chr1', '0', '10', 'A', '0', '+', '1', '9', '0,128,0', '3', '3,2,2', '0,4,8']
         """
-        if p is None: return None
+        if p is None:
+            return None
         elif p < self.start or p >= self.stop:
             return None
-        #is this a coding exon?
+        # is this a coding exon?
         elif self.containsCds() is False:
             return None
-
-        #special case of single exon gene
+        # special case of single exon gene
         if self.cdsStart is not None and self.cdsStop is not None:
             if p < self.cdsStart or p >= self.cdsStop:
                 return None
             return p - self.cdsStart
-        #exon contains start codon
+        # exon contains start codon
         elif self.cdsStart is not None:
-            #make sure we are within CDS
+            # make sure we are within CDS
             if self.cdsStart > p:
                 return None
             return p - self.cdsStart
-        #exon contains stop codon
+        # exon contains stop codon
         elif self.cdsStop is not None:
-            #make sure we are within CDS
+            # make sure we are within CDS
             if self.cdsStop <= p:
                 return None
             return self.cdsPos + p - self.start
-        #exon must be entirely coding
+        # exon must be entirely coding
         else:
             return self.cdsPos + p - self.start
 
@@ -794,8 +728,8 @@ class Exon(object):
         Given a transcript position, returns the chromosome position
         if it is within this exon otherwise return None
         """
-        if p is None: return None
-        #0 based half open
+        if p is None:
+            return None
         elif p < self.start or p >= self.stop:
             return None
         elif self.strand is True:
@@ -816,23 +750,24 @@ class Exon(object):
         Given a CDS position, returns the transcript position if it exists.
         Otherwise returns None.
         """
-        if p is None: return None
-        #not a coding exon
+        if p is None:
+            return None
+        # not a coding exon
         elif self.containsCds() is False:
             return None
-        #start exon    
+        # start exon
         if self.cdsStart is not None:
             t_pos = self.cdsStart + p
-        #all-coding and stop exons can be calculated the same way
+        # all-coding and stop exons can be calculated the same way
         else:
             t_pos = p - self.cdsPos + self.start
-        
-        #error checking to make sure p was a proper transcript pos and inside CDS
+
+        # error checking to make sure p was a proper transcript pos and inside CDS
         if self.containsTranscriptPos(t_pos) is False:
             return None
-        #special case - single exon CDS
+        # special case - single exon CDS
         if self.cdsStop is not None and self.cdsStart is not None:
-            if t_pos >= self.cdsStart and t_pos < self.cdsStop:
+            if self.cdsStart <= t_pos < self.cdsStop:
                 return t_pos
         elif self.cdsStop is not None and t_pos >= self.cdsStop:
             return None
@@ -847,9 +782,8 @@ class ChromosomeInterval(object):
     Represents an interval of a chromosome. BED coordinates, strand is True,
     False or None (if no strand)
     """
-    
     __slots__ = ('chromosome', 'start', 'stop', 'strand')    # conserve memory
-    
+
     def __init__(self, chromosome, start, stop, strand):
         self.chromosome = str(chromosome)
         self.start = int(start)    # 0 based
@@ -889,13 +823,14 @@ class ChromosomeInterval(object):
             return reverseComplement(seqDict[self.chromosome][self.start:self.stop])
         assert False
 
+
 class Attribute(object):
     """
     Stores attributes from the gencode attribute file.
     """
-    
+
     __slots__ = ("geneId", "geneName", "geneType", "transcriptId", "transcriptType")
-    
+
     def __init__(self, geneId, geneName, geneType, transcriptId, transcriptType):
         self.geneId = geneId
         self.geneName = geneName
@@ -910,27 +845,33 @@ def convertStrand(s):
     to +/-/None depending on value
     """
     assert s in [True, False, None, "+", "-"]
-    if s == True: return "+"
-    elif s == False: return "-"
-    elif s == None: return None
-    elif s == "-": return False
-    elif s == "+": return True
+    if s is True:
+        return "+"
+    elif s is False:
+        return "-"
+    elif s is None:
+        return None
+    elif s == "-":
+        return False
+    elif s == "+":
+        return True
 
 
-_complement = string.maketrans("ATGC","TACG")
+_complement = string.maketrans("ATGC", "TACG")
+
 
 def complement(seq):
-  """
-  given a sequence, return the complement.
-  """
-  return seq.translate(_complement)
+    """
+    given a sequence, return the complement.
+    """
+    return seq.translate(_complement)
 
 
 def reverseComplement(seq):
-  """
-  Given a sequence, return the reverse complement.
-  """
-  return seq.translate(_complement)[::-1]
+    """
+    Given a sequence, return the reverse complement.
+    """
+    return seq.translate(_complement)[::-1]
 
 
 _codonTable = {
@@ -961,12 +902,14 @@ _codonTable = {
     '': ''
     }
 
+
 def codonToAminoAcid(c):
     """
     Given a codon C, return an amino acid or ??? if codon unrecognized.
     Codons could be unrecognized due to ambiguity in IUPAC characters.
     """
-    if c is None: return None
+    if c is None:
+        return None
     c = c.upper()
     if c in _codonTable:
         return _codonTable[c]
@@ -980,8 +923,8 @@ def translateSequence(sequence):
     silently.
     """
     result = []
-    for i in xrange(0, len(sequence)- len(sequence) % 3, 3):
-        result.append(codonToAminoAcid(sequence[i : i + 3]))
+    for i in xrange(0, len(sequence) - len(sequence) % 3, 3):
+        result.append(codonToAminoAcid(sequence[i: i + 3]))
     return "".join(result)
 
 
@@ -1028,12 +971,22 @@ def getSequenceDict(file_path, upper=True):
 
 def getTranscripts(bedFile):
     """
-    Given a path to a standard BED file and a details BED, return a list of
-    Transcript objects.
+    Given a path to a standard BED return a list of Transcript objects
     """
     transcripts = []
     bedFile = open(bedFile, 'r')
     for t in transcriptIterator(bedFile):
+        transcripts.append(t)
+    return transcripts
+
+
+def getGenePredTranscripts(gpFile):
+    """
+    Given a path to a standard genePred file return a list of GenePredTranscript objects
+    """
+    transcripts = []
+    gpFile = open(gpFile, 'r')
+    for t in genePredTranscriptIterator(gpFile):
         transcripts.append(t)
     return transcripts
 
@@ -1050,9 +1003,8 @@ def transcriptListToDict(transcripts, noDuplicates=False):
             result[t.name] = []
         else:
             if noDuplicates:
-                raise RuntimeError('transcriptListToDict: Discovered a '
-                         'duplicate transcript %s %s'
-                         % (t.name, t.chromosome))
+                raise RuntimeError('transcriptListToDict: Discovered a duplicate transcript {} {}'.format(t.name,
+                                                                                                          t.chromosome))
         if noDuplicates:
             result[t.name] = t
         else:
@@ -1074,10 +1026,9 @@ def tokenizeGenePredStream(genePredStream):
     """
     Iterator through gene pred file, returning lines as list of tokens
     """
-    for line in bedStream:
+    for line in genePredStream:
         if line != '':
-            tokens = line.split("\t")
-            tokens[-1].rstrip()
+            tokens = line.rstrip().split("\t")
             yield tokens
 
 
@@ -1087,6 +1038,14 @@ def transcriptIterator(transcriptsBedStream):
     """
     for tokens in tokenizeBedStream(transcriptsBedStream):
         yield Transcript(tokens)
+
+
+def genePredTranscriptIterator(transcriptsGpStream):
+    """
+    Iterates over the transcript detailed in the bed stream producing Transcript objects.
+    """
+    for tokens in tokenizeGenePredStream(transcriptsGpStream):
+        yield GenePredTranscript(tokens)
 
 
 def getTranscriptAttributeDict(attributeFile):
@@ -1120,7 +1079,7 @@ def spliceIntronIntervalToBed(t, intronInterval, rgb, name):
     interval = intronInterval
     assert interval.stop >= interval.start, (t.name, t.chromosome)
     blockStarts = "0,{}".format(interval.stop - interval.start - 2)
-    return [interval.chromosome, interval.start, interval.stop, name + "/" + t.name, 0, convertStrand(interval.strand), 
+    return [interval.chromosome, interval.start, interval.stop, name + "/" + t.name, 0, convertStrand(interval.strand),
             interval.start, interval.stop, rgb, 2, "2,2", blockStarts]
 
 
@@ -1193,7 +1152,7 @@ def chromosomeCoordinateToBed(t, start, stop, rgb, name):
     """
     strand = convertStrand(t.strand)
     chrom = t.chromosome
-    assert start != None and stop != None, (t.name, t.chromosome, start, stop, name)
+    assert start is not None and stop is not None, (t.name, t.chromosome, start, stop, name)
     assert stop >= start, (t.name, t.chromosome, start, stop, name)
     return t.getBed(name=name, rgb=rgb, start_offset=start, stop_offset=stop)
 
@@ -1205,6 +1164,6 @@ def chromosomeRegionToBed(t, start, stop, rgb, name):
     """
     strand = convertStrand(t.strand)
     chrom = t.chromosome
-    assert start != None and stop != None, (t.name, start, stop, name)
+    assert start is not None and stop is not None, (t.name, start, stop, name)
     assert stop >= start, (t.name, start, stop, name)
-    return [chrom, start, stop, name + "/" + t.name, 0, strand, start, stop, rgb, 1, stop - start, 0]        
+    return [chrom, start, stop, name + "/" + t.name, 0, strand, start, stop, rgb, 1, stop - start, 0]

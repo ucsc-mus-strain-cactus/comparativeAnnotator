@@ -110,12 +110,18 @@ def codonPairIterator(a, t, aln, targetSeqDict, querySeqDict):
     """
     target_cds = t.getCds(targetSeqDict)
     query_cds = a.getCds(querySeqDict)
-    for i in xrange(0, a.getCdsLength(), 3):
+    a_frames = [x for x in a.exonFrames if x != -1]
+    if a.strand is True:
+        a_offset = a_frames[0]
+    else:
+        a_offset = 3 - a_frames[-1]
+    for i in xrange(a_offset, a.getCdsLength(), 3):
         target_cds_positions = [t.chromosomeCoordinateToCds(aln.queryCoordinateToTarget(a.cdsCoordinateToTranscript(j))) 
                                 for j in xrange(i, i + 3)]
         if None in target_cds_positions:
             continue
-        assert all([target_cds_positions[2] - target_cds_positions[1] == 1, target_cds_positions[1] - target_cds_positions[0] == 1, target_cds_positions[2] - target_cds_positions[0] == 2])
+        assert all([target_cds_positions[2] - target_cds_positions[1] == 1, target_cds_positions[1] -
+                    target_cds_positions[0] == 1, target_cds_positions[2] - target_cds_positions[0] == 2])
         target_codon = target_cds[target_cds_positions[0]:target_cds_positions[0] + 3]
         query_codon = query_cds[i:i + 3]
         yield target_cds_positions[0], target_codon, query_codon

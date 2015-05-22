@@ -9,13 +9,24 @@ from src.helperFunctions import *
 from itertools import izip
 
 
+aId = "ENSMUST00000173512.1-1"transcripts = seq_lib.getGenePredTranscripts("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1411/transMap/results/geneCheck/C57B6J.gp")
+transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
+annotations = seq_lib.getGenePredTranscripts("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1411/transMap/data/VM4.BasicPseudoCombined.gp")
+annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
+alignments = psl_lib.readPsl("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1411/transMap/results/filtered/C57B6J.filtered.psl")
+alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
+a = annotationDict[aId[:-2]]
+t = transcriptDict[aId]
+aln = alignmentDict[aId]
+
+
 transcripts = seq_lib.getTranscripts("pipeline_data/comparative/1411/transMap/results/geneCheck/C57B6NJ.gene-check.bed")
 transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
 annotations = seq_lib.getTranscripts("pipeline_data/comparative/1411/transMap/data/wgEncodeGencodeBasicVM4.gene-check.bed")
 annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
 alignments = psl_lib.readPsl("pipeline_data/comparative/1411/transMap/results/filtered/C57B6NJ.filtered.psl")
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
-seqDict = seq_lib.readTwoBit("pipeline_data/assemblies/1411/C57B6NJ.2bit")
+seqDict = seq_lib.readTwoBit("pipeline_data/assemblies/1411/C57B6J.2bit")
 refTwoBit = seq_lib.readTwoBit("pipeline_data/assemblies/1411/C57B6J.2bit")
 #refDict = seq_lib.getSequenceDict("../mouse_release_data/1411/C57B6J.fa")
 

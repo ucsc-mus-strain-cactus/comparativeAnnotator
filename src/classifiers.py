@@ -112,7 +112,7 @@ class StartOutOfFrame(AbstractClassifier):
     StartOutOfFrame are caused when the starting CDS base of the lifted over transcript is not in the original frame.
     If True, reports the first 3 bases.
 
-    Doesn't need a check for existing in the reference because that is impossible.
+    TODO: should be flagged as previously existing in reference
     """
     @property
     def rgb(self):
@@ -120,22 +120,29 @@ class StartOutOfFrame(AbstractClassifier):
 
     def run(self):
         logger.info("Starting analysis {} on {}".format(self.column, self.genome))
-        self.getAlignmentDict()
         self.getTranscriptDict()
         self.getAnnotationDict()
         detailsDict = {}
         classifyDict = {}
         for aId, t in self.transcriptDict.iteritems():
             a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
-            aln = self.alignmentDict[aId]
             # do not include noncoding transcripts or lift-overs that contain less than 25 codon
             if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
                 continue
-            if a.transcriptCoordinateToCds(aln.targetCoordinateToQuery(t.cdsCoordinateToChromosome(0))) % 3 != 0:
+            # is this is a problem in the reference?
+            # remove all -1 frames because those are UTR exons
+            a_frames = [x for x in a.exonFrames if x != -1]
+            if a.strand is True and a_frames[0] != 0 or a.strand is False and a_frames[-1] != 0:
+                classifyDict[aId] = 1
+                detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, 0, 3, self.colors["input"], self.column)
+                continue
+            # remove all -1 frames because those are UTR exons
+            t_frames = [x for x in t.exonFrames if x != -1]
+            if t.strand is True and t_frames[0] != 0 or t.strand is False and t_frames[-1] != 0:
                 classifyDict[aId] = 1
                 detailsDict[aId] = seq_lib.cdsCoordinateToBed(t, 0, 3, self.rgb, self.column)
-            else:
-                classifyDict[aId] = 0
+                continue
+            classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
@@ -178,7 +185,8 @@ class FrameShift(AbstractClassifier):
             # every stop is when a zero exists at this cumulative_frame
             windowed_stops = [x for x, y in izip(indel_stops, cumulative_frame[1:]) if y == 0]
             # sanity check
-            assert any([len(windowed_starts) == len(windowed_stops), len(windowed_starts) - 1 == len(windowed_stops)]), (self.genome, self.column, aId)
+            assert any([len(windowed_starts) == len(windowed_stops), len(windowed_starts) - 1 == len(windowed_stops)]),\
+                (self.genome, self.column, aId)
             # now we need to fix frame and stops - if this shift extends to the end of the transcript, add that stop
             # additionally, if this is a negative strand transcript, flip starts/stops so that start is always < stop
             if len(windowed_stops) < len(windowed_starts) and t.strand is False:
