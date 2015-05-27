@@ -258,7 +258,7 @@ def paralogy_plot(results, bins, out_dir, header, width, height, bar_width=0.4):
     ax.xaxis.set_ticklabels(zip(*results)[0], rotation=55)
     bars = plot_bars(ax, zip(*results)[1], bar_width)
     bins = bins[:-1]
-    legend_labels = ["> {0:.0f}".format(bins[-1] )] + ["= {0:.0f}".format(x) for x in bins[:-1][::-1]]
+    legend_labels = [">= {0:.0f}".format(bins[-1] )] + ["= {0:.0f}".format(x) for x in bins[:-1][::-1]]
     legend = fig.legend([x[0] for x in bars], legend_labels[::-1], bbox_to_anchor=(1,0.8), fontsize=10, frameon=True, title="Number\nAlignments")
     fig.savefig(pdf, format='pdf')
     pdf.close()
@@ -292,7 +292,7 @@ def main():
     identity_bins = [0, 0.0001, 0.995, 0.998, 0.99999999, 1.000001]
     coverage_bins = [0, 0.0001, 0.9, 0.95, 0.99999999, 1.000001]
     paralogy_bins = [1, 2, 3, 4, 100000]
-    biotype_map, biotype_counts = get_biotype_transcript_map(args.attrs, args.annotationBed)
+    biotype_map, biotype_counts = get_biotype_transcript_map(args.attrs, args.annotationGp)
     num_coding = biotype_counts['protein_coding']
 
     # the order of genomes by best average coverage will determine order for all plots and the table
@@ -312,6 +312,8 @@ def main():
             bins = coverage_bins
         for biotype in args.biotypes:
             results = OrderedDict((genome, attribute_by_biotype(cur, genome, biotype, attribute)) for genome in genomes)
+            if any([len(x) == 0 for x in results.itervalues()]):
+                continue
             # add in unmapped biotype_map as 0
             for genome, vals in results.iteritems():
                 for name in biotype_map:
@@ -327,6 +329,8 @@ def main():
     
     for genome in genomes:
         results = OrderedDict((biotype, attribute_by_biotype(cur, genome, biotype, attribute)) for biotype in args.biotypes)
+        if any([len(x) == 0 for x in results.itervalues()]):
+            continue
         tmp = []
         for biotype, vals in results.iteritems():
             tmp.append([biotype, len([x for x in vals if biotype_map[x] ==  biotype]), biotype_counts[biotype]])
