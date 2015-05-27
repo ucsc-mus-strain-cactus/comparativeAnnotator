@@ -223,10 +223,11 @@ def plot_stacked_barplot(results, bins, biotype, name, header, out_dir, width, h
 
 
 def plot_unstacked_barplot(results, out_dir, name, header, width, height, num_biotype_map, bar_width=0.4):
+    num_genes = sum(total for num_ok, total in results.itervalues())
     results = [(genome, 1.0 * num_ok / total, num_ok) for genome, (num_ok, total) in results.iteritems()]
     fig, pdf = init_image(out_dir, header + "_" + name, width, height)
     ax = establish_axes(fig, width, height, border=False)
-    plt.text(0.5, 1.08, "Proportion of successfully transMapped\nprotein coding transcripts that are categorized as {}".format(name.split("_")[0]))
+    plt.text(0.5, 1.08, "Proportion of {} successfully transMapped\nprotein coding transcripts that are categorized as {}".format(num_genes, name.split("_")[0]))
     ax.set_ylabel("Proportion of transcripts")
     ax.set_ylim([0, 1.0])
     plt.tick_params(axis='both', labelsize=8)
