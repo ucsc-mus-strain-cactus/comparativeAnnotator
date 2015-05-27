@@ -259,7 +259,7 @@ def paralogy_plot(results, bins, out_dir, header, width, height, bar_width=0.4):
     bars = plot_bars(ax, zip(*results)[1], bar_width)
     bins = bins[:-1]
     legend_labels = [u"\u2265 {0:.0f}".format(bins[-1] )] + ["= {0:.0f}".format(x) for x in bins[:-1][::-1]]
-    legend = fig.legend([x[0] for x in bars], legend_labels[::-1], bbox_to_anchor=(1,0.8), fontsize=10, frameon=True, title="Number\nAlignments")
+    legend = fig.legend([x[0] for x in bars], legend_labels[::-1], bbox_to_anchor=(1,0.8), fontsize=10, frameon=True, title="Number of\nAlignments")
     fig.savefig(pdf, format='pdf')
     pdf.close()
 
