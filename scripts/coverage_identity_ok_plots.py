@@ -64,9 +64,17 @@ def init_image(out_folder, comparison_name, width, height):
     return fig, pdf
 
 
-def get_biotype_transcript_map(attrs, annotation_gp):
+def get_biotype_transcript_map(attrs, annotation_gp, filter_chrom=["Y"]):
     attr_map = {x.split()[3]: x.split()[4] for x in open(attrs)}
-    biotype_map = {x.split()[0]: attr_map[x.split()[0]] for x in open(annotation_gp)}
+    biotype_map = {}
+    for line in open(annotation_gp):
+        line = line.split()
+        transcript_id = line[0]
+        chrom = line[1]
+        if chrom not in filter_chrom:
+            biotype_map[transcript_id] = attr_map[transcript_id]
+        else:
+            del attr_map[transcript_id]
     biotype_counts = Counter(biotype_map.itervalues())
     return biotype_map, biotype_counts
 
@@ -223,11 +231,10 @@ def plot_stacked_barplot(results, bins, biotype, name, header, out_dir, width, h
 
 
 def plot_unstacked_barplot(results, out_dir, name, header, width, height, num_biotype_map, bar_width=0.4):
-    num_genes = sum(total for num_ok, total in results.itervalues())
     results = [(genome, 1.0 * num_ok / total, num_ok) for genome, (num_ok, total) in results.iteritems()]
     fig, pdf = init_image(out_dir, header + "_" + name, width, height)
     ax = establish_axes(fig, width, height, border=False)
-    plt.text(0.5, 1.08, "Proportion of {} successfully transMapped\nprotein coding transcripts that are categorized as {}".format(num_genes, name.split("_")[0]))
+    plt.text(0.5, 1.08, "Proportion of {} successfully transMapped\nprotein coding transcripts that are categorized as {}".format(num_biotype_map, name.split("_")[0]))
     ax.set_ylabel("Proportion of transcripts")
     ax.set_ylim([0, 1.0])
     plt.tick_params(axis='both', labelsize=8)
@@ -243,13 +250,12 @@ def plot_unstacked_barplot(results, out_dir, name, header, width, height, num_bi
     pdf.close()    
 
 
-def paralogy_plot(results, bins, out_dir, header, width, height, bar_width=0.4):
+def paralogy_plot(results, bins, out_dir, header, width, height, num_biotype_map, bar_width=0.4):
     # make a ratio, reverse order
     results = [(genome, (val / (1.0 * sum(val)))) for genome, val in results.iteritems()]
     fig, pdf = init_image(out_dir, header + "_paralogy", width, height)
     ax = establish_axes(fig, width, height, border=True)
-    plt.text(0.5, 1.08, "Number of alignments of protein_coding transcripts",
-             horizontalalignment='center', fontsize=12, transform=ax.transAxes)
+    plt.text(0.5, 1.08, "Proportion of {} successfully transMapped\nprotein coding transcripts that have multiple alignments".format(num_biotype_map))
     ax.set_ylabel("Proportion of transcripts")
     ax.set_ylim([0, 1.0])
     plt.tick_params(axis='both', labelsize=8)
@@ -337,6 +343,7 @@ def main():
             tmp.append([biotype, len([x for x in vals if biotype_map[x] ==  biotype]), biotype_counts[biotype]])
         biotype_plot(tmp, genome, args.outDir, args.header, args.width, args.height)
 
+    biotype = "protein_coding"
     results = OrderedDict((genome, ok_coding(cur, genome)) for genome in genomes)
     for genome, (num_ok, total) in results.iteritems():
         statistics["OK_coding"].append(round(100.0 * num_ok / total, 3))
@@ -346,7 +353,8 @@ def main():
     results_hist = OrderedDict((genome, np.histogram(results[genome].values(), paralogy_bins)[0]) for genome in genomes)
     for genome, vals in results_hist.iteritems():
         statistics["paralogy"].append(round(100.0 - (100.0 * vals[0] / sum(vals)), 3))
-    paralogy_plot(results_hist, paralogy_bins, args.outDir, args.header, args.width, args.height)
+    num_biotype = biotype_counts[biotype]
+    paralogy_plot(results_hist, paralogy_bins, args.outDir, args.header, args.width, args.height, num_biotype)
 
     categories = functionsInModule(src.queries)
     for category in categories:
