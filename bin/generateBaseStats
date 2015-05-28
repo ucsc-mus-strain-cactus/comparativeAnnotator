@@ -10,11 +10,12 @@ def main():
             line = line.split()
             qName = line[9].split("-")[0]
             matches = int(line[0])
+            repeat_matches = int(line[3])
             mismatches = int(line[1])
             qSize = int(line[10])
-            cov = (1.0 * matches + mismatches) / qSize
+            cov = (1.0 * matches + mismatches + repeat_matches) / qSize
             assert 0 <= cov <= 1.0
-            if best_alignments[qName] < cov:
+            if best_alignments[qName] <= cov:
                 best_alignments[qName] = cov
                 helper_dict[qName] = [qSize, matches + mismatches]
 

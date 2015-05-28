@@ -232,7 +232,7 @@ class AlignmentCoverage(Attribute):
         self.getAlignmentDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
-            valueDict[aId] = formatRatio(aln.matches + aln.misMatches, aln.qSize)
+            valueDict[aId] = formatRatio(aln.matches + aln.misMatches + aln.repMatches, aln.qSize)
         self.dumpValueDict(valueDict)
 
 
