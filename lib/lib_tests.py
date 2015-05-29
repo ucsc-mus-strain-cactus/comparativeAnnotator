@@ -241,7 +241,7 @@ class NegativeStrandTranscriptTests(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1": "GTATTCTTGGACCTAA"}, tmp)
         runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
-        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.chrom_seq = seq_lib.getSequenceDict(os.path.join(tmp, "seq.2bit"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -402,7 +402,7 @@ class PositiveStrandTranscriptTests(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
         runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
-        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.chrom_seq = seq_lib.getSequenceDict(os.path.join(tmp, "seq.2bit"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -562,7 +562,7 @@ class SingleExonTranscript1(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
         runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
-        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.chrom_seq = seq_lib.getSequenceDict(os.path.join(tmp, "seq.2bit"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -711,7 +711,7 @@ class SingleExonTranscript2(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
         runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
-        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.chrom_seq = seq_lib.getSequenceDict(os.path.join(tmp, "seq.2bit"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -823,7 +823,7 @@ class SingleExonTranscript3(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
         runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
-        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.chrom_seq = seq_lib.getSequenceDict(os.path.join(tmp, "seq.2bit"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -936,7 +936,7 @@ class SingleExonTranscript4(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
         runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
-        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.chrom_seq = seq_lib.getSequenceDict(os.path.join(tmp, "seq.2bit"))
         self.addCleanup(removeDir, tmp)
 
     def test_cds_coordinate_translations(self):
@@ -972,7 +972,7 @@ class NoncodingTranscript(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
         runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
-        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.chrom_seq = seq_lib.getSequenceDict(os.path.join(tmp, "seq.2bit"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -1086,7 +1086,7 @@ class ComplicatedTranscript1(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAAGCCTG"}, tmp)
         runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
-        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.chrom_seq = seq_lib.getSequenceDict(os.path.join(tmp, "seq.2bit"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -1201,7 +1201,7 @@ class ComplicatedTranscript2(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAAGCCTG"}, tmp)
         runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
-        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.chrom_seq = seq_lib.getSequenceDict(os.path.join(tmp, "seq.2bit"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -1309,7 +1309,7 @@ class NegativeStrandGenePredTranscript(NegativeStrandTranscriptTests):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1": "GTATTCTTGGACCTAA"}, tmp)
         runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
-        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.chrom_seq = seq_lib.getSequenceDict(os.path.join(tmp, "seq.2bit"))
         self.addCleanup(removeDir, tmp)
 
 
@@ -1337,7 +1337,7 @@ class PositiveStrandGenePredTranscript(PositiveStrandTranscriptTests):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
         runCommands([["faToTwoBit", "seq.fa", "seq.2bit"]], tmp)
-        self.chrom_seq = seq_lib.readTwoBit(os.path.join(tmp, "seq.2bit"))
+        self.chrom_seq = seq_lib.getSequenceDict(os.path.join(tmp, "seq.2bit"))
         self.addCleanup(removeDir, tmp)
 
 
