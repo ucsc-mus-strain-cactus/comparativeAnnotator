@@ -219,7 +219,7 @@ class AlignmentCoverage(Attribute):
     """
     Calculates alignment coverage:
 
-    (matches + mismatches) / qSize
+    (matches + mismatches + repeat matches) / qSize
 
     Reports the value as a REAL between 0 and 1
     """
@@ -254,5 +254,6 @@ class AlignmentIdentity(Attribute):
         self.getAlignmentDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
-            valueDict[aId] = formatRatio(aln.matches, aln.matches + aln.misMatches + aln.qNumInsert)
+            valueDict[aId] = formatRatio(aln.matches + aln.repMatches, aln.matches + 
+                                         aln.repMatches + aln.misMatches + aln.qNumInsert)
         self.dumpValueDict(valueDict)
