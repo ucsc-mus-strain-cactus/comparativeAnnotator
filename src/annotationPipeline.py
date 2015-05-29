@@ -25,7 +25,7 @@ def build_parser():
     parser.add_argument('--psls', nargs='+', required=True)
     parser.add_argument('--gps', nargs='+', required=True)
     parser.add_argument('--fastas', nargs='+', required=True)
-    parser.add_argument('--refTwoBit', type=str, required=True)
+    parser.add_argument('--refFasta', type=str, required=True)
     parser.add_argument('--sizes', nargs='+', required=True)
     parser.add_argument('--gencodeAttributeMap', required=True)
     parser.add_argument('--outDir', type=str, required=True)
@@ -33,17 +33,17 @@ def build_parser():
     return parser
 
 
-def buildAnalyses(target, psls, fastas, refSeqTwoBit, gps, gencodeAttributeMap, genomes,
+def buildAnalyses(target, psls, fastas, refFasta, gps, gencodeAttributeMap, genomes,
                   annotationGp, outDir, refGenome, primaryKeyColumn, sizes):
     # find all user-defined classes in the categories of analyses
     classifiers = classesInModule(src.classifiers)
     attributes = classesInModule(src.attributes)
     for genome, psl, bed, fasta in izip(genomes, psls, gps, fastas):
         for c in classifiers:
-            target.addChildTarget(c(genome, psl, fasta, refSeqTwoBit, annotationGp, gencodeAttributeMap,
+            target.addChildTarget(c(genome, psl, fasta, refFasta, annotationGp, gencodeAttributeMap,
                                     bed, refGenome, primaryKeyColumn, target.getGlobalTempDir()))
         for a in attributes:
-            target.addChildTarget(a(genome, psl, fasta, refSeqTwoBit, annotationGp, gencodeAttributeMap,
+            target.addChildTarget(a(genome, psl, fasta, refFasta, annotationGp, gencodeAttributeMap,
                                     bed, refGenome, primaryKeyColumn, target.getGlobalTempDir()))
         # merge the resulting pickled files into sqlite databases
     target.setFollowOnTargetFn(databaseWrapper, args=(outDir, genomes, psls, primaryKeyColumn, sizes, gps,
@@ -68,8 +68,8 @@ def main():
     if not os.path.exists(args.outDir):
         os.mkdir(args.outDir)
 
-    if not os.path.exists(args.refTwoBit):
-        raise RuntimeError("Reference genome fasta not present at {}".format(args.refTwoBit))
+    if not os.path.exists(args.refFasta):
+        raise RuntimeError("Reference genome fasta not present at {}".format(args.refFasta))
     elif not os.path.exists(args.annotationGp):
         raise RuntimeError("Annotation bed not present at {}".format(args.annotationGp))
 
@@ -89,7 +89,7 @@ def main():
             if not os.path.exists(x):
                 raise RuntimeError("chrom.sizes not present at {}".format(x))
 
-    i = Stack(Target.makeTargetFn(buildAnalyses, args=(sorted(args.psls), sorted(args.fastas), args.refTwoBit,
+    i = Stack(Target.makeTargetFn(buildAnalyses, args=(sorted(args.psls), sorted(args.fastas), args.refFasta,
                                                        sorted(args.gps), args.gencodeAttributeMap, sorted(args.genomes),
                                                        args.annotationGp, args.outDir, args.refGenome, 
                                                        args.primaryKeyColumn, sorted(args.sizes)))).startJobTree(args)

@@ -1,7 +1,6 @@
 """
-Convenience library for sequence information, including 2bit and bed files.
-
-fasta functionality was removed in favor of rapidly accessible 2bit.
+Convenience library for sequence information, including BED/genePred files and fasta files
+Needs the python library pyfaidx installed.
 
 Original Author: Dent Earl
 Modified by Ian Fiddes
@@ -10,13 +9,8 @@ Modified by Ian Fiddes
 import string
 from itertools import izip
 from math import ceil, floor
+from pyfaidx import Fasta
 from jobTree.src.bioio import fastaRead
-
-# in case you are running the tests
-try:
-    from lib.twobit import TwoBitFile, TwoBitSequence
-except ImportError:
-    from twobit import TwoBitFile, TwoBitSequence
 
 
 class Transcript(object):
@@ -319,7 +313,7 @@ class Transcript(object):
 
     def getMRna(self, seqDict):
         """
-        Returns the mRNA sequence for this transcript based on a TwoBitFile object.
+        Returns the mRNA sequence for this transcript based on a Fasta object.
         and the start/end positions and the exons. Sequence returned in
         5'-3' transcript orientation.
         """
@@ -509,7 +503,7 @@ class Transcript(object):
 
     def cdsCoordinateToAminoAcid(self, p, seqDict):
         """
-        Takes a CDS-relative position and a TwoBitFile object that contains this
+        Takes a CDS-relative position and a Fasta object that contains this
         transcript and returns the amino acid at that CDS position.
         Returns None if this is invalid.
         """
@@ -525,7 +519,7 @@ class Transcript(object):
 
     def transcriptCoordinateToAminoAcid(self, p, seqDict):
         """
-        Takes a transcript coordinate position and a TwoBitFile object that contains
+        Takes a transcript coordinate position and a Fasta object that contains
         this transcript and returns the amino acid at that transcript position.
         If this position is not inside the CDS returns None.
         """
@@ -536,7 +530,7 @@ class Transcript(object):
 
     def chromosomeCoordinateToAminoAcid(self, p, seqDict):
         """
-        Takes a chromosome coordinate and a TwoBitFile object that contains this
+        Takes a chromosome coordinate and a Fasta object that contains this
         transcript and returns the amino acid at that chromosome position.
         Returns None if this position is not inside the CDS.
         """
@@ -949,12 +943,12 @@ def readCodonsWithPosition(seq):
             yield i, seq[i:i + 3]
 
 
-def readTwoBit(file_path):
+def readFasta(file_path):
     """
-    Returns a dictionary that can randomly access two bit files.
-    Acts as a wrapper around the TwoBitFile class in twobitreader.py.
+    Returns a dictionary that can randomly access fasta files.
+    Acts as a wrapper around the Fasta class in the module pyfaidx
     """
-    return TwoBitFile(file_path)
+    return Fasta(file_path)
 
 
 def getSequenceDict(file_path, upper=True):

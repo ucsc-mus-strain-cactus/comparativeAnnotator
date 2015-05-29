@@ -17,7 +17,7 @@ class AbstractClassifier(Target):
                'generic': '152,156,45'     # grey-yellow
               }
 
-    def __init__(self, genome, alnPsl, fasta, refSeqTwoBit, annotationGp, gencodeAttributeMap, targetGp, refGenome,
+    def __init__(self, genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp, refGenome,
                  primaryKey, outDir):
         # initialize the Target
         Target.__init__(self)
@@ -27,7 +27,7 @@ class AbstractClassifier(Target):
         self.refGenome = refGenome
         self.alnPsl = alnPsl
         self.fasta = fasta
-        self.refSeqTwoBit = refSeqTwoBit
+        self.refFasta = refFasta
         self.gencodeAttributeMap = gencodeAttributeMap
         self.targetGp = targetGp
         self.annotationGp = annotationGp
@@ -42,7 +42,7 @@ class AbstractClassifier(Target):
         self.transcriptDict = seq_lib.transcriptListToDict(self.transcripts, noDuplicates=True)
 
     def getRefDict(self):
-        self.refDict = seq_lib.readTwoBit(self.refSeqTwoBit)
+        self.refDict = seq_lib.getSequenceDict(self.refFasta)
 
     def getSeqDict(self):
         self.seqDict = seq_lib.getSequenceDict(self.fasta)

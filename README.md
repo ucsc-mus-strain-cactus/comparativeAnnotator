@@ -2,14 +2,12 @@
 
 This pipeline is used to create comparative annotation of aligned whole genomes. It does this by taking a set of target genomes and one reference genome whose annotations will be mapped over, then checked for correctness. An assemblyHub is produced automatically to visualize the results.
 
-This works through a few steps. First, the reference annotations are extracted from the hgSql database. This is used to create fake source PSLs/genePreds to compare later. Second, halLiftover is used with these source genes to generate PSLs mapping the query genome to the target genomes. These PSLs are then chained and filtered. Third, mrnaToGene and gene-check are used to create BED records of these lifted over transcripts. The annotation pipeline is then used to analyze these lifted over transcripts. This pipeline uses jobTree and can be run on a parasol cluster or on a single machine. It may take a while on a single machine.
 
-This pipeline has quite a few dependencies at this point:
-1. Must be ran on hgwdev, or a machine with access to hgSql databases. It wouldn't be too hard to rewrite the initial rules to replace the hgSql calls with existing annotation/attribute BED files.
-2. This pipeline is heavily dependent on kent tools. Must have the kent tool chain in your path.
-3. The annotation pipeline requires cython be installed. It will attempt to install a twobit reading library if it is not already installed. This is required so that only the target genome is loaded into RAM. This could also be changed fairly easily, but in testing it was very slow to have every job loading the same genome file.
+# INSTALLATION
+To install this program, you need the following things.
+1. sqlite3 in your path with version 3.8.7.4 or above
+2. The python package `pyfaidx` which can be gotten through pip
 
-To run this program, you need to have cython installed. This is required for the `twobit` python library, which will be automatically compiled and installed by the makefile. This also means you need to have ability to add modules to your python installation. If you want to do this manually, look in `lib/twobit/` for the pyx file.
 
 `annotation-database-constructor` constructs `sqlite3` databases from alignments and BED/genePred files from the `transmap` and `gene-check` pipeline. Thus, the input for each genome is:
 
