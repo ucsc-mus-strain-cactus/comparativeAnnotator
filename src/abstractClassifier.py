@@ -20,7 +20,7 @@ class AbstractClassifier(Target):
     def __init__(self, genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp, refGenome,
                  primaryKey, outDir):
         # initialize the Target
-        Target.__init__(self)
+        Target.__init__(self, memory=16 * 1024 * 1024 * 1024)  # 16GB RAM per job
         # primary key this will be keyed on (AlignmentId usually)
         self.primaryKey = primaryKey
         self.genome = genome
