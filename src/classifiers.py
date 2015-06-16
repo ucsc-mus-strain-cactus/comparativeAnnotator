@@ -812,7 +812,7 @@ class ScaffoldGap(AbstractClassifier):
     """
     Does this alignment span a scaffold gap? (Defined as a 100bp run of Ns)
 
-    Reports the entire alignment if it spans a scaffold gap
+    Only true if the scaffold gap is within the alignment
     """
     @property
     def rgb(self):
@@ -820,15 +820,18 @@ class ScaffoldGap(AbstractClassifier):
 
     def run(self):
         logger.info("Starting analysis {} on {}".format(self.column, self.genome))
-        self.getAlignmentDict()
         self.getSeqDict()
         self.getTranscriptDict()
         detailsDict = {}
         classifyDict = {}
         r = re.compile("[atgcATGC][nN]{100}[atgcATGC]")
+        for aId, t in self.transcriptDict.iteritems():
+            for exon in t.exonIntervals:
+                intronSeq = intron.getSequence(self.seqDict)
         for aId, aln in self.alignmentDict.iteritems():
             if aId not in self.transcriptDict:
                 continue
+            for intron in
             destSeq = self.seqDict[aln.tName][aln.tStart:aln.tEnd]
             if re.search(r, destSeq) is not None:
                 t = self.transcriptDict[aId]

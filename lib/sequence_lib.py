@@ -943,24 +943,11 @@ def readCodonsWithPosition(seq):
             yield i, seq[i:i + 3]
 
 
-def readFasta(file_path):
-    """
-    Returns a dictionary that can randomly access fasta files.
-    Acts as a wrapper around the Fasta class in the module pyfaidx
-    """
-    return Fasta(file_path)
-
-
 def getSequenceDict(file_path, upper=True):
     """
     Returns a dictionary of fasta records.
     """
-    fastaDict = {}
-    for name, seq in fastaRead(file_path):
-        if upper is True:
-            seq = seq.upper()
-        fastaDict[name] = seq
-    return fastaDict
+    return Fasta(file_path)
 
 
 def getTranscripts(bedFile):

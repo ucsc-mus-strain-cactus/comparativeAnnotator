@@ -9,36 +9,13 @@ from src.helperFunctions import *
 from itertools import izip
 
 
-aId = "ENSMUST00000173512.1-1"transcripts = seq_lib.getGenePredTranscripts("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1411/transMap/results/geneCheck/C57B6J.gp")
+transcripts = seq_lib.getGenePredTranscripts("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeBasicVM4.gp")
 transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
-annotations = seq_lib.getGenePredTranscripts("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1411/transMap/data/VM4.BasicPseudoCombined.gp")
+annotations = seq_lib.getGenePredTranscripts("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeBasicVM4.gp")
 annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
-alignments = psl_lib.readPsl("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1411/transMap/results/filtered/C57B6J.filtered.psl")
+alignments = psl_lib.readPsl("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/C57B6J/wgEncodeGencodeBasicVM4.psl")
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
-a = annotationDict[aId[:-2]]
-t = transcriptDict[aId]
-aln = alignmentDict[aId]
-
-
-transcripts = seq_lib.getTranscripts("pipeline_data/comparative/1411/transMap/results/geneCheck/C57B6NJ.gene-check.bed")
-transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
-annotations = seq_lib.getTranscripts("pipeline_data/comparative/1411/transMap/data/wgEncodeGencodeBasicVM4.gene-check.bed")
-annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
-alignments = psl_lib.readPsl("pipeline_data/comparative/1411/transMap/results/filtered/C57B6NJ.filtered.psl")
-alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
-seqDict = seq_lib.readTwoBit("pipeline_data/assemblies/1411/C57B6J.2bit")
-refTwoBit = seq_lib.readTwoBit("pipeline_data/assemblies/1411/C57B6J.2bit")
-#refDict = seq_lib.getSequenceDict("../mouse_release_data/1411/C57B6J.fa")
-
-aId = "ENSMUST00000121953.1-1" #disc1
-a = annotationDict[aId[:-2]]
-t = transcriptDict[aId]
-aln = alignmentDict[aId]
-
-aId = "ENSMUST00000112514.1-2" #start is out of frame
-a = annotationDict[aId[:-2]]
-t = transcriptDict[aId]
-aln = alignmentDict[aId]
+seqDict = seq_lib.getSequenceDict("/cluster/home/ifiddes/mus_strain_data/pipeline_data/assemblies/1504/C57B6NJ.fa")
 
 
 valueDict = {}
