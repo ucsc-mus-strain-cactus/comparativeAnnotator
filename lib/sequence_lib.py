@@ -9,8 +9,33 @@ Modified by Ian Fiddes
 import string
 from itertools import izip
 from math import ceil, floor
-from pyfaidx import Fasta
-from jobTree.src.bioio import fastaRead
+from pyfaidx import Fasta, FastaRecord, FetchError
+
+
+def new_get_item(self, n):
+    """
+    # I have to over-write the pyfaidx way of returning sequences so that it returns upper case strings and not unicode
+    """
+    try:
+        if isinstance(n, slice):
+            start, stop, step = n.start, n.stop, n.step
+            if start is None:
+                start = 0
+            if stop is None:
+                stop = len(self)
+            if stop < 0:
+                stop = len(self) + stop
+            if start < 0:
+                start = len(self) + start
+            return str(self._fa.get_seq(self.name, start + 1, stop)[::step]).upper()
+        elif isinstance(n, int):
+            if n < 0:
+                n = len(self) + n
+            return str(self._fa.get_seq(self.name, n + 1, n + 1)).upper()
+    except FetchError:
+        raise
+
+FastaRecord.__getitem__ = new_get_item
 
 
 class Transcript(object):
@@ -943,11 +968,11 @@ def readCodonsWithPosition(seq):
             yield i, seq[i:i + 3]
 
 
-def getSequenceDict(file_path, upper=True):
+def getSequenceDict(file_path):
     """
     Returns a dictionary of fasta records.
     """
-    return Fasta(file_path)
+    return Fasta(file_path, as_raw=True)
 
 
 def getTranscripts(bedFile):
