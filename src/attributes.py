@@ -224,7 +224,6 @@ class AlignmentCoverage(Attribute):
 
 class AlignmentIdentity(Attribute):
     """
-
     Calculates alignment identity:
 
     matches / (matches + mismatches + query_insertions)

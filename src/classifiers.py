@@ -10,6 +10,50 @@ from src.helperFunctions import deletionIterator, insertionIterator, frameShiftI
     compareIntronToReference
 
 
+class HasOriginalIntrons(AbstractClassifier):
+    """
+    Does the alignment have all original introns? It can have more (small gaps and such), but it must have all
+    original introns.
+
+    Reports a BED for each intron that is above the minimum intron size and is not a original intron.
+    """
+    @property
+    def rgb(self):
+        return self.colors["alignment"]
+
+    def run(self, shortIntronSize=30):
+        self.getAnnotationDict()
+        self.getTranscriptDict()
+        self.getAlignmentDict()
+        detailsDict = defaultdict(list)
+        classifyDict = {}
+        for aId, aln in self.alignmentDict.iteritems():
+            if aId not in self.transcriptDict:
+                continue
+            t = self.transcriptDict[aId]
+            a = self.annotationDict[psl_lib.removeAlignmentNumber(aId)]
+            original_introns = {(x.start, x.stop) for x in a.intronIntervals}
+            target_introns = set()
+            target_intron_mapping = {}
+            for intron in t.intronIntervals:
+                a_start = a.transcriptCoordinateToChromosome(aln.targetCoordinateToQuery(intron.start - 1)) + 1
+                a_stop = a.transcriptCoordinateToChromosome(aln.targetCoordinateToQuery(intron.stop))
+                target_introns.add((a_start, a_stop))
+                target_intron_mapping[(a_start, a_stop)] = intron
+            missing_introns = original_introns - target_introns
+            if len(missing_introns) != 0:
+                classifyDict[aId] = 1
+                not_original_introns = target_introns - original_introns
+                for a_start, a_stop in not_original_introns:
+                    intron = target_intron_mapping[(a_start, a_stop)]
+                    if len(intron) >= shortIntronSize:
+                        detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb, self.column))
+            if aId not in classifyDict:
+                classifyDict[aId] = 0
+            self.dumpValueDicts(classifyDict, detailsDict)
+
+
+
 class CodingInsertions(AbstractClassifier):
     """
     Does the alignment introduce insertions to the target genome?
@@ -535,7 +579,7 @@ class CdsNonCanonSplice(AbstractClassifier):
                 if donor not in self.canonical or self.canonical[donor] != acceptor:
                     classifyDict[aId] = 1
                     # is this a intron that exists in the reference that also has this problem?
-                    if compareIntronToReference(intron, a, t, aln, self.canonical, self.refDict) is True:
+                    if compareIntronToReference(intron, a, aln, self.canonical, self.refDict) is True:
                         detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.colors["input"],
                                                                                   self.column))
                     else:
