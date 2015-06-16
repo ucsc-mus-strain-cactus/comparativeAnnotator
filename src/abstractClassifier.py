@@ -69,6 +69,21 @@ class AbstractClassifier(Target):
             pickle.dump(classifyDict, outf)
 
 
+class AbstractAugustusClassifier(AbstractClassifier):
+    """
+    Overwrites AbstractClassifier to add the extra genePred information and a way to load it.
+    """
+    def __init__(self, genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp, refGenome,
+                 primaryKey, outDir, augustusGp):
+        AbstractClassifier.init(genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp, refGenome,
+                 primaryKey, outDir)
+        self.augustusGp = augustusGp
+
+    def getAugustusDict(self):
+        self.augustusTranscripts = seq_lib.getGenePredTranscripts(self.augustusGp)
+        self.augustusTranscriptDict = seq_lib.transcriptListToDict(self.augustusTranscripts, noDuplicates=True)
+
+
 class Attribute(AbstractClassifier):
     """Need to overwrite the dumpValueDict method for attributes"""
     def getAttributeDict(self):
