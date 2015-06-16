@@ -64,14 +64,14 @@ def init_image(out_folder, comparison_name, width, height):
     return fig, pdf
 
 
-def get_biotype_transcript_map(attrs, annotation_gp, filter_chrom=["Y"]):
+def get_biotype_transcript_map(attrs, annotation_gp, filter_chrom=re.compile("(Y)|(chrY)")):
     attr_map = {x.split()[3]: x.split()[4] for x in open(attrs)}
     biotype_map = {}
     for line in open(annotation_gp):
         line = line.split()
         transcript_id = line[0]
         chrom = line[1]
-        if chrom not in filter_chrom:
+        if not filter_chrom.match(chrom):
             biotype_map[transcript_id] = attr_map[transcript_id]
         else:
             del attr_map[transcript_id]
