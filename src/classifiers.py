@@ -822,22 +822,16 @@ class ScaffoldGap(AbstractClassifier):
         logger.info("Starting analysis {} on {}".format(self.column, self.genome))
         self.getSeqDict()
         self.getTranscriptDict()
-        detailsDict = {}
+        detailsDict = defaultdict(list)
         classifyDict = {}
         r = re.compile("[atgcATGC][nN]{100}[atgcATGC]")
         for aId, t in self.transcriptDict.iteritems():
             for exon in t.exonIntervals:
-                intronSeq = intron.getSequence(self.seqDict)
-        for aId, aln in self.alignmentDict.iteritems():
-            if aId not in self.transcriptDict:
-                continue
-            for intron in
-            destSeq = self.seqDict[aln.tName][aln.tStart:aln.tEnd]
-            if re.search(r, destSeq) is not None:
-                t = self.transcriptDict[aId]
-                detailsDict[aId] = seq_lib.transcriptToBed(t, self.rgb, self.column)
-                classifyDict[aId] = 1
-            else:
+                exonSeq = exon.getSequence(self.seqDict, strand=False)
+                if r.match(exonSeq):
+                    classifyDict[aId] = 1
+                    detailsDict[aId].append(exon.getBed())
+            if aId not in classifyDict:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
 
