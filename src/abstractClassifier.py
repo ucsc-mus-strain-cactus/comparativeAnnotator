@@ -66,7 +66,7 @@ class AbstractClassifier(Target):
         with open(os.path.join(self.outDir, "Details" + self.column + self.genome), "wb") as outf:
             pickle.dump(detailsDict, outf)
         with open(os.path.join(self.outDir, "Classify" + self.column + self.genome), "wb") as outf:
-            pickle.dump(classifyDict, outf)            
+            pickle.dump(classifyDict, outf)
 
 
 class Attribute(AbstractClassifier):

@@ -1,12 +1,9 @@
-import os
-import cPickle as pickle
-
-from jobTree.src.bioio import logger
 from src.abstractClassifier import Attribute
 
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
 from lib.general_lib import formatRatio
+
 
 class TranscriptId(Attribute):
     """
@@ -17,7 +14,6 @@ class TranscriptId(Attribute):
         return "TEXT"
 
     def run(self):
-        logger.info("Starting attribute {} on {}".format(self.column, self.genome))
         self.getAlignmentDict()
         valueDict = {aId: psl_lib.removeAlignmentNumber(aId) for aId in self.alignmentDict}
         self.dumpValueDict(valueDict)
@@ -32,7 +28,6 @@ class GeneId(Attribute):
         return "TEXT"
 
     def run(self):
-        logger.info("Starting attribute {} on {}".format(self.column, self.genome))
         self.getAttributeDict()
         self.getAlignmentDict()
         valueDict = {aId: self.attributeDict[psl_lib.removeAlignmentNumber(aId)].geneId for aId in self.alignmentDict}
@@ -48,7 +43,6 @@ class GeneName(Attribute):
         return "TEXT"
 
     def run(self):
-        logger.info("Starting attribute {} on {}".format(self.column, self.genome))
         self.getAttributeDict()
         self.getAlignmentDict()
         valueDict = {aId: self.attributeDict[psl_lib.removeAlignmentNumber(aId)].geneName for aId in self.alignmentDict}
@@ -64,7 +58,6 @@ class GeneType(Attribute):
         return "TEXT"
 
     def run(self):
-        logger.info("Starting attribute {} on {}".format(self.column, self.genome))
         self.getAttributeDict()
         self.getAlignmentDict()
         valueDict = {aId: self.attributeDict[psl_lib.removeAlignmentNumber(aId)].geneType for aId in self.alignmentDict}
@@ -80,10 +73,10 @@ class TranscriptType(Attribute):
         return "TEXT"
 
     def run(self):
-        logger.info("Starting attribute {} on {}".format(self.column, self.genome))
         self.getAttributeDict()
         self.getAlignmentDict()
-        valueDict = {aId: self.attributeDict[psl_lib.removeAlignmentNumber(aId)].transcriptType for aId in self.alignmentDict}
+        valueDict = {aId: self.attributeDict[psl_lib.removeAlignmentNumber(aId)].transcriptType for aId in
+                     self.alignmentDict}
         self.dumpValueDict(valueDict)
 
 
@@ -96,10 +89,10 @@ class SourceChrom(Attribute):
         return "INTEGER"
 
     def run(self):
-        logger.info("Starting attribute {} on {}".format(self.column, self.genome))
         self.getAnnotationDict()
         self.getAlignmentDict()
-        valueDict = {aId: self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosome for aId in self.alignmentDict}
+        valueDict = {aId: self.annotationDict[psl_lib.removeAlignmentNumber(aId)].chromosome for aId in
+                     self.alignmentDict}
         self.dumpValueDict(valueDict)
 
 
@@ -113,7 +106,6 @@ class SourceStart(Attribute):
         return "INTEGER"
 
     def run(self):
-        logger.info("Starting attribute {} on {}".format(self.column, self.genome))
         self.getAnnotationDict()
         self.getAlignmentDict()
         valueDict = {aId: self.annotationDict[psl_lib.removeAlignmentNumber(aId)].start for aId in self.alignmentDict}
@@ -130,7 +122,6 @@ class SourceStop(Attribute):
         return "INTEGER"
 
     def run(self):
-        logger.info("Starting attribute {} on {}".format(self.column, self.genome))
         self.getAnnotationDict()
         self.getAlignmentDict()
         valueDict = {aId: self.annotationDict[psl_lib.removeAlignmentNumber(aId)].stop for aId in self.alignmentDict}
@@ -146,10 +137,10 @@ class SourceStrand(Attribute):
         return "TEXT"
 
     def run(self):
-        logger.info("Starting attribute {} on {}".format(self.column, self.genome))
         self.getAnnotationDict()
         self.getAlignmentDict()
-        valueDict = {aId: seq_lib.convertStrand(self.annotationDict[psl_lib.removeAlignmentNumber(aId)].strand) for aId in self.alignmentDict}
+        valueDict = {aId: seq_lib.convertStrand(self.annotationDict[psl_lib.removeAlignmentNumber(aId)].strand) for
+                     aId in self.alignmentDict}
         self.dumpValueDict(valueDict)
 
 
@@ -162,7 +153,6 @@ class DestChrom(Attribute):
         return "INTEGER"
 
     def run(self):
-        logger.info("Starting attribute {} on {}".format(self.column, self.genome))
         self.getTranscriptDict()
         valueDict = {aId: self.transcriptDict[aId].chromosome for aId in self.transcriptDict}
         self.dumpValueDict(valueDict)
@@ -178,7 +168,6 @@ class DestStart(Attribute):
         return "INTEGER"
 
     def run(self):
-        logger.info("Starting attribute {} on {}".format(self.column, self.genome))
         self.getTranscriptDict()
         valueDict = {aId: self.transcriptDict[aId].start for aId in self.transcriptDict}
         self.dumpValueDict(valueDict)
@@ -194,7 +183,6 @@ class DestStop(Attribute):
         return "INTEGER"
 
     def run(self):
-        logger.info("Starting attribute {} on {}".format(self.column, self.genome))
         self.getTranscriptDict()
         valueDict = {aId: self.transcriptDict[aId].stop for aId in self.transcriptDict}
         self.dumpValueDict(valueDict)
@@ -209,7 +197,6 @@ class DestStrand(Attribute):
         return "TEXT"
 
     def run(self):
-        logger.info("Starting attribute {} on {}".format(self.column, self.genome))
         self.getTranscriptDict()
         valueDict = {aId: seq_lib.convertStrand(self.transcriptDict[aId].strand) for aId in self.transcriptDict}
         self.dumpValueDict(valueDict)
@@ -228,7 +215,6 @@ class AlignmentCoverage(Attribute):
         return "REAL"
 
     def run(self):
-        logger.info("Starting attribute analysis {} on {}".format(self.column, self.genome))
         self.getAlignmentDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
@@ -250,10 +236,9 @@ class AlignmentIdentity(Attribute):
         return "REAL"
 
     def run(self):
-        logger.info("Starting classifying analysis {} on {}".format(self.column, self.genome))
         self.getAlignmentDict()
         valueDict = {}
         for aId, aln in self.alignmentDict.iteritems():
-            valueDict[aId] = formatRatio(aln.matches + aln.repMatches, aln.matches + 
-                                         aln.repMatches + aln.misMatches + aln.qNumInsert)
+            valueDict[aId] = formatRatio(aln.matches + aln.repMatches, aln.matches + aln.repMatches + aln.misMatches +
+                                         aln.qNumInsert)
         self.dumpValueDict(valueDict)
