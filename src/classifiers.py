@@ -48,10 +48,9 @@ class HasOriginalIntrons(AbstractClassifier):
                     intron = target_intron_mapping[(a_start, a_stop)]
                     if len(intron) >= shortIntronSize:
                         detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb, self.column))
-            if aId not in classifyDict:
+            else:
                 classifyDict[aId] = 0
             self.dumpValueDicts(classifyDict, detailsDict)
-
 
 
 class CodingInsertions(AbstractClassifier):

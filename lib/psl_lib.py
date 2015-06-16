@@ -6,7 +6,8 @@ Modified by Ian Fiddes
 """
 
 from collections import defaultdict, Counter
-from itertools import izip
+import re
+
 
 class PslRow(object):
     """ Represents a single row in a PSL file.
@@ -16,7 +17,7 @@ class PslRow(object):
                      'qNumInsert', 'qBaseInsert', 'tNumInsert', 'tBaseInsert',
                      'strand', 'qName', 'qSize', 'qStart', 'qEnd',
                      'tName', 'tSize', 'tStart', 'tEnd', 'blockCount',
-                     'blockSizes', 'qStarts', 'tStarts') # conserve memory
+                     'blockSizes', 'qStarts', 'tStarts')
     
     def __init__(self, line):
         data = line.split()
@@ -156,8 +157,7 @@ def getPslDict(alignments, noDuplicates=False):
             alignments_dict[a.qName] = []
         else:
             if noDuplicates:
-                raise RuntimeError("getPslDict found duplicate transcript {}"
-                    "when noDuplicates was set".format(a.qName))
+                raise RuntimeError("getPslDict found duplicate transcript {} when noDuplicates was set".format(a.qName))
         if noDuplicates:
             alignments_dict[a.qName] = a
         else:
@@ -165,16 +165,20 @@ def getPslDict(alignments, noDuplicates=False):
     return alignments_dict
 
 
+aln_re = re.compile("-[0-9]+$")
 def removeAlignmentNumber(s):
     """ If the name of the transcript ends with -d as in
     ENSMUST00000169901.2-1, return ENSMUST00000169901.2
     """
-    s = s[:]
-    i = s.find('-')
-    if i == -1:
-        return s
-    else:
-        return s[0:i]
+    return aln_re.split(s)[0]
+
+
+aug_re = re.compile("^((aug-[0-9])|(aug))-")
+def removeAugustusAlignmentNumber(s):
+    """
+    removes the alignment numbers prepended by augustus
+    """
+    return aug_re.split(s)[-1]
 
 
 def uniqifyPslRow(row, val):
