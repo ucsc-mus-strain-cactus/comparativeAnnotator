@@ -623,7 +623,7 @@ class CdsUnknownSplice(AbstractClassifier):
                 if donor not in self.non_canonical or self.non_canonical[donor] != acceptor:
                     classifyDict[aId] = 1
                     # is this a intron that exists in the reference that also has this problem?
-                    if compareIntronToReference(intron, a, t, aln, self.non_canonical, self.refDict) is True:
+                    if compareIntronToReference(intron, a, aln, self.non_canonical, self.refDict) is True:
                         detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.colors["input"],
                                                                                   self.column))
                     else:
@@ -668,7 +668,7 @@ class UtrNonCanonSplice(AbstractClassifier):
                 if donor not in self.canonical or self.canonical[donor] != acceptor:
                     classifyDict[aId] = 1
                     # is this a intron that exists in the reference that also has this problem?
-                    if compareIntronToReference(intron, a, t, aln, self.canonical, self.refDict) is True:
+                    if compareIntronToReference(intron, a, aln, self.canonical, self.refDict) is True:
                         detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.colors["input"],
                                                                                   self.column))
                     else:
@@ -713,7 +713,7 @@ class UtrUnknownSplice(AbstractClassifier):
                 if donor not in self.non_canonical or self.non_canonical[donor] != acceptor:
                     classifyDict[aId] = 1
                     # is this a intron that exists in the reference that also has this problem?
-                    if compareIntronToReference(intron, a, t, aln, self.non_canonical, self.refDict) is True:
+                    if compareIntronToReference(intron, a, aln, self.non_canonical, self.refDict) is True:
                         detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.colors["input"],
                                                                                   self.column))
                     else:
