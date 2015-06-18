@@ -50,7 +50,7 @@ class HasOriginalIntrons(AbstractClassifier):
                         detailsDict[aId].append(seq_lib.spliceIntronIntervalToBed(t, intron, self.rgb, self.column))
             else:
                 classifyDict[aId] = 0
-            self.dumpValueDicts(classifyDict, detailsDict)
+        self.dumpValueDicts(classifyDict, detailsDict)
 
 
 class CodingInsertions(AbstractClassifier):
