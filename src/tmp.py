@@ -16,6 +16,7 @@ annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
 alignments = psl_lib.readPsl("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/C57B6NJ/transMapGencodeBasicVM4.psl")
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
 seqDict = seq_lib.getSequenceDict("/cluster/home/ifiddes/mus_strain_data/pipeline_data/assemblies/1504/C57B6NJ.fa")
+refSeqDict = seq_lib.getSequenceDict("/cluster/home/ifiddes/mus_strain_data/pipeline_data/assemblies/1504/C57B6J.fa")
 augustusTranscripts = seq_lib.getGenePredTranscripts("/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/augustus/using_transmap/aug1/C57B6NJ.gp")
 augustusTranscriptDict = seq_lib.transcriptListToDict(augustusTranscripts, noDuplicates=True)
 
