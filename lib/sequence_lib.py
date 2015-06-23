@@ -823,11 +823,12 @@ class ChromosomeInterval(object):
     def size(self):
         return self.stop - self.start
 
-    def getBed(self, name):
+    def getBed(self, rgb, name):
         """
-        Returns BED tokens representing this interval. Requires a name.
+        Returns BED tokens representing this interval. Requires a name and a rgb value. BED is BED12.
         """
-        return [self.chromosome, self.start, self.stop, name, 0, convertStrand(self.strand)]
+        return [self.chromosome, self.start, self.stop, name, 0, convertStrand(self.strand), self.start, self.stop,
+                rgb, 1, len(self), 0]
 
     def getSequence(self, seqDict, strand=True):
         """

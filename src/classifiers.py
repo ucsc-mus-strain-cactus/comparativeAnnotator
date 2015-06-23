@@ -863,7 +863,7 @@ class ScaffoldGap(AbstractClassifier):
                 exonSeq = exon.getSequence(self.seqDict, strand=False)
                 if r.match(exonSeq):
                     classifyDict[aId] = 1
-                    detailsDict[aId].append(exon.getBed(self.column))
+                    detailsDict[aId].append(exon.getBed(self.rgb, self.column))
             if aId not in classifyDict:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
