@@ -844,7 +844,7 @@ class ShortCds(AbstractClassifier):
 
 class ScaffoldGap(AbstractClassifier):
     """
-    Does this alignment span a scaffold gap? (Defined as a 100bp run of Ns)
+    Does this alignment span a scaffold gap? (Defined as a run of Ns more than 10bp)
 
     Only true if the scaffold gap is within the alignment
     """
@@ -857,7 +857,7 @@ class ScaffoldGap(AbstractClassifier):
         self.getTranscriptDict()
         detailsDict = defaultdict(list)
         classifyDict = {}
-        r = re.compile("[ATGC][N]{100}[ATGC]")
+        r = re.compile("[ATGC][N]{11,}[ATGC]")
         for aId, t in self.transcriptDict.iteritems():
             for exon in t.exonIntervals:
                 exonSeq = exon.getSequence(self.seqDict, strand=False)
@@ -884,7 +884,7 @@ class UnknownBases(AbstractClassifier):
         self.getSeqDict()
         detailsDict = {}
         classifyDict = {}
-        r = re.compile("N+")
+        r = re.compile("[ATGC][N]{1,10}[ATGC]")
         for aId, t in self.transcriptDict.iteritems():
             if cds is True:
                 s = t.getCds(self.seqDict)
