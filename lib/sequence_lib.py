@@ -9,6 +9,7 @@ Modified by Ian Fiddes
 import string
 import copy
 from itertools import izip
+from collections import Iterable
 from math import ceil, floor
 from pyfaidx import Fasta, FastaRecord, FetchError
 from intervaltree import Interval, IntervalTree
@@ -810,11 +811,12 @@ class ChromosomeInterval(object):
         self.chromosome = str(chromosome)
         self.start = int(start)    # 0 based
         self.stop = int(stop)      # exclusive
-        assert(strand in [True, False, None])
+        if strand not in [True, False, None]:
+            strand = convertStrand(strand)
         self.strand = strand       # True or False
 
     def __len__(self):
-        return self.stop - self.start
+        return abs(self.stop - self.start)
 
     def __cmp__(self, other):
         """
@@ -831,6 +833,22 @@ class ChromosomeInterval(object):
     def __contains__(self, other):
         return self.start <= other < self.stop
 
+    def __add__(self, other):
+        if self.strand != other.strand or self.chromosome != other.chromosome:
+            return None
+        return ChromosomeInterval(self.chromosome, self.start + other.start, self.stop + other.stop, self.strand)
+
+    def __sub__(self, other):
+        if self.strand != other.strand or self.chromosome != other.chromosome:
+            return None
+        return ChromosomeInterval(self.chromosome, self.start - other.start, self.stop - other.stop, self.strand)
+
+    @property
+    def is_null(self):
+        if len(self) == 0:
+            return True
+        return False
+
     def intersection(self, other):
         """
         returns a new ChromosomeInterval representing the overlap between these intervals
@@ -842,6 +860,8 @@ class ChromosomeInterval(object):
             other, self = self, other
         if self.stop <= other.start:
             return None
+        if self == other:
+            return self
         if self.stop <= other.stop:
             return ChromosomeInterval(self.chromosome, other.start, self.stop, self.strand)
         else:
@@ -865,6 +885,8 @@ class ChromosomeInterval(object):
             return None
         if self > other:
             other, self = self, other
+        if self == other:
+            return self
         if self.intersection(other) is not None:
             return self.hull(other)
         else:
@@ -913,7 +935,7 @@ class ChromosomeInterval(object):
 
     def separation(self, other):
         """
-        Returns a integer representing the distance between these intervals
+        Returns a integer representing the start distance between these intervals
         """
         if self.strand != other.strand or self.chromosome != other.chromosome:
             return None
@@ -924,11 +946,22 @@ class ChromosomeInterval(object):
         else:
             return other.start - self.stop
 
-    def getBed(self, name):
+    def symmetric_separation(self, other):
         """
-        Returns BED tokens representing this interval. Requires a name.
+        Returns a pair of distances representing the symmetric distance between two intervals
         """
-        return [self.chromosome, self.start, self.stop, name, 0, convertStrand(self.strand)]
+        if self.strand != other.strand or self.chromosome != other.chromosome:
+            return None
+        if self > other:
+            other, self = self, other
+        return other.start - self.start, other.stop - self.stop
+
+    def getBed(self, rgb, name):
+        """
+        Returns BED tokens representing this interval. Requires a name and a rgb value. BED is BED12.
+        """
+        return [self.chromosome, self.start, self.stop, name, 0, convertStrand(self.strand), self.start, self.stop,
+                rgb, 1, len(self), 0]
 
     def getSequence(self, seqDict, strand=True):
         """
@@ -944,7 +977,7 @@ class ChromosomeInterval(object):
         assert False
 
     def __repr__(self):
-        return "ChromosomeInterval({}, {}, {}, '{}')".format(self.chromosome, self.start, self.stop,
+        return "ChromosomeInterval('{}', {}, {}, '{}')".format(self.chromosome, self.start, self.stop,
                                                            convertStrand(self.strand))
 
 
@@ -989,29 +1022,12 @@ def intervalNotIntersectIntervals(intervals, interval):
     return intersections.count(None) == len(intersections)
 
 
-def complementOfIntersection(a, b, size):
+def intervalNotWithinWiggleRoomIntervals(intervals, interval, wiggleRoom=0):
     """
-    Takes two intervals (a and b) and returns the complement of the intersection. Assumes that they are on the same
-    chromosome defined by size. This is done by calculating the union of the complements. Thanks DeMorgan's laws!
+    Same thing as intervalNotIntersectIntervals but looks within wiggleRoom bases to count a valid lack of intersection
     """
-    a_c = a.complement(size)
-    b_c = b.complement(size)
-    left, right = [x.union(y) for x, y in izip(a_c, b_c)]
-    return left.union(right)
-
-
-def buildIntervalTree(intervals, wiggleRoom=0):
-    """
-    Builds an IntervalTree from a list of ChromosomeInterval objects. The data field is a list containing the object
-    itself at first. This can be added as merging happens.
-    Has the option to widen the intervals by wiggleRoom
-    """
-    t = IntervalTree()
-    for i in intervals:
-        #t[i.start - wiggleRoom:i.stop + wiggleRoom] = [i]
-        t[i.start - wiggleRoom:i.stop + wiggleRoom] = None
-    #t.merge_overlaps(data_reducer=lambda x, y: x + y)
-    return t
+    separation = [sum(interval.symmetric_separation(target_interval)) for target_interval in intervals]
+    return not any([x <= 2 * wiggleRoom for x in separation])  # we allow wiggle on both sides
 
 
 def convertStrand(s):
@@ -1019,17 +1035,19 @@ def convertStrand(s):
     Given a potential strand value, converts either from True/False/None
     to +/-/None depending on value
     """
-    assert s in [True, False, None, "+", "-"]
+    assert s in [True, False, None, "+", "-", "."]
     if s is True:
         return "+"
     elif s is False:
         return "-"
     elif s is None:
-        return None
+        return "."
     elif s == "-":
         return False
     elif s == "+":
         return True
+    elif s == ".":
+        return None
 
 
 _complement = string.maketrans("ATGC", "TACG")

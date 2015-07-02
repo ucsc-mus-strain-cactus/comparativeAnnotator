@@ -99,7 +99,12 @@ class NotSimilarExonBoundaries(AbstractAugustusClassifier):
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
             t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
             merged_t_intervals = seq_lib.gapMergeIntervals(t.exonIntervals, gap=shortIntronSize)
-            merged_t_tree = seq_lib.buildIntervalTree(merged_t_intervals, wiggleRoom=wiggleRoom)
-            aug_t_tree = seq_lib.buildIntervalTree(aug_t.exonIntervals, wiggleRoom=wiggleRoom)
-            interval_complement = merged_t_tree ^ aug_t_tree
-            interval_complement.merge_overlaps()
+            aug_t_intervals = aug_t.exonIntervals
+            for interval in merged_t_intervals:
+                if seq_lib.intervalNotWithinWiggleRoomIntervals(aug_t_intervals, interval, wiggleRoom):
+                    classifyDict[aug_aId] = 1
+                    detailsDict[aug_aId].append(interval.getBed(self.rgb, self.column))
+            if aug_aId not in classifyDict:
+                classifyDict[aug_aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
+
