@@ -75,11 +75,11 @@ class AbstractAugustusClassifier(AbstractClassifier):
     """
     def __init__(self, genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp, refGenome,
                  primaryKey, outDir, augustusGp):
-        AbstractClassifier.init(genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp, refGenome,
-                 primaryKey, outDir)
+        AbstractClassifier.__init__(self, genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp,
+                                    refGenome, primaryKey, outDir)
         self.augustusGp = augustusGp
 
-    def getAugustusDict(self):
+    def getAugustusTranscriptDict(self):
         self.augustusTranscripts = seq_lib.getGenePredTranscripts(self.augustusGp)
         self.augustusTranscriptDict = seq_lib.transcriptListToDict(self.augustusTranscripts, noDuplicates=True)
 
