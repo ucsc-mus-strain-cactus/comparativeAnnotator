@@ -20,7 +20,8 @@ class AugustusParalogy(AbstractAugustusClassifier):
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
             if counts[psl_lib.removeAugustusAlignmentNumber(aug_aId)] > 1:
                 detailsDict[aug_aId] = seq_lib.transcriptToBed(aug_t, self.rgb, self.column + "_{}_Copies".format(
-                    counts[psl_lib.removeAugustusAlignmentNumber(aug_aId)] - 1))
+                                                               counts[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+                                                               - 1))
                 classifyDict[aug_aId] = 1
             else:
                 classifyDict[aug_aId] = 0
@@ -44,6 +45,8 @@ class AugustusExonGain(AbstractAugustusClassifier):
         detailsDict = defaultdict(list)
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
             t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+            if aug_t.strand != t.strand:
+                continue
             aug_t_intervals = aug_t.exonIntervals
             merged_t_intervals = seq_lib.gapMergeIntervals(t.exonIntervals, gap=shortIntronSize)
             for interval in aug_t_intervals:
@@ -71,6 +74,8 @@ class AugustusExonLoss(AbstractAugustusClassifier):
         detailsDict = defaultdict(list)
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
             t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+            if aug_t.strand != t.strand:
+                continue
             aug_t_intervals = aug_t.exonIntervals
             merged_t_intervals = seq_lib.gapMergeIntervals(t.exonIntervals, gap=shortIntronSize)
             for interval in merged_t_intervals:
@@ -98,6 +103,8 @@ class NotSimilarExonBoundaries(AbstractAugustusClassifier):
         detailsDict = defaultdict(list)
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
             t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+            if aug_t.strand != t.strand:
+                continue
             merged_t_intervals = seq_lib.gapMergeIntervals(t.exonIntervals, gap=shortIntronSize)
             aug_t_intervals = aug_t.exonIntervals
             for interval in merged_t_intervals:

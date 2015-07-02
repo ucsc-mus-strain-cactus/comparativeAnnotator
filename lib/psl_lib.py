@@ -173,7 +173,7 @@ def removeAlignmentNumber(s):
     return aln_re.split(s)[0]
 
 
-aug_re = re.compile("^((aug-[0-9])|(aug))-")
+aug_re = re.compile("^((aug-[0-9]+)|(aug))-")
 def removeAugustusAlignmentNumber(s):
     """
     removes the alignment numbers prepended by augustus

@@ -18,7 +18,7 @@ alignments = psl_lib.readPsl("/cluster/home/ifiddes/mus_strain_data/pipeline_dat
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
 seqDict = seq_lib.getSequenceDict("/cluster/home/ifiddes/mus_strain_data/pipeline_data/assemblies/1504/C57B6NJ.fa")
 refSeqDict = seq_lib.getSequenceDict("/cluster/home/ifiddes/mus_strain_data/pipeline_data/assemblies/1504/C57B6J.fa")
-augustusTranscripts = seq_lib.getGenePredTranscripts("/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/augustus/using_transmap/aug1/C57B6NJ.gp")
+augustusTranscripts = seq_lib.getGenePredTranscripts("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/augustus/tmr/C57B6NJ.gp")
 augustusTranscriptDict = seq_lib.transcriptListToDict(augustusTranscripts, noDuplicates=True)
 
 aId = "ENSMUST00000068580.3-1"
@@ -43,3 +43,22 @@ t = Nonsynonymous("C57B6NJ", "/hive/groups/recon/projs/mus_strain_cactus/pipelin
 
 aug_t_intervals = [seq_lib.ChromosomeInterval('1', 0, 10, True), seq_lib.ChromosomeInterval('1', 20, 30, True)]
 merged_t_intervals = [seq_lib.ChromosomeInterval('1', 0, 8, True), seq_lib.ChromosomeInterval('1', 15, 18, True), seq_lib.ChromosomeInterval('1', 20, 30, True)]
+
+shortIntronSize=30
+wiggleRoom=10
+classifyDict = {}
+detailsDict = defaultdict(list)
+strand = []
+for aug_aId, aug_t in augustusTranscriptDict.iteritems():
+    t = transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+    if aug_t.strand != t.strand:
+        strand.append(aug_aId)
+        continue
+    merged_t_intervals = seq_lib.gapMergeIntervals(t.exonIntervals, gap=shortIntronSize)
+    aug_t_intervals = aug_t.exonIntervals
+    for interval in merged_t_intervals:
+        if seq_lib.intervalNotWithinWiggleRoomIntervals(aug_t_intervals, interval, wiggleRoom):
+            classifyDict[aug_aId] = 1
+            detailsDict[aug_aId].append(interval.getBed("A", "A"))
+    if aug_aId not in classifyDict:
+        classifyDict[aug_aId] = 0
