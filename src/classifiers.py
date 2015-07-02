@@ -13,7 +13,7 @@ from src.helperFunctions import deletionIterator, insertionIterator, frameShiftI
 class HasOriginalIntrons(AbstractClassifier):
     """
     Does the alignment have all original introns? It can have more (small gaps and such), but it must have all
-    original introns.
+    original introns. Reports 1 if this is NOT true.
 
     Reports a BED for each intron that is above the minimum intron size and is not a original intron.
     """
