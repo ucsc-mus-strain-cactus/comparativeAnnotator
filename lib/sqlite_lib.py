@@ -18,7 +18,7 @@ class ExclusiveSqlConnection(object):
         self.timeout = timeout
 
     def __enter__(self):
-        self.con = sql.connect(self.path, timeout = self.timeout, isolation_level = "EXCLUSIVE")
+        self.con = sql.connect(self.path, timeout=self.timeout, isolation_level="EXCLUSIVE")
         try:
             self.con.execute("BEGIN EXCLUSIVE")
         except sql.OperationalError:
@@ -88,7 +88,7 @@ def insertRow(cur, table, primary_key_column, primary_key, columns, values):
     columns = list of columns to be inserted
     values = list of values to be inserted into columns
     """
-    columns = ", ".join([primary_key_column] + columns)
+    column_string = ", ".join([primary_key_column] + columns)
     values = [primary_key] + values
     cmd = """INSERT INTO '{}' ({}) VALUES ({})""".format(table, column_string, ", ".join(["?"] * len(values)))
     cur.execute(cmd, values)
@@ -213,4 +213,3 @@ def selectBetweenDatabases(cur, altName, returnColumn, columns, values, modifier
     cmd += " main.'{}'.'{}' = ?)".format(table, columns[-1])
     q = cur.execute(cmd, values)
     return q.fetchall()
-    

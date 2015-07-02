@@ -3,11 +3,11 @@ from itertools import izip_longest, product, izip
 import cPickle as pickle
 
 import src.classifiers
-import src.augustusClassifiers
 import src.attributes
+import src.augustusClassifiers
 import lib.sqlite_lib as sql_lib
+import lib.psl_lib as psl_lib
 from jobTree.scriptTree.target import Target
-from jobTree.src.bioio import logger
 from lib.general_lib import classesInModule
 
 
@@ -21,9 +21,7 @@ class ConstructDatabases(Target):
         self.tmpDir = dataDir
 
     def run(self):
-        logger.info("Merging pickled files into databases")
         classifiers = classesInModule(src.classifiers)
-        augustusClassifiers = classesInModule(src.augustusClassifiers)
         attributes = classesInModule(src.attributes)
         classifyDb = os.path.join(self.outDir, "classify.db")
         if os.path.exists(classifyDb):
@@ -34,9 +32,9 @@ class ConstructDatabases(Target):
         attributesDb = os.path.join(self.outDir, "attributes.db")
         if os.path.exists(attributesDb):
             os.remove(attributesDb)
-        self.initializeDb(classifyDb, classifiers + augustusClassifiers, dataType="INTEGER")
-        self.initializeDb(detailsDb, classifiers + augustusClassifiers, dataType="TEXT")
-        for classifier, genome in product(classifiers + augustusClassifiers, self.genomes):
+        self.initializeDb(classifyDb, classifiers, dataType="INTEGER")
+        self.initializeDb(detailsDb, classifiers, dataType="TEXT")
+        for classifier, genome in product(classifiers, self.genomes):
             classifyDict = pickle.load(open(os.path.join(self.tmpDir, genome, "Classify" + classifier.__name__ + genome), "rb"))
             self.simpleUpdateWrapper(classifyDict, classifyDb, genome, classifier.__name__)
             detailsDict = pickle.load(open(os.path.join(self.tmpDir, genome, "Details" + classifier.__name__ + genome), "rb"))
@@ -86,7 +84,7 @@ class ConstructDatabases(Target):
             columnDefinitions = [[x.__name__, x.dataType()] for x in classifiers]
         else:
             columnDefinitions = [[x.__name__, dataType] for x in classifiers]
-        # find alignment IDs from PSLs (primary key for database)
+        #find alignment IDs from PSLs (primary key for database)
         for genome, psl in izip(self.genomes, self.psls):
             aIds = set(x.split()[9] for x in open(psl))
             self.initializeSqlTable(dbPath, genome, columnDefinitions, self.primaryKeyColumn)
@@ -99,3 +97,43 @@ class ConstructDatabases(Target):
     def initializeSqlRows(self, db, genome, aIds, primaryKey):
         with sql_lib.ExclusiveSqlConnection(db) as cur:
             sql_lib.insertRows(cur, genome, primaryKey, [primaryKey], izip_longest(aIds, [None]))
+
+
+class ConstructAugustusDatabases(ConstructDatabases):
+    def __init__(self, outDir, dataDir, genomes, augustusGps, primaryKeyColumn):
+        ConstructDatabases.__init__(self, outDir, dataDir, genomes, augustusGps, primaryKeyColumn)
+        self.augustusGps = augustusGps
+
+    def run(self):
+        augustusClassifiers = classesInModule(src.augustusClassifiers)
+        classifyDb = os.path.join(self.outDir, "augustusClassify.db")
+        if os.path.exists(classifyDb):
+            os.remove(classifyDb)
+        detailsDb = os.path.join(self.outDir, "augustusDetails.db")
+        if os.path.exists(detailsDb):
+            os.remove(detailsDb)
+        self.initializeDb(classifyDb, augustusClassifiers, dataType="INTEGER")
+        self.initializeDb(detailsDb, augustusClassifiers, dataType="TEXT")
+        for classifier, genome in product(augustusClassifiers, self.genomes):
+            classifyDict = pickle.load(open(os.path.join(self.tmpDir, genome, "Classify" + classifier.__name__ + genome), "rb"))
+            self.simpleUpdateWrapper(classifyDict, classifyDb, genome, classifier.__name__)
+            detailsDict = pickle.load(open(os.path.join(self.tmpDir, genome, "Details" + classifier.__name__ + genome), "rb"))
+            self.simpleBedUpdateWrapper(detailsDict, detailsDb, genome, classifier.__name__)
+
+    def initializeDb(self, dbPath, classifiers, dataType=None):
+        if dataType is None:
+            columnDefinitions = [[x.__name__, x.dataType()] for x in classifiers]
+        else:
+            columnDefinitions = [[x.__name__, dataType] for x in classifiers]
+        # find alignment IDs from PSLs (primary key for database)
+        for genome, gp in izip(self.genomes, self.augustusGps):
+            aug_aIds = set(x.split()[11] for x in open(gp))
+            aIds = [psl_lib.removeAugustusAlignmentNumber(x) for x in aug_aIds]
+            self.initializeSqlTable(dbPath, genome, columnDefinitions, self.primaryKeyColumn)
+            self.initializeSqlRows(dbPath, genome, aug_aIds, self.primaryKeyColumn)
+            self.buildNameRow(dbPath, genome, aug_aIds, aIds, self.primaryKeyColumn)
+
+    def buildNameRow(self, db, genome, aug_aIds, aIds, primaryKey):
+        with sql_lib.ExclusiveSqlConnection(db) as cur:
+            cur.execute("""ALTER TABLE '{}' ADD COLUMN aId TEXT """.format(genome))
+            sql_lib.updateRows(cur, primaryKey, genome, "aId", izip([aIds, aug_aIds]))

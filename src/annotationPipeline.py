@@ -11,7 +11,7 @@ import lib.sqlite_lib as sql_lib
 import src.classifiers
 import src.augustusClassifiers
 import src.attributes
-from src.constructDatabases import ConstructDatabases
+from src.constructDatabases import ConstructDatabases, ConstructAugustusDatabases
 from src.buildTracks import BuildTracks
 
 

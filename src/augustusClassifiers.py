@@ -87,7 +87,7 @@ class AugustusExonLoss(AbstractAugustusClassifier):
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
-class NotSimilarExonBoundaries(AbstractAugustusClassifier):
+class AugustusNotSimilarExonBoundaries(AbstractAugustusClassifier):
     """
     Does the augustus version of this transcript have the same exon boundaries, within a wiggle room range?
     Returns True if any exons are NOT in the same boundaries, and also reports each such splice junction
@@ -115,3 +115,32 @@ class NotSimilarExonBoundaries(AbstractAugustusClassifier):
                 classifyDict[aug_aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
 
+
+class AugustusNotSameStartStop(AbstractAugustusClassifier):
+    """
+    Does the augustus transcript NOT have the exact same start bases as the transMap transcript?
+    """
+    @property
+    def rgb(self):
+        return self.colors["alignment"]
+
+    def run(self):
+        self.getAugustusTranscriptDict()
+        self.getTranscriptDict()
+        classifyDict = {}
+        detailsDict = {}
+        for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
+            t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+            if aug_t.strand != t.strand or t.thickStart == t.thickStop:
+                continue
+            if t.thickStart == aug_t.thickStart and t.thickStop == aug_t.thickStop:
+                classifyDict[aug_aId] = 1
+                if t.strand is True:
+                    detailsDict[aug_aId] = [t.getBed(self.rgb, self.column, t.thickStart + 3),
+                                            t.getBed(self.rgb, self.column, t.thickStop - 3)]
+                else:
+                    detailsDict[aug_aId] = [t.getBed(self.rgb, self.column, t.thickStart - 3),
+                                            t.getBed(self.rgb, self.column, t.thickStop + 3)]
+            else:
+                classifyDict[aug_aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
