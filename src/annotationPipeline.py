@@ -58,6 +58,8 @@ def buildAnalyses(target, psls, fastas, refFasta, gps, gencodeAttributeMap, geno
 
 def databaseWrapper(target, outDir, genomes, psls, primaryKeyColumn, sizes, gps, augGps, annotationGp):
     target.addChildTarget(ConstructDatabases(outDir, target.getGlobalTempDir(), genomes, psls, primaryKeyColumn))
+    target.addChildTarget(ConstructAugustusDatabases(outDir, target.getGlobalTempDir(), genomes, augGps,
+                                                     primaryKeyColumn))
     target.setFollowOnTarget(BuildTracks(outDir, genomes, primaryKeyColumn, sizes, gps, annotationGp))
 
 
