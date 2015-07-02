@@ -2,7 +2,9 @@ import os
 from itertools import izip_longest, product, izip
 import cPickle as pickle
 
-import src.classifiers, src.attributes
+import src.classifiers
+import src.augustusClassifiers
+import src.attributes
 import lib.sqlite_lib as sql_lib
 from jobTree.scriptTree.target import Target
 from jobTree.src.bioio import logger
@@ -21,6 +23,7 @@ class ConstructDatabases(Target):
     def run(self):
         logger.info("Merging pickled files into databases")
         classifiers = classesInModule(src.classifiers)
+        augustusClassifiers = classesInModule(src.augustusClassifiers)
         attributes = classesInModule(src.attributes)
         classifyDb = os.path.join(self.outDir, "classify.db")
         if os.path.exists(classifyDb):
@@ -31,9 +34,9 @@ class ConstructDatabases(Target):
         attributesDb = os.path.join(self.outDir, "attributes.db")
         if os.path.exists(attributesDb):
             os.remove(attributesDb)
-        self.initializeDb(classifyDb, classifiers, dataType="INTEGER")
-        self.initializeDb(detailsDb, classifiers, dataType="TEXT")
-        for classifier, genome in product(classifiers, self.genomes):
+        self.initializeDb(classifyDb, classifiers + augustusClassifiers, dataType="INTEGER")
+        self.initializeDb(detailsDb, classifiers + augustusClassifiers, dataType="TEXT")
+        for classifier, genome in product(classifiers + augustusClassifiers, self.genomes):
             classifyDict = pickle.load(open(os.path.join(self.tmpDir, genome, "Classify" + classifier.__name__ + genome), "rb"))
             self.simpleUpdateWrapper(classifyDict, classifyDb, genome, classifier.__name__)
             detailsDict = pickle.load(open(os.path.join(self.tmpDir, genome, "Details" + classifier.__name__ + genome), "rb"))
@@ -83,7 +86,7 @@ class ConstructDatabases(Target):
             columnDefinitions = [[x.__name__, x.dataType()] for x in classifiers]
         else:
             columnDefinitions = [[x.__name__, dataType] for x in classifiers]
-        #find alignment IDs from PSLs (primary key for database)
+        # find alignment IDs from PSLs (primary key for database)
         for genome, psl in izip(self.genomes, self.psls):
             aIds = set(x.split()[9] for x in open(psl))
             self.initializeSqlTable(dbPath, genome, columnDefinitions, self.primaryKeyColumn)

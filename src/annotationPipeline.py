@@ -9,6 +9,7 @@ from lib.general_lib import classesInModule
 import lib.sqlite_lib as sql_lib
 
 import src.classifiers
+import src.augustusClassifiers
 import src.attributes
 from src.constructDatabases import ConstructDatabases
 from src.buildTracks import BuildTracks
@@ -24,6 +25,7 @@ def build_parser():
     parser.add_argument('--annotationGp', required=True)
     parser.add_argument('--psls', nargs='+', required=True)
     parser.add_argument('--gps', nargs='+', required=True)
+    parser.add_argument('--augustusGps', nargs='+', required=True)
     parser.add_argument('--fastas', nargs='+', required=True)
     parser.add_argument('--refFasta', type=str, required=True)
     parser.add_argument('--sizes', nargs='+', required=True)
@@ -34,23 +36,27 @@ def build_parser():
 
 
 def buildAnalyses(target, psls, fastas, refFasta, gps, gencodeAttributeMap, genomes,
-                  annotationGp, outDir, refGenome, primaryKeyColumn, sizes):
+                  annotationGp, outDir, refGenome, primaryKeyColumn, sizes, augGps):
     # find all user-defined classes in the categories of analyses
     classifiers = classesInModule(src.classifiers)
+    augustusClassifiers = classesInModule(src.augustusClassifiers)
     attributes = classesInModule(src.attributes)
-    for genome, psl, bed, fasta in izip(genomes, psls, gps, fastas):
+    for genome, psl, bed, fasta, augGp in izip(genomes, psls, gps, fastas, augGps):
         for c in classifiers:
             target.addChildTarget(c(genome, psl, fasta, refFasta, annotationGp, gencodeAttributeMap,
                                     bed, refGenome, primaryKeyColumn, target.getGlobalTempDir()))
         for a in attributes:
             target.addChildTarget(a(genome, psl, fasta, refFasta, annotationGp, gencodeAttributeMap,
                                     bed, refGenome, primaryKeyColumn, target.getGlobalTempDir()))
+        for aug in augustusClassifiers:
+            target.addChildTarget(aug(genome, psl, fasta, refFasta, annotationGp, gencodeAttributeMap,
+                                      bed, refGenome, primaryKeyColumn, target.getGlobalTempDir(), augGp))
         # merge the resulting pickled files into sqlite databases
-    target.setFollowOnTargetFn(databaseWrapper, args=(outDir, genomes, psls, primaryKeyColumn, sizes, gps,
+    target.setFollowOnTargetFn(databaseWrapper, args=(outDir, genomes, psls, primaryKeyColumn, sizes, gps, augGps,
                                                       annotationGp))
 
 
-def databaseWrapper(target, outDir, genomes, psls, primaryKeyColumn, sizes, gps, annotationGp):
+def databaseWrapper(target, outDir, genomes, psls, primaryKeyColumn, sizes, gps, augGps, annotationGp):
     target.addChildTarget(ConstructDatabases(outDir, target.getGlobalTempDir(), genomes, psls, primaryKeyColumn))
     target.setFollowOnTarget(BuildTracks(outDir, genomes, primaryKeyColumn, sizes, gps, annotationGp))
 
@@ -92,7 +98,8 @@ def main():
     i = Stack(Target.makeTargetFn(buildAnalyses, args=(sorted(args.psls), sorted(args.fastas), args.refFasta,
                                                        sorted(args.gps), args.gencodeAttributeMap, sorted(args.genomes),
                                                        args.annotationGp, args.outDir, args.refGenome, 
-                                                       args.primaryKeyColumn, sorted(args.sizes)))).startJobTree(args)
+                                                       args.primaryKeyColumn, sorted(args.sizes), args.augustusGps,
+                                                       ))).startJobTree(args)
 
     if i != 0:
         raise RuntimeError("Got failed jobs")

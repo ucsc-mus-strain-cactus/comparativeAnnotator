@@ -12,6 +12,7 @@ from src.abstractClassifier import AbstractClassifier
 from jobTree.scriptTree.target import Target
 from jobTree.src.bioio import logger, system
 
+
 class BuildTracks(Target):
     """
     Builds a track hub out of the databases. First, initializes a trackHub in the directory specified.
