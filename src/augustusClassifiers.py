@@ -116,9 +116,9 @@ class AugustusNotSimilarExonBoundaries(AbstractAugustusClassifier):
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
-class AugustusNotSameStartStop(AbstractAugustusClassifier):
+class AugustusSameStartStop(AbstractAugustusClassifier):
     """
-    Does the augustus transcript NOT have the exact same start bases as the transMap transcript?
+    Does the augustus transcript have the exact same start bases as the transMap transcript?
     """
     @property
     def rgb(self):
@@ -134,13 +134,10 @@ class AugustusNotSameStartStop(AbstractAugustusClassifier):
             if aug_t.strand != t.strand or t.thickStart == t.thickStop:
                 continue
             if t.thickStart == aug_t.thickStart and t.thickStop == aug_t.thickStop:
-                classifyDict[aug_aId] = 1
-                if t.strand is True:
-                    detailsDict[aug_aId] = [t.getBed(self.rgb, self.column, t.thickStart + 3),
-                                            t.getBed(self.rgb, self.column, t.thickStop - 3)]
-                else:
-                    detailsDict[aug_aId] = [t.getBed(self.rgb, self.column, t.thickStart - 3),
-                                            t.getBed(self.rgb, self.column, t.thickStop + 3)]
-            else:
                 classifyDict[aug_aId] = 0
+                s = t.getCdsLength()
+                detailsDict[aug_aId] = [seq_lib.cdsCoordinateToBed(t, 0, 3, self.rgb, self.column),
+                                        seq_lib.cdsCoordinateToBed(t, s - 3, s, self.rgb, self.column)]
+            else:
+                classifyDict[aug_aId] = 1
         self.dumpValueDicts(classifyDict, detailsDict)

@@ -136,4 +136,4 @@ class ConstructAugustusDatabases(ConstructDatabases):
     def buildNameRow(self, db, genome, aug_aIds, aIds, primaryKey):
         with sql_lib.ExclusiveSqlConnection(db) as cur:
             cur.execute("""ALTER TABLE '{}' ADD COLUMN aId TEXT """.format(genome))
-            sql_lib.updateRows(cur, primaryKey, genome, "aId", izip([aIds, aug_aIds]))
+            sql_lib.updateRows(cur, genome, primaryKey, "aId", izip(aIds, aug_aIds))
