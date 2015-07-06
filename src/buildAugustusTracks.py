@@ -85,20 +85,20 @@ class BuildAugustusTracks(Target):
             os.mkdir(os.path.join(self.bigBedDir, "AugustusAnnotation"))
 
         #build directory of AugustusAnnotation output
-        for genome, bed, size in izip(self.genomes, self.gps, self.sizes):
+        for genome, bed, size in izip(self.genomes, self.augustusGps, self.sizes):
             assert genome == os.path.basename(size).split(".")[0], (genome, os.path.basename(size).split(".")[0])
             if not os.path.exists(os.path.join(self.bedDir, "AugustusAnnotation", genome)):
                 os.mkdir(os.path.join(self.bedDir, "AugustusAnnotation", genome))
             if not os.path.exists(os.path.join(self.bigBedDir, "AugustusAnnotation", genome)):
                 os.mkdir(os.path.join(self.bigBedDir, "AugustusAnnotation", genome))
-            recolored_records = self.recolorTransMap(genome, bed)
+            recolored_records = self.recolorAugustus(genome, bed)
             new_bed_path = os.path.join(self.bedDir, "AugustusAnnotation", genome, genome + ".bed")
             with open(new_bed_path, 'w') as outf:
                 for l in recolored_records:
                     outf.write(l + "\n")
             self.buildBigBed(new_bed_path, size, genome, "AugustusAnnotation")
 
-        for category in self.categories:
+        for category in self.augustusCategories:
             if not os.path.exists(os.path.join(self.bedDir, category.__name__)):
                 os.mkdir(os.path.join(self.bedDir, category.__name__))
             if not os.path.exists(os.path.join(self.bigBedDir, category.__name__)):

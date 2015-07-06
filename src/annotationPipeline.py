@@ -61,8 +61,12 @@ def databaseWrapper(target, outDir, genomes, psls, primaryKeyColumn, sizes, gps,
     target.addChildTarget(ConstructDatabases(outDir, target.getGlobalTempDir(), genomes, psls, primaryKeyColumn))
     target.addChildTarget(ConstructAugustusDatabases(outDir, target.getGlobalTempDir(), genomes, augGps,
                                                      primaryKeyColumn))
-    target.setFollowOnTarget(BuildTracks(outDir, genomes, primaryKeyColumn, sizes, gps, annotationGp))
-    target.setFollowOnTarget(BuildAugustusTracks(outDir, genomes, primaryKeyColumn, sizes, augGps, annotationGp))
+    target.setFollowOnTargetFn(tracksWrapper, args=(outDir, genomes, psls, primaryKeyColumn, sizes, gps, augGps, annotationGp))
+
+
+def tracksWrapper(target, outDir, genomes, psls, primaryKeyColumn, sizes, gps, augGps, annotationGp):
+    target.addChildTarget(BuildTracks(outDir, genomes, primaryKeyColumn, sizes, gps, annotationGp))
+    target.addChildTarget(BuildAugustusTracks(outDir, genomes, primaryKeyColumn, sizes, augGps, annotationGp))
 
 
 def main():
