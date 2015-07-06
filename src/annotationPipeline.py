@@ -13,6 +13,7 @@ import src.augustusClassifiers
 import src.attributes
 from src.constructDatabases import ConstructDatabases, ConstructAugustusDatabases
 from src.buildTracks import BuildTracks
+from src.buildAugustusTracks import BuildAugustusTracks
 
 
 def build_parser():
@@ -61,6 +62,7 @@ def databaseWrapper(target, outDir, genomes, psls, primaryKeyColumn, sizes, gps,
     target.addChildTarget(ConstructAugustusDatabases(outDir, target.getGlobalTempDir(), genomes, augGps,
                                                      primaryKeyColumn))
     target.setFollowOnTarget(BuildTracks(outDir, genomes, primaryKeyColumn, sizes, gps, annotationGp))
+    target.setFollowOnTarget(BuildAugustusTracks(outDir, genomes, primaryKeyColumn, sizes, augGps, annotationGp))
 
 
 def main():
