@@ -13,7 +13,7 @@ from src.helperFunctions import deletionIterator, insertionIterator, frameShiftI
 class HasOriginalIntrons(AbstractClassifier):
     """
     Does the alignment have all original introns? It can have more (small gaps and such), but it must have all
-    original introns. Reports 1 if this is NOT true.
+    original introns.
 
     Reports a BED for each intron that is above the minimum intron size and is not a original intron.
     """
@@ -844,7 +844,7 @@ class ShortCds(AbstractClassifier):
 
 class ScaffoldGap(AbstractClassifier):
     """
-    Does this alignment span a scaffold gap? (Defined as a 100bp run of Ns)
+    Does this alignment span a scaffold gap? (Defined as a run of Ns more than 10bp)
 
     Only true if the scaffold gap is within the alignment
     """
@@ -857,13 +857,13 @@ class ScaffoldGap(AbstractClassifier):
         self.getTranscriptDict()
         detailsDict = defaultdict(list)
         classifyDict = {}
-        r = re.compile("[ATGC][N]{100}[ATGC]")
+        r = re.compile("[ATGC][N]{11,}[ATGC]")
         for aId, t in self.transcriptDict.iteritems():
             for exon in t.exonIntervals:
                 exonSeq = exon.getSequence(self.seqDict, strand=False)
                 if r.match(exonSeq):
                     classifyDict[aId] = 1
-                    detailsDict[aId].append(exon.getBed())
+                    detailsDict[aId].append(exon.getBed(self.rgb, self.column))
             if aId not in classifyDict:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
@@ -884,7 +884,7 @@ class UnknownBases(AbstractClassifier):
         self.getSeqDict()
         detailsDict = {}
         classifyDict = {}
-        r = re.compile("N+")
+        r = re.compile("[ATGC][N]{1,10}[ATGC]")
         for aId, t in self.transcriptDict.iteritems():
             if cds is True:
                 s = t.getCds(self.seqDict)
