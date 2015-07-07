@@ -10,38 +10,10 @@ from src.helperFunctions import deletionIterator, insertionIterator, frameShiftI
     compareIntronToReference
 
 
-class AlignmentAbutsUnknownBases(AbstractClassifier):
-    """
-    Do any of the exons in this alignment abut unknown bases? Defined as there being a N within 10bp of a exon
-    """
-    @property
-    def rgb(self):
-        return self.colors["assembly"]
-
-    def run(self, distance=10):
-        self.getTranscriptDict()
-        self.getSeqDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for t in self.transcriptDict.iteritems():
-            aId = t.name
-            intervals = [[t.exonIntervals[0].start - distance, t.exonIntervals[0].start]]
-            for exon in t.exonIntervals:
-                intervals.append([exon.stop, exon.stop + distance])
-            for i, (start, stop) in enumerate(intervals):
-                seq = self.seqDict[t.chromosome][start:stop]
-                if "N" in seq:
-                    classifyDict[aId] = 1
-                    detailsDict[aId].append(t.exonIntervals[i].getBed(self.rgb, self.column))
-            if aId not in classifyDict:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
-
-
 class HasOriginalIntrons(AbstractClassifier):
     """
     Does the alignment have all original introns? It can have more (small gaps and such), but it must have all
-    original introns.
+    original introns. Reports 1 if this is NOT true.
 
     Reports a BED for each intron that is above the minimum intron size and is not a original intron.
     """
@@ -872,7 +844,7 @@ class ShortCds(AbstractClassifier):
 
 class ScaffoldGap(AbstractClassifier):
     """
-    Does this alignment span a scaffold gap? (Defined as a run of Ns more than 10bp)
+    Does this alignment span a scaffold gap? (Defined as a 100bp run of Ns)
 
     Only true if the scaffold gap is within the alignment
     """
@@ -885,13 +857,13 @@ class ScaffoldGap(AbstractClassifier):
         self.getTranscriptDict()
         detailsDict = defaultdict(list)
         classifyDict = {}
-        r = re.compile("[ATGC][N]{11,}[ATGC]")
+        r = re.compile("[ATGC][N]{100}[ATGC]")
         for aId, t in self.transcriptDict.iteritems():
             for exon in t.exonIntervals:
                 exonSeq = exon.getSequence(self.seqDict, strand=False)
                 if r.match(exonSeq):
                     classifyDict[aId] = 1
-                    detailsDict[aId].append(exon.getBed(self.rgb, self.column))
+                    detailsDict[aId].append(exon.getBed())
             if aId not in classifyDict:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
@@ -912,7 +884,7 @@ class UnknownBases(AbstractClassifier):
         self.getSeqDict()
         detailsDict = {}
         classifyDict = {}
-        r = re.compile("[ATGC][N]{1,10}[ATGC]")
+        r = re.compile("N+")
         for aId, t in self.transcriptDict.iteritems():
             if cds is True:
                 s = t.getCds(self.seqDict)
