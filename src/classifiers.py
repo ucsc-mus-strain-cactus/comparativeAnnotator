@@ -30,11 +30,12 @@ class AlignmentAbutsUnknownBases(AbstractClassifier):
                 if len(intron) > shortIntronSize:
                     intervals.append([intron.start, intron.start + distance])
             intervals.append([t.exonIntervals[-1].stop, t.exonIntervals[-1].stop + distance])
-            for i, (start, stop) in enumerate(intervals):
+            for start, stop in intervals:
                 seq = self.seqDict[t.chromosome][start:stop]
                 if "N" in seq:
                     classifyDict[aId] = 1
-                    detailsDict[aId].append(t.exonIntervals[i - 1].getBed(self.rgb, self.column))
+                    detailsDict[aId].append(t.getBed(self.rgb, self.column))
+                    break
             if aId not in classifyDict:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
