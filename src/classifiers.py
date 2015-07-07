@@ -23,8 +23,7 @@ class AlignmentAbutsUnknownBases(AbstractClassifier):
         self.getSeqDict()
         detailsDict = defaultdict(list)
         classifyDict = {}
-        for t in self.transcriptDict.iteritems():
-            aId = t.name
+        for aId, t in self.transcriptDict.iteritems():
             intervals = [[t.exonIntervals[0].start - distance, t.exonIntervals[0].start]]
             for exon in t.exonIntervals:
                 intervals.append([exon.stop, exon.stop + distance])
