@@ -10,10 +10,40 @@ from src.helperFunctions import deletionIterator, insertionIterator, frameShiftI
     compareIntronToReference
 
 
+class AlignmentAbutsUnknownBases(AbstractClassifier):
+    """
+    Do any of the exons in this alignment abut unknown bases? Defined as there being a N within 10bp of a exon
+    Ignores introns below shortIntronSize (which will be picked up by UnknownGap)
+    """
+    @property
+    def rgb(self):
+        return self.colors["assembly"]
+
+    def run(self, distance=10, shortIntronSize=30):
+        self.getTranscriptDict()
+        self.getSeqDict()
+        detailsDict = defaultdict(list)
+        classifyDict = {}
+        for aId, t in self.transcriptDict.iteritems():
+            intervals = [[t.exonIntervals[0].start - distance, t.exonIntervals[0].start]]
+            for intron in t.intronIntervals:
+                if len(intron) > shortIntronSize:
+                    intervals.append([intron.start, intron.start + distance])
+            intervals.append([t.exonIntervals[-1].stop, t.exonIntervals[-1].stop + distance])
+            for i, (start, stop) in enumerate(intervals):
+                seq = self.seqDict[t.chromosome][start:stop]
+                if "N" in seq:
+                    classifyDict[aId] = 1
+                    detailsDict[aId].append(t.exonIntervals[i - 1].getBed(self.rgb, self.column))
+            if aId not in classifyDict:
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
+
+
 class HasOriginalIntrons(AbstractClassifier):
     """
     Does the alignment have all original introns? It can have more (small gaps and such), but it must have all
-    original introns. Reports 1 if this is NOT true.
+    original introns.
 
     Reports a BED for each intron that is above the minimum intron size and is not a original intron.
     """
@@ -844,7 +874,7 @@ class ShortCds(AbstractClassifier):
 
 class ScaffoldGap(AbstractClassifier):
     """
-    Does this alignment span a scaffold gap? (Defined as a 100bp run of Ns)
+    Does this alignment span a scaffold gap? (Defined as a run of Ns more than 10bp)
 
     Only true if the scaffold gap is within the alignment
     """
@@ -857,13 +887,13 @@ class ScaffoldGap(AbstractClassifier):
         self.getTranscriptDict()
         detailsDict = defaultdict(list)
         classifyDict = {}
-        r = re.compile("[ATGC][N]{100}[ATGC]")
+        r = re.compile("[ATGC][N]{11,}[ATGC]")
         for aId, t in self.transcriptDict.iteritems():
             for exon in t.exonIntervals:
                 exonSeq = exon.getSequence(self.seqDict, strand=False)
                 if r.match(exonSeq):
                     classifyDict[aId] = 1
-                    detailsDict[aId].append(exon.getBed())
+                    detailsDict[aId].append(exon.getBed(self.rgb, self.column))
             if aId not in classifyDict:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
@@ -884,7 +914,7 @@ class UnknownBases(AbstractClassifier):
         self.getSeqDict()
         detailsDict = {}
         classifyDict = {}
-        r = re.compile("N+")
+        r = re.compile("[ATGC][N]{1,10}[ATGC]")
         for aId, t in self.transcriptDict.iteritems():
             if cds is True:
                 s = t.getCds(self.seqDict)
