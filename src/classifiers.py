@@ -10,6 +10,34 @@ from src.helperFunctions import deletionIterator, insertionIterator, frameShiftI
     compareIntronToReference
 
 
+class AlignmentAbutsUnknownBases(AbstractClassifier):
+    """
+    Do any of the exons in this alignment abut unknown bases? Defined as there being a N within 10bp of a exon
+    """
+    @property
+    def rgb(self):
+        return self.colors["assembly"]
+
+    def run(self, distance=10):
+        self.getTranscriptDict()
+        self.getSeqDict()
+        detailsDict = defaultdict(list)
+        classifyDict = {}
+        for t in self.transcriptDict.iteritems():
+            aId = t.name
+            intervals = [[t.exonIntervals[0].start - distance, t.exonIntervals[0].start]]
+            for exon in t.exonIntervals:
+                intervals.append([exon.stop, exon.stop + distance])
+            for i, (start, stop) in enumerate(intervals):
+                seq = self.seqDict[t.chromosome][start:stop]
+                if "N" in seq:
+                    classifyDict[aId] = 1
+                    detailsDict[aId].append(t.exonIntervals[i].getBed(self.rgb, self.column))
+            if aId not in classifyDict:
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
+
+
 class HasOriginalIntrons(AbstractClassifier):
     """
     Does the alignment have all original introns? It can have more (small gaps and such), but it must have all
