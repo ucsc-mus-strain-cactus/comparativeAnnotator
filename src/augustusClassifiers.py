@@ -44,8 +44,10 @@ class AugustusExonGain(AbstractAugustusClassifier):
         classifyDict = {}
         detailsDict = defaultdict(list)
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
+            if psl_lib.removeAugustusAlignmentNumber(aug_aId) not in self.transcriptDict:
+                continue
             t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
-            if aug_t.strand != t.strand:
+            if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome:
                 continue
             aug_t_intervals = aug_t.exonIntervals
             merged_t_intervals = seq_lib.gapMergeIntervals(t.exonIntervals, gap=shortIntronSize)
@@ -73,8 +75,10 @@ class AugustusExonLoss(AbstractAugustusClassifier):
         classifyDict = {}
         detailsDict = defaultdict(list)
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
+            if psl_lib.removeAugustusAlignmentNumber(aug_aId) not in self.transcriptDict:
+                continue
             t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
-            if aug_t.strand != t.strand:
+            if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome:
                 continue
             aug_t_intervals = aug_t.exonIntervals
             merged_t_intervals = seq_lib.gapMergeIntervals(t.exonIntervals, gap=shortIntronSize)
@@ -102,8 +106,10 @@ class AugustusNotSimilarExonBoundaries(AbstractAugustusClassifier):
         classifyDict = {}
         detailsDict = defaultdict(list)
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
+            if psl_lib.removeAugustusAlignmentNumber(aug_aId) not in self.transcriptDict:
+                continue
             t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
-            if aug_t.strand != t.strand:
+            if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome:
                 continue
             merged_t_intervals = seq_lib.gapMergeIntervals(t.exonIntervals, gap=shortIntronSize)
             aug_t_intervals = aug_t.exonIntervals
@@ -130,8 +136,10 @@ class AugustusSameStartStop(AbstractAugustusClassifier):
         classifyDict = {}
         detailsDict = {}
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
+            if psl_lib.removeAugustusAlignmentNumber(aug_aId) not in self.transcriptDict:
+                continue
             t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
-            if aug_t.strand != t.strand or t.thickStart == t.thickStop:
+            if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome or t.thickStart == t.thickStop:
                 continue
             if t.thickStart == aug_t.thickStart and t.thickStop == aug_t.thickStop:
                 classifyDict[aug_aId] = 0

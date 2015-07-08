@@ -75,9 +75,17 @@ def main():
     args = parser.parse_args()
     setLoggingFromOptions(args)
 
-    assert len(args.psls) == len(args.fastas) == len(args.genomes) == len(args.gps) == len(args.sizes)
-    for genome, psl, gp, fasta, size in izip(args.genomes, args.psls, args.gps, args.fastas, args.sizes):
-        assert all([genome in x for x in [psl, gp, fasta, size]])
+    # hack to remove Rattus so I don't totally mess up the makefiles
+    args.psls = [x for x in args.psls if "Rattus" not in x]
+    args.gps = [x for x in args.gps if "Rattus" not in x]
+    args.augustusGps = [x for x in args.augustusGps if "Rattus" not in x]
+    args.genomes = [x for x in args.genomes if "Rattus" not in x]
+    args.sizes = [x for x in args.sizes if "Rattus" not in x]
+    args.fastas = [x for x in args.fastas if "Rattus" not in x]
+
+    assert len(args.psls) == len(args.fastas) == len(args.genomes) == len(args.gps) == len(args.sizes) == len(args.augustusGps)
+    for genome, psl, gp, fasta, size, augGp in izip(args.genomes, args.psls, args.gps, args.fastas, args.sizes, args.augustusGps):
+        assert all([genome in x for x in [psl, gp, fasta, size, augGp]])
 
     if not os.path.exists(args.outDir):
         os.mkdir(args.outDir)
