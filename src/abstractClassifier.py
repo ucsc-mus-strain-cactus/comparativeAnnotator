@@ -19,6 +19,8 @@ class AbstractClassifier(Target):
 
     def __init__(self, genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp, refGenome,
                  primaryKey, outDir):
+        # sanity check
+        assert all([genome in x for x in [alnPsl, fasta, targetGp]])
         # initialize the Target
         Target.__init__(self, memory=16 * 1024 * 1024 * 1024)  # 16GB RAM per job
         # primary key this will be keyed on (AlignmentId usually)
@@ -77,6 +79,7 @@ class AbstractAugustusClassifier(AbstractClassifier):
                  primaryKey, outDir, augustusGp):
         AbstractClassifier.__init__(self, genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp,
                                     refGenome, primaryKey, outDir)
+        assert self.genome in augustusGp
         self.augustusGp = augustusGp
 
     def getAugustusTranscriptDict(self):

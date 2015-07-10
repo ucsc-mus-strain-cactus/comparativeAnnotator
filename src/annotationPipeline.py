@@ -111,10 +111,10 @@ def main():
             if not os.path.exists(x):
                 raise RuntimeError("chrom.sizes not present at {}".format(x))
 
-    i = Stack(Target.makeTargetFn(buildAnalyses, args=(sorted(args.psls), sorted(args.fastas), args.refFasta,
-                                                       sorted(args.gps), args.gencodeAttributeMap, sorted(args.genomes),
+    i = Stack(Target.makeTargetFn(buildAnalyses, args=(args.psls, args.fastas, args.refFasta,
+                                                       args.gps, args.gencodeAttributeMap, args.genomes,
                                                        args.annotationGp, args.outDir, args.refGenome, 
-                                                       args.primaryKeyColumn, sorted(args.sizes), args.augustusGps,
+                                                       args.primaryKeyColumn, args.sizes, args.augustusGps,
                                                        ))).startJobTree(args)
 
     if i != 0:
