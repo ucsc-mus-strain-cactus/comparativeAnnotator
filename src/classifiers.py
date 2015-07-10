@@ -13,26 +13,29 @@ from src.helperFunctions import deletionIterator, insertionIterator, frameShiftI
 class AlignmentAbutsUnknownBases(AbstractClassifier):
     """
     Do any of the exons in this alignment abut unknown bases? Defined as there being a N within 10bp of a exon
+    Ignores introns below shortIntronSize (which will be picked up by UnknownGap)
     """
     @property
     def rgb(self):
         return self.colors["assembly"]
 
-    def run(self, distance=10):
+    def run(self, distance=10, shortIntronSize=30):
         self.getTranscriptDict()
         self.getSeqDict()
         detailsDict = defaultdict(list)
         classifyDict = {}
-        for t in self.transcriptDict.iteritems():
-            aId = t.name
+        for aId, t in self.transcriptDict.iteritems():
             intervals = [[t.exonIntervals[0].start - distance, t.exonIntervals[0].start]]
-            for exon in t.exonIntervals:
-                intervals.append([exon.stop, exon.stop + distance])
-            for i, (start, stop) in enumerate(intervals):
+            for intron in t.intronIntervals:
+                if len(intron) > shortIntronSize:
+                    intervals.append([intron.start, intron.start + distance])
+            intervals.append([t.exonIntervals[-1].stop, t.exonIntervals[-1].stop + distance])
+            for start, stop in intervals:
                 seq = self.seqDict[t.chromosome][start:stop]
                 if "N" in seq:
                     classifyDict[aId] = 1
-                    detailsDict[aId].append(t.exonIntervals[i].getBed(self.rgb, self.column))
+                    detailsDict[aId].append(t.getBed(self.rgb, self.column))
+                    break
             if aId not in classifyDict:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
