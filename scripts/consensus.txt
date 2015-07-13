@@ -1,0 +1,247 @@
+# this file builds a consensus gene set from the results of the Augustus and TransMap usage of the comparativeAnnotator pipeline
+# there is a mix of python and shell. You can't just execute it, but it should be easy to reproduce.
+
+
+# Hierarchy of consensus transcripts:
+# Tier1: Best OK/only OK
+# Tier2: alternative transMap OK
+# Tier2.5: alternative augustus OK
+# Tier3: Best not OK
+# Tier4: remainder
+#
+# t1 best: lowest mismatch with coverage >= 80%
+t1_cov_cutoff = 0.80
+# t3 best: lowest mismatch with coverage >= 60%
+t3_cov_cutoff = 0.60
+# cutoff for OK t2/t2.5 being dropped to t4:
+t2_25_cov_cutoff = 0.30
+# we have coverage/mismatch attributes for transMap transcripts in the attributes database
+# need to calculate these metrics for the Augustus transcripts.
+# some shell code:
+# ran from /cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/augustus/tmr
+
+for f in *gp; do n=`echo $f | cut -d "." -f 1`; genePredToBed $f /cluster/home/ifiddes/ifiddes_hive/comparativeAnnotator/consensus/augustus/$n.bed; done
+
+# now we make fastas
+for f in *bed; do
+    n=`echo $f | cut -d "." -f 1`
+    fastaFromBed -fi /cluster/home/ifiddes/mus_strain_data/pipeline_data/assemblies/1504/$n.fa -fo $n.fa -bed $f -s -split -name &
+done
+
+# now we use blat to produce many one-to-one alignments to the reference transcripts
+# wrote the program alignAugustus.py to jobTree-ize this process to make it fast
+# final results were written to /cluster/home/ifiddes/ifiddes_hive/comparativeAnnotator/consensus/augustus
+# format of final results: aug_aId, identity, coverage
+# parsing this into memory to use with the databases and the OK functions
+import os
+import itertools
+from lib.psl_lib import *  # need to convert names
+from lib.sqlite_lib import *
+genomes = "129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ CAROLIEiJ PAHARIEiJ".split()
+
+def transmap_ok(cur, genome, inverse=False):
+    """
+    Finds the number of biotype_map whose best alignment has no problems.
+    
+    OK is defined as biotype_map who do not hit any classifier except for nonsynonymous/synonymous/noncanon splices
+
+    returns the # of OK and the total #
+    """
+    if inverse:
+        l = 1
+        r = "OR"
+    else:
+        l = 0
+        r = "AND"
+    classifyFields = ["CodingInsertions","CodingDeletions", "CodingDeletions", "StartOutOfFrame", "FrameShift", "AlignmentAbutsLeft", "AlignmentAbutsRight", 
+                      "AlignmentPartialMap", "BadFrame", "BeginStart", "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
+                      "EndStop", "InFrameStop", "ShortCds", "UnknownBases", "AlignmentAbutsUnknownBases"]
+    cmd = """SELECT main.'{0}'.'AlignmentId' FROM main.'{0}' WHERE (""".format(genome)
+    for col in classifyFields[:-1]:
+        cmd += " main.'{}'.'{}' = ? {}".format(genome, col, r)
+    cmd += " main.'{}'.'{}' = ?)".format(genome, classifyFields[-1])
+    vals = [l] * len(classifyFields)
+    return [x[0] for x in cur.execute(cmd, vals).fetchall()]
+
+
+def augustus_ok(cur, genome, inverse=False):
+    """
+    Finds the number of biotype_map whose best alignment has no problems.
+    
+    OK is defined as biotype_map who do not hit any classifier except for nonsynonymous/synonymous/noncanon splices
+
+    returns the # of OK and the total #
+    """
+    if inverse:
+        l = 1
+        r = "OR"
+    else:
+        l = 0
+        r = "AND"
+    classifyFields = ["AugustusSameStartStop", "AugustusExonGain", "AugustusExonLoss", "AugustusParalogy",
+                      "AugustusNotSimilarExonBoundaries"]
+    cmd = """SELECT augustus.'{0}'.'AlignmentId' FROM augustus.'{0}' WHERE (""".format(genome)
+    for col in classifyFields[:-1]:
+        cmd += " augustus.'{}'.'{}' = ? {}".format(genome, col, r)
+    cmd += " augustus.'{}'.'{}' = ?)".format(genome, classifyFields[-1])
+    vals = [l] * len(classifyFields)
+    return [x[0] for x in cur.execute(cmd, vals).fetchall()]
+
+
+def reverse_name_map(cur, genome, aIds, db):
+    cmd = "SELECT {0}.'{1}'.'AlignmentId' FROM {0}.'{1}'".format(db, genome)
+    reverse_map = {}
+    r = cur.execute(cmd).fetchall()
+    for aln_aId in r:
+        aln_aId = aln_aId[0]
+        if db == "augustus":
+            aId = removeAlignmentNumber(removeAugustusAlignmentNumber(aln_aId))
+        else:
+            aId = removeAlignmentNumber(aln_aId)
+        if aId not in reverse_map:
+            reverse_map[aId] = []
+        reverse_map[aId].append(aln_aId)
+    for aId in aIds:
+        if aId not in reverse_map:
+            reverse_map[aId] = []
+    return reverse_map
+
+
+def get_cov_tm(cur, genome):
+    cmd = "SELECT AlignmentId, AlignmentIdentity, AlignmentCoverage FROM attributes.'{}'".format(genome)
+    return cur.execute(cmd).fetchall()
+
+
+base_path = "/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus/"
+con = sql.connect(os.path.join(base_path, "classify.db"))
+cur = con.cursor()
+attachDatabase(con, os.path.join(base_path, "augustusClassify.db"), "augustus")
+attachDatabase(con, os.path.join(base_path, "attributes.db"), "attributes")
+
+tm_ok = {genome: transmap_ok(cur, genome) for genome in genomes}
+tm_not_ok = {genome: transmap_ok(cur, genome, inverse=True) for genome in genomes}
+aug_ok = {genome: augustus_ok(cur, genome) for genome in genomes}
+tm_not_ok = {genome: transmap_ok(cur, genome, inverse=True) for genome in genomes}
+
+aln_stats = {}
+for g in genomes:
+    aln_stats[g] = {}
+    with open(os.path.join("consensus", "augustus", g + ".stats")) as f:
+        for l in f:
+            aug_aId, ident, cov = l.split()
+            aln_stats[g][aug_aId] = map(float, [ident, cov])
+    for tm_aId, ident, cov in get_cov_tm(cur, g):
+        if ident is None:
+            ident = 0.0
+        if cov is None:
+            cov = 0.0
+        aln_stats[g][tm_aId] = map(float, [ident, cov])
+
+
+# pull in the name of every Gencode transcript in the Comprehensive set
+aIds = {x.split()[0] for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeCompVM4.gp")}
+# build a reverse mapping of names for all lifted over transcripts
+reverse_aug_map = {g: reverse_name_map(cur, g, aIds, "augustus") for g in genomes}
+reverse_tm_map = {g: reverse_name_map(cur, g, aIds, "main") for g in genomes}
+
+
+# time to build the hierarchy
+binned_transcripts = {}
+for i, g in enumerate(genomes):
+    print i, g
+    binned_transcripts[g] = {1: [], 2: [], 2.5: [], 3: [], 4: [], 5: []}   # tier 5 is the set of Gencode transcripts that we have nothing for
+    for aId in aIds:
+        aug_ids = reverse_aug_map[g][aId]
+        tm_ids = reverse_tm_map[g][aId]
+        if len(aug_ids) == len(tm_ids) == 0:
+            binned_transcripts[g][5].append(aId)
+            continue
+        ok_transcripts = []
+        for aug_id in aug_ids:
+            if aug_id in aug_ok[g]:
+                ident, cov = aln_stats[g][aug_id]
+                ok_transcripts.append([aug_id, ident, cov])
+        for tm_id in tm_ids:
+            if tm_id in tm_ok[g]:
+                ident, cov = aln_stats[g][tm_id]
+                ok_transcripts.append([tm_id, ident, cov])
+        best_ok_transcripts = filter(lambda x: x[2] >= t1_cov_cutoff, ok_transcripts)
+        best_ok_transcripts = sorted(best_ok_transcripts, key = lambda x: -x[1])
+        filtered_ok_transcripts = filter(lambda x: x[2] >= t2_25_cov_cutoff, ok_transcripts)
+        if len(best_ok_transcripts) >= 1:
+            binned_transcripts[g][1].append(best_ok_transcripts[0][0])   # find the one best transcript for tier 1
+        if len(filtered_ok_transcripts) >= 1: 
+            if len(ok_transcripts) > 1:   # there are multiple OK here - add to tier 2/2.5 appropriately
+                for t_aId, ident, cov in ok_transcripts:
+                    if t_aId == binned_transcripts[g][1][-1]:
+                        continue
+                    if "aug" in t_aId:
+                        binned_transcripts[g][2.5].append(t_aId)
+                    else:
+                        binned_transcripts[g][2].append(t_aId)
+        else:  # we have no OK transcripts - add to tier3/tier4 appropriately
+            ok_ids = [x[0] for x in ok_transcripts]
+            not_ok_transcripts = [[x] + aln_stats[g][x] for x in aug_ids + tm_ids if x not in ok_ids]
+            assert all(x not in aug_ok[g] and x not in tm_ok[g] for x, y, z in not_ok_transcripts)
+            best_not_ok_transcripts = filter(lambda x: x[2] >= t3_cov_cutoff, not_ok_transcripts)
+            best_not_ok_transcripts = sorted(not_ok_transcripts, key = lambda x: -x[1])
+            if len(best_not_ok_transcripts) == 0:  # no best alternative due to coverage cutoff; these are all tier 4
+                binned_transcripts[g][4].extend(not_ok_transcripts)
+            elif len(best_not_ok_transcripts) == 1:
+                binned_transcripts[g][3].append(best_not_ok_transcripts[0][0])
+            elif len(best_not_ok_transcripts) > 1:
+                binned_transcripts[g][3].append(best_not_ok_transcripts[0][0])
+                binned_transcripts[g][4].extend([x[0] for x in best_not_ok_transcripts[1:]])
+
+
+# lets make some plots!
+import matplotlib
+matplotlib.use('Agg')
+matplotlib.rcParams['pdf.fonttype'] = 42
+import matplotlib.lines as lines
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import matplotlib.pylab as pylab
+import matplotlib.backends.backend_pdf as pltBack
+import numpy as np
+from collections import OrdedDict
+from scripts.coverage_identity_ok_plots import *
+def plot_stacked_barplot(results, out_folder, out_name, bins, width=8.0, height=4.0, bar_width=0.4):
+    fig, pdf = init_image(out_folder, out_name, width, height)
+    ax = establish_axes(fig, width, height, border=True)
+    plt.text(0.5, 1.08, "Proportion of GencodeCompVM4 Transcripts Categorized In Tiering Scheme", horizontalalignment='center', 
+             fontsize=12, transform=ax.transAxes)
+    ax.set_ylabel("Proportion of transcripts")
+    ax.set_ylim([0, 1.0])
+    plt.tick_params(axis='both', labelsize=8)
+    ax.yaxis.set_ticks(np.arange(0.0, 101.0, 10.0) / 100.0)
+    ax.yaxis.set_ticklabels([str(x) + "%" for x in range(0, 101, 10)])
+    ax.xaxis.set_ticks(np.arange(0, len(results)) + bar_width / 2.0)
+    ax.xaxis.set_ticklabels(zip(*results)[0], rotation=55)
+    bars = plot_bars(ax, zip(*results)[1], bar_width)
+    legend_labels = ["Tier {}".format(x) for x in bins[::-1]]
+    legend = fig.legend([x[0] for x in bars][::-1], legend_labels[::-1], bbox_to_anchor=(1,0.8), fontsize=11, 
+                        frameon=True, title="Transcript tier")
+    fig.savefig(pdf, format='pdf')
+    pdf.close()
+
+
+results = {}
+for g in binned_transcripts:
+    results[g] = {}
+    for n, d in binned_transcripts[g].iteritems():
+        results[g][n] = len(d)
+
+# find genome order by most tier 1
+t1_counts = [[g, len(d[1])] for g, d in binned_transcripts.iteritems()]
+genome_order = sorted(t1_counts, key=lambda x: -x[1])
+genome_order = zip(*genome_order)[0]
+
+final_results = OrderedDict()
+for g in genome_order:
+    tmp = sorted(results[g].iteritems(), key=lambda x: x[0])
+    tot = sum(x[1] for x in tmp)
+    final_results[g] = [1.0 * x[1] / tot for x in tmp][::-1]
+
+bins = sorted(binned_transcripts[g])
+plot_stacked_barplot(list(final_results.iteritems()), "./", "tiered_transcripts", bins)
