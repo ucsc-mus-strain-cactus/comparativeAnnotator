@@ -1,6 +1,6 @@
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
-from lib.psl_lib import *  # need to convert names
+from lib.psl_lib import PslRow, removeAugustusAlignmentNumber, removeAlignmentNumber
 from sonLib.bioio import fastaRead, fastaWrite, popenCatch, system, getRandomAlphaNumericString
 from pyfaidx import Fasta
 from lib.general_lib import formatRatio
