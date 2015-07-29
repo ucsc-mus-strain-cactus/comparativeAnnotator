@@ -9,13 +9,13 @@ from lib.general_lib import mkdir_p
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--genome", required=True)
+    parser.add_argument("--genomes", nargs="+", required=True)
     parser.add_argument("--compAnnPath", required=True)
     parser.add_argument("--statsDir", required=True)
     parser.add_argument("--outDir", required=True)
     parser.add_argument("--attributePath", required=True)
-    parser.add_argument("--augGpPath", required=True)
-    parser.add_argument("--tmGpPath", required=True)
+    parser.add_argument("--augGpDir", required=True)
+    parser.add_argument("--tmGpDir", required=True)
     return parser.parse_args()
 
 
@@ -219,11 +219,7 @@ def write_gps(binned_transcripts, gps, out_dir, genome, filter_set=None):
                     outf.write(gp)
 
 
-def main():
-    args = parse_args()
-    con, cur = attach_databases(args.compAnnPath)
-    ens_ids = get_all_ids(args.attrPath)
-    coding_ids = get_all_ids(args.attrPath, biotype="protein_coding")
+def driver_function(genome, tm_gp_path, aug_gp_path, con, cur, ens_ids, coding_ids):
     reverse_name_map = get_reverse_name_map(cur, args.genome, ens_ids)
     ok_ids = get_all_ok(cur, args.genome)
     stats_dict = merge_stats(cur, args.statsDir, args.genome)
@@ -232,7 +228,18 @@ def main():
     all_path = os.path.join(args.outDir, "all_transcripts")
     write_gps(binned_transcripts, gps, all_path, args.genome)
     coding_path = os.path.join(args.outDir, "coding_transcripts")
-    write_gps(binned_transcripts, gps, all_path, args.genome, filter_set=coding_ids)
+    write_gps(binned_transcripts, gps, all_path, args.genome, filter_set=coding_ids) 
+
+
+def main():
+    args = parse_args()
+    con, cur = attach_databases(args.compAnnPath)
+    ens_ids = get_all_ids(args.attrPath)
+    coding_ids = get_all_ids(args.attrPath, biotype="protein_coding")
+    for genome in args.genomes:
+        tm_gp_path = os.path.join(args.tmGpDir, genome + ".gp")
+        aug_gp_path = os.path.join(args.augGpDir, genome + ".gp")
+        driver_function(genome, tm_gp_path, aug_gp_path, con, cur, ens_ids, coding_ids)
 
 
 if __name__ == "__main__":
