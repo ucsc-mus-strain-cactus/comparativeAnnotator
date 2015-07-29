@@ -3,19 +3,10 @@ from jobTree.scriptTree.stack import Stack
 from lib.psl_lib import PslRow, removeAugustusAlignmentNumber, removeAlignmentNumber
 from sonLib.bioio import fastaRead, fastaWrite, popenCatch, system, getRandomAlphaNumericString
 from pyfaidx import Fasta
-from lib.general_lib import formatRatio
-import errno
+from lib.general_lib import formatRatio, mkdir_p
 import os
 import argparse
 
-
-def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError as exc: # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else: raise
 
 def coverage(p_list):
     m = sum(x.matches for x in p_list)
