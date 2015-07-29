@@ -54,7 +54,7 @@ def align(target, g, target_fasta, chunk, ref_fasta, out_path):
 
 def cat(target, g, in_path, out_dir):
     in_p = os.path.join(in_path, "*")
-    out_p = os.path.join(out_dir, "augustus", g + ".stats")
+    out_p = os.path.join(out_dir, g + ".stats")
     system("cat {} > {}".format(in_p, out_p))
 
 
@@ -64,8 +64,8 @@ def wrapper(target, genomes, ref_fasta, out_dir):
         mkdir_p(out_path)
         for f in os.listdir(out_path):
             os.remove(os.path.join(out_path, f))
-        target_fasta = os.path.join(out_dir, "augustus", g + ".fa")
-        faidx = os.path.join(out_dir, "augustus", g + ".fa.fai")
+        target_fasta = os.path.join(out_dir, g + ".fa")
+        faidx = os.path.join(out_dir, g + ".fa.fai")
         aug_aIds = [x.split()[0] for x in open(faidx)]
         for chunk in chunker(aug_aIds, 200):
             target.addChildTargetFn(align, args=(g, target_fasta, chunk, ref_fasta, out_path))
