@@ -225,3 +225,7 @@ def main():
     binned_transcripts = bin_transcripts(reverse_name_map, stats_dict, ok_ids, ens_ids)
     gps = load_gps([args.tmGpPath, args.augGpPath])
     write_gps(binned_transcripts, gps, args.outDir, args.genome)
+
+
+if __name__ == "__main__":
+    main()
