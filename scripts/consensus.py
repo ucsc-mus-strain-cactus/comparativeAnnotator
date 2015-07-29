@@ -55,11 +55,14 @@ def get_all_ok(cur, genome):
     return augustus_ok(cur, genome) | transmap_ok(cur, genome)
 
 
-def get_all_ids(attr_path):
+def get_all_ids(attr_path, biotype=None):
     """
     returns the set of ensembl IDs in the entire Gencode database pulled from the attribute
     """
-    return {x.split()[3] for x in open(attr_path)}
+    if biotype is None:
+        return {x.split()[3] for x in open(attr_path)}
+    else:
+        return {x.split()[3] for x in open(attr_path) if x.split()[4] == biotype}
 
 
 def get_reverse_name_map(cur, genome, ids):
@@ -205,26 +208,31 @@ def load_gps(gp_paths):
     return {l.split()[0]: l for p in gp_paths for l in open(p)}
 
 
-def write_gps(binned_transcripts, gps, out_dir, genome):
+def write_gps(binned_transcripts, gps, out_dir, genome, filter_set=None):
     p = os.path.join(out_dir, genome)
     mkdir_p(p)
     for b in ["T1", "T2A", "T2T", "T3", "T4A", "T4T", "fail"]:
         with open(os.path.join(p, genome + "_Tier" + b + ".gp"), "w") as outf:
             for aln_id in binned_transcripts[b]:
-                gp = gps[aln_id]
-                outf.write(gp)
+                if filter_set is not None and aln_id in filter_set:
+                    gp = gps[aln_id]
+                    outf.write(gp)
 
 
 def main():
     args = parse_args()
     con, cur = attach_databases(args.compAnnPath)
     ens_ids = get_all_ids(args.attrPath)
+    coding_ids = get_all_ids(args.attrPath, biotype="protein_coding")
     reverse_name_map = get_reverse_name_map(cur, args.genome, ens_ids)
     ok_ids = get_all_ok(cur, args.genome)
     stats_dict = merge_stats(cur, args.statsDir, args.genome)
     binned_transcripts = bin_transcripts(reverse_name_map, stats_dict, ok_ids, ens_ids)
     gps = load_gps([args.tmGpPath, args.augGpPath])
-    write_gps(binned_transcripts, gps, args.outDir, args.genome)
+    all_path = os.path.join(args.outDir, "all_transcripts")
+    write_gps(binned_transcripts, gps, all_path, args.genome)
+    coding_path = os.path.join(args.outDir, "coding_transcripts")
+    write_gps(binned_transcripts, gps, all_path, args.genome, filter_set=coding_ids)
 
 
 if __name__ == "__main__":
