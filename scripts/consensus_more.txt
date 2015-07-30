@@ -1,0 +1,218 @@
+from scripts.consensus import *
+import sys, os
+from collections import OrderedDict
+import matplotlib
+matplotlib.use('Agg')
+matplotlib.rcParams['pdf.fonttype'] = 42
+import matplotlib.lines as lines
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import matplotlib.pylab as pylab
+import matplotlib.backends.backend_pdf as pltBack
+import numpy as np
+from scripts.coverage_identity_ok_plots import *
+
+
+def get_name_map(cur, genome):
+    """
+    creates a dictionary mapping each Gencode ID to all IDs produced by Augustus and transMap
+    """
+    name_map = {}
+    base_cmd = "SELECT {0}.'{1}'.'AlignmentId' FROM {0}.'{1}'"
+    aug_cmd = base_cmd.format("augustus", genome)
+    tm_cmd = base_cmd.format("main", genome)
+    aug_r = cur.execute(aug_cmd).fetchall()
+    tm_r = cur.execute(tm_cmd).fetchall()
+    for aln_id in itertools.chain(aug_r, tm_r):
+        aln_id = aln_id[0]
+        ens_id = removeAlignmentNumber(removeAugustusAlignmentNumber(aln_id))
+        name_map[aln_id] = ens_id
+    return name_map
+
+
+
+coding_dir = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus/consensus/coding_transcripts"
+genomes = os.listdir(coding_dir)
+stats_dir = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus/augustus_stats"
+comp_ann_dir = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus"
+attrs = "/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeAttrsVM4.tsv"
+con, cur = attach_databases(comp_ann_dir)
+ens_ids = get_all_ids(attrs)
+coding_ids = get_all_ids(attrs, biotype="protein_coding")
+stats_dict = {}
+for genome in genomes:
+    stats_dict[genome] = merge_stats(cur, stats_dir, genome)
+
+ok_ids = {}
+for genome in genomes:
+    ok_ids[genome] = get_all_ok(cur, genome)
+
+
+name_map = {genome: get_name_map(cur, genome) for genome in genomes}
+
+# find the number in each category, make a barplot
+f_results = {}
+for genome in genomes:
+    t1 = [x.split()[0] for x in open(os.path.join(coding_dir, genome, genome + "_TierT1.gp"))]
+    t3 = [x.split()[0] for x in open(os.path.join(coding_dir, genome, genome + "_TierT3.gp"))]
+    fail = [x.split()[0] for x in open(os.path.join(coding_dir, genome, genome + "_fail.txt"))]
+    t1_aug = len([x for x in t1 if "aug" in x])
+    t1_tm = len([x for x in t1 if "aug" not in x])
+    t3_aug = len([x for x in t3 if "aug" in x])
+    t3_tm = len([x for x in t3 if "aug" not in x])
+    f_results[genome] = {"t1_aug": t1_aug, "t1_tm": t1_tm, "t3_aug": t3_aug, "t3_tm": t3_tm, "fail": len(fail)}
+
+
+# find genome order by most tier 1
+t1_counts = [[g, f_results[g]["t1_aug"] + f_results[g]["t1_tm"]] for g in genomes]
+genome_order = sorted(t1_counts, key=lambda x: -x[1])
+genome_order = zip(*genome_order)[0]
+
+cats = ["fail", "t3_aug", "t3_tm", "t1_aug", "t1_tm"]
+
+# lets make a plot!
+results = OrderedDict()
+for g in genome_order:
+    tmp = [f_results[g][n] for n in cats]
+    tot = sum(tmp)
+    results[g] = [1.0 * x / tot for x in tmp]
+
+results = list(results.iteritems())
+width=8.0
+height=4.0
+bar_width=0.4
+fig, pdf = init_image("./", "coding_gene_set", width, height)
+ax = establish_axes(fig, width, height, border=True)
+plt.text(0.5, 1.08, "Proportion of {} GencodeCompVM4 Protein Coding Transcripts\nCategorized In Tiering Scheme".format(len(coding_ids)), horizontalalignment='center', 
+         fontsize=12, transform=ax.transAxes)
+ax.set_ylabel("Proportion of transcripts")
+ax.set_ylim([0, 1.0])
+plt.tick_params(axis='both', labelsize=8)
+ax.yaxis.set_ticks(np.arange(0.0, 101.0, 10.0) / 100.0)
+ax.yaxis.set_ticklabels([str(x) + "%" for x in range(0, 101, 10)])
+ax.xaxis.set_ticks(np.arange(0, len(results)) + bar_width / 2.0)
+ax.xaxis.set_ticklabels(zip(*results)[0], rotation=55)
+bars = plot_bars(ax, zip(*results)[1], bar_width)
+legend = fig.legend([x[0] for x in bars][::-1], cats[::-1], bbox_to_anchor=(1,0.8), fontsize=10, 
+                    frameon=True, title="Category")
+fig.savefig(pdf, format='pdf')
+pdf.close()
+
+
+# find IDs of not OK in reference
+ref_database_dir = "/cluster/home/ifiddes/ifiddes_hive/comparativeAnnotator/pipeline_data/comparative/1411/comparativeAnnotation"
+con, cur = attach_databases(ref_database_dir)
+def ref_transmap_not_ok(cur, genome):
+    """
+    Finds all aIds which are 'OK' based on the classifyFields below
+    """
+    classifyFields = ["CodingInsertions", "CodingDeletions", "CodingDeletions", "StartOutOfFrame", "FrameShift", "AlignmentAbutsLeft", "AlignmentAbutsRight",
+                      "AlignmentPartialMap", "BadFrame", "BeginStart", "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
+                      "EndStop", "InFrameStop", "ShortCds", "UnknownBases"]
+    cmd = """SELECT main.'{0}'.'AlignmentId' FROM main.'{0}' WHERE (""".format(genome)
+    for col in classifyFields[:-1]:
+        cmd += " main.'{}'.'{}' = ? {}".format(genome, col, "OR")
+    cmd += " main.'{}'.'{}' = ?)".format(genome, classifyFields[-1])
+    vals = [1] * len(classifyFields)
+    return {x[0] for x in cur.execute(cmd, vals).fetchall()}
+
+
+ref_not_ok_ids = [removeAlignmentNumber(x) for x in ref_transmap_not_ok(cur, "C57B6J") if removeAlignmentNumber(x) in coding_ids]
+
+# 1772 transcripts not ok in reference: saving to a file for future use
+with open("not_ok_ref.txt", "w") as outf:
+    for x in ref_not_ok_ids:
+        outf.write(x + "\n")
+
+
+# reattaching new databases
+con, cur = attach_databases(comp_ann_dir)
+
+
+def find_best_aln(stats):
+    """
+    Takes the list of t1/t3 candidates from find_t1_t3_candidates and returns the best alignment
+    """
+    return sorted(stats, key=lambda x: -x[1])[0]
+
+
+def split_alternatives(stats, best_aln):
+    """
+    Takes the list of t1/t3 candidates and splits them up by augustus/transMap, filtering out the winner
+    """
+    tm = []
+    aug = []
+    for aln_id, ident, cov in stats:
+        if aln_id == best_aln[0]:
+            continue
+        if aln_id.startswith("aug"):
+            aug.append([aln_id, ident, cov])
+        else:
+            tm.append([aln_id, ident, cov])
+    return aug, tm
+
+
+def find_tie_aln(best_aln, aug_alts, tm_alts):
+    aug_alts = sorted(aug_alts, key=lambda x: -x[1])
+    tm_alts = sorted(tm_alts, key=lambda x: -x[1])
+    if len(tm_alts) == 0 and len(aug_alts) == 0:
+        return False
+    elif best_aln[0].startswith("aug") and len(tm_alts) > 0 and round(tm_alts[0][1], 2) == round(best_aln[1], 2):
+        return True
+    elif len(aug_alts) > 0 and round(aug_alts[0][1], 2) == round(best_aln[1], 2):
+        return True
+    return False
+
+
+def analyze_candidates(candidates):
+    """
+    Analyzes candidate transcripts, finding the winner and splitting the alternatives based on coming from augustus
+    or transMap
+    """
+    best_aln = find_best_aln(candidates)
+    aug_alts, tm_alts = split_alternatives(candidates, best_aln)
+    return find_tie_aln(best_aln, aug_alts, tm_alts)
+
+
+
+q = {}
+for genome in genomes:
+    s = stats_dict[genome]
+    reverse_name_map = get_reverse_name_map(cur, genome, ens_ids)
+    q[genome] = {"t1_tm": [], "t1_aug": [], "t1_tot": 0, "t3_tot": 0, "t1_tie": [], "t3_tie": [], "t3_tm": [], "t3_aug": []}
+    for ens_id in ens_ids:
+        if ens_id not in coding_ids:
+            continue
+        aln_ids = reverse_name_map[ens_id]
+        t1_candidates, t3_candidates, discarded = find_t1_t3_candidates(s, aln_ids, ok_ids[genome], discard_cov_cutoff=0.50, filter_cov_cutoff=0.80)
+        if len(t1_candidates) == len(t3_candidates) == 0:
+            continue
+        elif len(t1_candidates) > 0:
+            if not analyze_candidates(t1_candidates):
+                aln_id = find_best_aln(t1_candidates)[0]
+                if "aug" in aln_id:
+                    q[genome]['t1_aug'].append(aln_id)
+                else:
+                    q[genome]['t1_tm'].append(aln_id)
+            else:
+                q[genome]['t1_tie'].append(t1_candidates)
+            q[genome]['t1_tot'] += 1
+        elif len(t3_candidates) > 0:
+            if not analyze_candidates(t3_candidates):
+                aln_id = find_best_aln(t3_candidates)[0]
+                if "aug" in aln_id:
+                    q[genome]['t3_aug'].append(aln_id)
+                else:
+                    q[genome]['t3_tm'].append(aln_id)
+            else:
+                q[genome]['t3_tie'].append(t3_candidates)
+            q[genome]["t3_tot"] += 1
+
+
+t1_improve = [1.0 * len(q[genome]['t1_aug']) / (len(q[genome]['t1_tm']) + len(q[genome]['t1_aug'])) for genome in genomes]
+t3_improve = [1.0 * len(q[genome]['t3_aug']) / (len(q[genome]['t3_tm']) + len(q[genome]['t3_aug'])) for genome in genomes]
+
+sum(t1_improve) / len(t1_improve), sum(t3_improve) / len(t3_improve)
+t1_tie = [1.0 * len(q[genome]['t1_tie']) / q[genome]['t1_tot'] for genome in genomes]
+t3_tie = [1.0 * len(q[genome]['t3_tie']) / q[genome]['t3_tot'] for genome in genomes]
+sum(t1_tie) / len(t1_tie), sum(t3_tie) / len(t3_tie)

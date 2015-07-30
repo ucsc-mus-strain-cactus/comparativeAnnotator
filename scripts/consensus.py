@@ -191,7 +191,7 @@ def bin_transcripts(reverse_name_map, stats_dict, ok_ids, ens_ids):
     for ens_id in ens_ids:
         aln_ids = reverse_name_map[ens_id]
         t1_candidates, t3_candidates, discarded = find_t1_t3_candidates(stats_dict, aln_ids, ok_ids,
-                                                                        discard_cov_cutoff=0.25, filter_cov_cutoff=0.65)
+                                                                        discard_cov_cutoff=0.50, filter_cov_cutoff=0.80)
         binned_transcripts["discarded"].extend(discarded)
         if len(t1_candidates) == len(t3_candidates) == 0:
             binned_transcripts["fail"].append(ens_id)
