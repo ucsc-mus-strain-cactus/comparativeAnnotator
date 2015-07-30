@@ -58,14 +58,14 @@ def cat(target, g, in_path, out_dir):
     system("cat {} > {}".format(in_p, out_p))
 
 
-def wrapper(target, genomes, ref_fasta, out_dir):
+def wrapper(target, genomes, ref_fasta, out_dir, fa_dir):
     for g in genomes:
         out_path = os.path.join(out_dir, "tmp", g)
         mkdir_p(out_path)
         for f in os.listdir(out_path):
             os.remove(os.path.join(out_path, f))
-        target_fasta = os.path.join(out_dir, g + ".fa")
-        faidx = os.path.join(out_dir, g + ".fa.fai")
+        target_fasta = os.path.join(fa_dir, g + ".fa")
+        faidx = os.path.join(fa_dir, g + ".fa.fai")
         aug_aIds = [x.split()[0] for x in open(faidx)]
         for chunk in chunker(aug_aIds, 200):
             target.addChildTargetFn(align, args=(g, target_fasta, chunk, ref_fasta, out_path))
@@ -83,9 +83,10 @@ def main():
     parser.add_argument("--genomes", nargs="+", required=True)
     parser.add_argument("--refFasta", required=True)
     parser.add_argument("--outDir", required=True)
+    parser.add_argument("--augustusStatsDir", required=True)
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
-    i = Stack(Target.makeTargetFn(wrapper, args=(args.genomes, args.refFasta, 
+    i = Stack(Target.makeTargetFn(wrapper, args=(args.genomes, args.refFasta, args.augustusStatsDir,
                                                  args.outDir))).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")

@@ -219,29 +219,30 @@ def write_gps(binned_transcripts, gps, out_dir, genome, filter_set=None):
                     outf.write(gp)
 
 
-def driver_function(genome, tm_gps, aug_gps, con, cur, ens_ids, coding_ids):
-    reverse_name_map = get_reverse_name_map(cur, args.genome, ens_ids)
-    ok_ids = get_all_ok(cur, args.genome)
-    stats_dict = merge_stats(cur, args.statsDir, args.genome)
+def driver_function(genome, tm_gp, aug_gp, con, cur, ens_ids, coding_ids, stats_dir, out_dir):
+    reverse_name_map = get_reverse_name_map(cur, genome, ens_ids)
+    ok_ids = get_all_ok(cur, genome)
+    stats_dict = merge_stats(cur, stats_dir, genome)
     binned_transcripts = bin_transcripts(reverse_name_map, stats_dict, ok_ids, ens_ids)
-    gps = load_gps([args.tmGpPath, args.augGpPath])
-    all_path = os.path.join(args.outDir, "all_transcripts")
-    write_gps(binned_transcripts, gps, all_path, args.genome)
-    coding_path = os.path.join(args.outDir, "coding_transcripts")
-    write_gps(binned_transcripts, gps, all_path, args.genome, filter_set=coding_ids) 
+    gps = load_gps([tm_gp, aug_gp])
+    all_path = os.path.join(out_dir, "all_transcripts")
+    write_gps(binned_transcripts, gps, all_path, genome)
+    coding_path = os.path.join(out_dir, "coding_transcripts")
+    write_gps(binned_transcripts, gps, coding_path, genome, filter_set=coding_ids) 
 
 
 def main():
     args = parse_args()
     con, cur = attach_databases(args.compAnnPath)
-    ens_ids = get_all_ids(args.attrPath)
-    coding_ids = get_all_ids(args.attrPath, biotype="protein_coding")
+    ens_ids = get_all_ids(args.attributePath)
+    coding_ids = get_all_ids(args.attributePath, biotype="protein_coding")
     sorted_genomes = sorted(args.genomes)
     sorted_tm_gps = sorted(args.tmGps)
     sorted_aug_gps = sorted(args.augGps)
     for genome, tm_gp, aug_gp in itertools.izip(sorted_genomes, sorted_tm_gps, sorted_aug_gps):
         assert genome in tm_gp and genome in aug_gp
-        driver_function(genome, tm_gps, aug_gps, con, cur, ens_ids, coding_ids)
+        driver_function(genome, tm_gp, aug_gp, con, cur, ens_ids, coding_ids, args.statsDir,
+                        args.outDir)
 
 
 if __name__ == "__main__":
