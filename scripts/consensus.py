@@ -201,7 +201,7 @@ def bin_transcripts(reverse_name_map, stats_dict, ok_ids, ens_ids):
         else:
             t3_id, aug_t4, tm_t4 = analyze_candidates(t3_candidates)
             bin_candidates(t3_id, aug_t4, tm_t4, ["T3", "T4A", "T4T"], binned_transcripts)
-        return binned_transcripts
+    return binned_transcripts
 
 
 def load_gps(gp_paths):
@@ -211,12 +211,21 @@ def load_gps(gp_paths):
 def write_gps(binned_transcripts, gps, out_dir, genome, filter_set=None):
     p = os.path.join(out_dir, genome)
     mkdir_p(p)
-    for b in ["T1", "T2A", "T2T", "T3", "T4A", "T4T", "fail"]:
+    for b in ["T1", "T2A", "T2T", "T3", "T4A", "T4T"]:
         with open(os.path.join(p, genome + "_Tier" + b + ".gp"), "w") as outf:
             for aln_id in binned_transcripts[b]:
-                if filter_set is not None and aln_id in filter_set:
-                    gp = gps[aln_id]
+                gp = gps[aln_id]
+                if filter_set is None:
                     outf.write(gp)
+                elif removeAlignmentNumber(removeAugustusAlignmentNumber(aln_id)) in filter_set:
+                    outf.write(gp)
+    for b in ["fail", "discarded"]:
+        with open(os.path.join(p, genome + "_" + b + ".txt"), "w") as outf:
+            for aln_id in binned_transcripts[b]:
+                if filter_set is None:
+                    outf.write(aln_id + "\n")
+                elif removeAlignmentNumber(removeAugustusAlignmentNumber(aln_id)) in filter_set:
+                    outf.write(aln_id + "\n")
 
 
 def driver_function(genome, tm_gp, aug_gp, con, cur, ens_ids, coding_ids, stats_dir, out_dir):
