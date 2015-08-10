@@ -39,7 +39,7 @@ def augustus_ok(cur, genome):
     Finds all aug_aIds which are 'OK' as defined by the fields in classifyFields
     """
     classifyFields = ["AugustusSameStartStop", "AugustusExonGain", "AugustusExonLoss", "AugustusParalogy",
-                      "AugustusNotSimilarExonBoundaries"]
+                      "AugustusNotSimilarExonBoundaries", "AugustusSameStrand"]
     cmd = """SELECT augustus.'{0}'.'AlignmentId' FROM augustus.'{0}' WHERE (""".format(genome)
     for col in classifyFields[:-1]:
         cmd += " augustus.'{}'.'{}' = ? {}".format(genome, col, "AND")

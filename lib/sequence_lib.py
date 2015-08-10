@@ -204,7 +204,7 @@ class Transcript(object):
         prevExon = None
         for exon in self.exonIntervals:
             if prevExon is not None:
-                assert exon.start > prevExon.stop
+                assert exon.start > prevExon.stop, (exon.start, prevExon.stop)
                 assert exon.strand == prevExon.strand
                 intron = ChromosomeInterval(exon.chromosome, prevExon.stop, exon.start, exon.strand)
                 introns.append(intron)

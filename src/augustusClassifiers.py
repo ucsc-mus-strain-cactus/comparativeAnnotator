@@ -4,6 +4,30 @@ import lib.psl_lib as psl_lib
 from src.abstractClassifier import AbstractAugustusClassifier
 
 
+class AugustusSameStrand(AbstractAugustusClassifier):
+    """
+    Does this transcript exist on the same strand?
+    """
+    @property
+    def rgb(self):
+        return self.colors["alignment"]
+    def run(self):
+        self.getAugustusTranscriptDict()
+        self.getTranscriptDict()
+        classifyDict = {}
+        detailsDict = defaultdict(list)
+        for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
+            if psl_lib.removeAugustusAlignmentNumber(aug_aId) not in self.transcriptDict:
+                continue
+            t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+            if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome:
+                classifyDict[aug_aId] = 1
+                detailsDict[aug_aId] = seq_lib.transcriptToBed(aug_t, self.rgb, self.column)
+            else:
+                classifyDict[aug_aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)    
+
+
 class AugustusParalogy(AbstractAugustusClassifier):
     """
     Does this transcript appear more than once in the augustus transcript dict?
@@ -54,7 +78,7 @@ class AugustusExonGain(AbstractAugustusClassifier):
             for interval in aug_t_intervals:
                 if seq_lib.intervalNotIntersectIntervals(merged_t_intervals, interval):
                     classifyDict[aug_aId] = 1
-                    detailsDict[aug_aId].append(interval.getBed(self.rgb, self.column))
+                    detailsDict[aug_aId].append(interval.getBed(self.rgb, "/".join([self.column, aug_aId])))
             if aug_aId not in classifyDict:
                 classifyDict[aug_aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
@@ -85,7 +109,7 @@ class AugustusExonLoss(AbstractAugustusClassifier):
             for interval in merged_t_intervals:
                 if seq_lib.intervalNotIntersectIntervals(aug_t_intervals, interval):
                     classifyDict[aug_aId] = 1
-                    detailsDict[aug_aId].append(interval.getBed(self.rgb, self.column))
+                    detailsDict[aug_aId].append(interval.getBed(self.rgb, "/".join([self.column, aug_aId])))
             if aug_aId not in classifyDict:
                 classifyDict[aug_aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
@@ -116,7 +140,7 @@ class AugustusNotSimilarExonBoundaries(AbstractAugustusClassifier):
             for interval in merged_t_intervals:
                 if seq_lib.intervalNotWithinWiggleRoomIntervals(aug_t_intervals, interval, wiggleRoom):
                     classifyDict[aug_aId] = 1
-                    detailsDict[aug_aId].append(interval.getBed(self.rgb, self.column))
+                    detailsDict[aug_aId].append(interval.getBed(self.rgb, "/".join([self.column, aug_aId])))
             if aug_aId not in classifyDict:
                 classifyDict[aug_aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
@@ -124,7 +148,7 @@ class AugustusNotSimilarExonBoundaries(AbstractAugustusClassifier):
 
 class AugustusSameStartStop(AbstractAugustusClassifier):
     """
-    Does the augustus transcript have the exact same start bases as the transMap transcript?
+    Does the augustus transcript NOT have the exact same start bases as the transMap transcript?
     """
     @property
     def rgb(self):
@@ -141,7 +165,7 @@ class AugustusSameStartStop(AbstractAugustusClassifier):
             t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
             if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome or t.thickStart == t.thickStop:
                 continue
-            if t.thickStart == aug_t.thickStart and t.thickStop == aug_t.thickStop:
+            if t.thickStart != aug_t.thickStart or t.thickStop != aug_t.thickStop:
                 classifyDict[aug_aId] = 0
                 s = t.getCdsLength()
                 detailsDict[aug_aId] = [seq_lib.cdsCoordinateToBed(t, 0, 3, self.rgb, self.column),

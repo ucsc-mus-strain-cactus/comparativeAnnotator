@@ -63,7 +63,7 @@ class BuildAugustusTracks(Target):
         # first we recolor everything black
         for x in records:
             x.rgb = "0"
-        detailsFields, classifyFields, classifyValues, classifyOperations = src.augustusQueries.augustusOk()
+        detailsFields, classifyFields, classifyValues, classifyOperations = src.augustusQueries.augustusNotOk()
         aIds = {x[0] for x in sql_lib.selectBetweenDatabases(self.cur, "details", self.primaryKeyColumn, classifyFields, classifyValues, classifyOperations, self.primaryKeyColumn, genome)}
         for x in records:
             if x.name in aIds:

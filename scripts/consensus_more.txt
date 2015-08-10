@@ -216,3 +216,154 @@ sum(t1_improve) / len(t1_improve), sum(t3_improve) / len(t3_improve)
 t1_tie = [1.0 * len(q[genome]['t1_tie']) / q[genome]['t1_tot'] for genome in genomes]
 t3_tie = [1.0 * len(q[genome]['t3_tie']) / q[genome]['t3_tot'] for genome in genomes]
 sum(t1_tie) / len(t1_tie), sum(t3_tie) / len(t3_tie)
+
+# investigating the failed transcripts, relating to genes
+
+failed_transcripts = {x.rstrip() for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus/consensus/coding_transcripts/C57B6NJ/C57B6NJ_fail.txt")}
+
+failed_gp = []
+for x in open("/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeCompVM4.bed"):
+  x = x.split()
+  i = removeAlignmentNumber(removeAugustusAlignmentNumber(x[3]))
+  if i in ids:
+    failed_gp.append(x)
+
+discarded = [x.rstrip() for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus/consensus/coding_transcripts/C57B6NJ/C57B6NJ_discarded.txt")]
+discarded_transcripts = {removeAlignmentNumber(removeAugustusAlignmentNumber(x)) for x in discarded}
+
+tm_ids = {removeAlignmentNumber(x.split()[0]) for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/C57B6NJ/transMapGencodeCompVM4.gp")}
+
+tm_nothing = failed_transcripts - (failed_transcripts & tm_ids)
+tm_fail = failed_transcripts & tm_ids
+
+q = Counter()
+for x in failed_gp:
+    if x[3] in tm_fail:
+        q[x[0]] += 1
+
+gene_map = {}
+for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeAttrsVM4.tsv"):
+    x = x.split()
+    if x[4] == "protein_coding":
+        gene_map[x[3]] = x[0]
+
+coding_genes = {y for x,y in gene_map.iteritems()}
+
+tm_fail_genes = {gene_map[x] for x in tm_fail}
+tm_nothing_genes = {gene_map[x] for x in tm_nothing}
+
+result = OrderedDict()
+for g in genome_order:
+    failed_transcripts = {x.rstrip() for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus/consensus/coding_transcripts/{0}/{0}_fail.txt".format(g))}
+    discarded = [x.rstrip() for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus/consensus/coding_transcripts/{0}/{0}_discarded.txt".format(g))]
+    discarded_transcripts = {removeAlignmentNumber(removeAugustusAlignmentNumber(x)) for x in discarded}
+    tm_ids = {removeAlignmentNumber(x.split()[0]) for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/{}/transMapGencodeCompVM4.gp".format(g))}
+    tm_nothing = failed_transcripts - (failed_transcripts & tm_ids)
+    tm_fail = failed_transcripts & tm_ids
+    tm_fail_genes = {gene_map[x] for x in tm_fail}
+    tm_nothing_genes = {gene_map[x] for x in tm_nothing}
+    result[g] = [len(tm_nothing_genes), len(tm_fail_genes)]
+
+
+largest = max(sum(y) for x, y in result.iteritems())
+sums = [sum(y) for x, y in result.iteritems()]
+
+results = list(result.iteritems())
+width=8.0
+height=4.0
+bar_width=0.4
+fig, pdf = init_image("./", "tm_nothing_genes", width, height)
+ax = establish_axes(fig, width, height, border=True)
+plt.text(0.5, 1.08, "Proportion of {} GencodeCompVM4 Protein Coding Genes Lost".format(len(coding_genes)), horizontalalignment='center', 
+         fontsize=12, transform=ax.transAxes)
+ax.set_ylabel("Number of genes")
+ax.set_ylim([0, largest+100])
+plt.tick_params(axis='both', labelsize=8)
+ax.yaxis.set_ticks(np.arange(0.0, largest+100, 200.0))
+ax.yaxis.set_ticklabels(map(int, np.arange(0.0, largest+100, 200.0)))
+ax.xaxis.set_ticks(np.arange(0, len(results)) + bar_width / 2.0)
+ax.xaxis.set_ticklabels(zip(*results)[0], rotation=55)
+bars = plot_bars(ax, zip(*results)[1], bar_width)
+for i, (rect1, rect2) in enumerate(zip(*bars)):
+        ax.text(rect1.get_x() + bar_width / 2.0, 0.03 + rect1.get_height() + rect2.get_height(), sums[i], ha='center', va='bottom', size=6)
+
+
+legend_labels = ["NoTM", "CoverageFail"]
+legend = fig.legend([x[0] for x in bars][::-1], legend_labels[::-1], bbox_to_anchor=(1,0.85), fontsize=9, 
+                    frameon=True, title="Category")
+fig.savefig(pdf, format='pdf')
+pdf.close()
+
+# investigating a random selection of chr11
+# need to filter out transcripts which are not ok in reference
+# also want to filter out transcripts which are not in the basic set
+
+basic_ids = {x.split()[0] for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeBasicVM4.gp")}
+
+
+nj_t3 = [x.split() for x in open("consensus/coding_gene_sets/C57B6NJ/C57B6NJ_Tier3.gp")]
+nj_t3_final = []
+for x in nj_t3:
+    i = removeAlignmentNumber(removeAugustusAlignmentNumber(x[0]))
+    if i in basic_ids and i not in ref_not_ok_ids and x[1] == "chr11":
+        nj_t3_final.append(x)
+
+import random
+random.shuffle(nj_t3_final)
+aug_r = [x for x in nj_t3_final if 'aug' in x[0]][:40]
+tm_r = [x for x in nj_t3_final if 'aug' not in x[0]][:40]
+with open("/cluster/home/ifiddes/public_html/problem_transcripts/aug_40_chr11_t3.gp", "w") as outf:
+    for x in aug_r:
+        outf.write("\t".join(x)+"\n")
+
+
+with open("/cluster/home/ifiddes/public_html/problem_transcripts/tm_40_chr11_t3.gp", "w") as outf:
+    for x in tm_r:
+        outf.write("\t".join(x)+"\n")
+
+# used genePredToBed to convert. Now we need matching BED records for errors.
+aug_ids = {x[0] for x in aug_r}
+tm_ids = {x[0] for x in tm_r}
+
+
+con = sql.connect(os.path.join(comp_ann_dir, "augustusDetails.db"))
+cur = con.cursor()
+aug_recs = []
+cmd = "select AlignmentId, AugustusParalogy, AugustusNotSimilarExonBoundaries, AugustusExonGain, AugustusExonLoss, AugustusSameStartStop from C57B6NJ where AlignmentId = '{}'"
+for i in aug_ids:
+    aug_recs.append(cur.execute(cmd.format(i)).fetchall())
+
+with open("/cluster/home/ifiddes/public_html/problem_transcripts/aug_errors.bed", "w") as outf:
+    for x in aug_recs:
+        x = x[0]
+        aId = x[0]
+        for y in x[1:]:
+            if y is not None:
+                z = y.split("\n")
+                for zz in z:
+                    zz = zz.split()
+                    if aId not in zz[3]:
+                        zz[3] = zz[3] + "/" + aId
+                    outf.write("\t".join(zz) + "\n")
+
+
+con = sql.connect(os.path.join(comp_ann_dir, "details.db"))
+cur = con.cursor()
+tm_recs = []
+cmd = "select * from C57B6NJ where AlignmentId = '{}'"
+for i in tm_ids:
+    tm_recs.append(cur.execute(cmd.format(i)).fetchall())
+
+with open("/cluster/home/ifiddes/public_html/problem_transcripts/tm_errors.bed", "w") as outf:
+    for x in tm_recs:
+        x = x[0]
+        aId = x[0]
+        for y in x[1:]:
+            if y is not None:
+                z = y.split("\n")
+                for zz in z:
+                    zz = zz.split()
+                    if aId not in zz[3]:
+                        zz[3] = zz[3] + "/" + aId
+                    outf.write("\t".join(zz) + "\n")
+
