@@ -168,8 +168,11 @@ class AugustusSameStartStop(AbstractAugustusClassifier):
             if t.thickStart != aug_t.thickStart or t.thickStop != aug_t.thickStop:
                 classifyDict[aug_aId] = 0
                 s = t.getCdsLength()
-                detailsDict[aug_aId] = [seq_lib.cdsCoordinateToBed(t, 0, 3, self.rgb, self.column),
-                                        seq_lib.cdsCoordinateToBed(t, s - 3, s, self.rgb, self.column)]
+                if s > 9:
+                    detailsDict[aug_aId] = [seq_lib.cdsCoordinateToBed(t, 0, 3, self.rgb, self.column),
+                                            seq_lib.cdsCoordinateToBed(t, s - 3, s, self.rgb, self.column)]
+                else:
+                    detailsDict[aug_aId] = seq_lib.cdsCoordinateToBed(t, 0, s, self.rgb, self.column)
             else:
                 classifyDict[aug_aId] = 1
         self.dumpValueDicts(classifyDict, detailsDict)
