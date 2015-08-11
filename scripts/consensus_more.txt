@@ -13,12 +13,6 @@ import numpy as np
 from scripts.coverage_identity_ok_plots import *
 
 
-names = {}
-classifyFields = ["AugustusNotSameStartStop", "AugustusExonGain", "AugustusExonLoss", "AugustusParalogy",
-                  "AugustusNotSimilarExonBoundaries", "AugustusNotSameStrand"]
-cmd = """SELECT augustus.'{0}'.'AlignmentId' FROM augustus.'{0}' WHERE augustus.'{0}'.'{1}' = 0"""
-for c in classifyFields:
-    names[c] = {x[0] for x in cur.execute(cmd.format(genome, c))}
 
 def get_name_map(cur, genome):
     """
@@ -49,6 +43,7 @@ coding_ids = get_all_ids(attrs, biotype="protein_coding")
 stats_dict = {}
 for genome in genomes:
     stats_dict[genome] = merge_stats(cur, stats_dir, genome)
+
 
 ok_ids = {}
 for genome in genomes:
@@ -308,12 +303,13 @@ pdf.close()
 basic_ids = {x.split()[0] for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeBasicVM4.gp")}
 
 
-nj_t3 = [x.split() for x in open("consensus/coding_gene_sets/C57B6NJ/C57B6NJ_Tier3.gp")]
+nj_t3 = [x.split() for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-08-10_Augustus/consensus/coding_transcripts/C57B6NJ/C57B6NJ_TierT3.gp")]
 nj_t3_final = []
 for x in nj_t3:
     i = removeAlignmentNumber(removeAugustusAlignmentNumber(x[0]))
     if i in basic_ids and i not in ref_not_ok_ids and x[1] == "chr11":
         nj_t3_final.append(x)
+
 
 import random
 random.shuffle(nj_t3_final)
@@ -336,7 +332,7 @@ tm_ids = {x[0] for x in tm_r}
 con = sql.connect(os.path.join(comp_ann_dir, "augustusDetails.db"))
 cur = con.cursor()
 aug_recs = []
-cmd = "select AlignmentId, AugustusParalogy, AugustusNotSimilarExonBoundaries, AugustusExonGain, AugustusExonLoss, AugustusSameStartStop from C57B6NJ where AlignmentId = '{}'"
+cmd = "select AlignmentId, AugustusNotSameStrand, AugustusParalogy, AugustusNotSimilarInternalExonBoundaries, AugustusNotSimilarTerminalExonBoundaries, AugustusExonGain, AugustusExonLoss, AugustusNotSameStartStop from C57B6NJ where AlignmentId = '{}'"
 for i in aug_ids:
     aug_recs.append(cur.execute(cmd.format(i)).fetchall())
 

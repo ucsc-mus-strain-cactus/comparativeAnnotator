@@ -202,10 +202,10 @@ class AugustusNotSameStartStop(AbstractAugustusClassifier):
                 classifyDict[aug_aId] = 1
                 s = t.getCdsLength()
                 if s > 9:
-                    detailsDict[aug_aId] = [seq_lib.cdsCoordinateToBed(t, 0, 3, self.rgb, self.column),
-                                            seq_lib.cdsCoordinateToBed(t, s - 3, s, self.rgb, self.column)]
+                    detailsDict[aug_aId] = [seq_lib.cdsCoordinateToBed(aug_t, 0, 3, self.rgb, self.column),
+                                            seq_lib.cdsCoordinateToBed(aug_t, s - 3, s, self.rgb, self.column)]
                 else:
-                    detailsDict[aug_aId] = seq_lib.cdsCoordinateToBed(t, 0, s, self.rgb, self.column)
+                    detailsDict[aug_aId] = seq_lib.cdsCoordinateToBed(aug_t, 0, s, self.rgb, self.column)
             else:
                 classifyDict[aug_aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
