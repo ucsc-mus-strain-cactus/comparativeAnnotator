@@ -332,7 +332,7 @@ tm_ids = {x[0] for x in tm_r}
 con = sql.connect(os.path.join(comp_ann_dir, "augustusDetails.db"))
 cur = con.cursor()
 aug_recs = []
-cmd = "select AlignmentId, AugustusNotSameStrand, AugustusParalogy, AugustusNotSimilarInternalExonBoundaries, AugustusNotSimilarTerminalExonBoundaries, AugustusExonGain, AugustusExonLoss, AugustusNotSameStartStop from C57B6NJ where AlignmentId = '{}'"
+cmd = "select AlignmentId, AugustusNotSameStrand, AugustusParalogy, AugustusNotSimilarInternalExonBoundaries, AugustusNotSimilarTerminalExonBoundaries, AugustusExonGain, AugustusExonLoss, AugustusNotSameStartStop, AugustusShortCds from C57B6NJ where AlignmentId = '{}'"
 for i in aug_ids:
     aug_recs.append(cur.execute(cmd.format(i)).fetchall())
 
@@ -345,8 +345,6 @@ with open("/cluster/home/ifiddes/public_html/problem_transcripts/aug_errors.bed"
                 z = y.split("\n")
                 for zz in z:
                     zz = zz.split()
-                    if aId not in zz[3]:
-                        zz[3] = zz[3] + "/" + aId
                     outf.write("\t".join(zz) + "\n")
 
 
@@ -357,6 +355,7 @@ cmd = "select * from C57B6NJ where AlignmentId = '{}'"
 for i in tm_ids:
     tm_recs.append(cur.execute(cmd.format(i)).fetchall())
 
+
 with open("/cluster/home/ifiddes/public_html/problem_transcripts/tm_errors.bed", "w") as outf:
     for x in tm_recs:
         x = x[0]
@@ -366,7 +365,5 @@ with open("/cluster/home/ifiddes/public_html/problem_transcripts/tm_errors.bed",
                 z = y.split("\n")
                 for zz in z:
                     zz = zz.split()
-                    if aId not in zz[3]:
-                        zz[3] = zz[3] + "/" + aId
                     outf.write("\t".join(zz) + "\n")
 

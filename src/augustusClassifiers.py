@@ -156,7 +156,7 @@ class AugustusNotSimilarTerminalExonBoundaries(AbstractAugustusClassifier):
     def rgb(self):
         return self.colors["alignment"]
 
-    def run(self, shortIntronSize=30, wiggleRoom=200):
+    def run(self, shortIntronSize=100, wiggleRoom=200):
         self.getAugustusTranscriptDict()
         self.getTranscriptDict()
         classifyDict = {}
@@ -208,4 +208,33 @@ class AugustusNotSameStartStop(AbstractAugustusClassifier):
                     detailsDict[aug_aId] = seq_lib.cdsCoordinateToBed(aug_t, 0, s, self.rgb, self.column)
             else:
                 classifyDict[aug_aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
+
+
+class AugustusShortCds(AbstractAugustusClassifier):
+    """
+    Does the augustus transcript have too short of a CDS?
+    """
+    @property
+    def rgb(self):
+        return self.colors["alignment"]
+
+    def run(self, cdsCutoff=75):):
+        self.getAugustusTranscriptDict()
+        self.getTranscriptDict()
+        detailsDict = {}
+        classifyDict = {}
+        for aug_aId, aug_t in self.transcriptDict.iteritems():
+            # do not include noncoding transcripts
+            t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+            if t.getCdsLength() < 3:
+                continue
+            elif t.getCdsLength() <= cdsCutoff:
+                detailsDict[aId] = seq_lib.transcriptToBed(aug_t, self.colors["input"], self.column)
+                classifyDict[aId] = 1
+            elif aug_t.getCdsLength() <= cdsCutoff:
+                detailsDict[aId] = seq_lib.transcriptToBed(aug_t, self.rgb, self.column)
+                classifyDict[aId] = 1
+            else:
+                classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)

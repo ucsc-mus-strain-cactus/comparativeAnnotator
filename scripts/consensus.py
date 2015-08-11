@@ -41,7 +41,7 @@ def augustus_ok(cur, genome):
     """
     classifyFields = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand', 
                       'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries', 
-                      'AugustusNotSimilarInternalExonBoundaries']
+                      'AugustusNotSimilarInternalExonBoundaries', "AugustusShortCds"]
     cmd = """SELECT augustus.'{0}'.'AlignmentId' FROM augustus.'{0}' WHERE (""".format(genome)
     for col in classifyFields[:-1]:
         cmd += " augustus.'{}'.'{}' = ? {}".format(genome, col, "AND")
