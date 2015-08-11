@@ -200,7 +200,7 @@ class AugustusNotSameStartStop(AbstractAugustusClassifier):
                 continue
             if t.thickStart != aug_t.thickStart or t.thickStop != aug_t.thickStop:
                 classifyDict[aug_aId] = 1
-                s = t.getCdsLength()
+                s = aug_t.getCdsLength()
                 if s > 9:
                     detailsDict[aug_aId] = [seq_lib.cdsCoordinateToBed(aug_t, 0, 3, self.rgb, self.column),
                                             seq_lib.cdsCoordinateToBed(aug_t, s - 3, s, self.rgb, self.column)]
