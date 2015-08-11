@@ -219,7 +219,7 @@ class AugustusShortCds(AbstractAugustusClassifier):
     def rgb(self):
         return self.colors["alignment"]
 
-    def run(self, cdsCutoff=75):):
+    def run(self, cdsCutoff=75):
         self.getAugustusTranscriptDict()
         self.getTranscriptDict()
         detailsDict = {}
