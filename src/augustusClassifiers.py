@@ -4,13 +4,14 @@ import lib.psl_lib as psl_lib
 from src.abstractClassifier import AbstractAugustusClassifier
 
 
-class AugustusSameStrand(AbstractAugustusClassifier):
+class AugustusNotSameStrand(AbstractAugustusClassifier):
     """
     Does this transcript exist on the same strand?
     """
     @property
     def rgb(self):
         return self.colors["alignment"]
+
     def run(self):
         self.getAugustusTranscriptDict()
         self.getTranscriptDict()
@@ -115,16 +116,16 @@ class AugustusExonLoss(AbstractAugustusClassifier):
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
-class AugustusNotSimilarExonBoundaries(AbstractAugustusClassifier):
+class AugustusNotSimilarInternalExonBoundaries(AbstractAugustusClassifier):
     """
     Does the augustus version of this transcript have the same exon boundaries, within a wiggle room range?
-    Returns True if any exons are NOT in the same boundaries, and also reports each such splice junction
+    Returns True if any internal exons are NOT in the same boundaries, and also reports each such splice junction
     """
     @property
     def rgb(self):
         return self.colors["alignment"]
 
-    def run(self, shortIntronSize=30, wiggleRoom=10):
+    def run(self, shortIntronSize=30, wiggleRoom=30):
         self.getAugustusTranscriptDict()
         self.getTranscriptDict()
         classifyDict = {}
@@ -136,7 +137,8 @@ class AugustusNotSimilarExonBoundaries(AbstractAugustusClassifier):
             if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome:
                 continue
             merged_t_intervals = seq_lib.gapMergeIntervals(t.exonIntervals, gap=shortIntronSize)
-            aug_t_intervals = aug_t.exonIntervals
+            merged_t_intervals = merged_t_intervals[1:-1]
+            aug_t_intervals = aug_t.exonIntervals[1:-1]
             for interval in merged_t_intervals:
                 if seq_lib.intervalNotWithinWiggleRoomIntervals(aug_t_intervals, interval, wiggleRoom):
                     classifyDict[aug_aId] = 1
@@ -146,7 +148,38 @@ class AugustusNotSimilarExonBoundaries(AbstractAugustusClassifier):
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
-class AugustusSameStartStop(AbstractAugustusClassifier):
+class AugustusNotSimilarTerminalExonBoundaries(AbstractAugustusClassifier):
+    """
+    Does the augustus version of this transcript have the same terminal exon boundaries?
+    """
+    @property
+    def rgb(self):
+        return self.colors["alignment"]
+
+    def run(self, shortIntronSize=30, wiggleRoom=200):
+        self.getAugustusTranscriptDict()
+        self.getTranscriptDict()
+        classifyDict = {}
+        detailsDict = defaultdict(list)
+        for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
+            if psl_lib.removeAugustusAlignmentNumber(aug_aId) not in self.transcriptDict:
+                continue
+            t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+            if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome:
+                continue
+            merged_t_intervals = seq_lib.gapMergeIntervals(t.exonIntervals, gap=shortIntronSize)
+            merged_t_intervals = [merged_t_intervals[0], merged_t_intervals[-1]]
+            aug_t_intervals = [aug_t.exonIntervals[0], aug_t.exonIntervals[-1]]
+            for interval in merged_t_intervals:
+                if seq_lib.intervalNotWithinWiggleRoomIntervals(aug_t_intervals, interval, wiggleRoom):
+                    classifyDict[aug_aId] = 1
+                    detailsDict[aug_aId].append(interval.getBed(self.rgb, "/".join([self.column, aug_aId])))
+            if aug_aId not in classifyDict:
+                classifyDict[aug_aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
+
+
+class AugustusNotSameStartStop(AbstractAugustusClassifier):
     """
     Does the augustus transcript NOT have the exact same start bases as the transMap transcript?
     """
@@ -166,7 +199,7 @@ class AugustusSameStartStop(AbstractAugustusClassifier):
             if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome or t.thickStart == t.thickStop:
                 continue
             if t.thickStart != aug_t.thickStart or t.thickStop != aug_t.thickStop:
-                classifyDict[aug_aId] = 0
+                classifyDict[aug_aId] = 1
                 s = t.getCdsLength()
                 if s > 9:
                     detailsDict[aug_aId] = [seq_lib.cdsCoordinateToBed(t, 0, 3, self.rgb, self.column),
@@ -174,5 +207,5 @@ class AugustusSameStartStop(AbstractAugustusClassifier):
                 else:
                     detailsDict[aug_aId] = seq_lib.cdsCoordinateToBed(t, 0, s, self.rgb, self.column)
             else:
-                classifyDict[aug_aId] = 1
+                classifyDict[aug_aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)

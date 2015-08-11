@@ -13,6 +13,13 @@ import numpy as np
 from scripts.coverage_identity_ok_plots import *
 
 
+names = {}
+classifyFields = ["AugustusNotSameStartStop", "AugustusExonGain", "AugustusExonLoss", "AugustusParalogy",
+                  "AugustusNotSimilarExonBoundaries", "AugustusNotSameStrand"]
+cmd = """SELECT augustus.'{0}'.'AlignmentId' FROM augustus.'{0}' WHERE augustus.'{0}'.'{1}' = 0"""
+for c in classifyFields:
+    names[c] = {x[0] for x in cur.execute(cmd.format(genome, c))}
+
 def get_name_map(cur, genome):
     """
     creates a dictionary mapping each Gencode ID to all IDs produced by Augustus and transMap
@@ -31,10 +38,10 @@ def get_name_map(cur, genome):
 
 
 
-coding_dir = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus/consensus/coding_transcripts"
+coding_dir = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/comparativeAnnotation/2015-08-10_Augustus/consensus/coding_transcripts"
 genomes = os.listdir(coding_dir)
-stats_dir = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus/augustus_stats"
-comp_ann_dir = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus"
+stats_dir = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/comparativeAnnotation/2015-08-10_Augustus/augustus_stats"
+comp_ann_dir = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/comparativeAnnotation/2015-08-10_Augustus"
 attrs = "/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeAttrsVM4.tsv"
 con, cur = attach_databases(comp_ann_dir)
 ens_ids = get_all_ids(attrs)
@@ -219,7 +226,7 @@ sum(t1_tie) / len(t1_tie), sum(t3_tie) / len(t3_tie)
 
 # investigating the failed transcripts, relating to genes
 
-failed_transcripts = {x.rstrip() for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus/consensus/coding_transcripts/C57B6NJ/C57B6NJ_fail.txt")}
+failed_transcripts = {x.rstrip() for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-08-10_Augustus/consensus/coding_transcripts/C57B6NJ/C57B6NJ_fail.txt")}
 
 failed_gp = []
 for x in open("/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeCompVM4.bed"):
@@ -228,7 +235,7 @@ for x in open("/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparat
   if i in ids:
     failed_gp.append(x)
 
-discarded = [x.rstrip() for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus/consensus/coding_transcripts/C57B6NJ/C57B6NJ_discarded.txt")]
+discarded = [x.rstrip() for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-08-10_Augustus/consensus/coding_transcripts/C57B6NJ/C57B6NJ_discarded.txt")]
 discarded_transcripts = {removeAlignmentNumber(removeAugustusAlignmentNumber(x)) for x in discarded}
 
 tm_ids = {removeAlignmentNumber(x.split()[0]) for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/C57B6NJ/transMapGencodeCompVM4.gp")}
@@ -254,8 +261,8 @@ tm_nothing_genes = {gene_map[x] for x in tm_nothing}
 
 result = OrderedDict()
 for g in genome_order:
-    failed_transcripts = {x.rstrip() for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus/consensus/coding_transcripts/{0}/{0}_fail.txt".format(g))}
-    discarded = [x.rstrip() for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-07-08_Augustus/consensus/coding_transcripts/{0}/{0}_discarded.txt".format(g))]
+    failed_transcripts = {x.rstrip() for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-08-10_Augustus/consensus/coding_transcripts/{0}/{0}_fail.txt".format(g))}
+    discarded = [x.rstrip() for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-08-10_Augustus/consensus/coding_transcripts/{0}/{0}_discarded.txt".format(g))]
     discarded_transcripts = {removeAlignmentNumber(removeAugustusAlignmentNumber(x)) for x in discarded}
     tm_ids = {removeAlignmentNumber(x.split()[0]) for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/{}/transMapGencodeCompVM4.gp".format(g))}
     tm_nothing = failed_transcripts - (failed_transcripts & tm_ids)

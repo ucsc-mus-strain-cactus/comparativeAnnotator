@@ -10,15 +10,15 @@ from src.classifiers import *
 from itertools import izip
 import intervaltree
 
-transcripts = seq_lib.getGenePredTranscripts("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/NODShiLtJ/transMapGencodeBasicVM4.gp")
+transcripts = seq_lib.getGenePredTranscripts("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/C57B6NJ/transMapGencodeBasicVM4.gp")
 transcriptDict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
 annotations = seq_lib.getGenePredTranscripts("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeBasicVM4.gp")
 annotationDict = seq_lib.transcriptListToDict(annotations, noDuplicates=True)
-alignments = psl_lib.readPsl("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/NODShiLtJ/transMapGencodeBasicVM4.psl")
+alignments = psl_lib.readPsl("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/C57B6NJ/transMapGencodeBasicVM4.psl")
 alignmentDict = psl_lib.getPslDict(alignments, noDuplicates=True)
-seqDict = seq_lib.getSequenceDict("/cluster/home/ifiddes/mus_strain_data/pipeline_data/assemblies/1504/NODShiLtJ.fa")
+seqDict = seq_lib.getSequenceDict("/cluster/home/ifiddes/mus_strain_data/pipeline_data/assemblies/1504/C57B6NJ.fa")
 refSeqDict = seq_lib.getSequenceDict("/cluster/home/ifiddes/mus_strain_data/pipeline_data/assemblies/1504/C57B6J.fa")
-augustusTranscripts = seq_lib.getGenePredTranscripts("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/augustus/tmr/NODShiLtJ.gp")
+augustusTranscripts = seq_lib.getGenePredTranscripts("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/augustus/tmr/C57B6NJ.gp")
 augustusTranscriptDict = seq_lib.transcriptListToDict(augustusTranscripts, noDuplicates=True)
 
 aId = "ENSMUST00000068580.3-1"
@@ -32,12 +32,12 @@ aug_aId = "aug-ENSMUST00000072079.8-4"
 aug_t = augustusTranscriptDict[aug_aId]
 t = transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
 
-t = Nonsynonymous("NODShiLtJ", "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/NODShiLtJ/transMapGencodeCompVM4.psl",
-    "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/assemblies/1504/NODShiLtJ.fa",
+t = Nonsynonymous("C57B6NJ", "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/C57B6NJ/transMapGencodeCompVM4.psl",
+    "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/assemblies/1504/C57B6NJ.fa",
     "/cluster/home/ifiddes/mus_strain_data/pipeline_data/assemblies/1504/C57B6J.fa",
     "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeCompVM4.gp",
     "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeAttrsVM4.tsv",
-    "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/NODShiLtJ/transMapGencodeCompVM4.gp",
+    "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/C57B6NJ/transMapGencodeCompVM4.gp",
     "C57B6J", "AlignmentId", "./tmp")
 
 

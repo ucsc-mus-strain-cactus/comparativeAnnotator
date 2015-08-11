@@ -23,8 +23,9 @@ def transmap_ok(cur, genome):
     """
     Finds all aIds which are 'OK' based on the classifyFields below
     """
-    classifyFields = ["CodingInsertions", "CodingDeletions", "CodingDeletions", "StartOutOfFrame", "FrameShift", "AlignmentAbutsLeft", "AlignmentAbutsRight",
-                      "AlignmentPartialMap", "BadFrame", "BeginStart", "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
+    classifyFields = ["CodingInsertions", "CodingDeletions", "CodingDeletions", "StartOutOfFrame", "FrameShift", 
+                      "AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "BadFrame", "BeginStart",
+                      "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
                       "EndStop", "InFrameStop", "ShortCds", "UnknownBases", "AlignmentAbutsUnknownBases"]
     cmd = """SELECT main.'{0}'.'AlignmentId' FROM main.'{0}' WHERE (""".format(genome)
     for col in classifyFields[:-1]:
@@ -38,8 +39,9 @@ def augustus_ok(cur, genome):
     """
     Finds all aug_aIds which are 'OK' as defined by the fields in classifyFields
     """
-    classifyFields = ["AugustusSameStartStop", "AugustusExonGain", "AugustusExonLoss", "AugustusParalogy",
-                      "AugustusNotSimilarExonBoundaries", "AugustusSameStrand"]
+    classifyFields = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand', 
+                      'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries', 
+                      'AugustusNotSimilarInternalExonBoundaries']
     cmd = """SELECT augustus.'{0}'.'AlignmentId' FROM augustus.'{0}' WHERE (""".format(genome)
     for col in classifyFields[:-1]:
         cmd += " augustus.'{}'.'{}' = ? {}".format(genome, col, "AND")
