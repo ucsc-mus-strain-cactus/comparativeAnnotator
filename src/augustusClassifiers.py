@@ -209,32 +209,3 @@ class AugustusNotSameStartStop(AbstractAugustusClassifier):
             else:
                 classifyDict[aug_aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
-
-
-class AugustusShortCds(AbstractAugustusClassifier):
-    """
-    Does the augustus transcript have too short of a CDS?
-    """
-    @property
-    def rgb(self):
-        return self.colors["alignment"]
-
-    def run(self, cdsCutoff=75):
-        self.getAugustusTranscriptDict()
-        self.getTranscriptDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aug_aId, aug_t in self.transcriptDict.iteritems():
-            # do not include noncoding transcripts
-            t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
-            if t.getCdsLength() < 3:
-                continue
-            elif t.getCdsLength() <= cdsCutoff:
-                detailsDict[aId] = seq_lib.transcriptToBed(aug_t, self.colors["input"], self.column)
-                classifyDict[aId] = 1
-            elif aug_t.getCdsLength() <= cdsCutoff:
-                detailsDict[aId] = seq_lib.transcriptToBed(aug_t, self.rgb, self.column)
-                classifyDict[aId] = 1
-            else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
