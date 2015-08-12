@@ -79,6 +79,7 @@ for g in genome_order:
     tot = sum(tmp)
     results[g] = [1.0 * x / tot for x in tmp]
 
+
 results = list(results.iteritems())
 width=8.0
 height=4.0
@@ -230,6 +231,7 @@ for x in open("/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparat
   if i in ids:
     failed_gp.append(x)
 
+
 discarded = [x.rstrip() for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-08-10_Augustus/consensus/coding_transcripts/C57B6NJ/C57B6NJ_discarded.txt")]
 discarded_transcripts = {removeAlignmentNumber(removeAugustusAlignmentNumber(x)) for x in discarded}
 
@@ -243,11 +245,13 @@ for x in failed_gp:
     if x[3] in tm_fail:
         q[x[0]] += 1
 
+
 gene_map = {}
 for x in open("/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeAttrsVM4.tsv"):
     x = x.split()
     if x[4] == "protein_coding":
         gene_map[x[3]] = x[0]
+
 
 coding_genes = {y for x,y in gene_map.iteritems()}
 
@@ -367,3 +371,66 @@ with open("/cluster/home/ifiddes/public_html/problem_transcripts/tm_errors.bed",
                     zz = zz.split()
                     outf.write("\t".join(zz) + "\n")
 
+
+from collections import defaultdict
+aug_tmp = [x.split() for x in open("/cluster/home/ifiddes/public_html/problem_transcripts/aug_errors.bed")][1:]
+aug_c = defaultdict(set)
+for x in aug_tmp:
+    p, n = x[3].split("/")
+    aug_c[n].add(p)
+
+aug_t = {}
+for x in aug_r:
+    aug_t[x[0]] = "{}:{}-{}".format(x[1], x[3], x[4])
+
+link_template = """=HYPERLINK("http://hgwdev-mus-strain.cse.ucsc.edu/cgi-bin/hgTracks?db=MusC57B6NJ_1504&position={loc}","{aId} at {loc}")"""
+with open("augustus_not_ok.tsv", "w") as outf:
+    outf.write("Link\tClassifiers\tNotes\n")
+    for x, y in aug_c.iteritems():
+        outf.write("\t".join([link_template.format(loc=aug_t[x], aId=x), ",".join(y), ""]) + "\n")
+
+
+# how many genes have no OK transcripts?
+
+gene_map = {}
+for x in open(attrs):
+    x = x.split()
+    if x[2] == "protein_coding":
+        gene_map[x[-2]] = x[0]
+
+
+result = OrderedDict()
+for g in genome_order:
+    ok_genes = set()
+    ok_transcripts = ok_ids[g]
+    for i in ok_transcripts:
+        i = removeAlignmentNumber(removeAugustusAlignmentNumber(i))
+        if i in gene_map:
+            ok_genes.add(gene_map[i])
+    result[g] = ok_genes
+
+
+num_coding_genes = len(set(gene_map.values()))
+results_tot = [[x, len(y)] for x, y in result.iteritems()]
+results = [[x, 1.0 * len(y) / num_coding_genes] for x, y in result.iteritems()]
+width=8.0
+height=4.0
+bar_width=0.4
+fig, pdf = init_image("./", "ok_by_gene", width, height)
+ax = establish_axes(fig, width, height, border=True)
+plt.text(0.5, 1.08, "Proportion of {} GencodeCompVM4 Protein Coding Genes\nWith At Least One OK Transcript".format(num_coding_genes), horizontalalignment='center', 
+         fontsize=12, transform=ax.transAxes)
+ax.set_ylabel("Proportion of genes")
+ax.set_ylim([0, 1.0])
+plt.tick_params(axis='both', labelsize=8)
+ax.yaxis.set_ticks(np.arange(0.0, 101.0, 10.0) / 100.0)
+ax.yaxis.set_ticklabels([str(x) + "%" for x in range(0, 101, 10)])
+ax.xaxis.set_ticks(np.arange(0, len(results)) + bar_width / 2.0)
+ax.xaxis.set_ticklabels(zip(*results)[0], rotation=55)
+bars = ax.bar(range(len(results)), zip(*results)[1], bar_width, color=color_palette[0])
+for i, rect in enumerate(bars):
+        ax.text(rect.get_x() + bar_width / 2.0, 0.03 + rect.get_height(), results_tot[i][1], ha='center', va='bottom', size=6)
+
+
+fig.savefig(pdf, format='pdf')
+pdf.close()
