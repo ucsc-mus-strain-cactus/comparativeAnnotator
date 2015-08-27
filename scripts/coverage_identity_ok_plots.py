@@ -85,9 +85,9 @@ def establish_axes(fig, width, height, border=True):
     """
     axLeft = 1.1 / width
     if border is True:
-        axRight = 0.98 - (1.3 / width)
+        axRight = 0.98 - (1.5 / width)
     else:
-        axRight = 1.1 - (1.3 / width)
+        axRight = 1.1 - (1.15 / width)
     axWidth = axRight - axLeft
     axBottom = 0.9 / height
     axTop = 0.9 - (0.4 / height)
@@ -107,7 +107,7 @@ def establish_axes(fig, width, height, border=True):
     return ax
 
 
-def plot_bars(ax, data, bar_width):
+def plot_bars(ax, data, bar_width, color_palette=["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#f0e442", "#56b4e9"]):
     """
     Data should be a list of lists representing the counts for each bar, (sums to 1)
     """
@@ -186,7 +186,7 @@ def ok_coding(cur, genome):
     returns the # of OK and the total #
     """
     biotype = "protein_coding"
-    classifyFields = ["CodingInsertions","CodingDeletions", "CodingDeletions", "StartOutOfFrame", "FrameShift", "AlignmentAbutsLeft", "AlignmentAbutsRight", 
+    classifyFields = ["CodingInsertions", "CodingDeletions", "CodingDeletions", "StartOutOfFrame", "FrameShift", "AlignmentAbutsLeft", "AlignmentAbutsRight", 
                       "AlignmentPartialMap", "BadFrame", "BeginStart", "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
                       "EndStop", "InFrameStop", "ShortCds", "UnknownBases", "AlignmentAbutsUnknownBases"]
     cmd = """SELECT main.'{0}'.'AlignmentId' FROM main.'{0}' WHERE (""".format(genome)
