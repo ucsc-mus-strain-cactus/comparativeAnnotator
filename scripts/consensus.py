@@ -414,12 +414,12 @@ def find_genome_order(binned_transcript_holder, ens_ids):
     return zip(*genome_order)[0]
 
 
-def stacked_barplot(results, color_palette, out_path, file_name, title_string, categories):
+def barplot(results, color_palette, out_path, file_name, title_string, categories, border=True, has_legend=True):
     """
-    Boilerplate code that will produce a stacked barplot.
+    Boilerplate code that will produce a barplot.
     """
     fig, pdf = init_image(out_path, file_name, width, height)
-    ax = establish_axes(fig, width, height, border=True)
+    ax = establish_axes(fig, width, height, border, has_legend)
     plt.text(0.5, 1.08, title_string, horizontalalignment='center', fontsize=12, transform=ax.transAxes)
     ax.set_ylabel("Proportion of transcripts")
     ax.set_ylim([0, 1.0])
@@ -444,13 +444,13 @@ def make_coding_transcript_plot(binned_transcript_holder, out_path, out_name, ge
         coding_metrics[g] = make_counts_frequency(make_counts_dict(bins, filter_set=ens_ids))
     categories = zip(*coding_metrics[g])[0]
     results = [[g, zip(*coding_metrics[g])[1]] for g in coding_metrics]
-    stacked_barplot(results, protein_coding_palette, out_path, out_name, title_string, categories)
+    barplot(results, protein_coding_palette, out_path, out_name, title_string, categories)
 
 
 base_title_string = "Proportion of {:,} {}\nOK / notOK In Target Genomes"
 title_string_dict = {"Comp": "Protein-Coding Transcripts in GencodeCompVM4", 
                      "Basic": "Protein-Coding Transcripts in GencodeBasicVM4", 
-                     "Complement": "Protein-coding Transcripts in GencodeCompVM4 and NOT in GencodeBasicVM4"}
+                     "Complement": "Protein-coding Transcripts\nin GencodeCompVM4 and NOT in GencodeBasicVM4"}
 file_name_dict = {"Comp": "protein_coding_comprehensive", "Basic": "protein_coding_basic", 
                   "Complement": "protein_coding_complement"}
 

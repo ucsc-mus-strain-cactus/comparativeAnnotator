@@ -79,15 +79,21 @@ def get_biotype_transcript_map(attrs, annotation_gp, filter_chrom=re.compile("(Y
     return biotype_map, biotype_counts
 
 
-def establish_axes(fig, width, height, border=True):
+def establish_axes(fig, width, height, border=True, has_legend=True):
     """
     Sets up axes. No idea how this works, Dent's code.
     """
     axLeft = 1.1 / width
     if border is True:
-        axRight = 0.98 - (1.5 / width)
+        if has_legend is True:
+            axRight = 0.98 - (1.5 / width)
+        else:
+            axRight = 0.98 - (1.15 / width)
     else:
-        axRight = 1.1 - (1.15 / width)
+        if has_legend is True:
+            axRight = 1.1 - (1.5 / width)
+        else:
+            axRight = 1.1 - (1.15 / width)
     axWidth = axRight - axLeft
     axBottom = 0.9 / height
     axTop = 0.9 - (0.4 / height)
