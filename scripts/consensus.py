@@ -48,6 +48,8 @@ tm_noncoding_classifiers = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "Alignm
 width=8.0
 height=4.0
 bar_width=0.4
+paired_palette = ["#df65b0", "#dd1c77", "#980043", "#a1dab4", "#41b6c4", "#2c7fb8", "#252525"]
+palette = ["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#f0e442", "#56b4e9"]
 
 def skip_header(path):
     """
@@ -106,14 +108,21 @@ def get_all_ok(cur, genome, tm_classifiers):
     return augustus_ok(cur, genome) | transmap_ok(cur, genome, tm_classifiers)
 
 
-def get_all_ids(attr_path, biotype=None, filter_set=set()):
+def get_all_ids(attr_path, biotype=None, filter_set=set(), id_type="Transcript"):
     """
     returns the set of ensembl IDs in the entire Gencode database pulled from the attribute
     """
-    if biotype is None:
-        return {x.split()[3] for x in skip_header(attr_path) if x not in filter_set}
+    assert id_type in ["Transcript", "Gene"]
+    if id_type == "Transcript":
+        if biotype is None:
+            return {x.split()[3] for x in skip_header(attr_path) if x not in filter_set}
+        else:
+            return {x.split()[3] for x in skip_header(attr_path) if x.split()[4] == biotype if x not in filter_set}
     else:
-        return {x.split()[3] for x in skip_header(attr_path) if x.split()[4] == biotype if x not in filter_set}
+        if biotype is None:
+            return {x.split()[0] for x in skip_header(attr_path) if x not in filter_set}
+        else:
+            return {x.split()[0] for x in skip_header(attr_path) if x.split()[4] == biotype if x not in filter_set}        
 
 
 def get_gp_ids(gp):
@@ -310,11 +319,11 @@ def write_gps(binned_transcripts, gps, out_dir, genome, biotype, gene_map):
                 outf.write(aln_id + "\n")
 
 
-def find_not_ok_genes(gene_map, not_ok_gps):
+def transcript_list_to_gene(gene_map, ens_ids):
     """
-    Returns the set of (not failed/discarded) genes for which we have no OK transcripts.
+    Given a set of transcript IDs, returns the matching set of gene IDs
     """
-    return {gene_map[strip_alignment_numbers(x)] for x in not_ok_gps}
+    return {gene_map[strip_alignment_numbers(x)] for x in ens_ids}
 
 
 def get_gene_biotype_map(attr_path):
@@ -370,7 +379,7 @@ def make_counts_frequency(counts):
     return list(counts.iteritems())
 
 
-def make_counts_dict(binned_transcripts, filter_set=set()):
+def make_tx_counts_dict(binned_transcripts, filter_set=set()):
     """
     Makes a counts dictionary from binned_transcripts.
     """
@@ -399,7 +408,7 @@ def make_counts_dict(binned_transcripts, filter_set=set()):
         else:
             counts["tmNotOk"] += 1
     counts["fail"] = len(binned_transcripts["fail"])
-    return counts    
+    return counts
 
 
 def find_genome_order(binned_transcript_holder, ens_ids):
@@ -437,25 +446,24 @@ def barplot(results, color_palette, out_path, file_name, title_string, categorie
 
 
 def make_coding_transcript_plot(binned_transcript_holder, out_path, out_name, genome_order, ens_ids, title_string):
-    protein_coding_palette = ["#df65b0", "#dd1c77", "#980043", "#a1dab4", "#41b6c4", "#2c7fb8", "#252525"]
     coding_metrics = OrderedDict()
     for g in genome_order:
         bins = binned_transcript_holder[g]['protein_coding']
-        coding_metrics[g] = make_counts_frequency(make_counts_dict(bins, filter_set=ens_ids))
+        coding_metrics[g] = make_counts_frequency(make_tx_counts_dict(bins, filter_set=ens_ids))
     categories = zip(*coding_metrics[g])[0]
     results = [[g, zip(*coding_metrics[g])[1]] for g in coding_metrics]
-    barplot(results, protein_coding_palette, out_path, out_name, title_string, categories)
+    barplot(results, paired_palette, out_path, out_name, title_string, categories)
 
 
-base_title_string = "Proportion of {:,} {}\nOK / notOK In Target Genomes"
-title_string_dict = {"Comp": "Protein-Coding Transcripts in GencodeCompVM4", 
-                     "Basic": "Protein-Coding Transcripts in GencodeBasicVM4", 
-                     "Complement": "Protein-coding Transcripts\nin GencodeCompVM4 and NOT in GencodeBasicVM4"}
+base_title_string = "Proportion of {:,} {}\nOK / not OK In Target Genomes"
+title_string_dict = {"Comp": "Protein-coding {} in GencodeCompVM4", 
+                     "Basic": "Protein-coding {} in GencodeBasicVM4", 
+                     "Complement": "Protein-coding {}\nin GencodeCompVM4 and NOT in GencodeBasicVM4"}
 file_name_dict = {"Comp": "protein_coding_comprehensive", "Basic": "protein_coding_basic", 
                   "Complement": "protein_coding_complement"}
 
 
-def make_coding_plots(binned_transcript_holder, out_path, comp_gp, basic_gp, attr_path):
+def make_coding_transcript_plots(binned_transcript_holder, out_path, comp_gp, basic_gp, attr_path):
     comp_ids = get_gp_ids(comp_gp)
     basic_ids = get_gp_ids(basic_gp)
     coding_ids = get_all_ids(attr_path, biotype="protein_coding")
@@ -464,9 +472,32 @@ def make_coding_plots(binned_transcript_holder, out_path, comp_gp, basic_gp, att
     complement_coding = comp_coding - basic_coding
     genome_order = find_genome_order(binned_transcript_holder, comp_coding)
     for cat, ids in zip(*[["Comp", "Basic", "Complement"], [comp_coding, basic_coding, complement_coding]]):
-        title_string = base_title_string.format(len(ids), title_string_dict[cat])
+        title_string = base_title_string.format(len(ids), title_string_dict[cat].format("Transcript"))
         out_name = file_name_dict[cat]
-        make_coding_transcript_plot(binned_transcript_holder, out_path, out_name, genome_order, ids, cat)
+        make_coding_transcript_plot(binned_transcript_holder, out_path, out_name, genome_order, ids, title_string)
+    return genome_order
+
+
+def calculate_gene_ok_metrics(bins, gene_map, coding_gene_ids):
+    ok_genes = {gene_map[strip_alignment_numbers(x)] for x in bins["bestOk"] if strip_alignment_numbers(x) in gene_map}
+    not_ok_genes = {gene_map[strip_alignment_numbers(x)] for x in bins["bestNotOk"] if strip_alignment_numbers(x) in 
+                    gene_map and gene_map[strip_alignment_numbers(x)] not in ok_genes}
+    fail_genes = coding_gene_ids - (ok_genes | not_ok_genes)
+    od = OrderedDict([["Has OK Tx", len(ok_genes)], ["No OK Tx", len(not_ok_genes)], ["No Tx", len(fail_genes)]])
+    return make_counts_frequency(od)
+
+
+def make_coding_gene_plot(binned_transcript_holder, out_path, attr_path, gene_map, genome_order):
+    coding_gene_ids = get_all_ids(attr_path, biotype="protein_coding", id_type="Gene")
+    title_string = "Proportion of {:,} Protein-coding genes with at least one OK transcript".format(len(coding_gene_ids))
+    out_name = "protein_coding_gene"
+    coding_metrics = OrderedDict()
+    for g in genome_order:
+        bins = binned_transcript_holder[g]['protein_coding']
+        coding_metrics[g] = calculate_gene_ok_metrics(bins, gene_map, coding_gene_ids)
+    categories = zip(*coding_metrics[g])[0]
+    results = [[g, zip(*coding_metrics[g])[1]] for g in coding_metrics]
+    barplot(results, palette, out_path, out_name, title_string, categories)   
 
 
 def main():
@@ -504,7 +535,10 @@ def main():
             binned_transcript_holder[genome][biotype] = binned_transcripts
         consensus_path = os.path.join(consensus_base_path, genome + "consensusGeneSet.gp")
         write_consensus(consensus, gene_map, consensus_path)
-    make_coding_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, args.attributePath)
+    genome_order = make_coding_transcript_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, 
+                                                args.attributePath)
+    make_coding_gene_plot(binned_transcript_holder, out_path, attr_path, gene_map, genome_order)
+
 
 if __name__ == "__main__":
     main()
