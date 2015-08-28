@@ -1312,6 +1312,15 @@ class NegativeStrandGenePredTranscript(NegativeStrandTranscriptTests):
         self.chrom_seq = seq_lib.getSequenceDict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
 
+    def test_sequences(self):
+        """
+        Tests that the proper sequences are created from the intervals
+        """
+        self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
+        self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
+        self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
+        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+
 
 class PositiveStrandGenePredTranscript(PositiveStrandTranscriptTests):
     """
@@ -1339,6 +1348,92 @@ class PositiveStrandGenePredTranscript(PositiveStrandTranscriptTests):
 
         self.chrom_seq = seq_lib.getSequenceDict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
+
+    def test_sequences(self):
+        """
+        Tests that the proper sequences are created from the intervals
+        """
+        self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
+        self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
+        self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
+        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+
+
+class ZeroBasepairIntron(unittest.TestCase):
+    """
+    Tests the Transcript functionality part of sequence_lib.
+
+    Tests the example transcript below which contains a 0bp 'intron' due to a deletion
+
+    chrom    0  1  2  3  4  5  6  7  8  9  10 11 12 13 
+    seq      G  T  A  T  T  C  T  T  G  G  A  C  C  T
+    tx       -  t  a  t  t  c  t  T  G  G  -  -  -  T
+    tx.pos      0  1  2  3  4  5  6  7  8  -  -  -  9
+    cds.pos                  ^^   0  1  2           3
+
+    """
+
+    def setUp(self):
+        self.t = seq_lib.Transcript(['chr1', '1', '14', 'A', '0', '+', '7', '14', '0,128,0', '3', '5,4,1', '0,5,12'])
+        self.transcript_seq = "TATTCTTGGT"
+        self.cds_seq = "TGGT"
+        self.amino_acid = "W"
+        self.introns = ["", "ACC"]
+        tmp = os.path.abspath(makeTempDir())
+        createSequenceFile({"chr1":"GTATTCTTGGACCTAAGCCTG"}, tmp)
+
+        self.chrom_seq = seq_lib.getSequenceDict(os.path.join(tmp, "seq.fa"))
+        self.addCleanup(removeDir, tmp)
+
+    def test_sequences(self):
+        """
+        Tests that the proper sequences are created from the intervals
+        """
+        self.assertEqual(self.t.getMRna(self.chrom_seq), self.transcript_seq)
+        self.assertEqual(self.t.getCds(self.chrom_seq), self.cds_seq)
+        self.assertEqual(self.t.getProteinSequence(self.chrom_seq), self.amino_acid)
+        self.assertEqual(self.t.getIntronSequences(self.chrom_seq), self.introns)
+
+    def test_reciprocal_translations(self):
+        """
+        Test reciprocal translations between coordinate spaces
+        """
+        for i in xrange(-1, 12):
+            tmp = self.t.chromosomeCoordinateToTranscript(i)
+            #can't have reciprocal connection once None appears
+            if tmp is not None:
+                self.assertEqual(self.t.transcriptCoordinateToChromosome(tmp), i)
+
+            tmp = self.t.chromosomeCoordinateToCds(i)
+            if tmp is not None:
+                self.assertEqual(self.t.cdsCoordinateToChromosome(tmp), i)
+
+            tmp = self.t.transcriptCoordinateToChromosome(i)
+            if tmp is not None:
+                self.assertEqual(self.t.chromosomeCoordinateToTranscript(tmp), i)
+
+            tmp = self.t.transcriptCoordinateToCds(i)
+            if tmp is not None:
+                self.assertEqual(self.t.cdsCoordinateToTranscript(tmp), i)
+
+            tmp = self.t.cdsCoordinateToTranscript(i)
+            if tmp is not None:
+                self.assertEqual(self.t.transcriptCoordinateToCds(tmp), i)
+
+            tmp = self.t.chromosomeCoordinateToTranscript(i)
+            if tmp is not None:
+                tmp = self.t.transcriptCoordinateToCds(tmp)
+            if tmp is not None:
+                self.assertEqual(self.t.cdsCoordinateToChromosome(tmp), i)
+
+            tmp = self.t.cdsCoordinateToChromosome(i)
+            if tmp is not None:
+                tmp = self.t.chromosomeCoordinateToTranscript(tmp)
+                self.assertEqual(self.t.transcriptCoordinateToCds(tmp), i)
+
+            tmp = self.t.cdsCoordinateToChromosome(self.t.transcriptCoordinateToCds(i))
+            if tmp is not None:
+                self.assertEqual(self.t.chromosomeCoordinateToTranscript(tmp), i)
 
 
 if __name__ == '__main__':
