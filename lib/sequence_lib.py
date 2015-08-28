@@ -201,8 +201,8 @@ class Transcript(object):
         prevExon = None
         for exon in self.exonIntervals:
             if prevExon is not None:
-                assert exon.start > prevExon.stop
                 assert exon.strand == prevExon.strand
+                assert exon.start >= prevExon.stop
                 intron = ChromosomeInterval(exon.chromosome, prevExon.stop, exon.start, exon.strand)
                 introns.append(intron)
             prevExon = exon
@@ -1025,7 +1025,7 @@ def tokenizeBedStream(bedStream):
     """
     for line in bedStream:
         if line != '':
-            tokens = line.split()
+            tokens = line.rstrip().split("\t")
             yield tokens
 
 
