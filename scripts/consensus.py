@@ -384,7 +384,7 @@ def make_tx_counts_dict(binned_transcripts, filter_set=set()):
     Makes a counts dictionary from binned_transcripts.
     """
     counts = OrderedDict()
-    for key in ['augOk', 'tmOk', 'sameOk', 'augNotOk', 'tmNotOk', 'sameNotOk', 'fail']:
+    for key in ['bothOk', 'augOk', 'tmOk', 'bothNotOk', 'augNotOk', 'tmNotOk', 'fail']:
         counts[key] = 0
     tie_ids = binned_transcripts["tieIds"]
     for x in binned_transcripts["bestOk"]:
@@ -392,7 +392,7 @@ def make_tx_counts_dict(binned_transcripts, filter_set=set()):
         if aln_id not in filter_set:
             continue
         elif aln_id in tie_ids:
-            counts["sameOk"] += 1
+            counts["bothOk"] += 1
         elif 'aug' in x:
             counts["augOk"] += 1
         else:
@@ -402,7 +402,7 @@ def make_tx_counts_dict(binned_transcripts, filter_set=set()):
         if aln_id not in filter_set:
             continue
         elif aln_id in tie_ids:
-            counts["sameNotOk"] += 1
+            counts["bothNotOk"] += 1
         elif 'aug' in x:
             counts["augNotOk"] += 1
         else:
