@@ -126,7 +126,7 @@ def get_all_ids(attr_path, biotype=None, filter_set=set(), id_type="Transcript")
 
 
 def get_gp_ids(gp):
-    return {x.split()[0] for x in open(gp)}
+    return {strip_alignment_numbers(x.split()[0]) for x in open(gp)}
 
 
 def get_reverse_name_map(cur, genome, ids):
@@ -478,25 +478,26 @@ def make_coding_transcript_plots(binned_transcript_holder, out_path, comp_gp, ba
     return genome_order
 
 
-def calculate_gene_ok_metrics(bins, gene_map, coding_gene_ids):
+def calculate_gene_ok_metrics(bins, gene_map, gene_ids):
     ok_genes = {gene_map[strip_alignment_numbers(x)] for x in bins["bestOk"] if strip_alignment_numbers(x) in gene_map}
     not_ok_genes = {gene_map[strip_alignment_numbers(x)] for x in bins["bestNotOk"] if strip_alignment_numbers(x) in 
                     gene_map and gene_map[strip_alignment_numbers(x)] not in ok_genes}
-    fail_genes = coding_gene_ids - (ok_genes | not_ok_genes)
+    fail_genes = gene_ids - (ok_genes | not_ok_genes)
     od = OrderedDict([["Has OK Tx", len(ok_genes)], ["No OK Tx", len(not_ok_genes)], ["No Tx", len(fail_genes)]])
     return make_counts_frequency(od)
 
 
-def make_coding_gene_plot(binned_transcript_holder, out_path, attr_path, gene_map, genome_order):
-    coding_gene_ids = get_all_ids(attr_path, biotype="protein_coding", id_type="Gene")
-    title_string = "Proportion of {:,} Protein-coding genes with at least one OK transcript".format(len(coding_gene_ids))
-    out_name = "protein_coding_gene"
-    coding_metrics = OrderedDict()
+def ok_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, genome_order, biotype):
+    biotype_ids = get_all_ids(attr_path, biotype=biotype, id_type="Gene")
+    title_string = "Proportion of {:,} {} genes with at least one OK transcript".format(len(biotype_ids), 
+                                                                                        biotype.replace("_", ""))
+    out_name = "{}_gene".format(biotype)
+    metrics = OrderedDict()
     for g in genome_order:
-        bins = binned_transcript_holder[g]['protein_coding']
-        coding_metrics[g] = calculate_gene_ok_metrics(bins, gene_map, coding_gene_ids)
-    categories = zip(*coding_metrics[g])[0]
-    results = [[g, zip(*coding_metrics[g])[1]] for g in coding_metrics]
+        bins = binned_transcript_holder[g][biotype]
+        metrics[g] = calculate_gene_ok_metrics(bins, gene_map, biotype_ids)
+    categories = zip(*metrics[g])[0]
+    results = [[g, zip(*metrics[g])[1]] for g in metrics]
     barplot(results, palette, out_path, out_name, title_string, categories)   
 
 
@@ -537,7 +538,8 @@ def main():
         write_consensus(consensus, gene_map, consensus_path)
     genome_order = make_coding_transcript_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, 
                                                 args.attributePath)
-    make_coding_gene_plot(binned_transcript_holder, out_path, attr_path, gene_map, genome_order)
+    for biotype in ["protein_coding", "lincRNA", "miRNA", "snoRNA"]:
+        ok_by_biotype(binned_transcript_holder, plots_path, attr_path, gene_map, genome_order, biotype)
 
 
 if __name__ == "__main__":
