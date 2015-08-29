@@ -201,7 +201,8 @@ class Transcript(object):
         prevExon = None
         for exon in self.exonIntervals:
             if prevExon is not None:
-                assert exon.start > prevExon.stop
+                if exon.start == prevExon.stop:  # special case - 0bp intron
+                    continue
                 assert exon.strand == prevExon.strand
                 intron = ChromosomeInterval(exon.chromosome, prevExon.stop, exon.start, exon.strand)
                 introns.append(intron)
@@ -623,7 +624,7 @@ class GenePredTranscript(Transcript):
 class Exon(object):
     """
     An Exon object stores information about one exon in both
-    transcript coordinates (5'->3') and chromsome coordinates (+) strand.
+    transcript coordinates (5'->3') and chromosome coordinates (+) strand.
 
     Transcript coordinates and chromosome coordinates are 0-based half open.
 
