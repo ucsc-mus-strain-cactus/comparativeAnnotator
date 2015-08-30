@@ -619,6 +619,17 @@ class GenePredTranscript(Transcript):
         self._getCdsSize()
         self._getSize()
 
+    def getProteinSequence(self, seqDict):
+        """
+        Returns the translated protein sequence for this transcript in single
+        character space. Overrides this function in the Transcript class to make use of frame information.
+        """
+        offset = findOffset(self.exonFrames, self.strand)
+        cds = self.getCds(seqDict)
+        if len(cds) < 3:
+            return ""
+        return translateSequence(self.getCds(seqDict)[offset:])
+
 
 class Exon(object):
     """
@@ -928,12 +939,30 @@ def codonToAminoAcid(c):
     Given a codon C, return an amino acid or ??? if codon unrecognized.
     Codons could be unrecognized due to ambiguity in IUPAC characters.
     """
+    assert len(c) == 3
     if c is None:
         return None
     c = c.upper()
     if c in _codonTable:
         return _codonTable[c]
     return '?'
+
+
+def findOffset(exonFrames, strand):
+    """
+    takes the exonFrames from a GenePredTranscript and returns the offset (how many bases of the CDS are out of frame)
+    """
+    frames = [x for x in exonFrames if x != -1]
+    if len(frames) == 0:
+        return 0
+    if strand is True:
+        if frames[0] == 0:
+            offset = 0
+        else:
+            offset = 3 - frames[0]
+    else:
+        offset = frames[-1]
+    return offset
 
 
 def translateSequence(sequence):
@@ -948,24 +977,26 @@ def translateSequence(sequence):
     return "".join(result)
 
 
-def readCodons(seq):
+def readCodons(seq, offset=0, skip_last=True):
     """
     Provides an iterator that reads through a sequence one codon at a time.
     """
     l = len(seq)
-    for i in xrange(0, l, 3):
-        if i + 3 <= l:
+    if skip_last:
+        l -= 3
+    for i in xrange(offset,  l - l % 3, 3):
             yield seq[i:i + 3]
 
 
-def readCodonsWithPosition(seq):
+def readCodonsWithPosition(seq, offset=0, skip_last=True):
     """
     Provides an iterator that reads through a sequence one codon at a time,
     returning both the codon and the start position in the sequence.
     """
     l = len(seq)
-    for i in xrange(0, l, 3):
-        if i + 3 <= l:
+    if skip_last:
+        l -= 3
+    for i in xrange(offset, l - l % 3, 3):
             yield i, seq[i:i + 3]
 
 

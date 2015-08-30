@@ -883,19 +883,25 @@ class ScaffoldGap(AbstractClassifier):
     def rgb(self):
         return self.colors["assembly"]
 
-    def run(self):
-        self.getSeqDict()
+    def run(self, cds=False):
         self.getTranscriptDict()
-        detailsDict = defaultdict(list)
+        self.getSeqDict()
+        detailsDict = {}
         classifyDict = {}
-        r = re.compile("[ATGC][N]{11,}[ATGC]")
+        r = re.compile("[atgcATGC][N]{11,}[atgcATGC]")
         for aId, t in self.transcriptDict.iteritems():
-            for exon in t.exonIntervals:
-                exonSeq = exon.getSequence(self.seqDict, strand=False)
-                if r.match(exonSeq):
-                    classifyDict[aId] = 1
-                    detailsDict[aId].append(exon.getBed(self.rgb, self.column))
-            if aId not in classifyDict:
+            if cds is True:
+                s = t.getCds(self.seqDict)
+                tmp = [seq_lib.cdsCoordinateToBed(t, m.start(), m.end(), self.rgb, self.column) for m in
+                       re.finditer(r, s)]
+            else:
+                s = t.getMRna(self.seqDict)
+                tmp = [seq_lib.transcriptCoordinateToBed(t, m.start(), m.end(), self.rgb, self.column) for m in
+                       re.finditer(r, s)]
+            if len(tmp) > 0:
+                detailsDict[aId] = tmp
+                classifyDict[aId] = 1
+            else:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
 
@@ -915,7 +921,7 @@ class UnknownBases(AbstractClassifier):
         self.getSeqDict()
         detailsDict = {}
         classifyDict = {}
-        r = re.compile("[ATGC][N]{1,10}[ATGC]")
+        r = re.compile("[atgcATGC][N]{1,10}[atgcATGC]")
         for aId, t in self.transcriptDict.iteritems():
             if cds is True:
                 s = t.getCds(self.seqDict)
