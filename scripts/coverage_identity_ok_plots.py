@@ -192,7 +192,7 @@ def ok_coding(cur, genome):
     returns the # of OK and the total #
     """
     biotype = "protein_coding"
-    classifyFields = ["CodingInsertions", "CodingDeletions", "CodingDeletions", "StartOutOfFrame", "FrameShift", "AlignmentAbutsLeft", "AlignmentAbutsRight", 
+    classifyFields = ["CodingInsertions", "CodingDeletions", "CodingDeletions", "StartOutOfFrame", "FrameShift",
                       "AlignmentPartialMap", "BadFrame", "BeginStart", "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
                       "EndStop", "InFrameStop", "ShortCds", "UnknownBases", "AlignmentAbutsUnknownBases"]
     cmd = """SELECT main.'{0}'.'AlignmentId' FROM main.'{0}' WHERE (""".format(genome)

@@ -7,12 +7,9 @@ Modified by Ian Fiddes
 """
 
 import string
-import copy
 from itertools import izip
-from collections import Iterable
 from math import ceil, floor
 from pyfaidx import Fasta, FastaRecord, FetchError
-from intervaltree import Interval, IntervalTree
 
 
 def new_get_item(self, n):
@@ -204,8 +201,8 @@ class Transcript(object):
         prevExon = None
         for exon in self.exonIntervals:
             if prevExon is not None:
-                assert exon.start > prevExon.stop, (exon.start, prevExon.stop)
                 assert exon.strand == prevExon.strand
+                assert exon.start >= prevExon.stop
                 intron = ChromosomeInterval(exon.chromosome, prevExon.stop, exon.start, exon.strand)
                 introns.append(intron)
             prevExon = exon
@@ -622,11 +619,22 @@ class GenePredTranscript(Transcript):
         self._getCdsSize()
         self._getSize()
 
+    def getProteinSequence(self, seqDict):
+        """
+        Returns the translated protein sequence for this transcript in single
+        character space. Overrides this function in the Transcript class to make use of frame information.
+        """
+        offset = findOffset(self.exonFrames, self.strand)
+        cds = self.getCds(seqDict)
+        if len(cds) < 3:
+            return ""
+        return translateSequence(self.getCds(seqDict)[offset:])
+
 
 class Exon(object):
     """
     An Exon object stores information about one exon in both
-    transcript coordinates (5'->3') and chromsome coordinates (+) strand.
+    transcript coordinates (5'->3') and chromosome coordinates (+) strand.
 
     Transcript coordinates and chromosome coordinates are 0-based half open.
 
@@ -803,158 +811,28 @@ class ChromosomeInterval(object):
     """
     Represents an interval of a chromosome. BED coordinates, strand is True,
     False or None (if no strand)
-    interval arithmetic adapted from http://code.activestate.com/recipes/576816-interval/
     """
     __slots__ = ('chromosome', 'start', 'stop', 'strand')    # conserve memory
 
     def __init__(self, chromosome, start, stop, strand):
         self.chromosome = str(chromosome)
         self.start = int(start)    # 0 based
-        self.stop = int(stop)      # exclusive
-        if strand not in [True, False, None]:
-            strand = convertStrand(strand)
-        self.strand = strand       # True or False
+        self.stop = int(stop)    # exclusive
+        assert(strand in [True, False, None])
+        self.strand = strand    # True or False
+
+    def __eq__(self, other):
+        return (self.chromosome == other.chromosome and self.start == other.start and self.stop == other.stop and
+                self.strand == other.strand)
+
+    def __cmp__(self, cI):
+        return cmp((self.chromosome, self.start, self.stop, self.strand), (cI.chromosome, cI.start, cI.stop, cI.strand))
 
     def __len__(self):
-        return abs(self.stop - self.start)
+        return self.stop - self.start
 
-    def __cmp__(self, other):
-        """
-        compares this chromosome interval to another
-        """
-        if None == other:
-            return 1
-        start_cmp = cmp(self.start, other.start)
-        if start_cmp != 0:
-            return start_cmp
-        else:
-            return cmp(self.stop, other.stop)
-
-    def __contains__(self, other):
-        return self.start <= other < self.stop
-
-    def __add__(self, other):
-        if self.strand != other.strand or self.chromosome != other.chromosome:
-            return None
-        return ChromosomeInterval(self.chromosome, self.start + other.start, self.stop + other.stop, self.strand)
-
-    def __sub__(self, other):
-        if self.strand != other.strand or self.chromosome != other.chromosome:
-            return None
-        return ChromosomeInterval(self.chromosome, self.start - other.start, self.stop - other.stop, self.strand)
-
-    @property
-    def is_null(self):
-        if len(self) == 0:
-            return True
-        return False
-
-    def intersection(self, other):
-        """
-        returns a new ChromosomeInterval representing the overlap between these intervals
-        returns None if there is no overlap
-        """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
-            return None
-        if self > other:
-            other, self = self, other
-        if self.stop <= other.start:
-            return None
-        if self == other:
-            return self
-        if self.stop <= other.stop:
-            return ChromosomeInterval(self.chromosome, other.start, self.stop, self.strand)
-        else:
-            return ChromosomeInterval(self.chromosome, other.start, other.stop, self.strand)
-
-    def complement(self, size):
-        """
-        returns two new ChromosomeIntervals representing the complement of this interval.
-        Requires a input chromosome size
-        """
-        return [ChromosomeInterval(self.chromosome, 0, self.start, self.strand),
-                ChromosomeInterval(self.chromosome, self.stop, size, self.strand)]
-
-    def union(self, other):
-        """
-        Returns either one or two ChromosomeIntervals representing the union of this interval with the other.
-        If two are returned, that means the two intervals do not overlap.
-        Returns None if the intervals are not on the same strand and chromosome
-        """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
-            return None
-        if self > other:
-            other, self = self, other
-        if self == other:
-            return self
-        if self.intersection(other) is not None:
-            return self.hull(other)
-        else:
-            return [self, other]
-
-    def hull(self, other):
-        """
-        Returns a new ChromosomeInterval representing the merged interval of these two, regardless of overlap
-        I.E. if one interval is [1, 10) and another is [20, 30) this will return [1, 30)
-        """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
-            return None
-        if self > other:
-            other, self = self, other
-        if self.subset(other):
-            return ChromosomeInterval(self.chromosome, other.start, other.stop, self.strand)
-        elif other.subset(self):
-            return ChromosomeInterval(self.chromosome, self.start, self.stop, self.strand)
-        return ChromosomeInterval(self.chromosome, self.start, other.stop, self.strand)
-
-    def overlap(self, other):
-        """
-        Returns True if this interval overlaps other (if they are on the same strand and chromosome)
-        """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
-            return False
-        if self > other:
-            other, self = self, other
-        return self.stop > other.start
-
-    def subset(self, other):
-        """
-        Returns True if this interval is a subset of the other interval (if they are on the same strand and chromosome)
-        """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
-            return False
-        return self.start >= other.start and self.stop <= other.stop
-
-    def proper_subset(self, other):
-        """
-        same a subset, but only if other is entirely encased in this interval.
-        """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
-            return False
-        return self.start > other.start and self.stop < other.stop
-
-    def separation(self, other):
-        """
-        Returns a integer representing the start distance between these intervals
-        """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
-            return None
-        if self > other:
-            other, self = self, other
-        if self.stop > other.start:
-            return 0
-        else:
-            return other.start - self.stop
-
-    def symmetric_separation(self, other):
-        """
-        Returns a pair of distances representing the symmetric distance between two intervals
-        """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
-            return None
-        if self > other:
-            other, self = self, other
-        return other.start - self.start, other.stop - self.stop
+    def size(self):
+        return self.stop - self.start
 
     def getBed(self, rgb, name):
         """
@@ -976,10 +854,6 @@ class ChromosomeInterval(object):
             return reverseComplement(seqDict[self.chromosome][self.start:self.stop])
         assert False
 
-    def __repr__(self):
-        return "ChromosomeInterval('{}', {}, {}, '{}')".format(self.chromosome, self.start, self.stop,
-                                                           convertStrand(self.strand))
-
 
 class Attribute(object):
     """
@@ -996,58 +870,22 @@ class Attribute(object):
         self.transcriptType = transcriptType
 
 
-def gapMergeIntervals(intervals, gap):
-    """
-    Merges intervals within gap bases of each other
-    """
-    new_intervals = []
-    for interval in intervals:
-        if not new_intervals:
-            new_intervals.append(copy.deepcopy(interval))
-        elif interval.separation(new_intervals[-1]) <= gap:
-            new_intervals[-1] = new_intervals[-1].hull(interval)
-        else:
-            new_intervals.append(copy.deepcopy(interval))
-    return new_intervals
-
-
-def intervalNotIntersectIntervals(intervals, interval):
-    """
-    Takes a list of intervals and one other interval and determines if interval does not intersect with any of the
-    intervals. returns True if this is the case.
-    """
-    intersections = []
-    for target_interval in intervals:
-        intersections.append(interval.intersection(target_interval))
-    return intersections.count(None) == len(intersections)
-
-
-def intervalNotWithinWiggleRoomIntervals(intervals, interval, wiggleRoom=0):
-    """
-    Same thing as intervalNotIntersectIntervals but looks within wiggleRoom bases to count a valid lack of intersection
-    """
-    separation = [sum(interval.symmetric_separation(target_interval)) for target_interval in intervals]
-    return not any([x <= 2 * wiggleRoom for x in separation])  # we allow wiggle on both sides
-
-
 def convertStrand(s):
     """
     Given a potential strand value, converts either from True/False/None
     to +/-/None depending on value
     """
-    assert s in [True, False, None, "+", "-", "."]
+    assert s in [True, False, None, "+", "-"]
     if s is True:
         return "+"
     elif s is False:
         return "-"
     elif s is None:
-        return "."
+        return None
     elif s == "-":
         return False
     elif s == "+":
         return True
-    elif s == ".":
-        return None
 
 
 _complement = string.maketrans("ATGC", "TACG")
@@ -1101,12 +939,30 @@ def codonToAminoAcid(c):
     Given a codon C, return an amino acid or ??? if codon unrecognized.
     Codons could be unrecognized due to ambiguity in IUPAC characters.
     """
+    assert len(c) == 3
     if c is None:
         return None
     c = c.upper()
     if c in _codonTable:
         return _codonTable[c]
     return '?'
+
+
+def findOffset(exonFrames, strand):
+    """
+    takes the exonFrames from a GenePredTranscript and returns the offset (how many bases of the CDS are out of frame)
+    """
+    frames = [x for x in exonFrames if x != -1]
+    if len(frames) == 0:
+        return 0
+    if strand is True:
+        if frames[0] == 0:
+            offset = 0
+        else:
+            offset = 3 - frames[0]
+    else:
+        offset = frames[-1]
+    return offset
 
 
 def translateSequence(sequence):
@@ -1121,24 +977,26 @@ def translateSequence(sequence):
     return "".join(result)
 
 
-def readCodons(seq):
+def readCodons(seq, offset=0, skip_last=True):
     """
     Provides an iterator that reads through a sequence one codon at a time.
     """
     l = len(seq)
-    for i in xrange(0, l, 3):
-        if i + 3 <= l:
+    if skip_last:
+        l -= 3
+    for i in xrange(offset,  l - l % 3, 3):
             yield seq[i:i + 3]
 
 
-def readCodonsWithPosition(seq):
+def readCodonsWithPosition(seq, offset=0, skip_last=True):
     """
     Provides an iterator that reads through a sequence one codon at a time,
     returning both the codon and the start position in the sequence.
     """
     l = len(seq)
-    for i in xrange(0, l, 3):
-        if i + 3 <= l:
+    if skip_last:
+        l -= 3
+    for i in xrange(offset, l - l % 3, 3):
             yield i, seq[i:i + 3]
 
 
@@ -1198,7 +1056,7 @@ def tokenizeBedStream(bedStream):
     """
     for line in bedStream:
         if line != '':
-            tokens = line.split()
+            tokens = line.rstrip().split("\t")
             yield tokens
 
 

@@ -36,13 +36,13 @@ def parse_args():
 
 # these classifiers define OK for coding transcripts
 tm_coding_classifiers = ["CodingInsertions", "CodingDeletions", "StartOutOfFrame", "FrameShift", 
-                         "AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "BadFrame", "BeginStart",
+                         "AlignmentPartialMap", "BadFrame", "BeginStart", "UnknownUtrBases", "UnknownCdsBases"
                          "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
-                         "EndStop", "InFrameStop", "ShortCds", "UnknownBases", "AlignmentAbutsUnknownBases"]
+                         "EndStop", "InFrameStop", "ShortCds", , "AlignmentAbutsUnknownBases"]
 
 # these classifiers define OK for non-coding transcripts
-tm_noncoding_classifiers = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UtrUnknownSplice",
-                            "UtrGap", "UnknownGap", "UnknownBases", "AlignmentAbutsUnknownBases"]
+tm_noncoding_classifiers = ["AlignmentPartialMap", "UtrUnknownSplice", "UtrGap", "UnknownGap", "UnknownBases", 
+                            "AlignmentAbutsUnknownBases"]
 
 # used for the plots
 width=8.0
@@ -126,7 +126,7 @@ def get_all_ids(attr_path, biotype=None, filter_set=set(), id_type="Transcript")
 
 
 def get_gp_ids(gp):
-    return {strip_alignment_numbers(x.split()[0]) for x in open(gp)}
+    return {x.split()[0] for x in open(gp)}
 
 
 def get_reverse_name_map(cur, genome, ids):
@@ -384,7 +384,7 @@ def make_tx_counts_dict(binned_transcripts, filter_set=set()):
     Makes a counts dictionary from binned_transcripts.
     """
     counts = OrderedDict()
-    for key in ['bothOk', 'augOk', 'tmOk', 'bothNotOk', 'augNotOk', 'tmNotOk', 'fail']:
+    for key in ['augOk', 'tmOk', 'sameOk', 'augNotOk', 'tmNotOk', 'sameNotOk', 'fail']:
         counts[key] = 0
     tie_ids = binned_transcripts["tieIds"]
     for x in binned_transcripts["bestOk"]:
@@ -392,7 +392,7 @@ def make_tx_counts_dict(binned_transcripts, filter_set=set()):
         if aln_id not in filter_set:
             continue
         elif aln_id in tie_ids:
-            counts["bothOk"] += 1
+            counts["sameOk"] += 1
         elif 'aug' in x:
             counts["augOk"] += 1
         else:
@@ -402,7 +402,7 @@ def make_tx_counts_dict(binned_transcripts, filter_set=set()):
         if aln_id not in filter_set:
             continue
         elif aln_id in tie_ids:
-            counts["bothNotOk"] += 1
+            counts["sameNotOk"] += 1
         elif 'aug' in x:
             counts["augNotOk"] += 1
         else:
@@ -487,10 +487,9 @@ def calculate_gene_ok_metrics(bins, gene_map, gene_ids):
     return make_counts_frequency(od)
 
 
-def ok_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, genome_order, biotype):
+def ok_gene_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, genome_order, biotype):
     biotype_ids = get_all_ids(attr_path, biotype=biotype, id_type="Gene")
-    title_string = "Proportion of {:,} {} genes with at least one OK transcript".format(len(biotype_ids), 
-                                                                                        biotype.replace("_", ""))
+    title_string = "Proportion of {:,} {} genes with at least one OK transcript".format(len(biotype_ids), biotype)
     out_name = "{}_gene".format(biotype)
     metrics = OrderedDict()
     for g in genome_order:
@@ -498,7 +497,7 @@ def ok_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, genom
         metrics[g] = calculate_gene_ok_metrics(bins, gene_map, biotype_ids)
     categories = zip(*metrics[g])[0]
     results = [[g, zip(*metrics[g])[1]] for g in metrics]
-    barplot(results, palette, out_path, out_name, title_string, categories)   
+    barplot(results, palette, out_path, out_name, title_string, categories)
 
 
 def main():
@@ -539,7 +538,7 @@ def main():
     genome_order = make_coding_transcript_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, 
                                                 args.attributePath)
     for biotype in ["protein_coding", "lincRNA", "miRNA", "snoRNA"]:
-        ok_by_biotype(binned_transcript_holder, plots_path, attr_path, gene_map, genome_order, biotype)
+        ok_gene_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, genome_order, biotype)
 
 
 if __name__ == "__main__":
