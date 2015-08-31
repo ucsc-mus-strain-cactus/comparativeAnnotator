@@ -2,10 +2,12 @@ import os
 from itertools import izip_longest, product, izip
 import cPickle as pickle
 
-import src.classifiers, src.attributes
+import src.classifiers
+import src.attributes
+import src.augustusClassifiers
 import lib.sqlite_lib as sql_lib
+import lib.psl_lib as psl_lib
 from jobTree.scriptTree.target import Target
-from jobTree.src.bioio import logger
 from lib.general_lib import classesInModule
 
 
