@@ -79,15 +79,21 @@ def get_biotype_transcript_map(attrs, annotation_gp, filter_chrom=re.compile("(Y
     return biotype_map, biotype_counts
 
 
-def establish_axes(fig, width, height, border=True):
+def establish_axes(fig, width, height, border=True, has_legend=True):
     """
     Sets up axes. No idea how this works, Dent's code.
     """
     axLeft = 1.1 / width
     if border is True:
-        axRight = 0.98 - (1.3 / width)
+        if has_legend is True:
+            axRight = 0.98 - (1.5 / width)
+        else:
+            axRight = 0.98 - (1.15 / width)
     else:
-        axRight = 1.1 - (1.3 / width)
+        if has_legend is True:
+            axRight = 1.1 - (1.5 / width)
+        else:
+            axRight = 1.1 - (1.15 / width)
     axWidth = axRight - axLeft
     axBottom = 0.9 / height
     axTop = 0.9 - (0.4 / height)
@@ -107,7 +113,7 @@ def establish_axes(fig, width, height, border=True):
     return ax
 
 
-def plot_bars(ax, data, bar_width):
+def plot_bars(ax, data, bar_width, color_palette=["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#f0e442", "#56b4e9"]):
     """
     Data should be a list of lists representing the counts for each bar, (sums to 1)
     """
@@ -186,7 +192,7 @@ def ok_coding(cur, genome):
     returns the # of OK and the total #
     """
     biotype = "protein_coding"
-    classifyFields = ["CodingInsertions","CodingDeletions", "CodingDeletions", "StartOutOfFrame", "FrameShift", "AlignmentAbutsLeft", "AlignmentAbutsRight", 
+    classifyFields = ["CodingInsertions", "CodingDeletions", "CodingDeletions", "StartOutOfFrame", "FrameShift", "AlignmentAbutsLeft", "AlignmentAbutsRight", 
                       "AlignmentPartialMap", "BadFrame", "BeginStart", "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
                       "EndStop", "InFrameStop", "ShortCds", "UnknownBases", "AlignmentAbutsUnknownBases"]
     cmd = """SELECT main.'{0}'.'AlignmentId' FROM main.'{0}' WHERE (""".format(genome)

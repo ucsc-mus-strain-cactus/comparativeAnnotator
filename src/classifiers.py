@@ -12,14 +12,14 @@ from src.helperFunctions import deletionIterator, insertionIterator, frameShiftI
 
 class AlignmentAbutsUnknownBases(AbstractClassifier):
     """
-    Do any of the exons in this alignment abut unknown bases? Defined as there being a N within 10bp of a exon
+    Do any of the exons in this alignment abut unknown bases? Defined as there being a N within 2bp of a exon
     Ignores introns below shortIntronSize (which will be picked up by UnknownGap)
     """
     @property
     def rgb(self):
         return self.colors["assembly"]
 
-    def run(self, distance=10, shortIntronSize=30):
+    def run(self, distance=2, shortIntronSize=30):
         self.getTranscriptDict()
         self.getSeqDict()
         detailsDict = defaultdict(list)
@@ -271,78 +271,6 @@ class FrameShift(AbstractClassifier):
             for start, stop in izip(windowed_starts, windowed_stops):
                 detailsDict[aId].append(seq_lib.chromosomeCoordinateToBed(t, start, stop, self.rgb, self.column))
             classifyDict[aId] = 1
-        self.dumpValueDicts(classifyDict, detailsDict)
-
-
-class AlignmentAbutsLeft(AbstractClassifier):
-    """
-    Does the alignment extend off the 3' end of a scaffold?
-    (regardless of transcript orientation)
-
-    If so, reports BED of entire transcript
-
-    aligned: #  unaligned: -  whatever: .  edge: |
-             query  |---#####....
-             target    |#####....
-
-    Doesn't need a check for pre-existing because that doesn't matter.
-    """
-    @property
-    def rgb(self):
-        return self.colors["assembly"]
-
-    def run(self):
-        self.getAlignmentDict()
-        self.getTranscriptDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            if aId not in self.transcriptDict:
-                continue
-            if aln.strand == "+" and aln.tStart == 0 and aln.qStart != 0:
-                detailsDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb, self.column)
-                classifyDict[aId] = 1
-            elif aln.strand == "-" and aln.tEnd == aln.tSize and aln.qEnd != aln.qSize:
-                detailsDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb, self.column)
-                classifyDict[aId] = 1
-            else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
-
-
-class AlignmentAbutsRight(AbstractClassifier):
-    """
-    Does the alignment extend off the 3' end of a scaffold?
-    (regardless of transcript orientation)
-
-    If so, reports BED of entire transcript
-
-    aligned: #  unaligned: -  whatever: .  edge: |
-             query  ...######---|
-             target ...######|
-
-    Doesn't need a check for pre-existing because that doesn't matter.
-    """
-    @property
-    def rgb(self):
-        return self.colors["assembly"]
-
-    def run(self):
-        self.getAlignmentDict()
-        self.getTranscriptDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            if aId not in self.transcriptDict:
-                continue
-            if aln.strand == "+" and aln.tEnd == aln.tSize and aln.qEnd != aln.qSize:
-                detailsDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb, self.column)
-                classifyDict[aId] = 1
-            elif aln.strand == "-" and aln.tStart == 0 and aln.qStart != 0:
-                detailsDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb, self.column)
-                classifyDict[aId] = 1
-            else:
-                classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
@@ -873,39 +801,6 @@ class ShortCds(AbstractClassifier):
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
-class ScaffoldGap(AbstractClassifier):
-    """
-    Does this alignment span a scaffold gap? (Defined as a run of Ns more than 10bp)
-
-    Only true if the scaffold gap is within the alignment
-    """
-    @property
-    def rgb(self):
-        return self.colors["assembly"]
-
-    def run(self, cds=False):
-        self.getTranscriptDict()
-        self.getSeqDict()
-        detailsDict = {}
-        classifyDict = {}
-        r = re.compile("[atgcATGC][N]{11,}[atgcATGC]")
-        for aId, t in self.transcriptDict.iteritems():
-            if cds is True:
-                s = t.getCds(self.seqDict)
-                tmp = [seq_lib.cdsCoordinateToBed(t, m.start(), m.end(), self.rgb, self.column) for m in
-                       re.finditer(r, s)]
-            else:
-                s = t.getMRna(self.seqDict)
-                tmp = [seq_lib.transcriptCoordinateToBed(t, m.start(), m.end(), self.rgb, self.column) for m in
-                       re.finditer(r, s)]
-            if len(tmp) > 0:
-                detailsDict[aId] = tmp
-                classifyDict[aId] = 1
-            else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
-
-
 class UnknownBases(AbstractClassifier):
     """
     Does this alignment contain Ns in the target genome?
@@ -921,15 +816,15 @@ class UnknownBases(AbstractClassifier):
         self.getSeqDict()
         detailsDict = {}
         classifyDict = {}
-        r = re.compile("[atgcATGC][N]{1,10}[atgcATGC]")
+        r = re.compile("[atgcATGC][N]+[atgcATGC]")
         for aId, t in self.transcriptDict.iteritems():
             if cds is True:
                 s = t.getCds(self.seqDict)
-                tmp = [seq_lib.cdsCoordinateToBed(t, m.start(), m.end(), self.rgb, self.column) for m in
+                tmp = [seq_lib.cdsCoordinateToBed(t, m.start() + 1, m.end() - 1, self.rgb, self.column) for m in
                        re.finditer(r, s)]
             else:
                 s = t.getMRna(self.seqDict)
-                tmp = [seq_lib.transcriptCoordinateToBed(t, m.start(), m.end(), self.rgb, self.column) for m in
+                tmp = [seq_lib.transcriptCoordinateToBed(t, m.start() + 1, m.end() - 1, self.rgb, self.column) for m in
                        re.finditer(r, s)]
             if len(tmp) > 0:
                 detailsDict[aId] = tmp
@@ -937,15 +832,6 @@ class UnknownBases(AbstractClassifier):
             else:
                 classifyDict[aId] = 0
         self.dumpValueDicts(classifyDict, detailsDict)
-
-
-class UnknownCdsBases(UnknownBases):
-    """
-    Inherits Unknown Bases and sets the cds flag to True.
-    """
-
-    def run(self):
-        UnknownBases.run(self, cds=True)
 
 
 class Nonsynonymous(AbstractClassifier):

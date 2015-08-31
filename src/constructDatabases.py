@@ -23,14 +23,8 @@ class ConstructDatabases(Target):
         classifiers = classesInModule(src.classifiers)
         attributes = classesInModule(src.attributes)
         classifyDb = os.path.join(self.outDir, "classify.db")
-        if os.path.exists(classifyDb):
-            os.remove(classifyDb)
         detailsDb = os.path.join(self.outDir, "details.db")
-        if os.path.exists(detailsDb):
-            os.remove(detailsDb)
         attributesDb = os.path.join(self.outDir, "attributes.db")
-        if os.path.exists(attributesDb):
-            os.remove(attributesDb)
         self.initializeDb(classifyDb, classifiers, dataType="INTEGER")
         self.initializeDb(detailsDb, classifiers, dataType="TEXT")
         for classifier, genome in product(classifiers, self.genomes):
@@ -91,7 +85,7 @@ class ConstructDatabases(Target):
 
     def initializeSqlTable(self, db, genome, columns, primaryKey):
         with sql_lib.ExclusiveSqlConnection(db) as cur:
-            sql_lib.initializeTable(cur, genome, columns, primaryKey)
+            sql_lib.initializeTable(cur, genome, columns, primaryKey, drop_if_exists=True)
 
     def initializeSqlRows(self, db, genome, aIds, primaryKey):
         with sql_lib.ExclusiveSqlConnection(db) as cur:

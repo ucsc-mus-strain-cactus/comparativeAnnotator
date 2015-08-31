@@ -55,7 +55,7 @@ def updateTable(cur, table, set_col, set_val, where_col, where_val):
             where_col, where_val))
 
 
-def initializeTable(cur, table, columns, primary_key):
+def initializeTable(cur, table, columns, primary_key, drop_if_exists=True):
     """
     Builds a empty <table> in the sqlite db opened by <cur> with <[columns]>
     columns should be a list of name, type pairs
@@ -66,6 +66,8 @@ def initializeTable(cur, table, columns, primary_key):
 
     created without an index for speed of insertions.
     """
+    if drop_if_exists is True:
+        cur.execute("DROP TABLE IF EXISTS '{}'".format(table))
     cur.execute("""CREATE TABLE '{}' ({} TEXT PRIMARY KEY) WITHOUT ROWID""".format(table, primary_key))
     for n, t in columns:
         cur.execute("""ALTER TABLE '{}' ADD COLUMN {} {} """.format(table, n, t))
