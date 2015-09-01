@@ -801,6 +801,34 @@ class ShortCds(AbstractClassifier):
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
+<<<<<<< HEAD
+class ScaffoldGap(AbstractClassifier):
+    """
+    Does this alignment span a scaffold gap? (Defined as a run of Ns more than 10bp)
+
+    Only true if the scaffold gap is within the alignment
+    """
+    @property
+    def rgb(self):
+        return self.colors["assembly"]
+
+    def run(self):
+        self.getSeqDict()
+        self.getTranscriptDict()
+        detailsDict = defaultdict(list)
+        classifyDict = {}
+        r = re.compile("[ATGC][N]{11,}[ATGC]")
+        for aId, t in self.transcriptDict.iteritems():
+            for exon in t.exonIntervals:
+                exonSeq = exon.getSequence(self.seqDict, strand=False)
+                if r.match(exonSeq):
+                    classifyDict[aId] = 1
+                    detailsDict[aId].append(exon.getBed(self.rgb, self.column))
+            if aId not in classifyDict:
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
+
+
 class UnknownBases(AbstractClassifier):
     """
     Does this alignment contain Ns in the target genome?

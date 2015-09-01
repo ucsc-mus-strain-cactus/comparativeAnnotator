@@ -1,23 +1,5 @@
-import os
-import itertools
 import argparse
-import sqlite3 as sql
-from collections import defaultdict, Counter, OrderedDict
-from lib.psl_lib import removeAlignmentNumber, removeAugustusAlignmentNumber
-from lib.sqlite_lib import attachDatabase
-from lib.general_lib import mkdir_p, DefaultOrderedDict
-from sonLib.bioio import system
-
-import matplotlib
-matplotlib.use('Agg')
-matplotlib.rcParams['pdf.fonttype'] = 42
-import matplotlib.lines as lines
-import matplotlib.patches as mpatches
-import matplotlib.pyplot as plt
-import matplotlib.pylab as pylab
-import matplotlib.backends.backend_pdf as pltBack
-import numpy as np
-from scripts.coverage_identity_ok_plots import init_image, establish_axes, plot_bars
+from scripts.plot_functions import *
 
 
 def parse_args():
@@ -31,129 +13,8 @@ def parse_args():
     parser.add_argument("--tmGps", nargs="+", required=True)
     parser.add_argument("--compGp", required=True)
     parser.add_argument("--basicGp", required=True)
+    parser.add_argument("--plotBiotypes", default=["protein_coding", "lincRNA", "miRNA", "snoRNA"])
     return parser.parse_args()
-
-
-# these classifiers define OK for coding transcripts
-tm_coding_classifiers = ["CodingInsertions", "CodingDeletions", "StartOutOfFrame", "FrameShift", 
-                         "AlignmentPartialMap", "BadFrame", "BeginStart", "UnknownUtrBases", "UnknownCdsBases"
-                         "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
-                         "EndStop", "InFrameStop", "ShortCds", , "AlignmentAbutsUnknownBases"]
-
-# these classifiers define OK for non-coding transcripts
-tm_noncoding_classifiers = ["AlignmentPartialMap", "UtrUnknownSplice", "UtrGap", "UnknownGap", "UnknownBases", 
-                            "AlignmentAbutsUnknownBases"]
-
-# used for the plots
-width=8.0
-height=4.0
-bar_width=0.4
-paired_palette = ["#df65b0", "#dd1c77", "#980043", "#a1dab4", "#41b6c4", "#2c7fb8", "#252525"]
-palette = ["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#f0e442", "#56b4e9"]
-
-def skip_header(path):
-    """
-    The attributes file produced by the pipeline has a header. Skip it. Return a open file handle pointing to line 2.
-    """
-    f_h = open(path)
-    _ = f_h.next()
-    return f_h
-
-
-def strip_alignment_numbers(aln_id):
-    """
-    Convenience function for stripping both Augustus and transMap alignment IDs from a aln_id
-    """
-    return removeAlignmentNumber(removeAugustusAlignmentNumber(aln_id))
-
-
-def get_all_biotypes(attr_path):
-    """
-    Returns all biotypes in the attribute database.
-    """
-    return {x.split()[4] for x in skip_header(attr_path)}
-
-
-def transmap_ok(cur, genome, classify_fields):
-    """
-    Finds all aIds which are 'OK' based on the classifyFields below
-    """
-    cmd = """SELECT main.'{0}'.'AlignmentId' FROM main.'{0}' WHERE (""".format(genome)
-    for col in classify_fields[:-1]:
-        cmd += " main.'{}'.'{}' = ? {}".format(genome, col, "AND")
-    cmd += " main.'{}'.'{}' = ?)".format(genome, classify_fields[-1])
-    vals = [0] * len(classify_fields)
-    return {x[0] for x in cur.execute(cmd, vals).fetchall()}
-
-
-def augustus_ok(cur, genome):
-    """
-    Finds all aug_aIds which are 'OK' as defined by the fields in classifyFields
-    """
-    classifyFields = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand', 
-                      'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries', 
-                      'AugustusNotSimilarInternalExonBoundaries']
-    cmd = """SELECT augustus.'{0}'.'AlignmentId' FROM augustus.'{0}' WHERE (""".format(genome)
-    for col in classifyFields[:-1]:
-        cmd += " augustus.'{}'.'{}' = ? {}".format(genome, col, "AND")
-    cmd += " augustus.'{}'.'{}' = ?)".format(genome, classifyFields[-1])
-    vals = [0] * len(classifyFields)
-    return {x[0] for x in cur.execute(cmd, vals).fetchall()}
-
-
-def get_all_ok(cur, genome, tm_classifiers):
-    """
-    Adapter function to return the combined sets of ok from augustus and transmap
-    """
-    return augustus_ok(cur, genome) | transmap_ok(cur, genome, tm_classifiers)
-
-
-def get_all_ids(attr_path, biotype=None, filter_set=set(), id_type="Transcript"):
-    """
-    returns the set of ensembl IDs in the entire Gencode database pulled from the attribute
-    """
-    assert id_type in ["Transcript", "Gene"]
-    if id_type == "Transcript":
-        if biotype is None:
-            return {x.split()[3] for x in skip_header(attr_path) if x not in filter_set}
-        else:
-            return {x.split()[3] for x in skip_header(attr_path) if x.split()[4] == biotype if x not in filter_set}
-    else:
-        if biotype is None:
-            return {x.split()[0] for x in skip_header(attr_path) if x not in filter_set}
-        else:
-            return {x.split()[0] for x in skip_header(attr_path) if x.split()[4] == biotype if x not in filter_set}        
-
-
-def get_gp_ids(gp):
-    return {x.split()[0] for x in open(gp)}
-
-
-def get_reverse_name_map(cur, genome, ids):
-    """
-    creates a dictionary mapping each Gencode ID to all IDs produced by Augustus and transMap
-    """
-    reverse_name_map = {x: [] for x in ids}
-    base_cmd = "SELECT {0}.'{1}'.'AlignmentId' FROM {0}.'{1}'"
-    aug_cmd = base_cmd.format("augustus", genome)
-    tm_cmd = base_cmd.format("main", genome)
-    aug_r = cur.execute(aug_cmd).fetchall()
-    tm_r = cur.execute(tm_cmd).fetchall()
-    for aln_id in itertools.chain(aug_r, tm_r):
-        aln_id = aln_id[0]
-        ens_id = strip_alignment_numbers(aln_id)
-        if ens_id in ids:
-            reverse_name_map[ens_id].append(aln_id)
-    return reverse_name_map
-
-
-def get_tm_stats(cur, genome):
-    """
-    Pulls the alignment metrics from the attributes database
-    """
-    cmd = "SELECT AlignmentId, AlignmentIdentity, AlignmentCoverage FROM attributes.'{}'".format(genome)
-    result = cur.execute(cmd).fetchall()
-    return {x[0]: x for x in result}
 
 
 def get_aug_stats(stats_dir, genome):
@@ -177,17 +38,6 @@ def merge_stats(cur, stats_dir, genome):
     r = tm_stats.copy()
     r.update(aug_stats)
     return r
-
-
-def attach_databases(comp_ann_path):
-    """
-    Attaches all of the databases. Expects comp_ann_path to be the path that comparativeAnnotator wrote to.
-    """
-    con = sql.connect(os.path.join(comp_ann_path, "classify.db"))
-    cur = con.cursor()
-    attachDatabase(con, os.path.join(comp_ann_path, "augustusClassify.db"), "augustus")
-    attachDatabase(con, os.path.join(comp_ann_path, "attributes.db"), "attributes")
-    return con, cur
 
 
 def find_ok_not_ok_candidates(stats_dict, ids, ok_ids, discard_cov_cutoff, filter_cov_cutoff):
@@ -282,10 +132,6 @@ def bin_transcripts(reverse_name_map, stats_dict, ok_ids, ens_ids):
     return binned_transcripts
 
 
-def load_gps(gp_paths):
-    return {l.split()[0]: l for p in gp_paths for l in open(p)}
-
-
 def fix_gene_pred(gp, gene_map):
     """
     These genePreds have a few problems. First, the alignment numbers must be removed. Second, we want to fix
@@ -319,27 +165,6 @@ def write_gps(binned_transcripts, gps, out_dir, genome, biotype, gene_map):
                 outf.write(aln_id + "\n")
 
 
-def transcript_list_to_gene(gene_map, ens_ids):
-    """
-    Given a set of transcript IDs, returns the matching set of gene IDs
-    """
-    return {gene_map[strip_alignment_numbers(x)] for x in ens_ids}
-
-
-def get_gene_biotype_map(attr_path):
-    """
-    Returns a dictionary mapping all gene IDs to their respective biotypes
-    """
-    return {x.split()[0]: x.split()[2] for x in skip_header(attr_path)}
-
-
-def get_gene_map(attr_path):
-    """
-    Returns a dictionary mapping all transcript IDs to their respective gene IDs
-    """
-    return {x.split()[3]: x.split()[0] for x in skip_header(attr_path)}
-
-
 def consensus_gene_set(binned_transcripts, stats_dict, gps, gene_map, gene_biotype_map, gene_cov_cutoff=0.20):
     """
     Builds the consensus gene set. For each transcript that has a best OK/not OK (passes coverage filter),
@@ -368,23 +193,12 @@ def write_consensus(consensus, gene_map, consensus_path):
             outf.write(x)
 
 
-def make_counts_frequency(counts):
-    """
-    Convenience function that takes a dict and turns the values into a proportion of the total.
-    Returns a list of lists [[name, percent]]
-    """
-    tot = sum(counts.values())
-    for key, val in counts.iteritems():
-        counts[key] = 1.0 * val / tot
-    return list(counts.iteritems())
-
-
 def make_tx_counts_dict(binned_transcripts, filter_set=set()):
     """
     Makes a counts dictionary from binned_transcripts.
     """
     counts = OrderedDict()
-    for key in ['augOk', 'tmOk', 'sameOk', 'augNotOk', 'tmNotOk', 'sameNotOk', 'fail']:
+    for key in ['sameOk', 'augOk', 'tmOk', 'sameNotOk', 'augNotOk', 'tmNotOk',  'fail']:
         counts[key] = 0
     tie_ids = binned_transcripts["tieIds"]
     for x in binned_transcripts["bestOk"]:
@@ -413,7 +227,8 @@ def make_tx_counts_dict(binned_transcripts, filter_set=set()):
 
 def find_genome_order(binned_transcript_holder, ens_ids):
     """
-    Defines a fixed order of genomes based on the most OK protein coding
+    Defines a fixed order of genomes based on the most OK protein coding.
+    This is deprecated in favor of using a hard coded order provided by Joel.
     """
     ok_counts = []
     for genome, binned_transcripts in binned_transcript_holder.iteritems():
@@ -423,36 +238,14 @@ def find_genome_order(binned_transcript_holder, ens_ids):
     return zip(*genome_order)[0]
 
 
-def barplot(results, color_palette, out_path, file_name, title_string, categories, border=True, has_legend=True):
-    """
-    Boilerplate code that will produce a barplot.
-    """
-    fig, pdf = init_image(out_path, file_name, width, height)
-    ax = establish_axes(fig, width, height, border, has_legend)
-    plt.text(0.5, 1.08, title_string, horizontalalignment='center', fontsize=12, transform=ax.transAxes)
-    ax.set_ylabel("Proportion of transcripts")
-    ax.set_ylim([0, 1.0])
-    plt.tick_params(axis='y', labelsize=8)
-    plt.tick_params(axis='x', labelsize=9)
-    ax.yaxis.set_ticks(np.arange(0.0, 101.0, 10.0) / 100.0)
-    ax.yaxis.set_ticklabels([str(x) + "%" for x in range(0, 101, 10)])
-    ax.xaxis.set_ticks(np.arange(0, len(results)) + bar_width / 2.0)
-    ax.xaxis.set_ticklabels(zip(*results)[0], rotation=55)
-    bars = plot_bars(ax, zip(*results)[1], bar_width, color_palette=color_palette)
-    legend = fig.legend([x[0] for x in bars[::-1]], categories[::-1], bbox_to_anchor=(1,0.8), fontsize=11, frameon=True, 
-                        title="Category")
-    fig.savefig(pdf, format='pdf')
-    pdf.close()
-
-
 def make_coding_transcript_plot(binned_transcript_holder, out_path, out_name, genome_order, ens_ids, title_string):
     coding_metrics = OrderedDict()
     for g in genome_order:
         bins = binned_transcript_holder[g]['protein_coding']
         coding_metrics[g] = make_counts_frequency(make_tx_counts_dict(bins, filter_set=ens_ids))
     categories = zip(*coding_metrics[g])[0]
-    results = [[g, zip(*coding_metrics[g])[1]] for g in coding_metrics]
-    barplot(results, paired_palette, out_path, out_name, title_string, categories)
+    results = [[g, zip(*coding_metrics[g])[1], zip(*metrics[g])[2]] for g in coding_metrics]
+    stacked_barplot(results, categories, out_path, out_name, title_string, color_palette=paired_palette)
 
 
 base_title_string = "Proportion of {:,} {}\nOK / not OK In Target Genomes"
@@ -470,7 +263,8 @@ def make_coding_transcript_plots(binned_transcript_holder, out_path, comp_gp, ba
     basic_coding = basic_ids & coding_ids
     comp_coding = comp_ids & coding_ids
     complement_coding = comp_coding - basic_coding
-    genome_order = find_genome_order(binned_transcript_holder, comp_coding)
+    #genome_order = find_genome_order(binned_transcript_holder, comp_coding)
+    genome_order = hard_coded_genome_order
     for cat, ids in zip(*[["Comp", "Basic", "Complement"], [comp_coding, basic_coding, complement_coding]]):
         title_string = base_title_string.format(len(ids), title_string_dict[cat].format("Transcript"))
         out_name = file_name_dict[cat]
@@ -490,19 +284,19 @@ def calculate_gene_ok_metrics(bins, gene_map, gene_ids):
 def ok_gene_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, genome_order, biotype):
     biotype_ids = get_all_ids(attr_path, biotype=biotype, id_type="Gene")
     title_string = "Proportion of {:,} {} genes with at least one OK transcript".format(len(biotype_ids), biotype)
-    out_name = "{}_gene".format(biotype)
+    file_name = "{}_gene".format(biotype)
     metrics = OrderedDict()
     for g in genome_order:
         bins = binned_transcript_holder[g][biotype]
         metrics[g] = calculate_gene_ok_metrics(bins, gene_map, biotype_ids)
     categories = zip(*metrics[g])[0]
-    results = [[g, zip(*metrics[g])[1]] for g in metrics]
-    barplot(results, palette, out_path, out_name, title_string, categories)
+    results = [[g, zip(*metrics[g])[1], zip(*metrics[g])[2]] for g in metrics]
+    stacked_barplot(results, categories, out_path, file_name, title_string)
 
 
 def main():
     args = parse_args()
-    con, cur = attach_databases(args.compAnnPath)
+    con, cur = attach_databases(args.compAnnPath, has_augustus=True)
     biotypes = get_all_biotypes(args.attributePath)
     gene_map = get_gene_map(args.attributePath)
     gene_biotype_map = get_gene_biotype_map(args.attributePath)
@@ -524,7 +318,7 @@ def main():
         gps = load_gps([tm_gp, aug_gp])
         for biotype in biotypes:
             ens_ids = get_all_ids(args.attributePath, biotype=biotype)
-            reverse_name_map = get_reverse_name_map(cur, genome, ens_ids)
+            reverse_name_map = get_reverse_name_map(cur, genome, whitelist=ens_ids, has_augustus=True)
             stats_dict = merge_stats(cur, args.statsDir, genome)
             if biotype == "protein_coding": 
                 binned_transcripts = bin_transcripts(reverse_name_map, stats_dict, coding_ok, ens_ids)
@@ -537,7 +331,7 @@ def main():
         write_consensus(consensus, gene_map, consensus_path)
     genome_order = make_coding_transcript_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, 
                                                 args.attributePath)
-    for biotype in ["protein_coding", "lincRNA", "miRNA", "snoRNA"]:
+    for biotype in args.plotBiotypes:
         ok_gene_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, genome_order, biotype)
 
 

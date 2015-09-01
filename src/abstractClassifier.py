@@ -19,6 +19,8 @@ class AbstractClassifier(Target):
 
     def __init__(self, genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp, refGenome,
                  primaryKey, outDir):
+        # sanity check
+        assert all([genome in x for x in [alnPsl, fasta, targetGp]])
         # initialize the Target
         Target.__init__(self, memory=16 * 1024 * 1024 * 1024)  # 16GB RAM per job
         # primary key this will be keyed on (AlignmentId usually)
@@ -67,6 +69,22 @@ class AbstractClassifier(Target):
             pickle.dump(detailsDict, outf)
         with open(os.path.join(self.outDir, "Classify" + self.column + self.genome), "wb") as outf:
             pickle.dump(classifyDict, outf)
+
+
+class AbstractAugustusClassifier(AbstractClassifier):
+    """
+    Overwrites AbstractClassifier to add the extra genePred information and a way to load it.
+    """
+    def __init__(self, genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp, refGenome,
+                 primaryKey, outDir, augustusGp):
+        AbstractClassifier.__init__(self, genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp,
+                                    refGenome, primaryKey, outDir)
+        assert self.genome in augustusGp
+        self.augustusGp = augustusGp
+
+    def getAugustusTranscriptDict(self):
+        self.augustusTranscripts = seq_lib.getGenePredTranscripts(self.augustusGp)
+        self.augustusTranscriptDict = seq_lib.transcriptListToDict(self.augustusTranscripts, noDuplicates=True)
 
 
 class Attribute(AbstractClassifier):
