@@ -1,22 +1,4 @@
-import os
-import itertools
 import argparse
-import sqlite3 as sql
-from collections import defaultdict, Counter, OrderedDict
-from lib.psl_lib import removeAlignmentNumber, removeAugustusAlignmentNumber
-from lib.sqlite_lib import attachDatabase
-from lib.general_lib import mkdir_p, DefaultOrderedDict
-from sonLib.bioio import system
-
-import matplotlib
-matplotlib.use('Agg')
-matplotlib.rcParams['pdf.fonttype'] = 42
-import matplotlib.lines as lines
-import matplotlib.patches as mpatches
-import matplotlib.pyplot as plt
-import matplotlib.pylab as pylab
-import matplotlib.backends.backend_pdf as pltBack
-import numpy as np
 from scripts.plot_functions import *
 
 
@@ -31,6 +13,7 @@ def parse_args():
     parser.add_argument("--tmGps", nargs="+", required=True)
     parser.add_argument("--compGp", required=True)
     parser.add_argument("--basicGp", required=True)
+    parser.add_argument("--plotBiotypes", default=["protein_coding", "lincRNA", "miRNA", "snoRNA"])
     return parser.parse_args()
 
 
@@ -210,23 +193,12 @@ def write_consensus(consensus, gene_map, consensus_path):
             outf.write(x)
 
 
-def make_counts_frequency(counts):
-    """
-    Convenience function that takes a dict and turns the values into a proportion of the total.
-    Returns a list of lists [[name, percent]]
-    """
-    tot = sum(counts.values())
-    for key, val in counts.iteritems():
-        counts[key] = 1.0 * val / tot
-    return list(counts.iteritems())
-
-
 def make_tx_counts_dict(binned_transcripts, filter_set=set()):
     """
     Makes a counts dictionary from binned_transcripts.
     """
     counts = OrderedDict()
-    for key in ['augOk', 'tmOk', 'sameOk', 'augNotOk', 'tmNotOk', 'sameNotOk', 'fail']:
+    for key in ['sameOk', 'augOk', 'tmOk', 'sameNotOk', 'augNotOk', 'tmNotOk',  'fail']:
         counts[key] = 0
     tie_ids = binned_transcripts["tieIds"]
     for x in binned_transcripts["bestOk"]:
@@ -255,7 +227,8 @@ def make_tx_counts_dict(binned_transcripts, filter_set=set()):
 
 def find_genome_order(binned_transcript_holder, ens_ids):
     """
-    Defines a fixed order of genomes based on the most OK protein coding
+    Defines a fixed order of genomes based on the most OK protein coding.
+    This is deprecated in favor of using a hard coded order provided by Joel.
     """
     ok_counts = []
     for genome, binned_transcripts in binned_transcript_holder.iteritems():
@@ -265,36 +238,14 @@ def find_genome_order(binned_transcript_holder, ens_ids):
     return zip(*genome_order)[0]
 
 
-def barplot(results, color_palette, out_path, file_name, title_string, categories, border=True, has_legend=True):
-    """
-    Boilerplate code that will produce a barplot.
-    """
-    fig, pdf = init_image(out_path, file_name, width, height)
-    ax = establish_axes(fig, width, height, border, has_legend)
-    plt.text(0.5, 1.08, title_string, horizontalalignment='center', fontsize=12, transform=ax.transAxes)
-    ax.set_ylabel("Proportion of transcripts")
-    ax.set_ylim([0, 1.0])
-    plt.tick_params(axis='y', labelsize=8)
-    plt.tick_params(axis='x', labelsize=9)
-    ax.yaxis.set_ticks(np.arange(0.0, 101.0, 10.0) / 100.0)
-    ax.yaxis.set_ticklabels([str(x) + "%" for x in range(0, 101, 10)])
-    ax.xaxis.set_ticks(np.arange(0, len(results)) + bar_width / 2.0)
-    ax.xaxis.set_ticklabels(zip(*results)[0], rotation=55)
-    bars = plot_bars(ax, zip(*results)[1], bar_width, color_palette=color_palette)
-    legend = fig.legend([x[0] for x in bars[::-1]], categories[::-1], bbox_to_anchor=(1,0.8), fontsize=11, frameon=True, 
-                        title="Category")
-    fig.savefig(pdf, format='pdf')
-    pdf.close()
-
-
 def make_coding_transcript_plot(binned_transcript_holder, out_path, out_name, genome_order, ens_ids, title_string):
     coding_metrics = OrderedDict()
     for g in genome_order:
         bins = binned_transcript_holder[g]['protein_coding']
         coding_metrics[g] = make_counts_frequency(make_tx_counts_dict(bins, filter_set=ens_ids))
     categories = zip(*coding_metrics[g])[0]
-    results = [[g, zip(*coding_metrics[g])[1]] for g in coding_metrics]
-    barplot(results, paired_palette, out_path, out_name, title_string, categories)
+    results = [[g, zip(*coding_metrics[g])[1], zip(*metrics[g])[2]] for g in coding_metrics]
+    stacked_barplot(results, categories, out_path, out_name, title_string, color_palette=paired_palette)
 
 
 base_title_string = "Proportion of {:,} {}\nOK / not OK In Target Genomes"
@@ -312,7 +263,8 @@ def make_coding_transcript_plots(binned_transcript_holder, out_path, comp_gp, ba
     basic_coding = basic_ids & coding_ids
     comp_coding = comp_ids & coding_ids
     complement_coding = comp_coding - basic_coding
-    genome_order = find_genome_order(binned_transcript_holder, comp_coding)
+    #genome_order = find_genome_order(binned_transcript_holder, comp_coding)
+    genome_order = hard_coded_genome_order
     for cat, ids in zip(*[["Comp", "Basic", "Complement"], [comp_coding, basic_coding, complement_coding]]):
         title_string = base_title_string.format(len(ids), title_string_dict[cat].format("Transcript"))
         out_name = file_name_dict[cat]
@@ -332,14 +284,14 @@ def calculate_gene_ok_metrics(bins, gene_map, gene_ids):
 def ok_gene_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, genome_order, biotype):
     biotype_ids = get_all_ids(attr_path, biotype=biotype, id_type="Gene")
     title_string = "Proportion of {:,} {} genes with at least one OK transcript".format(len(biotype_ids), biotype)
-    out_name = "{}_gene".format(biotype)
+    file_name = "{}_gene".format(biotype)
     metrics = OrderedDict()
     for g in genome_order:
         bins = binned_transcript_holder[g][biotype]
         metrics[g] = calculate_gene_ok_metrics(bins, gene_map, biotype_ids)
     categories = zip(*metrics[g])[0]
-    results = [[g, zip(*metrics[g])[1]] for g in metrics]
-    barplot(results, palette, out_path, out_name, title_string, categories)
+    results = [[g, zip(*metrics[g])[1], zip(*metrics[g])[2]] for g in metrics]
+    stacked_barplot(results, categories, out_path, file_name, title_string)
 
 
 def main():
@@ -379,7 +331,7 @@ def main():
         write_consensus(consensus, gene_map, consensus_path)
     genome_order = make_coding_transcript_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, 
                                                 args.attributePath)
-    for biotype in ["protein_coding", "lincRNA", "miRNA", "snoRNA"]:
+    for biotype in args.plotBiotypes:
         ok_gene_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, genome_order, biotype)
 
 
