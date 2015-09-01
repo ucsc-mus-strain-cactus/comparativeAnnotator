@@ -801,7 +801,6 @@ class ShortCds(AbstractClassifier):
         self.dumpValueDicts(classifyDict, detailsDict)
 
 
-<<<<<<< HEAD
 class ScaffoldGap(AbstractClassifier):
     """
     Does this alignment span a scaffold gap? (Defined as a run of Ns more than 10bp)
