@@ -20,19 +20,25 @@ import lib.psl_lib as psl_lib
 import lib.sqlite_lib as sql_lib
 from lib.general_lib import DirType, functionsInModule, DefaultOrderedDict
 
-color_palette = [( 93, 165, 218),  # m blue
-                 (250, 164,  58),  # m orange
-                 ( 96, 189, 104),  # m green
-                 (241, 124, 167),  # m red
-                 (178, 145,  47),  # m brown
-                 (178, 118, 178),  # m purple
-                 (241,  88,  84),  # m magenta
-                 ( 77,  77,  77),  # m grey
-                 (222, 207,  63)   # m yellow
-                ]  
 
-# put on a 0-1 scale
-color_palette = np.asarray(color_palette) / 255.0
+# these classifiers define OK for coding transcripts
+tm_coding_classifiers = ["CodingInsertions", "CodingDeletions", "StartOutOfFrame", "FrameShift", 
+                         "AlignmentPartialMap", "BadFrame", "BeginStart", "UnknownUtrBases", "UnknownCdsBases"
+                         "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
+                         "EndStop", "InFrameStop", "ShortCds", , "AlignmentAbutsUnknownBases"]
+
+# these classifiers define OK for non-coding transcripts
+tm_noncoding_classifiers = ["AlignmentPartialMap", "UtrUnknownSplice", "UtrGap", "UnknownGap", "UnknownBases", 
+                            "AlignmentAbutsUnknownBases"]
+
+# used for the plots
+width=8.0
+height=4.0
+bar_width=0.4
+paired_palette = ["#df65b0", "#dd1c77", "#980043", "#a1dab4", "#41b6c4", "#2c7fb8", "#252525"]
+palette = ["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#f0e442", "#56b4e9"]
+
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -40,8 +46,6 @@ def parse_args():
     parser.add_argument("--outDir", type=DirType, required=True, help="output directory")
     parser.add_argument("--comparativeAnnotationDir", type=DirType, required=True, help="directory containing databases")
     parser.add_argument("--annotationGp", type=str, required=True, help="annotation genePred")
-    parser.add_argument("--width", default=8.0, type=float, help="figure width in inches")
-    parser.add_argument("--height", default=4.0, type=float, help="figure height in inches")
     parser.add_argument("--biotypes", nargs="+", default=["protein_coding", "lincRNA", "miRNA", "snoRNA", "snRNA", "processed_pseudogene", "pseudogene", "unprocessed_pseudogene"])
     parser.add_argument("--header", type=str, required=True)
     parser.add_argument("--attrs", type=str, required=True, help="attrs")
@@ -49,11 +53,11 @@ def parse_args():
     return args
 
 
-def connect_databases(comparativeAnnotationDir):
-    con = sql.connect(os.path.join(comparativeAnnotationDir, "classify.db"))
+def connect_databases(comparative_annotation_dir):
+    con = sql.connect(os.path.join(comparative_annotation_dir, "classify.db"))
     cur = con.cursor()
-    sql_lib.attachDatabase(con, os.path.join(comparativeAnnotationDir, "details.db"), "details")
-    sql_lib.attachDatabase(con, os.path.join(comparativeAnnotationDir, "attributes.db"), "attributes")
+    sql_lib.attachDatabase(con, os.path.join(comparative_annotation_dir, "details.db"), "details")
+    sql_lib.attachDatabase(con, os.path.join(comparative_annotation_dir, "attributes.db"), "attributes")
     return con, cur
 
 
@@ -79,21 +83,15 @@ def get_biotype_transcript_map(attrs, annotation_gp, filter_chrom=re.compile("(Y
     return biotype_map, biotype_counts
 
 
-def establish_axes(fig, width, height, border=True, has_legend=True):
+def establish_axes(fig, width, height, border=True):
     """
     Sets up axes. No idea how this works, Dent's code.
     """
     axLeft = 1.1 / width
     if border is True:
-        if has_legend is True:
-            axRight = 0.98 - (1.5 / width)
-        else:
-            axRight = 0.98 - (1.15 / width)
+        axRight = 0.98 - (1.3 / width)
     else:
-        if has_legend is True:
-            axRight = 1.1 - (1.5 / width)
-        else:
-            axRight = 1.1 - (1.15 / width)
+        axRight = 1.1 - (1.3 / width)
     axWidth = axRight - axLeft
     axBottom = 0.9 / height
     axTop = 0.9 - (0.4 / height)
@@ -113,7 +111,7 @@ def establish_axes(fig, width, height, border=True, has_legend=True):
     return ax
 
 
-def plot_bars(ax, data, bar_width, color_palette=["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#f0e442", "#56b4e9"]):
+def plot_bars(ax, data, bar_width):
     """
     Data should be a list of lists representing the counts for each bar, (sums to 1)
     """
@@ -192,7 +190,7 @@ def ok_coding(cur, genome):
     returns the # of OK and the total #
     """
     biotype = "protein_coding"
-    classifyFields = ["CodingInsertions", "CodingDeletions", "CodingDeletions", "StartOutOfFrame", "FrameShift",
+    classifyFields = ["CodingInsertions","CodingDeletions", "CodingDeletions", "StartOutOfFrame", "FrameShift", "AlignmentAbutsLeft", "AlignmentAbutsRight", 
                       "AlignmentPartialMap", "BadFrame", "BeginStart", "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
                       "EndStop", "InFrameStop", "ShortCds", "UnknownBases", "AlignmentAbutsUnknownBases"]
     cmd = """SELECT main.'{0}'.'AlignmentId' FROM main.'{0}' WHERE (""".format(genome)
