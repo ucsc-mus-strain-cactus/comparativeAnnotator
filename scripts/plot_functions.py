@@ -26,9 +26,9 @@ hard_coded_genome_order = ['C57B6NJ', 'NZOHlLtJ', '129S1', 'FVBNJ', 'NODShiLtJ',
 
 # these classifiers define OK for coding transcripts
 tm_coding_classifiers = ["CodingInsertions", "CodingDeletions", "StartOutOfFrame", "FrameShift", 
-                         "AlignmentPartialMap", "BadFrame", "BeginStart", "UnknownBases", "UnknownCdsBases",
+                         "AlignmentPartialMap", "BadFrame", "BeginStart", "UnknownBases", "AlignmentAbutsUnknownBases",
                          "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
-                         "EndStop", "InFrameStop", "ShortCds", "AlignmentAbutsUnknownBases"]
+                         "EndStop", "InFrameStop", "ShortCds"]
 
 # these classifiers define OK for non-coding transcripts
 tm_noncoding_classifiers = ["AlignmentPartialMap", "UtrUnknownSplice", "UtrGap", "UnknownGap", "UnknownBases", 

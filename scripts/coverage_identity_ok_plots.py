@@ -150,13 +150,14 @@ def main():
     for biotype in args.biotypes:
         out_path = os.path.join(args.outDir, biotype)
         base_file_name = args.gencode
-        mkdir_p(out_path)
         biotype_ids = get_all_ids(args.attributePath, biotype=biotype)
         filter_set = (biotype_ids & gencode_ids) - chr_y_ids
         if len(filter_set) > 200:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty
+            mkdir_p(out_path)
             cov_ident_wrapper(highest_cov_dict, genome_order, out_path, base_file_name, biotype, args.gencode, 
                               filter_set)
-            cat_plot_wrapper(cur, genome_order, out_path, base_file_name, biotype, args.gencode, filter_set)
+            cat_plot_wrapper(cur, highest_cov_dict, genome_order, out_path, base_file_name, biotype, args.gencode, 
+                             filter_set)
             paralogy_plot(cur, genome_order, out_path, base_file_name, biotype, args.gencode, filter_set)
 
 
