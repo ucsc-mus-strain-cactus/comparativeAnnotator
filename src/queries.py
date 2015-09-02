@@ -4,8 +4,7 @@ from lib.general_lib import classesInModule
 
 def inFrameStop():
     detailsFields = ["InFrameStop"]
-    classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "ShortCds", 
-                     "AlignmentPartialMap", "BadFrame", "CdsGap", "UtrGap"]
+    classifyFields = ["AlignmentPartialMap", "UnknownBases", "ShortCds", "BadFrame", "CdsGap", "UtrGap"]
     classifyOperations = ["AND"] * (len(classifyFields) - 1)
     classifyValues = [0] * len(classifyFields)
     return detailsFields, classifyFields, classifyValues, classifyOperations
@@ -20,8 +19,8 @@ def allProblems():
 
 def interestingBiology():
     detailsFields = ["InFrameStop", "CodingMult3Insertions", "CodingMult3Deletions", "StartOutOfFrame", "Nonsynonymous", "FrameShift"]
-    excludedClassifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "UnknownBases", "ScaffoldGap", "ShortCds", 
-                              "AlignmentPartialMap", "BadFrame", "CdsGap", "UtrGap", "UnknownGap", "HasOriginalIntrons"]
+    excludedClassifyFields = ["AlignmentPartialMap", "UnknownBases", "ShortCds", "AlignmentPartialMap", 
+                              "BadFrame", "CdsGap", "UtrGap", "UnknownGap", "HasOriginalIntrons"]
     excludedClassifyValues = [0] * len(excludedClassifyFields)
     excludedClassifyOperations = ["AND"] * len(excludedClassifyFields)
     includedClassifyFields = detailsFields
@@ -37,8 +36,7 @@ def assemblyErrors():
     """
     Looks for assembly errors. Reports transcripts with assembly errors.
     """
-    detailsFields = classifyFields = ["AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap",
-                                      "UnknownBases", "ScaffoldGap", "UnknownGap", "ShortCds",
+    detailsFields = classifyFields = ["AlignmentPartialMap", "UnknownBases", "UnknownGap", "ShortCds",
                                       "AlignmentAbutsUnknownBases"]
     classifyOperations = ["OR"] * (len(classifyFields) - 1)
     classifyValues = [1] * len(classifyFields)

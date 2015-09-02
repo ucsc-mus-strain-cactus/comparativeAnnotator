@@ -21,7 +21,6 @@ class ConstructDatabases(Target):
         self.tmpDir = dataDir
 
     def run(self):
-        logger.info("Merging pickled files into databases")
         classifiers = classesInModule(src.classifiers)
         attributes = classesInModule(src.attributes)
         classifyDb = os.path.join(self.outDir, "classify.db")
