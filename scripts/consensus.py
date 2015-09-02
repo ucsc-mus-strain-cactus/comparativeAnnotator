@@ -244,7 +244,7 @@ def make_coding_transcript_plot(binned_transcript_holder, out_path, out_name, ge
         bins = binned_transcript_holder[g]['protein_coding']
         coding_metrics[g] = make_counts_frequency(make_tx_counts_dict(bins, filter_set=ens_ids))
     categories = zip(*coding_metrics[g])[0]
-    results = [[g, zip(*coding_metrics[g])[1], zip(*metrics[g])[2]] for g in coding_metrics]
+    results = [[g, zip(*coding_metrics[g])[1], zip(*coding_metrics[g])[2]] for g in coding_metrics]
     stacked_barplot(results, categories, out_path, out_name, title_string, color_palette=paired_palette)
 
 

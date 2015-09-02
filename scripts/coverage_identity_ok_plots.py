@@ -10,14 +10,11 @@ def parse_args():
     parser.add_argument("--comparativeAnnotationDir", required=True, help="directory containing databases")
     parser.add_argument("--annotationGp", type=str, required=True, help="annotation genePred")
     parser.add_argument("--gencode", type=str, required=True, help="current gencode set being analyzed")
-    parser.add_argument("--biotypes", nargs="+", default=["protein_coding", "lincRNA", "miRNA", "snoRNA", "snRNA", 
-                                                          "processed_pseudogene", "pseudogene", 
-                                                          "unprocessed_pseudogene"])
     parser.add_argument("--attributePath", type=str, required=True, help="attribute tsv file")
     return parser.parse_args()
 
 
-# Hard coded bins used for plots
+# Hard coded bins used for plots.
 paralogy_bins = [0, 1, 2, 3, 4, float('inf')]
 identity_bins = [0, 0.0001, 0.995, 0.998, 0.99999999, 1.0]
 coverage_bins = [0, 0.0001, 0.8, 0.95, 0.99999999, 1.0]
@@ -147,12 +144,12 @@ def main():
     chr_y_ids = gp_chrom_filter(args.annotationGp)
     # genome_order = find_genome_order(highest_cov_dict, gencode_ids)
     genome_order = hard_coded_genome_order
-    for biotype in args.biotypes:
-        out_path = os.path.join(args.outDir, biotype)
-        base_file_name = args.gencode
+    for biotype in get_all_biotypes(args.attributePath):
         biotype_ids = get_all_ids(args.attributePath, biotype=biotype)
         filter_set = (biotype_ids & gencode_ids) - chr_y_ids
         if len(filter_set) > 200:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty
+            base_file_name = args.gencode
+            out_path = os.path.join(args.outDir, biotype)
             mkdir_p(out_path)
             cov_ident_wrapper(highest_cov_dict, genome_order, out_path, base_file_name, biotype, args.gencode, 
                               filter_set)
