@@ -8,7 +8,7 @@ import numpy as np
 from collections import defaultdict, Counter, OrderedDict
 from lib.psl_lib import removeAlignmentNumber, removeAugustusAlignmentNumber
 from lib.sqlite_lib import attachDatabase
-from lib.general_lib import mkdir_p, DefaultOrderedDict, convert_camel_case
+from lib.general_lib import mkdir_p, DefaultOrderedDict
 
 import matplotlib
 matplotlib.use('Agg')
