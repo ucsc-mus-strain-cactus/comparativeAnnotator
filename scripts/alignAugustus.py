@@ -1,11 +1,12 @@
+import os
+import argparse
+import shutil
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from lib.psl_lib import PslRow, removeAugustusAlignmentNumber, removeAlignmentNumber
 from sonLib.bioio import fastaRead, fastaWrite, popenCatch, system, getRandomAlphaNumericString
 from pyfaidx import Fasta
 from lib.general_lib import formatRatio, mkdir_p
-import os
-import argparse
 
 
 def coverage(p_list):
@@ -90,7 +91,7 @@ def main():
                                                  args.outDir))).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
-    system("rm -rf {}".format(os.path.join(args.outDir, "tmp")))
+    shutil.rmtree(os.path.join(args.outDir, "tmp"))
 
 
 if __name__ == '__main__':

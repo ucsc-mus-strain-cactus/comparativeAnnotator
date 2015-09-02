@@ -144,6 +144,7 @@ def main():
     for genome in args.genomes:
         highest_cov_dict[genome] = highest_cov_aln(cur, genome)
     gencode_ids = get_gp_ids(args.annotationGp)
+    chr_y_ids = gp_chrom_filter(args.annotationGp)
     # genome_order = find_genome_order(highest_cov_dict, gencode_ids)
     genome_order = hard_coded_genome_order
     for biotype in args.biotypes:
@@ -151,7 +152,7 @@ def main():
         base_file_name = args.gencode
         mkdir_p(out_path)
         biotype_ids = get_all_ids(args.attributePath, biotype=biotype)
-        filter_set = biotype_ids & gencode_ids
+        filter_set = (biotype_ids & gencode_ids) - chr_y_ids
         if len(filter_set) > 200:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty
             cov_ident_wrapper(highest_cov_dict, genome_order, out_path, base_file_name, biotype, args.gencode, 
                               filter_set)

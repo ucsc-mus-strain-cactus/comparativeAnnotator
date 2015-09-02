@@ -300,6 +300,7 @@ def main():
     biotypes = get_all_biotypes(args.attributePath)
     gene_map = get_gene_map(args.attributePath)
     gene_biotype_map = get_gene_biotype_map(args.attributePath)
+    chr_y_ids = gp_chrom_filter(args.compGp)
     sorted_genomes = sorted(args.genomes)
     sorted_tm_gps = sorted(args.tmGps)
     sorted_aug_gps = sorted(args.augGps)
@@ -317,7 +318,7 @@ def main():
         noncoding_ok = get_all_ok(cur, genome, tm_noncoding_classifiers)
         gps = load_gps([tm_gp, aug_gp])
         for biotype in biotypes:
-            ens_ids = get_all_ids(args.attributePath, biotype=biotype)
+            ens_ids = get_all_ids(args.attributePath, biotype=biotype) - chr_y_ids  # filter out chrY
             reverse_name_map = get_reverse_name_map(cur, genome, whitelist=ens_ids, has_augustus=True)
             stats_dict = merge_stats(cur, args.statsDir, genome)
             if biotype == "protein_coding": 
