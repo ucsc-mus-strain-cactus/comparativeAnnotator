@@ -302,13 +302,16 @@ def base_barplot(max_y_value, names, out_path, file_name, title_string, border=T
     return ax, fig, pdf
 
 
-def barplot(results, out_path, file_name, title_string, color="#0072b2", border=True, add_labels=True):
+def barplot(results, out_path, file_name, title_string, color="#0072b2", border=True, add_labels=True, adjust_y=True):
     """
     Boilerplate code that will produce a unstacked barplot. Expects results to be a list of lists in the form
     [[name1, value1], [name2, value2]]. The values should be normalized between 0 and 100.
     """
     names, values, raw_values = zip(*results)
-    max_y_value = math.ceil(max(values) / 10.0) * 10
+    if adjust_y is True:
+        max_y_value = math.ceil(max(values) / 10.0) * 10
+    else:
+        max_y_value = 100.0
     ax, fig, pdf = base_barplot(max_y_value, names, out_path, file_name, title_string, border=border, has_legend=False)
     bars = ax.bar(range(len(names)), values, bar_width, color=color)
     if add_labels is True:

@@ -6,7 +6,7 @@ from src.queries import assemblyErrors, alignmentErrors
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--genomes", type=str, nargs="+", required=True, help="genomes in this comparison")
-    parser.add_argument("--outDir", type=DirType, required=True, help="output directory")
+    parser.add_argument("--outDir", required=True, help="output directory")
     parser.add_argument("--comparativeAnnotationDir", required=True, help="directory containing databases")
     parser.add_argument("--annotationGp", type=str, required=True, help="annotation genePred")
     parser.add_argument("--gencode", type=str, required=True, help="current gencode set being analyzed")
@@ -32,10 +32,10 @@ def highest_cov_aln(cur, genome):
     combined_covs = defaultdict(list)
     for aln_id, ident, cov in tm_stats.itervalues():
         tx_id = strip_alignment_numbers(aln_id)
-        combined_covs[tx_id].append([ident, cov])
+        combined_covs[tx_id].append([aln_id, ident, cov])
     best_cov = {}
     for tx_id, vals in combined_covs.iteritems():
-        best_cov[tx_id] = sorted(vals, key=lambda x: -x[1])[0]
+        best_cov[tx_id] = sorted(vals, key=lambda x: -x[2])[0]
     return best_cov
 
 
@@ -96,29 +96,30 @@ def paralogy_plot(cur, genome_order, out_path, base_file_name, biotype, gencode,
     stacked_barplot(results, legend_labels, out_path, file_name, title_string)
 
 
-def categorized_plot(cur, genome_order, out_path, file_name, biotype, gencode, filter_set, cat_fn):
+def categorized_plot(cur, highest_cov_dict, genome_order, out_path, file_name, biotype, gencode, filter_set, cat_fn):
     results = []
     for g in genome_order:
+        best_ids = set(zip(*highest_cov_dict[g].itervalues())[0])
         r = number_categorized(cur, g, cat_fn, biotype=biotype)
-        raw = len({x for x in r if strip_alignment_numbers(x) in filter_set})
+        raw = len({x for x in r if strip_alignment_numbers(x) in filter_set and x in best_ids})
         norm = raw / (0.01 * len(filter_set))
         results.append([g, norm, raw])
     title_string = "Proportion of {:,} {} transcripts in {}\ncategorized as {}".format(len(filter_set), biotype, 
                                                                                        gencode, cat_fn.__name__)
-    barplot(results, out_path, file_name, title_string)
+    barplot(results, out_path, file_name, title_string, adjust_y=False)
 
 
-def cat_plot_wrapper(cur, genome_order, out_path, base_file_name, biotype, gencode, filter_set):
+def cat_plot_wrapper(cur, highest_cov_dict, genome_order, out_path, base_file_name, biotype, gencode, filter_set):
     for cat_fn in [assemblyErrors, alignmentErrors]:
         file_name = "{}_{}".format(base_file_name, cat_fn.__name__)
-        categorized_plot(cur, genome_order, out_path, file_name, biotype, gencode, filter_set, cat_fn)
+        categorized_plot(cur, highest_cov_dict, genome_order, out_path, file_name, biotype, gencode, filter_set, cat_fn)
 
 
 def metrics_plot(highest_cov_dict, bins, genome_order, out_path, file_name, biotype, gencode, filter_set, analysis):
     results = []
     for g in genome_order:
         mets = highest_cov_dict[g]
-        mets = [eval(analysis) for tx_id, (identity, coverage) in mets.iteritems() if tx_id in filter_set]
+        mets = [eval(analysis) for tx_id, (aln_id, identity, coverage) in mets.iteritems() if tx_id in filter_set]
         mets.extend([0] * (len(filter_set) - len(mets)))
         results.append(make_hist(mets, bins, len(filter_set), g, reverse=True))
     title_string = "transMap alignment {} breakdown for\n{:,} {} transcripts in {}".format(analysis, len(filter_set),
@@ -136,12 +137,11 @@ def cov_ident_wrapper(highest_cov_dict, genome_order, out_path, base_file_name, 
         metrics_plot(highest_cov_dict, bins, genome_order, out_path, file_name, biotype, gencode, filter_set, analysis)
 
 
-
 def main():
     args = parse_args()
     con, cur = attach_databases(args.comparativeAnnotationDir)
     highest_cov_dict = {}
-    for genome in genomes:
+    for genome in args.genomes:
         highest_cov_dict[genome] = highest_cov_aln(cur, genome)
     gencode_ids = get_gp_ids(args.annotationGp)
     # genome_order = find_genome_order(highest_cov_dict, gencode_ids)
@@ -153,9 +153,10 @@ def main():
         biotype_ids = get_all_ids(args.attributePath, biotype=biotype)
         filter_set = biotype_ids & gencode_ids
         if len(filter_set) > 200:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty
-            cov_ident_wrapper(highest_cov_dict, genome_order, out_path, base_file_name, biotype, gencode, filter_set)
-            cat_plot_wrapper(cur, genome_order, out_path, base_file_name, biotype, gencode, filter_set)
-            paralogy_plot(cur, genome_order, out_path, base_file_name, biotype, gencode, filter_set)
+            cov_ident_wrapper(highest_cov_dict, genome_order, out_path, base_file_name, biotype, args.gencode, 
+                              filter_set)
+            cat_plot_wrapper(cur, genome_order, out_path, base_file_name, biotype, args.gencode, filter_set)
+            paralogy_plot(cur, genome_order, out_path, base_file_name, biotype, args.gencode, filter_set)
 
 
 if __name__ == "__main__":
