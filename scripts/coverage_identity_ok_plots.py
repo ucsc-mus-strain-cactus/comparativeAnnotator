@@ -118,7 +118,8 @@ def metrics_plot(highest_cov_dict, bins, genome_order, out_path, file_name, biot
         mets = highest_cov_dict[g]
         mets = [eval(analysis) for tx_id, (aln_id, identity, coverage) in mets.iteritems() if tx_id in filter_set]
         mets.extend([0] * (len(filter_set) - len(mets)))
-        results.append(make_hist(mets, bins, len(filter_set), g, reverse=True))
+        g, norm, raw = make_hist(mets, bins, len(filter_set), g, reverse=True)
+        results.append([g, norm])
     title_string = "transMap alignment {} breakdown for\n{:,} {} transcripts in {}".format(analysis, len(filter_set),
                                                                                                  biotype, gencode)
     legend_labels = ["= {0:.1f}%".format(100 * bins[-1])]

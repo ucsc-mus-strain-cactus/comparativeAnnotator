@@ -4,6 +4,7 @@ from scripts.coverage_identity_ok_plots import *
 import pandas as pd
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
+from sonLib.bioio import system, getRandomAlphaNumericString
 
 
 tm_grouped = {"CodingIndels": ["CodingInsertions", "CodingDeletions", "CodingMult3Deletions", "CodingMult3Insertions"],
@@ -103,14 +104,15 @@ def main_fn(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, biot
         else:
             munged, stats = munge_data(sql_data, filter_set, pre_cluster=False, coding=coding)
         mkdir_p(out_path)
-        barplot_title = base_barplot_title.format(genome, len(filter_set), percent_ok, gencode, biotype)
+        barplot_title = base_barplot_title.format(genome, len(filter_set), percent_not_ok, gencode, biotype)
         out_barplot_file = os.path.join(out_path, "barplot{}_{}".format(genome, biotype))
         barplot(stats, out_path, out_barplot_file, barplot_title)
-        tmp_path = os.path.join(target.getLocallTempDir(), "tmp.txt")
+        # TODO: why can't I use local temp? R fails inexplicably
+        tmp_path = os.path.join(target.getGlobalTempDir(), "{}.txt".format(getRandomAlphaNumericString()))
         munged.to_csv(tmp_path)
         out_cluster_file = os.path.join(out_path, "clustering_{}_{}".format(genome, biotype))
         # TODO: why do we have to use my R? 
-        system("Rscript {}/scripts/cluster.R {} {} {} {} {} {} {} {}".format(os.getcwd(), tmp_path, base_clust_title, 
+        system("/cluster/home/ifiddes/bin/Rscript {}/scripts/cluster.R {} {} {} {} {} {} {} {}".format(os.getcwd(), tmp_path, base_clust_title, 
                                                                        genome, len(filter_set), percent_not_ok, gencode, 
                                                                        biotype, out_cluster_file))
 
@@ -118,7 +120,7 @@ def main_fn(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, biot
 def wrapper(target, comp_ann_path, attr_path, ref_gp_path, gencode, genomes, biotypes, base_out_path):
     for genome in genomes:
         for biotype in biotypes:
-            for method in ["full"]:#, "pre_cluster"]:
+            for method in ["full", "pre_cluster"]:
                 target.addChildTargetFn(main_fn, args=(comp_ann_path, attr_path, ref_gp_path, gencode, genome, biotype,
                                                    base_out_path, method))
 
