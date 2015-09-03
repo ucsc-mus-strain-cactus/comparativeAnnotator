@@ -331,7 +331,7 @@ def main():
         write_consensus(consensus, gene_map, consensus_path)
     make_coding_transcript_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, args.attributePath)
     for biotype in args.plotBiotypes:
-        ok_gene_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, genome_order, biotype)
+        ok_gene_by_biotype(binned_transcript_holder, plots_path, attr_path, gene_map, genome_order, biotype)
 
 
 if __name__ == "__main__":

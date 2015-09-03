@@ -337,6 +337,7 @@ def barplot(results, out_path, file_name, title_string, color="#0072b2", border=
         adjust_x_labels(ax, names)
     fig.savefig(pdf, format='pdf')
     pdf.close()
+    plt.close()
 
 
 def stacked_barplot(results, legend_labels, out_path, file_name, title_string, color_palette=palette, border=True):
@@ -358,3 +359,4 @@ def stacked_barplot(results, legend_labels, out_path, file_name, title_string, c
                         frameon=True, title="Category")
     fig.savefig(pdf, format='pdf')
     pdf.close()
+    plt.close()
