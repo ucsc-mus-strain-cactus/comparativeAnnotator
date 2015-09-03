@@ -86,7 +86,8 @@ def paralogy_plot(cur, genome_order, out_path, base_file_name, biotype, gencode,
     for g in genome_order:
         p = paralogy(cur, g)
         p = [p.get(x, 0) for x in filter_set]
-        results.append(make_hist(p, paralogy_bins, len(filter_set), g))
+        g, norm, raw = make_hist(p, paralogy_bins, len(filter_set), g)
+        results.append([g, norm])
     title_string = "Proportion of {:,} {} transcripts in {}\nthat have multiple alignments".format(len(filter_set), 
                                                                                                    biotype, gencode)
     legend_labels = ["= {}".format(x) for x in paralogy_bins[:-2]] + [u"\u2265 {}".format(paralogy_bins[-2])] 
@@ -142,9 +143,9 @@ def num_ok(highest_cov_dict, cur, genome_order, out_path, base_file_name, biotyp
     else:
         classifiers = tm_noncoding_classifiers
     results = []
-    for genome in genomes:
+    for genome in genome_order:
         tm_ok = transmap_ok(cur, genome, classifiers)
-        best_ids = set(zip(*highest_cov_dict[g].itervalues())[0])
+        best_ids = set(zip(*highest_cov_dict[genome].itervalues())[0])
         raw = len({x for x in tm_ok if strip_alignment_numbers(x) in filter_set and x in best_ids})
         norm = raw / (0.01 * len(filter_set))
         results.append([genome, norm, raw])
@@ -175,7 +176,7 @@ def main():
             cat_plot_wrapper(cur, highest_cov_dict, genome_order, out_path, base_file_name, biotype, args.gencode, 
                              filter_set)
             paralogy_plot(cur, genome_order, out_path, base_file_name, biotype, args.gencode, filter_set)
-            num_ok(highest_cov_dict, cur, genome_order, out_path, base_file_name, biotype, gencode, filter_set)
+            num_ok(highest_cov_dict, cur, genome_order, out_path, base_file_name, biotype, args.gencode, filter_set)
 
 
 if __name__ == "__main__":

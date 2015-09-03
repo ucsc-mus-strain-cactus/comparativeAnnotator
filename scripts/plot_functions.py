@@ -22,7 +22,7 @@ import matplotlib.backends.backend_pdf as pltBack
 
 # this genetic distance is from Joel. There are functions to derive it, but this makes it consistent across plots.
 hard_coded_genome_order = ['C57B6NJ', 'NZOHlLtJ', '129S1', 'FVBNJ', 'NODShiLtJ', 'LPJ', 'AJ', 'AKRJ', 'BALBcJ', 'DBA2J',
-                           'WSBEiJ', 'C3HHeJ', 'CBAJ', 'CASTEiJ', 'PWKPhJ', 'SPRETEiJ', 'CAROLIEiJ', 'PAHARIEiJ']
+                            'C3HHeJ', 'CBAJ', 'WSBEiJ', 'CASTEiJ', 'PWKPhJ', 'SPRETEiJ', 'CAROLIEiJ', 'PAHARIEiJ']
 
 # these classifiers define OK for coding transcripts
 tm_coding_classifiers = ["CodingInsertions", "CodingDeletions", "CodingMult3Deletions", "CodingMult3Insertions", 
