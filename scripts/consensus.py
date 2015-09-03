@@ -172,12 +172,17 @@ def consensus_gene_set(binned_transcripts, stats_dict, gps, gene_map, gene_bioty
     gene_cov_cutoff to be the one transcript to best represent this gene.
     """
     consensus = []
+    best_ids = set()
     for b in ["bestOk", "bestNotOk"]:
+        best_ids |= set(binned_transcripts[b])
         for aln_id in binned_transcripts[b]:
             consensus.append(gps[aln_id])
     discarded_genes = defaultdict(list)
+    genes_we_have = {gene_map[strip_alignment_numbers(x)] for x in best_ids}
     for x in binned_transcripts["discarded"]:
-        discarded_genes[gene_map[strip_alignment_numbers(x)]].append(x)
+        gene = gene_map[strip_alignment_numbers(x)]
+        if gene not in genes_we_have:
+            discarded_genes[gene].append(x)
     for gene, transcripts in discarded_genes.iteritems():
         stats = [stats_dict[x] for x in transcripts if stats_dict[x][1] != None and stats_dict[x][2] > gene_cov_cutoff]
         if len(stats) > 0:
@@ -331,7 +336,7 @@ def main():
         write_consensus(consensus, gene_map, consensus_path)
     make_coding_transcript_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, args.attributePath)
     for biotype in args.plotBiotypes:
-        ok_gene_by_biotype(binned_transcript_holder, plots_path, attr_path, gene_map, genome_order, biotype)
+        ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, genome_order, biotype)
 
 
 if __name__ == "__main__":
