@@ -37,8 +37,8 @@ tm_noncoding_classifiers = ["AlignmentPartialMap", "UtrUnknownSplice", "UtrGap",
 
 # used for the plots
 width = 8.0
-height = 4.0
-bar_width = 0.4
+height = 5.0
+bar_width = 0.45
 # paired_palette has two parallel color spectrums and black as the outgroup color
 paired_palette = ["#df65b0", "#dd1c77", "#980043", "#a1dab4", "#41b6c4", "#2c7fb8", "#252525"]
 # palette is the seaborn colorbind palette
@@ -256,17 +256,17 @@ def establish_axes(fig, width, height, border=True, has_legend=True):
     axLeft = 1.1 / width
     if border is True:
         if has_legend is True:
-            axRight = 0.98 - (1.5 / width)
+            axRight = 1.0 - (1.5 / width)
         else:
-            axRight = 0.98 - (1.15 / width)
+            axRight = 1.0 - (1.15 / width)
     else:
         if has_legend is True:
             axRight = 1.1 - (1.5 / width)
         else:
             axRight = 1.1 - (1.15 / width)
     axWidth = axRight - axLeft
-    axBottom = 0.9 / height
-    axTop = 0.9 - (0.4 / height)
+    axBottom = 1.4 / height
+    axTop = 0.95 - (0.4 / height)
     axHeight = axTop - axBottom
     ax = fig.add_axes([axLeft, axBottom, axWidth, axHeight])
     ax.yaxis.set_major_locator(pylab.NullLocator())
@@ -283,11 +283,25 @@ def establish_axes(fig, width, height, border=True, has_legend=True):
     return ax
 
 
+def adjust_x_labels(ax, names, cutoff1=10, cutoff2=17, cutoff3=25):
+    """
+    If your xaxis labels have a variable amount of text, this can adjust them individually
+    """
+    for n, t in itertools.izip(*[names, ax.xaxis.get_major_ticks()]):
+        if cutoff2 > len(n) > cutoff1:
+            t.label1.set_fontsize(8)
+        elif cutoff3 > len(n) >= cutoff2:
+            t.label1.set_fontsize(7)
+        elif len(n) >= cutoff2:
+            t.label1.set_fontsize(6)
+
+
 def base_barplot(max_y_value, names, out_path, file_name, title_string, border=True, has_legend=True):
     """
     Used to initialize either a stacked or unstacked barplot. Expects the max y value to be somewhere in the 10-100
     range or things will get weird.
     """
+    assert 10 <= max_y_value <= 100, (max_y_value, names, out_path, file_name, title_string)
     fig, pdf = init_image(out_path, file_name, width, height)
     ax = establish_axes(fig, width, height, border, has_legend)
     plt.text(0.5, 1.08, title_string, horizontalalignment='center', fontsize=12, transform=ax.transAxes)
@@ -298,7 +312,7 @@ def base_barplot(max_y_value, names, out_path, file_name, title_string, border=T
     ax.yaxis.set_ticks(np.arange(0.0, int(max_y_value + 1), max_y_value / 10))
     ax.yaxis.set_ticklabels([str(x) + "%" for x in range(0, int(max_y_value + 1), int(max_y_value / 10))])
     ax.xaxis.set_ticks(np.arange(0, len(names)) + bar_width / 2.0)
-    ax.xaxis.set_ticklabels(names, rotation=65)
+    ax.xaxis.set_ticklabels(names, rotation=60)
     return ax, fig, pdf
 
 
@@ -318,6 +332,8 @@ def barplot(results, out_path, file_name, title_string, color="#0072b2", border=
         for i, rect in enumerate(bars):
                 ax.text(rect.get_x() + bar_width / 2.0, 0.0 + rect.get_height(), raw_values[i], ha='center', 
                         va='bottom', size=6)
+    if max(len(x) for x in names) > 15:
+        adjust_x_labels(ax, names)
     fig.savefig(pdf, format='pdf')
     pdf.close()
 
