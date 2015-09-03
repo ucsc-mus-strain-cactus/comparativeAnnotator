@@ -4,7 +4,7 @@ from scripts.coverage_identity_ok_plots import *
 import pandas as pd
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
-from sonLib.bioio import system, getRandomAlphaNumericString
+
 
 tm_grouped = {"CodingIndels": ["CodingInsertions", "CodingDeletions", "CodingMult3Deletions", "CodingMult3Insertions"],
               "AlignmentGaps": ["CdsGap", "CdsMult3Gap", "UtrGap"],
@@ -32,7 +32,7 @@ def load_data(con, genome, classifiers):
     return pd.read_sql_query(base_query.format(genome), con, index_col="AlignmentId")
 
 
-def drop_low_sums(m, s, cutoff=0.025):
+def drop_low_sums(m, s, cutoff=2.0):
     """
     Drops any classifiers with below cutoff classifications. Cutoff is a percentage of total.
     """
@@ -84,8 +84,8 @@ def find_aln_id_set(cur, attr_path, ref_gp_path, genome, biotype, classifiers):
 
 def main_fn(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, biotype, base_out_path, method):
     base_clust_title = "Hierarchical_clustering_of_transMap_classifiers"
-    barplot_title = ("Proportion of transcripts that fail transMap classifiers\ngenome: {}.\t{:,} ({:0.2f}%) not OK "
-                    "transcripts \nGencode set: {}\tBiotype: {}")
+    base_barplot_title = ("Proportion of transcripts that fail transMap classifiers\ngenome: {}.    {:,} ({:0.2f}%) not OK "
+                    "transcripts \nGencode set: {}    Biotype: {}")
     out_path = os.path.join(base_out_path, biotype, "clustering", method, genome)
     con, cur = attach_databases(comp_ann_path)
     if biotype == "protein_coding":
@@ -97,22 +97,21 @@ def main_fn(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, biot
     sql_data = load_data(con, genome, classifiers)
     filter_set, num_biotype = find_aln_id_set(cur, attr_path, ref_gp_path, genome, biotype, classifiers)
     if num_biotype > 25 and len(filter_set) > 10:
-        percent_ok = round(100.0 * len(filter_set) / num_biotype, 2)
+        percent_not_ok = round(100.0 * len(filter_set) / num_biotype, 2)
         if method == "pre_cluster":
             munged, stats = munge_data(sql_data, filter_set, pre_cluster=True, coding=coding)
         else:
             munged, stats = munge_data(sql_data, filter_set, pre_cluster=False, coding=coding)
         mkdir_p(out_path)
-        barplot_title = barplot_title.format(genome, len(filter_set), percent_ok, gencode, biotype)
-        out_barplot_file = os.path.join(out_path, "barplot{}_{}.pdf".format(genome, biotype))
+        barplot_title = base_barplot_title.format(genome, len(filter_set), percent_ok, gencode, biotype)
+        out_barplot_file = os.path.join(out_path, "barplot{}_{}".format(genome, biotype))
         barplot(stats, out_path, out_barplot_file, barplot_title)
-        q = getRandomAlphaNumericString(10)
-        tmp_path = os.path.join(target.getGlobalTempDir(), "{}_tmp.txt".format(q)) # TODO: make this local
+        tmp_path = os.path.join(target.getLocallTempDir(), "tmp.txt")
         munged.to_csv(tmp_path)
-        out_cluster_file = os.path.join(out_path, "clustering_{}_{}.pdf".format(genome, biotype))
+        out_cluster_file = os.path.join(out_path, "clustering_{}_{}".format(genome, biotype))
         # TODO: why do we have to use my R? 
         system("Rscript {}/scripts/cluster.R {} {} {} {} {} {} {} {}".format(os.getcwd(), tmp_path, base_clust_title, 
-                                                                       genome, len(filter_set), percent_ok, gencode, 
+                                                                       genome, len(filter_set), percent_not_ok, gencode, 
                                                                        biotype, out_cluster_file))
 
 
@@ -129,7 +128,8 @@ def main():
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
     #biotypes = get_all_biotypes(args.attributePath)
-    biotypes = ["protein_coding", "miRNA", "snoRNA", "snRNA", "lincRNA", "processed_pseudogenes", "unprocessed_pseudogenes", "pseudogenes"]
+    biotypes = ["protein_coding", "miRNA", "snoRNA", "snRNA", "lincRNA", "processed_pseudogenes", "unprocessed_pseudogenes", 
+                "pseudogenes"]
     job_args = (args.comparativeAnnotationDir, args.attributePath, args.annotationGp, args.gencode, args.genomes,
                 biotypes, args.outDir)
     i = Stack(Target.makeTargetFn(wrapper, args=job_args)).startJobTree(args)

@@ -244,7 +244,7 @@ def make_coding_transcript_plot(binned_transcript_holder, out_path, out_name, ge
         bins = binned_transcript_holder[g]['protein_coding']
         coding_metrics[g] = make_counts_frequency(make_tx_counts_dict(bins, filter_set=ens_ids))
     categories = zip(*coding_metrics[g])[0]
-    results = [[g, zip(*coding_metrics[g])[1], zip(*coding_metrics[g])[2]] for g in coding_metrics]
+    results = [[g, zip(*coding_metrics[g])[1]] for g in coding_metrics]
     stacked_barplot(results, categories, out_path, out_name, title_string, color_palette=paired_palette)
 
 
@@ -269,7 +269,6 @@ def make_coding_transcript_plots(binned_transcript_holder, out_path, comp_gp, ba
         title_string = base_title_string.format(len(ids), title_string_dict[cat].format("Transcript"))
         out_name = file_name_dict[cat]
         make_coding_transcript_plot(binned_transcript_holder, out_path, out_name, genome_order, ids, title_string)
-    return genome_order
 
 
 def calculate_gene_ok_metrics(bins, gene_map, gene_ids):
@@ -330,8 +329,7 @@ def main():
             binned_transcript_holder[genome][biotype] = binned_transcripts
         consensus_path = os.path.join(consensus_base_path, genome + "consensusGeneSet.gp")
         write_consensus(consensus, gene_map, consensus_path)
-    genome_order = make_coding_transcript_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, 
-                                                args.attributePath)
+    make_coding_transcript_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, args.attributePath)
     for biotype in args.plotBiotypes:
         ok_gene_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, genome_order, biotype)
 

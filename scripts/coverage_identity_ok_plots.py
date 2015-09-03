@@ -134,6 +134,24 @@ def cov_ident_wrapper(highest_cov_dict, genome_order, out_path, base_file_name, 
         metrics_plot(highest_cov_dict, bins, genome_order, out_path, file_name, biotype, gencode, filter_set, analysis)
 
 
+def num_ok(highest_cov_dict, cur, genome_order, out_path, base_file_name, biotype, gencode, filter_set):
+    file_name = "{}_numOK".format(base_file_name)
+    if biotype == 'protein_coding':
+        classifiers = tm_coding_classifiers
+    else:
+        classifiers = tm_noncoding_classifiers
+    results = []
+    for genome in genomes:
+        tm_ok = transmap_ok(cur, genome, classifiers)
+        best_ids = set(zip(*highest_cov_dict[g].itervalues())[0])
+        raw = len({x for x in tm_ok if strip_alignment_numbers(x) in filter_set and x in best_ids})
+        norm = raw / (0.01 * len(filter_set))
+        results.append([genome, norm, raw])
+    title_string = "Proportion of {:,} {} transcripts in {}\ncategorized as OK".format(len(filter_set), biotype, 
+                                                                                       gencode)
+    barplot(results, out_path, file_name, title_string, adjust_y=False)
+
+
 def main():
     args = parse_args()
     con, cur = attach_databases(args.comparativeAnnotationDir)
@@ -156,6 +174,7 @@ def main():
             cat_plot_wrapper(cur, highest_cov_dict, genome_order, out_path, base_file_name, biotype, args.gencode, 
                              filter_set)
             paralogy_plot(cur, genome_order, out_path, base_file_name, biotype, args.gencode, filter_set)
+            num_ok(highest_cov_dict, cur, genome_order, out_path, base_file_name, biotype, gencode, filter_set)
 
 
 if __name__ == "__main__":

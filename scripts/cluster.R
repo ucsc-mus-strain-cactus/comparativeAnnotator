@@ -9,12 +9,12 @@ gencode <- args[6]
 biotype <- args[7]
 
 base_title <- gsub("_", " ", base_title)
-title <- paste(base_title, sprintf("\ngenome: %s    %s (%s%%) not OK transcripts\nGencode set: %s    Biotype: %s", genome, num_ok, percent_ok, gencode, biotype))
+title <- paste(base_title, sprintf("\ngenome: %s    %s (%s%%) not OK transcripts\nGencode set: %s    Biotype: %s", genome, num_ok, percent_ok, gencode, biotype), sep="")
 
 
 mat <- sapply(as.data.frame(data), as.logical)
 library(pvclust)
 fit <- pvclust(mat, method.hclust="ward", method.dist="binary")
-pdf(args[8])
+pdf(paste(args[8], ".pdf", sep=""))
 plot(fit, main=title, xlab="Binary clustering (Ward's Method)", ylab="Distance")
 dev.off()

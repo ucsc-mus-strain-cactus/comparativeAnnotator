@@ -36,8 +36,8 @@ tm_noncoding_classifiers = ["AlignmentPartialMap", "UtrUnknownSplice", "UtrGap",
 
 
 # used for the plots
-width = 8.0
-height = 5.0
+width = 9.0
+height = 6.0
 bar_width = 0.45
 # paired_palette has two parallel color spectrums and black as the outgroup color
 paired_palette = ["#df65b0", "#dd1c77", "#980043", "#a1dab4", "#41b6c4", "#2c7fb8", "#252525"]
@@ -239,6 +239,7 @@ def make_counts_frequency(counts):
     tot = sum(counts.values())
     for key, val in counts.iteritems():
         normed[key] = 100.0 * val / tot
+    return [[x, y, counts[x]] for x, y in normed.iteritems()]
     return list(normed.iteritems()), list(counts.iteritems())
 
 
@@ -266,7 +267,7 @@ def establish_axes(fig, width, height, border=True, has_legend=True):
             axRight = 1.1 - (1.15 / width)
     axWidth = axRight - axLeft
     axBottom = 1.4 / height
-    axTop = 0.95 - (0.4 / height)
+    axTop = 0.90 - (0.4 / height)
     axHeight = axTop - axBottom
     ax = fig.add_axes([axLeft, axBottom, axWidth, axHeight])
     ax.yaxis.set_major_locator(pylab.NullLocator())
@@ -344,7 +345,7 @@ def stacked_barplot(results, legend_labels, out_path, file_name, title_string, c
     [[name1, value1], [name2, value2]]. The values should be normalized between 0 and 100. Should be in the same
     order as legend_labels or your legend will be wrong.
     """
-    names, values, raw_values = zip(*results)
+    names, values = zip(*results)
     ax, fig, pdf = base_barplot(100.0, names, out_path, file_name, title_string, border=border, has_legend=True)
     bars = []
     cumulative = np.zeros(len(values))
