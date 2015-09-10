@@ -48,7 +48,7 @@ class BuildTracks(Target):
                         outf.write(record[0] + "\n")
                     else:
                         for x in record[0]:
-                            outf.write(x)+"\n"
+                            outf.write(x)
         return bedPath
 
     def buildBigBed(self, bedPath, sizePath, genome, categoryName):

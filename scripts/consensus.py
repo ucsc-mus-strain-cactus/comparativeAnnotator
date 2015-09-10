@@ -1,4 +1,5 @@
 import argparse
+import random
 from scripts.plot_functions import *
 
 
@@ -87,14 +88,16 @@ def split_alternatives(stats, best_id):
 def analyze_candidates(candidates):
     """
     Analyzes candidate transcripts, finding the winner and splitting the alternatives based on coming from augustus
-    or transMap. If there are multiple equal winners from both transMap and Augustus, reports so.
+    or transMap. If there are multiple equal winners from both transMap and Augustus, reports so. Also, pick one 
+    randomly to not skew towards Augustus
     """
     winner_ids = find_best_aln(candidates)
     if len(winner_ids) > 1:
         is_tie = True
+        winner_id = random.choice(winner_ids)
     else:
         is_tie = False
-    winner_id = winner_ids[0]
+        winner_id = winner_ids[0]
     aug_alts, tm_alts = split_alternatives(candidates, winner_id)
     return winner_id, aug_alts, tm_alts, is_tie
 
@@ -140,11 +143,11 @@ def fix_gene_pred(gp, gene_map):
     """
     gp = sorted([x.split("\t") for x in gp], key=lambda x: [x[1], x[3]])
     fixed = []
-    for i, x in enumerate(gp):
+    for x in gp:
+        x[10] = x[0]  # use unique Aug/TM ID as unique identifier
         tx_id = strip_alignment_numbers(x[0])
         x[0] = tx_id
         gene_id = gene_map[tx_id]
-        x[10] = str(i)
         x[11] = gene_id
         fixed.append(x)
     return ["\t".join(x) for x in fixed]
@@ -336,7 +339,9 @@ def main():
         write_consensus(consensus, gene_map, consensus_path)
     make_coding_transcript_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, args.attributePath)
     for biotype in args.plotBiotypes:
-        ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, genome_order, biotype)
+        # ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, genome_order, biotype)
+        ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, hard_coded_genome_order, 
+                           biotype)
 
 
 if __name__ == "__main__":

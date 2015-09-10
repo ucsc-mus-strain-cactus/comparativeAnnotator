@@ -20,22 +20,6 @@ identity_bins = [0, 0.0001, 0.995, 0.998, 0.99999999, 1.0]
 coverage_bins = [0, 0.0001, 0.8, 0.95, 0.99999999, 1.0]
 
 
-def highest_cov_aln(cur, genome):
-    """
-    Returns the set of alignment IDs that represent the best alignment for each source transcript (that mapped over)
-    Best is defined as highest %COV. Also reports the associated coverage value.
-    """
-    tm_stats = get_tm_stats(cur, genome)  # dictionary mapping each aln_id to [aln_id, %ID, %COV]
-    combined_covs = defaultdict(list)
-    for aln_id, ident, cov in tm_stats.itervalues():
-        tx_id = strip_alignment_numbers(aln_id)
-        combined_covs[tx_id].append([aln_id, ident, cov])
-    best_cov = {}
-    for tx_id, vals in combined_covs.iteritems():
-        best_cov[tx_id] = sorted(vals, key=lambda x: -x[2])[0]
-    return best_cov
-
-
 def paralogy(cur, genome):
     """
     Finds the number of paralogous alignments. This is defined as the number of gene IDs with more than one

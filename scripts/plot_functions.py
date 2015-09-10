@@ -124,6 +124,22 @@ def get_all_ok(cur, genome, tm_classifiers):
     return augustus_ok(cur, genome) | transmap_ok(cur, genome, tm_classifiers)
 
 
+def highest_cov_aln(cur, genome):
+    """
+    Returns the set of alignment IDs that represent the best alignment for each source transcript (that mapped over)
+    Best is defined as highest %COV. Also reports the associated coverage value.
+    """
+    tm_stats = get_tm_stats(cur, genome)  # dictionary mapping each aln_id to [aln_id, %ID, %COV]
+    combined_covs = defaultdict(list)
+    for aln_id, ident, cov in tm_stats.itervalues():
+        tx_id = strip_alignment_numbers(aln_id)
+        combined_covs[tx_id].append([aln_id, ident, cov])
+    best_cov = {}
+    for tx_id, vals in combined_covs.iteritems():
+        best_cov[tx_id] = sorted(vals, key=lambda x: -x[2])[0]
+    return best_cov
+
+
 def get_all_ids(attr_path, biotype=None, filter_set=set(), id_type="Transcript"):
     """
     returns the set of ensembl IDs in the entire Gencode database pulled from the attribute
