@@ -297,7 +297,7 @@ def ok_gene_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, 
         bins = binned_transcript_holder[g][biotype]
         metrics[g] = calculate_gene_ok_metrics(bins, gene_map, biotype_ids)
     categories = zip(*metrics[g])[0]
-    results = [[g, zip(*metrics[g])[1], zip(*metrics[g])[2]] for g in metrics]
+    results = [[g, zip(*metrics[g])[1]] for g in metrics]
     stacked_barplot(results, categories, out_path, file_name, title_string)
 
 

@@ -814,54 +814,6 @@ class ChromosomeInterval(object):
     """
     Represents an interval of a chromosome. BED coordinates, strand is True,
     False or None (if no strand)
-    """
-    __slots__ = ('chromosome', 'start', 'stop', 'strand')    # conserve memory
-
-    def __init__(self, chromosome, start, stop, strand):
-        self.chromosome = str(chromosome)
-        self.start = int(start)    # 0 based
-        self.stop = int(stop)    # exclusive
-        assert(strand in [True, False, None])
-        self.strand = strand    # True or False
-
-    def __eq__(self, other):
-        return (self.chromosome == other.chromosome and self.start == other.start and self.stop == other.stop and
-                self.strand == other.strand)
-
-    def __cmp__(self, cI):
-        return cmp((self.chromosome, self.start, self.stop, self.strand), (cI.chromosome, cI.start, cI.stop, cI.strand))
-
-    def __len__(self):
-        return self.stop - self.start
-
-    def size(self):
-        return self.stop - self.start
-
-    def getBed(self, rgb, name):
-        """
-        Returns BED tokens representing this interval. Requires a name and a rgb value. BED is BED12.
-        """
-        return [self.chromosome, self.start, self.stop, name, 0, convertStrand(self.strand), self.start, self.stop,
-                rgb, 1, len(self), 0]
-
-    def getSequence(self, seqDict, strand=True):
-        """
-        Returns the sequence for this intron in transcript orientation (reverse complement as necessary)
-        If strand is False, returns the + strand regardless of transcript orientation.
-        """
-        if strand is False:
-            return seqDict[self.chromosome][self.start:self.stop]
-        if self.strand is True:
-            return seqDict[self.chromosome][self.start:self.stop]
-        if self.strand is False:
-            return reverseComplement(seqDict[self.chromosome][self.start:self.stop])
-        assert False
-
-
-class ChromosomeInterval(object):
-    """
-    Represents an interval of a chromosome. BED coordinates, strand is True,
-    False or None (if no strand)
     interval arithmetic adapted from http://code.activestate.com/recipes/576816-interval/
     """
     __slots__ = ('chromosome', 'start', 'stop', 'strand')    # conserve memory
