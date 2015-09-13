@@ -240,6 +240,7 @@ def attach_databases(comp_ann_path, has_augustus=False):
     con = sql.connect(os.path.join(comp_ann_path, "classify.db"))
     cur = con.cursor()
     attachDatabase(con, os.path.join(comp_ann_path, "attributes.db"), "attributes")
+    attachDatabase(con, os.path.join(comp_ann_path, "details.db"), "details")
     if has_augustus:
         assert os.path.exists(os.path.join(comp_ann_path, "augustusClassify.db"))
         attachDatabase(con, os.path.join(comp_ann_path, "augustusClassify.db"), "augustus")
