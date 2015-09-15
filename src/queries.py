@@ -37,7 +37,7 @@ def assemblyErrors():
     Looks for assembly errors. Reports transcripts with assembly errors.
     """
     detailsFields = classifyFields = ["AlignmentPartialMap", "UnknownBases", "UnknownGap", "ShortCds",
-                                      "AlignmentAbutsUnknownBases"]
+                                      "AlignmentAbutsUnknownBases", "AlignmentAbutsRight", "AlignmentAbutsLeft"]
     classifyOperations = ["OR"] * (len(classifyFields) - 1)
     classifyValues = [1] * len(classifyFields)
     return detailsFields, classifyFields, classifyValues, classifyOperations

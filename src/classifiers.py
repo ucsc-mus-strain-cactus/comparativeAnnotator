@@ -10,6 +10,72 @@ from src.helperFunctions import deletionIterator, insertionIterator, frameShiftI
     compareIntronToReference
 
 
+class AlignmentAbutsLeft(AbstractClassifier):
+    """
+    Does the alignment extend off the 3' end of a scaffold?
+    (regardless of transcript orientation)
+    If so, reports BED of entire transcript
+    aligned: #  unaligned: -  whatever: .  edge: |
+             query  |---#####....
+             target    |#####....
+    Doesn't need a check for pre-existing because that doesn't matter.
+    """
+    @property
+    def rgb(self):
+        return self.colors["assembly"]
+
+    def run(self):
+        self.getAlignmentDict()
+        self.getTranscriptDict()
+        detailsDict = {}
+        classifyDict = {}
+        for aId, aln in self.alignmentDict.iteritems():
+            if aId not in self.transcriptDict:
+                continue
+            if aln.strand == "+" and aln.tStart == 0 and aln.qStart != 0:
+                detailsDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb, self.column)
+                classifyDict[aId] = 1
+            elif aln.strand == "-" and aln.tEnd == aln.tSize and aln.qEnd != aln.qSize:
+                detailsDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb, self.column)
+                classifyDict[aId] = 1
+            else:
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
+
+
+class AlignmentAbutsRight(AbstractClassifier):
+    """
+    Does the alignment extend off the 3' end of a scaffold?
+    (regardless of transcript orientation)
+    If so, reports BED of entire transcript
+    aligned: #  unaligned: -  whatever: .  edge: |
+             query  ...######---|
+             target ...######|
+    Doesn't need a check for pre-existing because that doesn't matter.
+    """
+    @property
+    def rgb(self):
+        return self.colors["assembly"]
+
+    def run(self):
+        self.getAlignmentDict()
+        self.getTranscriptDict()
+        detailsDict = {}
+        classifyDict = {}
+        for aId, aln in self.alignmentDict.iteritems():
+            if aId not in self.transcriptDict:
+                continue
+            if aln.strand == "+" and aln.tEnd == aln.tSize and aln.qEnd != aln.qSize:
+                detailsDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb, self.column)
+                classifyDict[aId] = 1
+            elif aln.strand == "-" and aln.tStart == 0 and aln.qStart != 0:
+                detailsDict[aId] = seq_lib.transcriptToBed(self.transcriptDict[aId], self.rgb, self.column)
+                classifyDict[aId] = 1
+            else:
+                classifyDict[aId] = 0
+        self.dumpValueDicts(classifyDict, detailsDict)
+
+
 class AlignmentAbutsUnknownBases(AbstractClassifier):
     """
     Do any of the exons in this alignment abut unknown bases? Defined as there being a N within 2bp of a exon

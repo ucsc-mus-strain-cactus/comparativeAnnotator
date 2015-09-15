@@ -28,7 +28,8 @@ hard_coded_genome_order = ['C57B6NJ', 'NZOHlLtJ', '129S1', 'FVBNJ', 'NODShiLtJ',
 tm_coding_classifiers = ["CodingInsertions", "CodingDeletions", "CodingMult3Deletions", "CodingMult3Insertions", 
                          "AlignmentPartialMap", "BadFrame", "BeginStart", "UnknownBases", "AlignmentAbutsUnknownBases",
                          "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
-                         "EndStop", "InFrameStop", "ShortCds", "StartOutOfFrame", "FrameShift"]
+                         "EndStop", "InFrameStop", "ShortCds", "StartOutOfFrame", "FrameShift",
+                         "AlignmentAbutsRight", "AlignmentAbutsLeft"]
 
 # these classifiers define OK for non-coding transcripts
 tm_noncoding_classifiers = ["AlignmentPartialMap", "UtrUnknownSplice", "UtrGap", "UnknownGap", "UnknownBases", 
@@ -43,6 +44,7 @@ bar_width = 0.45
 paired_palette = ["#df65b0", "#dd1c77", "#980043", "#a1dab4", "#41b6c4", "#2c7fb8", "#252525"]
 # palette is the seaborn colorbind palette
 palette = ["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#f0e442", "#56b4e9"]
+
 
 def skip_header(path):
     """
