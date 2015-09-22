@@ -112,7 +112,7 @@ def main_fn(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, biot
         munged.to_csv(tmp_path)
         out_cluster_file = os.path.join(out_path, "clustering_{}_{}".format(genome, biotype))
         # TODO: why do we have to use my R? 
-        system("/cluster/home/ifiddes/bin/Rscript {}/scripts/cluster.R {} {} {} {} {} {} {} {}".format(os.getcwd(), tmp_path, base_clust_title, 
+        system("export R_HOME=/cluster/home/ifiddes/lib64/R && /cluster/home/ifiddes/bin/Rscript {}/scripts/cluster.R {} {} {} {} {} {} {} {}".format(os.getcwd(), tmp_path, base_clust_title, 
                                                                        genome, len(filter_set), percent_not_ok, gencode, 
                                                                        biotype, out_cluster_file))
 
