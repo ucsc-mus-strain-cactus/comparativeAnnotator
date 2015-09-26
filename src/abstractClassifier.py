@@ -22,7 +22,7 @@ class AbstractClassifier(Target):
         # sanity check
         assert all([genome in x for x in [alnPsl, fasta, targetGp]])
         # initialize the Target
-        Target.__init__(self, memory=16 * 1024 * 1024 * 1024)  # 16GB RAM per job
+        Target.__init__(self)
         # primary key this will be keyed on (AlignmentId usually)
         self.primaryKey = primaryKey
         self.genome = genome
