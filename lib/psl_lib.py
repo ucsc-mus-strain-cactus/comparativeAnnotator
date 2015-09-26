@@ -173,7 +173,9 @@ def removeAlignmentNumber(s):
     return aln_re.split(s)[0]
 
 
-aug_re = re.compile("^((aug-[0-9]+)|(aug))-")
+#aug_re = re.compile("^((aug-[0-9]+)|(aug))-")
+# new regular expression to match new naming scheme for 1509
+aug_re = re.compile("^((augI[0-9]+-[0-9]+)|(augI[0-9]+))-")
 def removeAugustusAlignmentNumber(s):
     """
     removes the alignment numbers prepended by augustus

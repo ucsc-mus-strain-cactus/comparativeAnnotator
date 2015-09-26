@@ -122,5 +122,5 @@ def main():
 
 
 if __name__ == '__main__':
-    from src.annotationPipeline import *
+    from src.annotationPipelineWithAugustus import *
     main()
