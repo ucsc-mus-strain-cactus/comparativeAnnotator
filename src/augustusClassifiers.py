@@ -1,3 +1,4 @@
+import re
 from collections import defaultdict, Counter
 import lib.sequence_lib as seq_lib
 import lib.psl_lib as psl_lib
@@ -38,8 +39,9 @@ class AugustusParalogy(AbstractAugustusClassifier):
         return self.colors["alignment"]
 
     def run(self):
+        r = re.compile("-[0-9]+-")
         self.getAugustusTranscriptDict()
-        counts = Counter(psl_lib.removeAugustusAlignmentNumber(aug_aId) for aug_aId in self.augustusTranscriptDict)
+        counts = Counter("-".join(r.split(aug_aId)) for aug_aId in self.augustusTranscriptDict)
         detailsDict = {}
         classifyDict = {}
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():

@@ -35,6 +35,9 @@ tm_coding_classifiers = ["CodingInsertions", "CodingDeletions", "CodingMult3Dele
 tm_noncoding_classifiers = ["AlignmentPartialMap", "UtrUnknownSplice", "UtrGap", "UnknownGap", "UnknownBases", 
                             "AlignmentAbutsUnknownBases"]
 
+augOkFields = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand', 
+                  'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries', 
+                  'AugustusNotSimilarInternalExonBoundaries']
 
 # used for the plots
 width = 9.0
@@ -106,16 +109,13 @@ def transmap_ok(cur, genome, classify_fields):
 
 def augustus_ok(cur, genome):
     """
-    Finds all aug_aIds which are 'OK' as defined by the fields in classifyFields
+    Finds all aug_aIds which are 'OK' as defined by the fields in augOkFields
     """
-    classifyFields = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand', 
-                      'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries', 
-                      'AugustusNotSimilarInternalExonBoundaries']
     cmd = """SELECT augustus.'{0}'.'AlignmentId' FROM augustus.'{0}' WHERE (""".format(genome)
-    for col in classifyFields[:-1]:
+    for col in augOkFields[:-1]:
         cmd += " augustus.'{}'.'{}' = ? {}".format(genome, col, "AND")
-    cmd += " augustus.'{}'.'{}' = ?)".format(genome, classifyFields[-1])
-    vals = [0] * len(classifyFields)
+    cmd += " augustus.'{}'.'{}' = ?)".format(genome, augOkFields[-1])
+    vals = [0] * len(augOkFields)
     return {x[0] for x in cur.execute(cmd, vals).fetchall()}
 
 
