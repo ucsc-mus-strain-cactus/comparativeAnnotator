@@ -35,7 +35,8 @@ tm_coding_classifiers = ["CodingInsertions", "CodingDeletions", "CodingMult3Dele
 tm_noncoding_classifiers = ["AlignmentPartialMap", "UtrUnknownSplice", "UtrGap", "UnknownGap", "UnknownBases", 
                             "AlignmentAbutsUnknownBases"]
 
-augOkFields = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand', 
+# these classifiers define OK for Augustus transcripts
+aug_ok_fields = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand', 
                   'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries', 
                   'AugustusNotSimilarInternalExonBoundaries']
 
@@ -109,13 +110,13 @@ def transmap_ok(cur, genome, classify_fields):
 
 def augustus_ok(cur, genome):
     """
-    Finds all aug_aIds which are 'OK' as defined by the fields in augOkFields
+    Finds all aug_aIds which are 'OK' as defined by the fields in aug_ok_fields
     """
     cmd = """SELECT augustus.'{0}'.'AlignmentId' FROM augustus.'{0}' WHERE (""".format(genome)
-    for col in augOkFields[:-1]:
+    for col in aug_ok_fields[:-1]:
         cmd += " augustus.'{}'.'{}' = ? {}".format(genome, col, "AND")
-    cmd += " augustus.'{}'.'{}' = ?)".format(genome, augOkFields[-1])
-    vals = [0] * len(augOkFields)
+    cmd += " augustus.'{}'.'{}' = ?)".format(genome, aug_ok_fields[-1])
+    vals = [0] * len(aug_ok_fields)
     return {x[0] for x in cur.execute(cmd, vals).fetchall()}
 
 

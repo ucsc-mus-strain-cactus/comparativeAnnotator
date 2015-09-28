@@ -1,14 +1,14 @@
 from scripts.plot_functions import *
 from scripts.consensus import *
-import cPickle as pickle
-binned_transcript_holder = pickle.load(open("bins.pickle"))
-comp_ann_path = "/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/comparativeAnnotation/2015-09-01_Augustus"
-attr_path = "/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeAttrsVM4.tsv"
+
+
+comp_ann_path = "/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1509/comparativeAnnotation/2015-09-01_Augustus"
+attr_path = "/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1509/transMap/2015-05-28/data/wgEncodeGencodeAttrsVM4.tsv"
 genomes = "129S1 AJ AKRJ BALBcJ C3HHeJ C57B6NJ CASTEiJ CBAJ DBA2J FVBNJ LPJ NODShiLtJ NZOHlLtJ PWKPhJ SPRETEiJ WSBEiJ CAROLIEiJ PAHARIEiJ".split()
-tm_gp_base = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/transMap/2015-05-28/transMap/{}/transMapGencodeCompVM4.gp"
-aug_gp_base = "/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/augustus/tmr/{}.gp"
-basic_gp = "/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeBasicVM4.gp"
-comp_gp = "/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1504/transMap/2015-05-28/data/wgEncodeGencodeCompVM4.gp"
+tm_gp_base = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509/transMap/2015-05-28/transMap/{}/syn/transMapGencodeCompVM4.gp"
+aug_gp_base = "/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1509/augustus/tmr/{}.gp"
+basic_gp = "/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1509/transMap/2015-05-28/data/wgEncodeGencodeBasicVM4.gp"
+comp_gp = "/cluster/home/ifiddes/mus_strain_data/pipeline_data/comparative/1509/transMap/2015-05-28/data/wgEncodeGencodeCompVM4.gp"
 out_path = "."
 biotype = "protein_coding"
 genome_order = make_coding_transcript_plots(binned_transcript_holder, out_path, comp_gp, basic_gp, attr_path)
