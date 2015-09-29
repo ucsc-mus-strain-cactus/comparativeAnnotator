@@ -25,18 +25,18 @@ hard_coded_genome_order = ['C57B6NJ', 'NZOHlLtJ', '129S1', 'FVBNJ', 'NODShiLtJ',
                             'C3HHeJ', 'CBAJ', 'WSBEiJ', 'CASTEiJ', 'PWKPhJ', 'SPRETEiJ', 'CAROLIEiJ', 'PAHARIEiJ']
 
 # these classifiers define OK for coding transcripts
-tm_coding_classifiers = ["CodingInsertions", "CodingDeletions", "CodingMult3Deletions", "CodingMult3Insertions", 
+tm_coding_classifiers = ["CodingInsertions", "CodingDeletions",
                          "AlignmentPartialMap", "BadFrame", "BeginStart", "UnknownBases", "AlignmentAbutsUnknownBases",
                          "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
-                         "EndStop", "InFrameStop", "ShortCds", "StartOutOfFrame", "FrameShift",
-                         "AlignmentAbutsRight", "AlignmentAbutsLeft"]
+                         "EndStop", "InFrameStop", "ShortCds", "StartOutOfFrame", "FrameShift"]#,
+                         #"AlignmentAbutsRight", "AlignmentAbutsLeft"]
 
 # these classifiers define OK for non-coding transcripts
 tm_noncoding_classifiers = ["AlignmentPartialMap", "UtrUnknownSplice", "UtrGap", "UnknownGap", "UnknownBases", 
                             "AlignmentAbutsUnknownBases"]
 
 # these classifiers define OK for Augustus transcripts
-aug_ok_fields = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand', 
+aug_ok_fields = ['AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand', 
                   'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries', 
                   'AugustusNotSimilarInternalExonBoundaries']
 
@@ -277,12 +277,12 @@ def establish_axes(fig, width, height, border=True, has_legend=True):
     axLeft = 1.1 / width
     if border is True:
         if has_legend is True:
-            axRight = 1.0 - (1.5 / width)
+            axRight = 1.0 - (2.0 / width)
         else:
             axRight = 1.0 - (1.15 / width)
     else:
         if has_legend is True:
-            axRight = 1.1 - (1.5 / width)
+            axRight = 1.1 - (2.0 / width)
         else:
             axRight = 1.1 - (1.15 / width)
     axWidth = axRight - axLeft

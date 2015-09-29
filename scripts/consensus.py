@@ -1,5 +1,4 @@
 import argparse
-import random
 from scripts.plot_functions import *
 
 
@@ -85,19 +84,18 @@ def split_alternatives(stats, best_id):
     return aug, tm
 
 
-def analyze_candidates(candidates):
+def analyze_candidates(candidates, aug_re=re.compile("I[1-2]-")):
     """
     Analyzes candidate transcripts, finding the winner and splitting the alternatives based on coming from augustus
-    or transMap. If there are multiple equal winners from both transMap and Augustus, reports so. Also, pick one 
-    randomly to not skew towards Augustus
+    or transMap. If there are multiple equal winners from both transMap and Augustus, reports so.
+    aug_re is used if Augustus was ran in two modes (I1 and I2) to prevent counting that as a tie with transMap.
     """
     winner_ids = find_best_aln(candidates)
-    if len(winner_ids) > 1:
+    winner_id = winner_ids[0]
+    if len({"-".join(aug_re.split(x[0])) for x in winner_ids}) > 1:
         is_tie = True
-        winner_id = random.choice(winner_ids)
     else:
         is_tie = False
-        winner_id = winner_ids[0]
     aug_alts, tm_alts = split_alternatives(candidates, winner_id)
     return winner_id, aug_alts, tm_alts, is_tie
 

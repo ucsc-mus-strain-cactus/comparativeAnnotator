@@ -7,7 +7,7 @@ from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, getRandomAlphaNumericString
 
 
-tm_grouped = {"CodingIndels": ["CodingInsertions", "CodingDeletions", "CodingMult3Deletions", "CodingMult3Insertions"],
+tm_grouped = {"CodingIndels": ["CodingInsertions", "CodingDeletions"],
               "AlignmentGaps": ["CdsGap", "CdsMult3Gap", "UtrGap"],
               "UnknownSplice": ["CdsUnknownSplice", "UtrUnknownSplice"],
               "ContainsN": ["AlignmentAbutsUnknownBases", "UnknownBases", "UnknownGap"]}
