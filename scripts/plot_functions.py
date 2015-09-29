@@ -28,15 +28,15 @@ hard_coded_genome_order = ['C57B6NJ', 'NZOHlLtJ', '129S1', 'FVBNJ', 'NODShiLtJ',
 tm_coding_classifiers = ["CodingInsertions", "CodingDeletions",
                          "AlignmentPartialMap", "BadFrame", "BeginStart", "UnknownBases", "AlignmentAbutsUnknownBases",
                          "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
-                         "EndStop", "InFrameStop", "ShortCds", "StartOutOfFrame", "FrameShift"]#,
-                         #"AlignmentAbutsRight", "AlignmentAbutsLeft"]
+                         "EndStop", "InFrameStop", "ShortCds", "StartOutOfFrame", "FrameShift"],
+                         "AlignmentAbutsRight", "AlignmentAbutsLeft"]
 
 # these classifiers define OK for non-coding transcripts
 tm_noncoding_classifiers = ["AlignmentPartialMap", "UtrUnknownSplice", "UtrGap", "UnknownGap", "UnknownBases", 
                             "AlignmentAbutsUnknownBases"]
 
 # these classifiers define OK for Augustus transcripts
-aug_ok_fields = ['AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand', 
+aug_ok_fields = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand', 
                   'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries', 
                   'AugustusNotSimilarInternalExonBoundaries']
 
