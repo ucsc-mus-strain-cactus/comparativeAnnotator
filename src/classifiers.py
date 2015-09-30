@@ -97,7 +97,7 @@ class AlignmentAbutsUnknownBases(AbstractClassifier):
                     intervals.append([intron.start, intron.start + distance])
             intervals.append([t.exonIntervals[-1].stop, t.exonIntervals[-1].stop + distance])
             for start, stop in intervals:
-                seq = self.seqDict[t.chromosome][start:stop]
+                seq = self.seqDict[t.chromosome][start:stop].upper()
                 if "N" in seq:
                     classifyDict[aId] = 1
                     detailsDict[aId].append(t.getBed(self.rgb, self.column))

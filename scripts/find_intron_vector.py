@@ -10,7 +10,7 @@ def parse_args():
     parser.add_argument("--genome", required=True, help="genome to get intron information from")
     parser.add_argument("--gp", required=True, help="genePred for this genome's transMap results")
     parser.add_argument("--comparativeAnnotationDir", required=True, help="directory containing databases")
-    parser.add_argument("--outDir", required=True, help="directory to output to. File will be called <genome>_original_introns.txt")
+    parser.add_argument("--outPath", required=True, help="File name for output.")
     return parser.parse_args()
 
 
@@ -53,8 +53,8 @@ def main():
     con, cur = attach_databases(args.comparativeAnnotationDir)
     tm_dict = load_gp(args.gp)
     db_dict = load_database_results(cur, args.genome)
-    with open(os.path.join(args.outDir, "{}_original_introns.txt".format(args.genome)), "w") as outf:
-        for aln_id, gene_rec in tm_dict.iteritems():
+    with open(args.outPath, "w") as outf:
+        for aln_id, gene_rec in sorted(tm_dict.iteritems(), key=lambda x: x[0]):
             db_rec = db_dict[aln_id]
             vec = build_intron_vector(gene_rec, db_rec)
             outf.write("{}\t{}\n".format(aln_id, ",".join(map(str, vec))))

@@ -15,32 +15,6 @@ from pyfaidx import Fasta, FastaRecord, FetchError
 from intervaltree import Interval, IntervalTree
 
 
-def new_get_item(self, n):
-    """
-    # I have to over-write the pyfaidx way of returning sequences so that it returns upper case strings and not unicode
-    """
-    try:
-        if isinstance(n, slice):
-            start, stop, step = n.start, n.stop, n.step
-            if start is None:
-                start = 0
-            if stop is None:
-                stop = len(self)
-            if stop < 0:
-                stop = len(self) + stop
-            if start < 0:
-                start = len(self) + start
-            return str(self._fa.get_seq(self.name, start + 1, stop)[::step]).upper()
-        elif isinstance(n, int):
-            if n < 0:
-                n = len(self) + n
-            return str(self._fa.get_seq(self.name, n + 1, n + 1)).upper()
-    except FetchError:
-        raise
-
-FastaRecord.__getitem__ = new_get_item
-
-
 class Transcript(object):
     """
     Represent a transcript record from a bed file. Stores the fields from the BED file
@@ -356,7 +330,7 @@ class Transcript(object):
             mRna = "".join(s)
         else:
             mRna = reverseComplement("".join(s))
-        self.mRna = mRna
+        self.mRna = mRna.upper()
         return mRna
 
     def getSequence(self, seqDict):
@@ -364,7 +338,7 @@ class Transcript(object):
         Returns the entire chromosome sequence for this transcript, (+) strand orientation.
         """
         sequence = seqDict[self.chromosome]
-        return sequence[self.start:self.stop]
+        return sequence[self.start:self.stop].upper()
 
     def getCds(self, seqDict):
         """
@@ -397,8 +371,8 @@ class Transcript(object):
         if not self.strand:
             cds = reverseComplement("".join(s)).upper()
         else:
-            cds = "".join(s).upper()
-        self.cds = cds
+            cds = "".join(s)
+        self.cds = cds.upper()
         return cds
 
     def getTranscriptCoordinateCdsStart(self):
@@ -980,11 +954,11 @@ class ChromosomeInterval(object):
         If strand is False, returns the + strand regardless of transcript orientation.
         """
         if strand is False:
-            return seqDict[self.chromosome][self.start:self.stop]
+            return seqDict[self.chromosome][self.start:self.stop].upper()
         if self.strand is True:
-            return seqDict[self.chromosome][self.start:self.stop]
+            return seqDict[self.chromosome][self.start:self.stop].upper()
         if self.strand is False:
-            return reverseComplement(seqDict[self.chromosome][self.start:self.stop])
+            return reverseComplement(seqDict[self.chromosome][self.start:self.stop]).upper()
         assert False
 
     def __repr__(self):

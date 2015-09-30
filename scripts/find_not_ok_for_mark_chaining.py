@@ -1,5 +1,6 @@
 import argparse
 from scripts.plot_functions import *
+from lib.general_lib import mkdir_p
 import lib.sequence_lib as seq_lib
 import pandas as pd
 
@@ -71,6 +72,7 @@ def find_not_ok_in_a(s_in_a, s_ok, a_ok):
 
 
 def write_tx_bed(out_dir, to_investigate):
+    mkdir_p(out_dir)
     with open(os.path.join(out_dir, "not_ok_all_chaining.bed"), "w") as outf:
         outf.write('track name="Transcripts OK in simpleChain and not OK in allChain"\n')
         for t in to_investigate:
@@ -89,6 +91,7 @@ def write_human_readable_classifiers(out_dir, to_investigate, a_con):
                 name = value
             elif value == 1:
                 failures[name].append(classifier)
+    mkdir_p(out_dir)
     with open(os.path.join(out_dir, "failed_classifiers.tsv"), "w") as outf:
         for name, vals in failures.iteritems():
             vals = ",".join(sorted(vals))
@@ -102,6 +105,7 @@ def write_browser_bed(out_dir, all_dir, formatted_names):
     formatted_classifiers = ", ".join(tm_coding_classifiers)
     cmd = "SELECT {} FROM C57B6NJ WHERE AlignmentId in ({})".format(formatted_classifiers, formatted_names)
     recs = a_details_cur.execute(cmd).fetchall()
+    mkdir_p(out_dir)
     with open(os.path.join(out_dir, "failed_classifiers.bed"), "w") as outf:
         outf.write('track name="Classifiers failed in allChain transcripts that were ok in simpleChain"\n')
         for r in parse_details(recs):
