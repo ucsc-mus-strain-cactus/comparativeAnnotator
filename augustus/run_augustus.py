@@ -160,8 +160,9 @@ def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_tmp_di
         seq = fasta[chrom][start:stop]
         hint_f, seq_f = write_hint_fasta(hint, seq, chrom, target.getGlobalTempDir())
         for cfg_version, cfg_path in cfgs.iteritems():
-            target.addChildTargetFn(run_augustus, args=[hint_f, seq_f, gp.name, start, stop, gp.start, gp.stop,
-                                                        cfg_version, cfg_path, out_tmp_dir])
+            target.addChildTargetFn(run_augustus, memory=8 * (1024 ** 3),
+                                    args=[hint_f, seq_f, gp.name, start, stop, gp.start, gp.stop,
+                                          cfg_version, cfg_path, out_tmp_dir])
 
 
 def cat(target, genome, output_gp, out_tmp_dir):
@@ -177,6 +178,11 @@ def cat(target, genome, output_gp, out_tmp_dir):
 
 
 def wrapper(target, input_gp, output_gp, genome, sizes_path, fasta_path):
+    """
+    Produces one jobTree target per genePred entry. In the future, we could try chunking this per target but during
+    initial testing I found that it takes ~15 seconds to extract the RNAseq hints and ~1 minute to run each Augustus
+    instance. This seems to be a good time per job to me.
+    """
     out_tmp_dir = target.getGlobalTempDir()
     for line in open(input_gp):
         target.addChildTargetFn(transmap_2_aug, args=[line, genome, sizes_path, fasta_path, out_tmp_dir])
@@ -196,6 +202,7 @@ def main():
                                                  args.chromSizes, args.fasta))).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
+
 
 if __name__ == '__main__':
     from augustus.run_augustus import *
