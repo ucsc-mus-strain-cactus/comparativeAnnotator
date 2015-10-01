@@ -10,7 +10,7 @@ import sqlite3 as sql
 from pyfaidx import Fasta
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
-from sonLib.bioio import system, popenCatch, getRandomAlphaNumericString
+from sonLib.bioio import system, popenCatch, getRandomAlphaNumericString, catFiles, TempFileTree
 from lib.sequence_lib import GenePredTranscript
 from lib.general_lib import mkdir_p
 
@@ -122,7 +122,7 @@ def write_augustus(r, name_map, out_path, start_offset):
                     outf.write("\t".join(map(str, x)) + "\n")
 
 
-def run_augustus(target, hint_f, seq_f, name, start, stop, aln_start, aln_stop, cfg_version, cfg_path, out_tmp_dir):
+def run_augustus(target, hint_f, seq_f, name, start, stop, aln_start, aln_stop, cfg_version, cfg_path, out_file_tree):
     """
     Runs Augustus for each cfg/gp_string pair.
     """
@@ -138,11 +138,11 @@ def run_augustus(target, hint_f, seq_f, name, start, stop, aln_start, aln_stop, 
         # rename transcript based on cfg version, and make names unique
         name_map = rename_transcripts(transcripts, cfg_version, name)
         # write this to a shared location where we will combine later
-        out_path = os.path.join(out_tmp_dir, getRandomAlphaNumericString(10) + ".gff")
+        out_path = out_file_tree.getTempFile()
         write_augustus(r, name_map, out_path, start)
 
 
-def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_tmp_dir):
+def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_tree):
     """
     Runs Augustus on one individual genePred string. Augustus is ran with each cfg file in cfgs
     """
@@ -162,43 +162,41 @@ def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_tmp_di
         for cfg_version, cfg_path in cfgs.iteritems():
             target.addChildTargetFn(run_augustus, memory=8 * (1024 ** 3),
                                     args=[hint_f, seq_f, gp.name, start, stop, gp.start, gp.stop,
-                                          cfg_version, cfg_path, out_tmp_dir])
+                                          cfg_version, cfg_path, out_file_tree])
 
 
-def cat(target, genome, output_gp, out_tmp_dir):
+def cat(target, genome, output_gtf, unsorted_tmp_file, out_file_tree):
     """
     Concatenates all of the results into one big genePred, and sorts it by chromosome/pos
     """
-    files = os.listdir(out_tmp_dir)
-    results = [l.split() for f in files for l in open(os.path.join(out_tmp_dir, f))]
-    results = sorted(results, key=lambda x:(x[0], x[3]))
-    with open(output_gp, "w") as outf:
-        for x in results:
-            outf.write("\t".join(x) + "\n")
+    catFiles(out_file_tree.listFiles(), unsorted_tmp_file)
+    system("sort -k1,1 -k4,4 {} > {}".format(unsorted_tmp_file, output_gtf))
 
 
-def wrapper(target, input_gp, output_gp, genome, sizes_path, fasta_path):
+def wrapper(target, input_gp, output_gtf, genome, sizes_path, fasta_path):
     """
     Produces one jobTree target per genePred entry. In the future, we could try chunking this per target but during
     initial testing I found that it takes ~15 seconds to extract the RNAseq hints and ~1 minute to run each Augustus
     instance. This seems to be a good time per job to me.
     """
-    out_tmp_dir = target.getGlobalTempDir()
+    # create a file tree in the global output directory. This tree will store the gtf created by each Augustus instance
+    out_file_tree = TempFileTree(target.getGlobalTempDir())
+    unsorted_tmp_file = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString(10))
     for line in open(input_gp):
-        target.addChildTargetFn(transmap_2_aug, args=[line, genome, sizes_path, fasta_path, out_tmp_dir])
-    target.setFollowOnTargetFn(cat, args=[genome, output_gp, out_tmp_dir])
+        target.addChildTargetFn(transmap_2_aug, args=[line, genome, sizes_path, fasta_path, out_file_tree])
+    target.setFollowOnTargetFn(cat, args=[genome, output_gtf, unsorted_tmp_file, out_file_tree])
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--inputGp", required=True)
-    parser.add_argument("--outputGp", required=True)
+    parser.add_argument("--outputGtf", required=True)
     parser.add_argument("--genome", required=True)
     parser.add_argument("--chromSizes", required=True)
     parser.add_argument("--fasta", required=True)
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
-    i = Stack(Target.makeTargetFn(wrapper, args=(args.inputGp, args.outputGp, args.genome, 
+    i = Stack(Target.makeTargetFn(wrapper, args=(args.inputGp, args.outputGtf, args.genome, 
                                                  args.chromSizes, args.fasta))).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
