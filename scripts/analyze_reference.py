@@ -1,11 +1,15 @@
+"""
+This script runs a specific subset of classifiers on the reference. This script is designed to run without jobTree
+and can be applied to any genePred (is not comparative).
+"""
+
 import sys
-import os
 import re
 import argparse
 import itertools
 from collections import defaultdict
-import lib.sequence_lib as seq_lib
-import lib.sqlite_lib as sql_lib
+import lib.seq_lib as seq_lib
+import lib.sql_lib as sql_lib
 
 
 def parse_args():
@@ -13,7 +17,6 @@ def parse_args():
     parser.add_argument("--refGp", required=True)
     parser.add_argument("--refFasta", required=True)
     parser.add_argument('--refGenome', type=str, required=True)
-    parser.add_argument('--primaryKeyColumn', type=str, default="ensId")
     parser.add_argument('--outDir', type=str, required=True)
     return parser.parse_args()
 
@@ -24,8 +27,8 @@ def get_transcript_dict(gp_path):
     """
     Loads the reference genePred as Transcript objects
     """
-    transcripts = seq_lib.getGenePredTranscripts(gp_path)
-    transcript_dict = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
+    transcripts = seq_lib.get_gene_pred_transcripts(gp_path)
+    transcript_dict = seq_lib.transcript_list_to_dict(transcripts)
     return transcript_dict
 
 
@@ -41,16 +44,16 @@ def AbutsUnknownBases(transcript_dict, seq_dict, short_intron_size=30, distance=
     classify_dict = {}
     details_dict = defaultdict(list)
     for ens_id, t in transcript_iterator(transcript_dict):
-        intervals = [[t.exonIntervals[0].start - distance, t.exonIntervals[0].start]]
-        for intron in t.intronIntervals:
+        intervals = [[t.exon_intervals[0].start - distance, t.exon_intervals[0].start]]
+        for intron in t.intron_intervals:
             if len(intron) > short_intron_size:
                 intervals.append([intron.start, intron.start + distance])
-        intervals.append([t.exonIntervals[-1].stop, t.exonIntervals[-1].stop + distance])
+        intervals.append([t.exon_intervals[-1].stop, t.exon_intervals[-1].stop + distance])
         for start, stop in intervals:
             seq = seq_dict[t.chromosome][start:stop]
             if "N" in seq:
                 classify_dict[ens_id] = 1
-                details_dict[ens_id].append(t.getBed(rgb, sys._getframe().f_code.co_name))
+                details_dict[ens_id].append(t.get_bed(rgb, sys._getframe().f_code.co_name))
                 break
         if ens_id not in classify_dict:
             classify_dict[ens_id] = 0
@@ -63,10 +66,10 @@ def StartOutOfFrame(transcript_dict, seq_dict):
     for ens_id, t in transcript_iterator(transcript_dict):
         if t.getCdsLength() <= 75:
             continue
-        t_frames = [x for x in t.exonFrames if x != -1]
+        t_frames = [x for x in t.exon_frames if x != -1]
         if t.strand is True and t_frames[0] != 0 or t.strand is False and t_frames[-1] != 0:
             classify_dict[ens_id] = 1
-            details_dict[ens_id] = seq_lib.cdsCoordinateToBed(t, 0, 3, rgb, sys._getframe().f_code.co_name)
+            details_dict[ens_id] = seq_lib.cds_coordinate_to_bed(t, 0, 3, rgb, sys._getframe().f_code.co_name)
             continue
         classify_dict[ens_id] = 0
     return classify_dict, details_dict
@@ -76,11 +79,11 @@ def BadFrame(transcript_dict, seq_dict):
     classify_dict = {}
     details_dict = defaultdict(list)
     for ens_id, t in transcript_iterator(transcript_dict):
-        if t.getCdsLength() <= 75:
+        if t.get_cds_length() <= 75:
             continue
-        if t.getCdsLength() % 3 != 0:
+        if t.get_cds_length() % 3 != 0:
                 classify_dict[ens_id] = 1
-                details_dict[ens_id].append(t.getBed(rgb, sys._getframe().f_code.co_name))
+                details_dict[ens_id].append(t.get_bed(rgb, sys._getframe().f_code.co_name))
         else:
             classify_dict[ens_id] = 0
     return classify_dict, details_dict
@@ -90,12 +93,12 @@ def BeginStart(transcript_dict, seq_dict):
     classify_dict = {}
     details_dict = {}
     for ens_id, t in transcript_iterator(transcript_dict):
-        seq = t.getCds(seq_dict)
+        seq = t.get_cds(seq_dict)
         if len(seq) <= 75:
             continue
         if seq[:3] != "ATG":
             classify_dict[ens_id] = 1
-            details_dict[ens_id] = seq_lib.cdsCoordinateToBed(t, 0, 3, rgb, sys._getframe().f_code.co_name)
+            details_dict[ens_id] = seq_lib.cds_coordinate_to_bed(t, 0, 3, rgb, sys._getframe().f_code.co_name)
         else:
             classify_dict[ens_id] = 0
     return classify_dict, details_dict
@@ -106,13 +109,13 @@ def EndStop(transcript_dict, seq_dict):
     classify_dict = {}
     details_dict = defaultdict(list)
     for ens_id, t in transcript_iterator(transcript_dict):
-        seq = t.getCds(seq_dict)
+        seq = t.get_cds(seq_dict)
         s = len(seq)
         if s <= 75:
             continue
         if seq[-3:] not in stop_codons:
             classify_dict[ens_id] = 1
-            details_dict[ens_id] = seq_lib.cdsCoordinateToBed(t, s - 3, s, rgb,  sys._getframe().f_code.co_name)
+            details_dict[ens_id] = seq_lib.cds_coordinate_to_bed(t, s - 3, s, rgb,  sys._getframe().f_code.co_name)
         else:
             classify_dict[ens_id] = 0
     return classify_dict, details_dict
@@ -122,26 +125,26 @@ def base_gap(transcript_dict, seq_dict, inequality, short_intron_size, skip_n):
     classify_dict = {}
     details_dict = defaultdict(list)
     for ens_id, t in transcript_iterator(transcript_dict):
-        for intron in t.intronIntervals:
+        for intron in t.intron_intervals:
             if len(intron) >= short_intron_size:
                 continue
-            elif skip_n and "N" in intron.getSequence(seq_dict):
+            elif skip_n and "N" in intron.get_sequence(seq_dict):
                 continue
             elif inequality(intron, t):
                 continue
             classify_dict[ens_id] = 1
-            details_dict[ens_id].append(seq_lib.intervalToBed(t, intron, rgb, sys._getframe().f_code.co_name))
+            details_dict[ens_id].append(seq_lib.interval_to_bed(t, intron, rgb, sys._getframe().f_code.co_name))
         if ens_id not in classify_dict:
             classify_dict[ens_id] = 0
     return classify_dict, details_dict
 
 
 def is_cds(intron, t):
-    return not (intron.start >= t.thickStart and intron.stop < t.thickStop)
+    return not (intron.start >= t.thick_start and intron.stop < t.thick_stop)
 
 
 def is_not_cds(intron, t):
-    return intron.start >= t.thickStart and intron.stop < t.thickStop
+    return intron.start >= t.thick_start and intron.stop < t.thick_stop
 
 
 def dummy_inequality(intron, t):
@@ -169,11 +172,11 @@ def base_splice(transcript_dict, seq_dict, inequality, short_intron_size, splice
                 continue
             elif inequality(intron, t):
                 continue
-            seq = intron.getSequence(seq_dict, strand=True)
+            seq = intron.get_sequence(seq_dict, strand=True)
             donor, acceptor = seq[:2], seq[-2:]
             if donor not in splice_sites or splice_sites[donor] != acceptor:
                 classify_dict[ens_id] = 1
-                details_dict[ens_id].append(seq_lib.spliceIntronIntervalToBed(t, intron, rgb,
+                details_dict[ens_id].append(seq_lib.splice_intron_interval_to_bed(t, intron, rgb,
                                                                               sys._getframe().f_code.co_name))
         if ens_id not in classify_dict:
             classify_dict[ens_id] = 0
@@ -204,13 +207,13 @@ def InFrameStop(transcript_dict, seq_dict):
     classify_dict = {}
     details_dict = defaultdict(list)
     for ens_id, t in transcript_iterator(transcript_dict):
-        cds = t.getCds(seq_dict)
-        offset = seq_lib.findOffset(t.exonFrames, t.strand)
-        for i, codon in seq_lib.readCodonsWithPosition(cds, offset, skip_last=True):
-            amino_acid = seq_lib.codonToAminoAcid(codon)
+        cds = t.get_cds(seq_dict)
+        offset = seq_lib.find_offset(t.exonFrames, t.strand)
+        for i, codon in seq_lib.read_codons_with_position(cds, offset, skip_last=True):
+            amino_acid = seq_lib.codon_to_amino_acid(codon)
             if amino_acid == "*":
                 classify_dict[ens_id] = 1
-                details_dict[ens_id].append(seq_lib.cdsCoordinateToBed(t, i, i + 3, rgb,
+                details_dict[ens_id].append(seq_lib.cds_coordinate_to_bed(t, i, i + 3, rgb,
                                                                        sys._getframe().f_code.co_name))
         if ens_id not in classify_dict:
             classify_dict[ens_id] = 0
@@ -225,7 +228,7 @@ def ShortCds(transcript_dict, seq_dict, cds_cutoff=75):
             continue
         elif t.getCdsLength() <= cds_cutoff:
             classify_dict[ens_id] = 1
-            details_dict[ens_id] = seq_lib.transcriptToBed(t, rgb, sys._getframe().f_code.co_name)
+            details_dict[ens_id] = seq_lib.transcript_to_bed(t, rgb, sys._getframe().f_code.co_name)
         else:
             classify_dict[ens_id] = 0
     return classify_dict, details_dict
@@ -236,12 +239,12 @@ def unknown_base(transcript_dict, seq_dict, r, cds):
     details_dict = {}
     for ens_id, t in transcript_iterator(transcript_dict):
         if cds is True:
-            s = t.getCds(seq_dict)
-            tmp = [seq_lib.cdsCoordinateToBed(t, m.start(), m.end(), rgb, sys._getframe().f_code.co_name) for m in
+            s = t.get_cds(seq_dict)
+            tmp = [seq_lib.cds_coordinate_to_bed(t, m.start(), m.end(), rgb, sys._getframe().f_code.co_name) for m in
                    re.finditer(r, s)]
         else:
-            s = t.getMRna(seq_dict)
-            tmp = [seq_lib.transcriptCoordinateToBed(t, m.start(), m.end(), rgb, sys._getframe().f_code.co_name)
+            s = t.get_mrna(seq_dict)
+            tmp = [seq_lib.transcript_coordinate_to_bed(t, m.start(), m.end(), rgb, sys._getframe().f_code.co_name)
                    for m in re.finditer(r, s)]
         if len(tmp) > 0:
             details_dict[ens_id] = tmp
@@ -256,8 +259,8 @@ def UnknownBases(transcript_dict, seq_dict):
     classify_dict = {}
     details_dict = {}
     for ens_id, t in transcript_iterator(transcript_dict):
-        s = t.getMRna(seq_dict)
-        tmp = [seq_lib.transcriptCoordinateToBed(t, m.start() + 1, m.end() - 1, rgb, sys._getframe().f_code.co_name)
+        s = t.get_mrna(seq_dict)
+        tmp = [seq_lib.transcript_coordinate_to_bed(t, m.start() + 1, m.end() - 1, rgb, sys._getframe().f_code.co_name)
                for m in re.finditer(r, s)]
         if len(tmp) > 0:
             details_dict[ens_id] = tmp
@@ -276,33 +279,6 @@ def get_ids(gp):
     return {x.split()[0] for x in open(gp)}
 
 
-def initialize_db(db, classifiers, ref_genome, primary_key, ref_gp, data_type="TEXT"):
-    ens_ids = get_ids(ref_gp)
-    assert data_type in ["TEXT", "INTEGER"]
-    classifiers = [[x.__name__, data_type] for x in classifiers]
-    with sql_lib.ExclusiveSqlConnection(db) as cur:
-        sql_lib.initializeTable(cur, ref_genome, classifiers, primary_key, drop_if_exists=True)
-        sql_lib.insertRows(cur, ref_genome, primary_key, [primary_key], itertools.izip_longest(ens_ids, [None]))
-
-
-def details_entry_iter(value_iter):
-    """
-    General case for converting a value_iter to a string entry representing 1 or more BED records
-    value_iters are generally lists of lists where each sublist represents a BED record
-    """
-    for ens_id, entry in value_iter:
-        if entry is None:
-            yield None, ens_id
-        elif len(entry) == 0:
-            raise RuntimeError("Empty list in details entry. This is not allowed.")
-        elif type(entry[0]) != list:
-            #only one entry
-            yield "\t".join(map(str,entry)), ens_id
-        else:
-            bedEntries = ["\t".join(map(str, x)) for x in entry]
-            yield "\n".join(bedEntries), ens_id
-
-
 def main():
     args = parse_args()
     classifiers = [AbutsUnknownBases, StartOutOfFrame, BadFrame, BeginStart, EndStop, CdsGap, UtrGap, UnknownGap,
@@ -310,20 +286,11 @@ def main():
                    UnknownBases]
     classify_dicts = {}
     details_dicts = {}
-    fn_args = {"transcript_dict": get_transcript_dict(args.refGp), "seq_dict": seq_lib.getSequenceDict(args.refFasta)}
+    fn_args = {"transcript_dict": get_transcript_dict(args.refGp), "seq_dict": seq_lib.get_sequence_dict(args.refFasta)}
     for fn in classifiers:
         classify_dicts[fn.__name__], details_dicts[fn.__name__] = fn(**fn_args)
-    details_db = os.path.join(args.outDir, "details.db")
-    classify_db = os.path.join(args.outDir, "classify.db")
-    initialize_db(details_db, classifiers, args.refGenome, args.primaryKeyColumn, args.refGp, data_type="TEXT")
-    initialize_db(classify_db, classifiers, args.refGenome, args.primaryKeyColumn, args.refGp, data_type="INTEGER")
-    with sql_lib.ExclusiveSqlConnection(classify_db) as cur:
-        for column, value_dict in classify_dicts.iteritems():
-            sql_lib.updateRows(cur, args.refGenome, args.primaryKeyColumn, column, invert_dict(value_dict))
-    with sql_lib.ExclusiveSqlConnection(details_db) as cur:
-        for column, value_dict in details_dicts.iteritems():
-            sql_lib.updateRows(cur, args.refGenome, args.primaryKeyColumn, column, 
-                               details_entry_iter(value_dict.iteritems()))
+    for data_dict, database_path in itertools.izip(*[[classify_dicts, details_dicts], ["classify.db", "details.db"]]):
+        sql_lib.write_dict(data_dict, database_path, args.refGenome)
 
 
 if __name__ == "__main__":

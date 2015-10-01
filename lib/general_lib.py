@@ -1,40 +1,20 @@
 """
 General purpose library of things.
-
-Author: Ian Fiddes
-With contributions from Dent Earl
-
 """
-
+import os
+import gzip
+import operator
+import types
+import errno
 from collections import OrderedDict, Callable
-import os, argparse, sys, gzip, operator, types, errno
 
-
-def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError as exc: # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else: raise
-
-
-def convert(name):
-    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
-    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
-
-
-class FullPaths(argparse.Action):
-    """
-    Expand user- and relative-paths
-    https://gist.github.com/brantfaircloth/1443543
-    """
-    def __call__(self, parser, namespace, values, option_string=None):
-        setattr(namespace, self.dest, os.path.abspath(os.path.expanduser(values)))
+__author__ = "Ian Fiddes"
 
 
 class DefaultOrderedDict(OrderedDict):
-    # Source: http://stackoverflow.com/a/6190500/562769
+    """
+    Source: http://stackoverflow.com/a/6190500/562769
+    """
     def __init__(self, default_factory=None, *a, **kw):
         if (default_factory is not None and
            not isinstance(default_factory, Callable)):
@@ -76,10 +56,32 @@ class DefaultOrderedDict(OrderedDict):
         return 'OrderedDefaultDict(%s, %s)' % (self.default_factory,
                                                OrderedDict.__repr__(self))
 
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
+def skip_header(path):
+    """
+    The attributes file produced by the pipeline has a header. Skip it. Return a open file handle pointing to line 2.
+    """
+    f_h = open(path)
+    _ = f_h.next()
+    return f_h
+
+
 def opener(filename):
-    """opens files that may be gzip files"""
+    """
+    Transparently opens a file that is gzipped or not
+    """
     f = open(filename, 'rb')
-    if (f.read(2) == '\x1f\x8b'):
+    if f.read(2) == '\x1f\x8b':
         f.seek(0)
         return gzip.GzipFile(fileobj=f)
     else:
@@ -87,7 +89,7 @@ def opener(filename):
         return open(filename, 'r')
 
 
-def classesInModule(module):
+def classes_in_module(module):
     """
     http://stackoverflow.com/questions/5520580/how-do-you-get-all-classes-defined-in-a-module-but-not-imported
     """
@@ -99,7 +101,7 @@ def classesInModule(module):
     ]
 
 
-def functionsInModule(module):
+def functions_in_module(module):
     """
     http://stackoverflow.com/questions/5520580/how-do-you-get-all-classes-defined-in-a-module-but-not-imported
     """
@@ -111,42 +113,16 @@ def functionsInModule(module):
     ]
 
 
-def formatRatio(numerator, denominator):
+def format_ratio(numerator, denominator):
+    """
+    Convenience function that converts two numbers, integer or no, to a ratio
+    """
     if denominator == 0:
         return float("nan")
-    return float(numerator)/denominator
-    
-
-def DirType(d):
-    """
-    given a string path to a directory, D, verify it can be used.
-    """
-    d = os.path.abspath(d)
-    if not os.path.exists(d):
-        os.mkdir(d)
-    if not os.path.isdir(d):
-        raise argparse.ArgumentTypeError('DirType:%s is not a directory' % d)
-    if os.access(d, os.R_OK):
-        return d
-    else:
-        raise argparse.ArgumentTypeError('DirType:%s is not a readable dir' % d)
+    return float(numerator) / denominator
 
 
-def FileType(f):
-    """
-    given a string path to a file, F, verify it can be used.
-    """
-    f = os.path.abspath(f)
-    if not os.path.exists(f):
-        raise argparse.ArgumentTypeError('FileType:%s does not exist' % f)
-    if not os.path.isfile(f):
-        raise argparse.ArgumentTypeError('FileType:%s is not a regular file' % f)
-    if os.access(f, os.R_OK):
-        return f
-    else:
-        raise argparse.ArgumentTypeError('FileType:%s is not a readable file' % f)
-
-def combineDicts(a, b, op=operator.add):
+def combine_dicts(a, b, op=operator.add):
     """
     http://stackoverflow.com/questions/11011756/is-there-any-pythonic-way-to-combine-two-dicts-adding-values-for-keys-that-appe
     """

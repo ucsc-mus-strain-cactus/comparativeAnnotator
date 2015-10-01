@@ -40,22 +40,22 @@ class AbstractClassifier(Target):
             os.mkdir(self.outDir)
 
     def getTranscriptDict(self):
-        self.transcripts = seq_lib.getGenePredTranscripts(self.targetGp)
-        self.transcriptDict = seq_lib.transcriptListToDict(self.transcripts, noDuplicates=True)
+        self.transcripts = seq_lib.get_gene_pred_transcripts(self.targetGp)
+        self.transcriptDict = seq_lib.transcript_list_to_dict(self.transcripts, noDuplicates=True)
 
     def getRefDict(self):
-        self.refDict = seq_lib.getSequenceDict(self.refFasta)
+        self.refDict = seq_lib.get_sequence_dict(self.refFasta)
 
     def getSeqDict(self):
-        self.seqDict = seq_lib.getSequenceDict(self.fasta)
+        self.seqDict = seq_lib.get_sequence_dict(self.fasta)
 
     def getAlignmentDict(self):
-        self.psls = psl_lib.readPsl(self.alnPsl)
-        self.alignmentDict = psl_lib.getPslDict(self.psls, noDuplicates=True)
+        self.psls = psl_lib.read_psl(self.alnPsl)
+        self.alignmentDict = psl_lib.get_psl_dict(self.psls, noDuplicates=True)
 
     def getAnnotationDict(self):
-        self.annotations = seq_lib.getGenePredTranscripts(self.annotationGp)
-        self.annotationDict = seq_lib.transcriptListToDict(self.annotations, noDuplicates=True)
+        self.annotations = seq_lib.get_gene_pred_transcripts(self.annotationGp)
+        self.annotationDict = seq_lib.transcript_list_to_dict(self.annotations, noDuplicates=True)
 
     @property
     def column(self):
@@ -83,14 +83,14 @@ class AbstractAugustusClassifier(AbstractClassifier):
         self.augustusGp = augustusGp
 
     def getAugustusTranscriptDict(self):
-        self.augustusTranscripts = seq_lib.getGenePredTranscripts(self.augustusGp)
-        self.augustusTranscriptDict = seq_lib.transcriptListToDict(self.augustusTranscripts, noDuplicates=True)
+        self.augustusTranscripts = seq_lib.get_gene_pred_transcripts(self.augustusGp)
+        self.augustusTranscriptDict = seq_lib.transcript_list_to_dict(self.augustusTranscripts, noDuplicates=True)
 
 
 class Attribute(AbstractClassifier):
     """Need to overwrite the dumpValueDict method for attributes"""
     def getAttributeDict(self):
-        self.attributeDict = seq_lib.getTranscriptAttributeDict(self.gencodeAttributeMap)        
+        self.attributeDict = seq_lib.get_transcript_attribute_dict(self.gencodeAttributeMap)
 
     def dumpValueDict(self, valueDict):
         """

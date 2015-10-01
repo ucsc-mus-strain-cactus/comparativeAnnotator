@@ -1,9 +1,0 @@
-TODOs:
-
-1. Remove gene-check dependency. All that really needs to be done is use mrnaToGene to create the genePreds then convert those to bed. HOWEVER, this will lose the red/green annotation that gene-check adds. Therefore, need to add code to the annotation pipeline to make a new BED with these, using the data in the databases. This would replace the part of buildTracks.py where we symlink the input BED files.
-2. Fully merge the hal2assemblyhub script so that we don't pull out the sequences from the hal twice.
-3. Incorporate more metrics, such as Dent's coverage plots.
-4. Add another makefile for creating delta coverage plots, based on how many releases are in the folder?
-5. Previously existing problems. Classifiers should be ran against the
-original annotations and placed on the reference genome in the assemblyHub.
-6. Create a hgSql query for the attributes file, remove the hard-coded file.

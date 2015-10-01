@@ -27,8 +27,8 @@ def parse_details(records):
 
 
 def get_transcript_dict(gp, filter_set):
-    transcripts = seq_lib.getGenePredTranscripts(gp)
-    d = seq_lib.transcriptListToDict(transcripts, noDuplicates=True)
+    transcripts = seq_lib.get_gene_pred_transcripts(gp)
+    d = seq_lib.transcript_list_to_dict(transcripts, noDuplicates=True)
     r = defaultdict(list)
     for aln_id, rec in d.iteritems():
         tx_id = strip_alignment_numbers(aln_id)
@@ -76,7 +76,7 @@ def write_tx_bed(out_dir, to_investigate):
     with open(os.path.join(out_dir, "not_ok_all_chaining.bed"), "w") as outf:
         outf.write('track name="Transcripts OK in simpleChain and not OK in allChain"\n')
         for t in to_investigate:
-            outf.write("\t".join(map(str, t.getBed())) + "\n")
+            outf.write("\t".join(map(str, t.get_bed())) + "\n")
 
 
 def write_human_readable_classifiers(out_dir, to_investigate, a_con):

@@ -13,7 +13,6 @@ def parse_args():
     parser.add_argument("--tmGps", nargs="+", required=True)
     parser.add_argument("--compGp", required=True)
     parser.add_argument("--basicGp", required=True)
-    parser.add_argument("--plotBiotypes", default=["protein_coding", "lincRNA", "miRNA", "snoRNA"])
     return parser.parse_args()
 
 
@@ -336,10 +335,10 @@ def main():
         consensus_path = os.path.join(consensus_base_path, genome + "consensusGeneSet.gp")
         write_consensus(consensus, gene_map, consensus_path)
     make_coding_transcript_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, args.attributePath)
-    for biotype in args.plotBiotypes:
-        # ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, genome_order, biotype)
-        ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, hard_coded_genome_order, 
-                           biotype)
+    biotype = "protein_coding"
+    # ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, genome_order, biotype)
+    ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, hard_coded_genome_order,
+                       biotype)
 
 
 if __name__ == "__main__":

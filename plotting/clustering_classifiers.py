@@ -4,8 +4,8 @@ import os
 import sys
 import itertools
 import sqlite3 as sql
-from lib.psl_lib import removeAlignmentNumber, removeAugustusAlignmentNumber
-from lib.sqlite_lib import attachDatabase
+from lib.psl_lib import remove_alignment_number, remove_augustus_alignment_number
+from lib.sqlite_lib import attach_database
 sys.path.append("/hive/users/ifiddes/comparativeAnnotator")
 import matplotlib
 import matplotlib.pyplot as plt
@@ -18,21 +18,21 @@ def attach_databases(comp_ann_path):
     """
     con = sql.connect(os.path.join(comp_ann_path, "classify.db"))
     cur = con.cursor()
-    attachDatabase(con, os.path.join(comp_ann_path, "augustusClassify.db"), "augustus")
-    attachDatabase(con, os.path.join(comp_ann_path, "attributes.db"), "attributes")
+    attach_database(con, os.path.join(comp_ann_path, "augustusClassify.db"), "augustus")
+    attach_database(con, os.path.join(comp_ann_path, "attributes.db"), "attributes")
     return con, cur
 
 comp_ann_dir = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1504/comparativeAnnotation/2015-08-10_Augustus"
 con, cur = attach_databases(comp_ann_dir)
 
-tm_fields = ["CodingInsertions", "CodingDeletions", "StartOutOfFrame", "FrameShift", 
+tm_fields = ["CodingInsertions", "CodingDeletions", "StartOutOfFrame", "FrameShift",
                       "AlignmentAbutsLeft", "AlignmentAbutsRight", "AlignmentPartialMap", "BadFrame", "BeginStart",
-                      "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
+                      "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice",
                       "EndStop", "InFrameStop", "ShortCds", "UnknownBases", "AlignmentAbutsUnknownBases"]
 
 
-aug_fields = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand', 
-              'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries', 
+aug_fields = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand',
+              'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries',
               'AugustusNotSimilarInternalExonBoundaries']
 
 
@@ -88,7 +88,7 @@ basic_ids = {x.split()[0] for x in open("/cluster/home/ifiddes/mus_strain_data/p
 basic_coding = {x for x in basic_ids if x in coding_ids}
 tm_cmd = """SELECT AlignmentId,{} FROM main.'C57B6NJ'""".format(",".join(tm_fields))
 r = cur.execute(tm_cmd).fetchall()
-r_coding = [x for x in r if removeAlignmentNumber(x[0]) in basic_coding]
+r_coding = [x for x in r if remove_alignment_number(x[0]) in basic_coding]
 with open("transmap_coding_only.csv", "w") as outf:
     outf.write("AlignmentId," + ",".join(tm_fields) + "\n")
     for x in r_coding:
@@ -139,7 +139,7 @@ basic_coding = {x for x in basic_ids if x in coding_ids}
 comp_specific_ids = coding_ids - basic_ids
 tm_cmd = """SELECT AlignmentId,{} FROM main.'C57B6NJ'""".format(",".join(tm_fields))
 r = cur.execute(tm_cmd).fetchall()
-r_coding = [x for x in r if removeAlignmentNumber(x[0]) in comp_specific_ids]
+r_coding = [x for x in r if remove_alignment_number(x[0]) in comp_specific_ids]
 with open("transmap_comp_specific.csv", "w") as outf:
     outf.write("AlignmentId," + ",".join(tm_fields) + "\n")
     for x in r_coding:
@@ -165,8 +165,8 @@ dev.off()
 
 # not sure what I want to use this for
 tm_grouped_fields = [["CodingInsertions", "CodingDeletions"], ["CodingMult3Deletions", "CodingMult3Insertions"], "StartOutOfFrame", "FrameShift",
-                     ["AlignmentAbutsLeft", "AlignmentAbutsRight"], "AlignmentPartialMap", "BadFrame", ["BeginStart", "EndStop"], 
-                     ["CdsGap", "CdsMult3Gap"], "UtrGap", "UnknownGap", ["CdsUnknownSplice", "UtrUnknownSplice"], "InFrameStop", "ShortCds", 
+                     ["AlignmentAbutsLeft", "AlignmentAbutsRight"], "AlignmentPartialMap", "BadFrame", ["BeginStart", "EndStop"],
+                     ["CdsGap", "CdsMult3Gap"], "UtrGap", "UnknownGap", ["CdsUnknownSplice", "UtrUnknownSplice"], "InFrameStop", "ShortCds",
                      ["UnknownBases", "AlignmentAbutsUnknownBases"]]
 
 

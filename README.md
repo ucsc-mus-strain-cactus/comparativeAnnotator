@@ -1,3 +1,5 @@
+TODO: THIS IS OUT OF DATE
+
 # comparative annotation pipeline
 
 This pipeline is used to create comparative annotation of aligned whole genomes. It does this by taking a set of target genomes and one reference genome whose annotations will be mapped over, then checked for correctness. An assemblyHub is produced automatically to visualize the results.

@@ -7,7 +7,7 @@ import src.augustusQueries
 import lib.sqlite_lib as sql_lib
 import lib.psl_lib as psl_lib
 import lib.sequence_lib as seq_lib
-from lib.general_lib import functionsInModule
+from lib.general_lib import functions_in_module
 from src.abstractClassifier import AbstractClassifier
 from jobTree.scriptTree.target import Target
 from jobTree.src.bioio import logger, system
@@ -34,7 +34,7 @@ class BuildAugustusTracks(Target):
         self.augustusGps = augustusGps
         self.sizes = sizes
         self.annotationGp = annotationGp
-        self.augustusCategories = functionsInModule(src.augustusQueries)
+        self.augustusCategories = functions_in_module(src.augustusQueries)
 
     def writeBed(self, genome, detailsFields, classifyFields, classifyValues, classifyOperations, categoryName):
         bedPath = os.path.join(self.bedDir, categoryName, genome, genome + ".bed")
@@ -59,7 +59,7 @@ class BuildAugustusTracks(Target):
         """
         Recolors the Augustus tracks based on OK-ness.
         """
-        records = seq_lib.getGenePredTranscripts(gp)
+        records = seq_lib.get_gene_pred_transcripts(gp)
         # first we recolor everything black
         for x in records:
             x.rgb = "0"
@@ -68,12 +68,12 @@ class BuildAugustusTracks(Target):
         for x in records:
             if x.name in aIds:
                 x.rgb = "83,179,64"
-        return ["\t".join(map(str, x.getBed())) for x in records]
+        return ["\t".join(map(str, x.get_bed())) for x in records]
 
     def run(self):
         self.con = sql.connect(os.path.join(self.outDir, "augustusClassify.db"))
         self.cur = self.con.cursor()
-        sql_lib.attachDatabase(self.con, os.path.join(self.outDir, "augustusDetails.db"), "details")
+        sql_lib.attach_database(self.con, os.path.join(self.outDir, "augustusDetails.db"), "details")
 
         if not os.path.exists(self.bedDir):
             os.mkdir(self.bedDir)

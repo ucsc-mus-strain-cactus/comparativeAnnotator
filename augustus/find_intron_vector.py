@@ -15,8 +15,8 @@ def parse_args():
 
 
 def load_gp(path):
-    tm_recs = seq_lib.getGenePredTranscripts(path)
-    tm_dict = seq_lib.transcriptListToDict(tm_recs, noDuplicates=True)
+    tm_recs = seq_lib.get_gene_pred_transcripts(path)
+    tm_dict = seq_lib.transcript_list_to_dict(tm_recs, noDuplicates=True)
     return tm_dict
 
 

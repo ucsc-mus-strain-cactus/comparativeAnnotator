@@ -7,7 +7,7 @@ import src.queries
 import lib.sqlite_lib as sql_lib
 import lib.psl_lib as psl_lib
 import lib.sequence_lib as seq_lib
-from lib.general_lib import functionsInModule
+from lib.general_lib import functions_in_module
 from src.abstractClassifier import AbstractClassifier
 from jobTree.scriptTree.target import Target
 from jobTree.src.bioio import logger, system
@@ -33,7 +33,7 @@ class BuildTracks(Target):
         self.gps = gps
         self.sizes = sizes
         self.annotationGp = annotationGp
-        self.categories = functionsInModule(src.queries)
+        self.categories = functions_in_module(src.queries)
         # bring in abstractClassifier colors
         self.colors = AbstractClassifier.colors
 
@@ -61,7 +61,7 @@ class BuildTracks(Target):
         Recolors the comparativeAnnotation results based on the scheme assembly > alignment > biology. Transcripts not in
         one of these categories will become black.
         """
-        records = seq_lib.getGenePredTranscripts(gp)
+        records = seq_lib.get_gene_pred_transcripts(gp)
         # first we recolor everything black
         for x in records:
             x.rgb = "0"
@@ -83,12 +83,12 @@ class BuildTracks(Target):
         for x in records:
             if x.name in aIds:
                 x.rgb = self.colors["assembly"]
-        return ["\t".join(map(str, x.getBed())) for x in records]
+        return ["\t".join(map(str, x.get_bed())) for x in records]
 
     def run(self):
         self.con = sql.connect(os.path.join(self.outDir, "classify.db"))
         self.cur = self.con.cursor()
-        sql_lib.attachDatabase(self.con, os.path.join(self.outDir, "details.db"), "details")
+        sql_lib.attach_database(self.con, os.path.join(self.outDir, "details.db"), "details")
 
         if not os.path.exists(self.bedDir):
             os.mkdir(self.bedDir)

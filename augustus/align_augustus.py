@@ -3,17 +3,17 @@ import argparse
 import shutil
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
-from lib.psl_lib import PslRow, removeAugustusAlignmentNumber, removeAlignmentNumber
+from lib.psl_lib import PslRow, remove_augustus_alignment_number, remove_alignment_number
 from sonLib.bioio import fastaRead, fastaWrite, popenCatch, system, getRandomAlphaNumericString
 from pyfaidx import Fasta
-from lib.general_lib import formatRatio, mkdir_p
+from lib.general_lib import format_ratio, mkdir_p
 
 
 def coverage(p_list):
     m = sum(x.matches for x in p_list)
     mi = sum(x.misMatches for x in p_list)
     rep = sum(x.repMatches for x in p_list)
-    return formatRatio(m + mi + rep, p_list[0].qSize)
+    return format_ratio(m + mi + rep, p_list[0].qSize)
 
 
 def identity(p_list):
@@ -21,7 +21,7 @@ def identity(p_list):
     mi = sum(x.misMatches for x in p_list)
     rep = sum(x.repMatches for x in p_list)
     ins = sum(x.qNumInsert for x in p_list)
-    return formatRatio(m + rep, m + rep + mi + ins)
+    return format_ratio(m + rep, m + rep + mi + ins)
 
 
 def chunker(seq, size):
@@ -33,8 +33,8 @@ def align(target, g, target_fasta, chunk, ref_fasta, out_path):
     r_f = Fasta(ref_fasta)
     results = []
     for aug_aId in chunk:
-        aId = removeAugustusAlignmentNumber(aug_aId)
-        gencode_id = removeAlignmentNumber(aId)
+        aId = remove_augustus_alignment_number(aug_aId)
+        gencode_id = remove_alignment_number(aId)
         gencode_seq = str(r_f[gencode_id])
         aug_seq = str(g_f[aug_aId])
         tmp_aug = os.path.join(target.getLocalTempDir(), "tmp_aug")

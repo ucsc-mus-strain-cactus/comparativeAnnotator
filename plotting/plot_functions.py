@@ -1,14 +1,12 @@
+"""
+This file contains convenience functions for plotting.
+"""
 import os
-import sys
 import itertools
 import math
 import re
-import sqlite3 as sql
 import numpy as np
-from collections import defaultdict, Counter, OrderedDict
-from lib.psl_lib import removeAlignmentNumber, removeAugustusAlignmentNumber
-from lib.sqlite_lib import attachDatabase
-from lib.general_lib import mkdir_p, DefaultOrderedDict
+from collections import defaultdict, OrderedDict
 
 import matplotlib
 matplotlib.use('Agg')
@@ -17,76 +15,21 @@ import matplotlib.lines as lines
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import matplotlib.pylab as pylab
-import matplotlib.backends.backend_pdf as pltBack
-# Below are global variables shared by plotting scripts
+import matplotlib.backends.backend_pdf as plt_back
 
-# this genetic distance is from Joel. There are functions to derive it, but this makes it consistent across plots.
-hard_coded_genome_order = ['C57B6NJ', 'NZOHlLtJ', '129S1', 'FVBNJ', 'NODShiLtJ', 'LPJ', 'AJ', 'AKRJ', 'BALBcJ', 'DBA2J',
-                            'C3HHeJ', 'CBAJ', 'WSBEiJ', 'CASTEiJ', 'PWKPhJ', 'SPRETEiJ', 'CAROLIEiJ', 'PAHARIEiJ']
+from lib.psl_lib import remove_alignment_number, remove_augustus_alignment_number
+from lib.general_lib import skip_header
 
-# these classifiers define OK for coding transcripts
-tm_coding_classifiers = ["CodingInsertions", "CodingDeletions",
-                         "AlignmentPartialMap", "BadFrame", "BeginStart", "UnknownBases", "AlignmentAbutsUnknownBases",
-                         "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice", 
-                         "EndStop", "InFrameStop", "ShortCds", "StartOutOfFrame", "FrameShift",
-                         "AlignmentAbutsRight", "AlignmentAbutsLeft"]
+from config import *
 
-# these classifiers define OK for non-coding transcripts
-tm_noncoding_classifiers = ["AlignmentPartialMap", "UtrUnknownSplice", "UtrGap", "UnknownGap", "UnknownBases", 
-                            "AlignmentAbutsUnknownBases"]
-
-# these classifiers define OK for Augustus transcripts
-aug_ok_fields = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand', 
-                  'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries', 
-                  'AugustusNotSimilarInternalExonBoundaries']
-
-# used for the plots
-width = 9.0
-height = 6.0
-bar_width = 0.45
-# paired_palette has two parallel color spectrums and black as the outgroup color
-paired_palette = ["#df65b0", "#dd1c77", "#980043", "#a1dab4", "#41b6c4", "#2c7fb8", "#252525"]
-# palette is the seaborn colorbind palette
-palette = ["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#f0e442", "#56b4e9"]
-
-
-def skip_header(path):
-    """
-    The attributes file produced by the pipeline has a header. Skip it. Return a open file handle pointing to line 2.
-    """
-    f_h = open(path)
-    _ = f_h.next()
-    return f_h
+__author__ = "Ian Fiddes"
 
 
 def strip_alignment_numbers(aln_id):
     """
     Convenience function for stripping both Augustus and transMap alignment IDs from a aln_id
     """
-    return removeAlignmentNumber(removeAugustusAlignmentNumber(aln_id))
-
-
-def get_all_biotypes(attr_path):
-    """
-    Returns all biotypes in the attribute database.
-    """
-    return {x.split()[4] for x in skip_header(attr_path)}
-
-
-def skip_header(path):
-    """
-    The attributes file produced by the pipeline has a header. Skip it. Return a open file handle pointing to line 2.
-    """
-    f_h = open(path)
-    _ = f_h.next()
-    return f_h
-
-
-def strip_alignment_numbers(aln_id):
-    """
-    Convenience function for stripping both Augustus and transMap alignment IDs from a aln_id
-    """
-    return removeAlignmentNumber(removeAugustusAlignmentNumber(aln_id))
+    return remove_alignment_number(remove_augustus_alignment_number(aln_id))
 
 
 def get_all_biotypes(attr_path):
@@ -157,7 +100,7 @@ def get_all_ids(attr_path, biotype=None, filter_set=set(), id_type="Transcript")
         if biotype is None:
             return {x.split()[0] for x in skip_header(attr_path) if x not in filter_set}
         else:
-            return {x.split()[0] for x in skip_header(attr_path) if x.split()[4] == biotype if x not in filter_set}        
+            return {x.split()[0] for x in skip_header(attr_path) if x.split()[4] == biotype if x not in filter_set}
 
 
 def get_gp_ids(gp):
@@ -235,21 +178,6 @@ def get_tm_stats(cur, genome):
     return {x[0]: x for x in result}
 
 
-def attach_databases(comp_ann_path, has_augustus=False):
-    """
-    Attaches all of the databases. Expects comp_ann_path to be the path that comparativeAnnotator wrote to.
-    If has_augustus is True, expects this folder to have a augustus database.
-    """
-    con = sql.connect(os.path.join(comp_ann_path, "classify.db"))
-    cur = con.cursor()
-    attachDatabase(con, os.path.join(comp_ann_path, "attributes.db"), "attributes")
-    attachDatabase(con, os.path.join(comp_ann_path, "details.db"), "details")
-    if has_augustus:
-        assert os.path.exists(os.path.join(comp_ann_path, "augustusClassify.db"))
-        attachDatabase(con, os.path.join(comp_ann_path, "augustusClassify.db"), "augustus")
-    return con, cur
-
-
 def make_counts_frequency(counts):
     """
     Convenience function that takes a dict and turns the values into a proportion of the total.
@@ -260,11 +188,10 @@ def make_counts_frequency(counts):
     for key, val in counts.iteritems():
         normed[key] = 100.0 * val / tot
     return [[x, y, counts[x]] for x, y in normed.iteritems()]
-    return list(normed.iteritems()), list(counts.iteritems())
 
 
 def init_image(out_folder, comparison_name, width, height):
-    pdf = pltBack.PdfPages(os.path.join(out_folder, comparison_name + ".pdf"))
+    pdf = plt_back.PdfPages(os.path.join(out_folder, comparison_name + ".pdf"))
     # width by height in inches
     fig = plt.figure(figsize=(width, height), dpi=300, facecolor='w')
     return fig, pdf
@@ -274,22 +201,22 @@ def establish_axes(fig, width, height, border=True, has_legend=True):
     """
     Sets up axes. No idea how this works, Dent's code.
     """
-    axLeft = 1.1 / width
+    ax_left = 1.1 / width
     if border is True:
         if has_legend is True:
-            axRight = 1.0 - (2.0 / width)
+            ax_right = 1.0 - (1.8 / width)
         else:
-            axRight = 1.0 - (1.15 / width)
+            ax_right = 1.0 - (1.15 / width)
     else:
         if has_legend is True:
-            axRight = 1.1 - (2.0 / width)
+            ax_right = 1.1 - (1.8 / width)
         else:
-            axRight = 1.1 - (1.15 / width)
-    axWidth = axRight - axLeft
-    axBottom = 1.4 / height
-    axTop = 0.90 - (0.4 / height)
-    axHeight = axTop - axBottom
-    ax = fig.add_axes([axLeft, axBottom, axWidth, axHeight])
+            ax_right = 1.1 - (1.15 / width)
+    ax_width = ax_right - ax_left
+    ax_bottom = 1.4 / height
+    ax_top = 0.90 - (0.4 / height)
+    ax_height = ax_top - ax_bottom
+    ax = fig.add_axes([ax_left, ax_bottom, ax_width, ax_height])
     ax.yaxis.set_major_locator(pylab.NullLocator())
     ax.xaxis.set_major_locator(pylab.NullLocator())
     for loc, spine in ax.spines.iteritems():
@@ -351,7 +278,7 @@ def barplot(results, out_path, file_name, title_string, color="#0072b2", border=
     bars = ax.bar(range(len(names)), values, bar_width, color=color)
     if add_labels is True:
         for i, rect in enumerate(bars):
-                ax.text(rect.get_x() + bar_width / 2.0, 0.0 + rect.get_height(), raw_values[i], ha='center', 
+                ax.text(rect.get_x() + bar_width / 2.0, 0.0 + rect.get_height(), raw_values[i], ha='center',
                         va='bottom', size=6)
     if max(len(x) for x in names) > 15:
         adjust_x_labels(ax, names)
@@ -371,12 +298,12 @@ def stacked_barplot(results, legend_labels, out_path, file_name, title_string, c
     bars = []
     cumulative = np.zeros(len(values))
     for i, d in enumerate(np.asarray(values).transpose()):
-        bars.append(ax.bar(range(len(values)), d, bar_width, bottom=cumulative, 
+        bars.append(ax.bar(range(len(values)), d, bar_width, bottom=cumulative,
                            color=color_palette[i % len(color_palette)],
                            linewidth=0.0, alpha=1.0))
         cumulative += d
-    legend = fig.legend([x[0] for x in bars[::-1]], legend_labels[::-1], bbox_to_anchor=(1,0.8), fontsize=11, 
-                        frameon=True, title="Category")
+    fig.legend([x[0] for x in bars[::-1]], legend_labels[::-1], bbox_to_anchor=(1,0.8), fontsize=11,
+               frameon=True, title="Category")
     fig.savefig(pdf, format='pdf')
     pdf.close()
     plt.close()

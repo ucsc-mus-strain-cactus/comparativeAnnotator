@@ -16,18 +16,18 @@ class AugustusNotSameStrand(AbstractAugustusClassifier):
     def run(self):
         self.getAugustusTranscriptDict()
         self.getTranscriptDict()
-        classifyDict = {}
-        detailsDict = defaultdict(list)
+        classify_dict = {}
+        details_dict = defaultdict(list)
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
-            if psl_lib.removeAugustusAlignmentNumber(aug_aId) not in self.transcriptDict:
+            if psl_lib.remove_augustus_alignment_number(aug_aId) not in self.transcriptDict:
                 continue
-            t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+            t = self.transcriptDict[psl_lib.remove_augustus_alignment_number(aug_aId)]
             if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome:
-                classifyDict[aug_aId] = 1
-                detailsDict[aug_aId] = seq_lib.transcriptToBed(aug_t, self.rgb, self.column)
+                classify_dict[aug_aId] = 1
+                details_dict[aug_aId] = seq_lib.transcript_to_bed(aug_t, self.rgb, self.column)
             else:
-                classifyDict[aug_aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)    
+                classify_dict[aug_aId] = 0
+        self.dumpValueDicts(classify_dict, details_dict)
 
 
 class AugustusParalogy(AbstractAugustusClassifier):
@@ -42,17 +42,17 @@ class AugustusParalogy(AbstractAugustusClassifier):
         r = re.compile("-[0-9]+-")
         self.getAugustusTranscriptDict()
         counts = Counter("-".join(r.split(aug_aId)) for aug_aId in self.augustusTranscriptDict)
-        detailsDict = {}
-        classifyDict = {}
+        details_dict = {}
+        classify_dict = {}
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
-            if counts[psl_lib.removeAugustusAlignmentNumber(aug_aId)] > 1:
-                detailsDict[aug_aId] = seq_lib.transcriptToBed(aug_t, self.rgb, self.column + "_{}_Copies".format(
-                                                               counts[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+            if counts[psl_lib.remove_augustus_alignment_number(aug_aId)] > 1:
+                details_dict[aug_aId] = seq_lib.transcript_to_bed(aug_t, self.rgb, self.column + "_{}_Copies".format(
+                                                               counts[psl_lib.remove_augustus_alignment_number(aug_aId)]
                                                                - 1))
-                classifyDict[aug_aId] = 1
+                classify_dict[aug_aId] = 1
             else:
-                classifyDict[aug_aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                classify_dict[aug_aId] = 0
+        self.dumpValueDicts(classify_dict, details_dict)
 
 
 class AugustusExonGain(AbstractAugustusClassifier):
@@ -68,23 +68,23 @@ class AugustusExonGain(AbstractAugustusClassifier):
     def run(self, shortIntronSize=30):
         self.getAugustusTranscriptDict()
         self.getTranscriptDict()
-        classifyDict = {}
-        detailsDict = defaultdict(list)
+        classify_dict = {}
+        details_dict = defaultdict(list)
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
-            if psl_lib.removeAugustusAlignmentNumber(aug_aId) not in self.transcriptDict:
+            if psl_lib.remove_augustus_alignment_number(aug_aId) not in self.transcriptDict:
                 continue
-            t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+            t = self.transcriptDict[psl_lib.remove_augustus_alignment_number(aug_aId)]
             if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome:
                 continue
             aug_t_intervals = aug_t.exonIntervals
-            merged_t_intervals = seq_lib.gapMergeIntervals(t.exonIntervals, gap=shortIntronSize)
+            merged_t_intervals = seq_lib.gap_merge_intervals(t.exonIntervals, gap=shortIntronSize)
             for interval in aug_t_intervals:
-                if seq_lib.intervalNotIntersectIntervals(merged_t_intervals, interval):
-                    classifyDict[aug_aId] = 1
-                    detailsDict[aug_aId].append(interval.getBed(self.rgb, "/".join([self.column, aug_aId])))
-            if aug_aId not in classifyDict:
-                classifyDict[aug_aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                if seq_lib.interval_not_intersect_intervals(merged_t_intervals, interval):
+                    classify_dict[aug_aId] = 1
+                    details_dict[aug_aId].append(interval.get_bed(self.rgb, "/".join([self.column, aug_aId])))
+            if aug_aId not in classify_dict:
+                classify_dict[aug_aId] = 0
+        self.dumpValueDicts(classify_dict, details_dict)
 
 
 class AugustusExonLoss(AbstractAugustusClassifier):
@@ -99,23 +99,23 @@ class AugustusExonLoss(AbstractAugustusClassifier):
     def run(self, shortIntronSize=30):
         self.getAugustusTranscriptDict()
         self.getTranscriptDict()
-        classifyDict = {}
-        detailsDict = defaultdict(list)
+        classify_dict = {}
+        details_dict = defaultdict(list)
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
-            if psl_lib.removeAugustusAlignmentNumber(aug_aId) not in self.transcriptDict:
+            if psl_lib.remove_augustus_alignment_number(aug_aId) not in self.transcriptDict:
                 continue
-            t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+            t = self.transcriptDict[psl_lib.remove_augustus_alignment_number(aug_aId)]
             if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome:
                 continue
             aug_t_intervals = aug_t.exonIntervals
-            merged_t_intervals = seq_lib.gapMergeIntervals(t.exonIntervals, gap=shortIntronSize)
+            merged_t_intervals = seq_lib.gap_merge_intervals(t.exonIntervals, gap=shortIntronSize)
             for interval in merged_t_intervals:
-                if seq_lib.intervalNotIntersectIntervals(aug_t_intervals, interval):
-                    classifyDict[aug_aId] = 1
-                    detailsDict[aug_aId].append(interval.getBed(self.rgb, "/".join([self.column, aug_aId])))
-            if aug_aId not in classifyDict:
-                classifyDict[aug_aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                if seq_lib.interval_not_intersect_intervals(aug_t_intervals, interval):
+                    classify_dict[aug_aId] = 1
+                    details_dict[aug_aId].append(interval.get_bed(self.rgb, "/".join([self.column, aug_aId])))
+            if aug_aId not in classify_dict:
+                classify_dict[aug_aId] = 0
+        self.dumpValueDicts(classify_dict, details_dict)
 
 
 class AugustusNotSimilarInternalExonBoundaries(AbstractAugustusClassifier):
@@ -130,24 +130,24 @@ class AugustusNotSimilarInternalExonBoundaries(AbstractAugustusClassifier):
     def run(self, shortIntronSize=30, wiggleRoom=30):
         self.getAugustusTranscriptDict()
         self.getTranscriptDict()
-        classifyDict = {}
-        detailsDict = defaultdict(list)
+        classify_dict = {}
+        details_dict = defaultdict(list)
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
-            if psl_lib.removeAugustusAlignmentNumber(aug_aId) not in self.transcriptDict:
+            if psl_lib.remove_augustus_alignment_number(aug_aId) not in self.transcriptDict:
                 continue
-            t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+            t = self.transcriptDict[psl_lib.remove_augustus_alignment_number(aug_aId)]
             if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome:
                 continue
-            merged_t_intervals = seq_lib.gapMergeIntervals(t.exonIntervals, gap=shortIntronSize)
+            merged_t_intervals = seq_lib.gap_merge_intervals(t.exonIntervals, gap=shortIntronSize)
             merged_t_intervals = merged_t_intervals[1:-1]
             aug_t_intervals = aug_t.exonIntervals[1:-1]
             for interval in merged_t_intervals:
-                if seq_lib.intervalNotWithinWiggleRoomIntervals(aug_t_intervals, interval, wiggleRoom):
-                    classifyDict[aug_aId] = 1
-                    detailsDict[aug_aId].append(interval.getBed(self.rgb, "/".join([self.column, aug_aId])))
-            if aug_aId not in classifyDict:
-                classifyDict[aug_aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                if seq_lib.interval_not_within_wiggle_room_intervals(aug_t_intervals, interval, wiggleRoom):
+                    classify_dict[aug_aId] = 1
+                    details_dict[aug_aId].append(interval.get_bed(self.rgb, "/".join([self.column, aug_aId])))
+            if aug_aId not in classify_dict:
+                classify_dict[aug_aId] = 0
+        self.dumpValueDicts(classify_dict, details_dict)
 
 
 class AugustusNotSimilarTerminalExonBoundaries(AbstractAugustusClassifier):
@@ -161,24 +161,24 @@ class AugustusNotSimilarTerminalExonBoundaries(AbstractAugustusClassifier):
     def run(self, shortIntronSize=100, wiggleRoom=200):
         self.getAugustusTranscriptDict()
         self.getTranscriptDict()
-        classifyDict = {}
-        detailsDict = defaultdict(list)
+        classify_dict = {}
+        details_dict = defaultdict(list)
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
-            if psl_lib.removeAugustusAlignmentNumber(aug_aId) not in self.transcriptDict:
+            if psl_lib.remove_augustus_alignment_number(aug_aId) not in self.transcriptDict:
                 continue
-            t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+            t = self.transcriptDict[psl_lib.remove_augustus_alignment_number(aug_aId)]
             if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome:
                 continue
-            merged_t_intervals = seq_lib.gapMergeIntervals(t.exonIntervals, gap=shortIntronSize)
+            merged_t_intervals = seq_lib.gap_merge_intervals(t.exonIntervals, gap=shortIntronSize)
             merged_t_intervals = [merged_t_intervals[0], merged_t_intervals[-1]]
             aug_t_intervals = [aug_t.exonIntervals[0], aug_t.exonIntervals[-1]]
             for interval in merged_t_intervals:
-                if seq_lib.intervalNotWithinWiggleRoomIntervals(aug_t_intervals, interval, wiggleRoom):
-                    classifyDict[aug_aId] = 1
-                    detailsDict[aug_aId].append(interval.getBed(self.rgb, "/".join([self.column, aug_aId])))
-            if aug_aId not in classifyDict:
-                classifyDict[aug_aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                if seq_lib.interval_not_within_wiggle_room_intervals(aug_t_intervals, interval, wiggleRoom):
+                    classify_dict[aug_aId] = 1
+                    details_dict[aug_aId].append(interval.get_bed(self.rgb, "/".join([self.column, aug_aId])))
+            if aug_aId not in classify_dict:
+                classify_dict[aug_aId] = 0
+        self.dumpValueDicts(classify_dict, details_dict)
 
 
 class AugustusNotSameStartStop(AbstractAugustusClassifier):
@@ -192,22 +192,22 @@ class AugustusNotSameStartStop(AbstractAugustusClassifier):
     def run(self):
         self.getAugustusTranscriptDict()
         self.getTranscriptDict()
-        classifyDict = {}
-        detailsDict = {}
+        classify_dict = {}
+        details_dict = {}
         for aug_aId, aug_t in self.augustusTranscriptDict.iteritems():
-            if psl_lib.removeAugustusAlignmentNumber(aug_aId) not in self.transcriptDict:
+            if psl_lib.remove_augustus_alignment_number(aug_aId) not in self.transcriptDict:
                 continue
-            t = self.transcriptDict[psl_lib.removeAugustusAlignmentNumber(aug_aId)]
+            t = self.transcriptDict[psl_lib.remove_augustus_alignment_number(aug_aId)]
             if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome or t.thickStart == t.thickStop:
                 continue
             if t.thickStart != aug_t.thickStart or t.thickStop != aug_t.thickStop:
-                classifyDict[aug_aId] = 1
+                classify_dict[aug_aId] = 1
                 s = aug_t.getCdsLength()
                 if s > 9:
-                    detailsDict[aug_aId] = [seq_lib.cdsCoordinateToBed(aug_t, 0, 3, self.rgb, self.column),
-                                            seq_lib.cdsCoordinateToBed(aug_t, s - 3, s, self.rgb, self.column)]
+                    details_dict[aug_aId] = [seq_lib.cds_coordinate_to_bed(aug_t, 0, 3, self.rgb, self.column),
+                                            seq_lib.cds_coordinate_to_bed(aug_t, s - 3, s, self.rgb, self.column)]
                 else:
-                    detailsDict[aug_aId] = seq_lib.cdsCoordinateToBed(aug_t, 0, s, self.rgb, self.column)
+                    details_dict[aug_aId] = seq_lib.cds_coordinate_to_bed(aug_t, 0, s, self.rgb, self.column)
             else:
-                classifyDict[aug_aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                classify_dict[aug_aId] = 0
+        self.dumpValueDicts(classify_dict, details_dict)

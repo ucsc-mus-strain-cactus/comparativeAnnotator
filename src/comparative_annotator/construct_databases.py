@@ -8,7 +8,7 @@ import src.augustusClassifiers
 import lib.sqlite_lib as sql_lib
 import lib.psl_lib as psl_lib
 from jobTree.scriptTree.target import Target
-from lib.general_lib import classesInModule
+from lib.general_lib import classes_in_module
 
 
 class ConstructDatabases(Target):
@@ -21,8 +21,8 @@ class ConstructDatabases(Target):
         self.tmpDir = dataDir
 
     def run(self):
-        classifiers = classesInModule(src.classifiers)
-        attributes = classesInModule(src.attributes)
+        classifiers = classes_in_module(src.classifiers)
+        attributes = classes_in_module(src.attributes)
         classifyDb = os.path.join(self.outDir, "classify.db")
         detailsDb = os.path.join(self.outDir, "details.db")
         attributesDb = os.path.join(self.outDir, "attributes.db")
@@ -54,7 +54,7 @@ class ConstructDatabases(Target):
         If your details-mode classifier has BED records for values in its valueDict, use this.
         """
         with sql_lib.ExclusiveSqlConnection(db) as cur:
-            sql_lib.updateRows(cur, genome, self.primaryKeyColumn, column, self.detailsEntryIter(valueDict.iteritems()))     
+            sql_lib.updateRows(cur, genome, self.primaryKeyColumn, column, self.detailsEntryIter(valueDict.iteritems()))
 
     def detailsEntryIter(self, valueIter):
         """
@@ -99,7 +99,7 @@ class ConstructAugustusDatabases(ConstructDatabases):
         self.augustusGps = augustusGps
 
     def run(self):
-        augustusClassifiers = classesInModule(src.augustusClassifiers)
+        augustusClassifiers = classes_in_module(src.augustusClassifiers)
         classifyDb = os.path.join(self.outDir, "augustusClassify.db")
         if os.path.exists(classifyDb):
             os.remove(classifyDb)
@@ -122,7 +122,7 @@ class ConstructAugustusDatabases(ConstructDatabases):
         # find alignment IDs from PSLs (primary key for database)
         for genome, gp in izip(self.genomes, self.augustusGps):
             aug_aIds = set(x.split()[11] for x in open(gp))
-            aIds = [psl_lib.removeAugustusAlignmentNumber(x) for x in aug_aIds]
+            aIds = [psl_lib.remove_augustus_alignment_number(x) for x in aug_aIds]
             self.initializeSqlTable(dbPath, genome, columnDefinitions, self.primaryKeyColumn)
             self.initializeSqlRows(dbPath, genome, aug_aIds, self.primaryKeyColumn)
             self.buildNameRow(dbPath, genome, aug_aIds, aIds, self.primaryKeyColumn)

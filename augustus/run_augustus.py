@@ -11,7 +11,7 @@ from pyfaidx import Fasta
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, popenCatch, getRandomAlphaNumericString, catFiles, TempFileTree
-from lib.sequence_lib import GenePredTranscript
+from lib.sequence_lib import genePredTranscript
 from lib.general_lib import mkdir_p
 
 
@@ -148,9 +148,9 @@ def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_t
     """
     fasta = Fasta(fasta_path)
     chrom_sizes = {x.split()[0]: x.split()[1] for x in open(sizes_path)}
-    gp = GenePredTranscript(gp_string.rstrip().split("\t"))
+    gp = genePredTranscript(gp_string.rstrip().split("\t"))
     # ignore genes with no coding region or longer than max_gene_size
-    if not (gp.thickStart >= gp.thickStop or gp.stop - gp.start > max_gene_size):
+    if not (gp.thick_start >= gp.thick_stop or gp.stop - gp.start > max_gene_size):
         chrom = gp.chromosome
         start = max(gp.start - padding, 0)
         stop = min(gp.stop + padding, chrom_sizes[chrom])
@@ -196,7 +196,7 @@ def main():
     parser.add_argument("--fasta", required=True)
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
-    i = Stack(Target.makeTargetFn(wrapper, args=(args.inputGp, args.outputGtf, args.genome, 
+    i = Stack(Target.makeTargetFn(wrapper, args=(args.inputGp, args.outputGtf, args.genome,
                                                  args.chromSizes, args.fasta))).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")

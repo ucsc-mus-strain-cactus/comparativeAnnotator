@@ -1,5 +1,5 @@
 import src.classifiers
-from lib.general_lib import classesInModule
+from lib.general_lib import classes_in_module
 
 
 def inFrameStop():
@@ -11,7 +11,7 @@ def inFrameStop():
 
 
 def allProblems():
-    detailsFields = classifyFields = [x.__name__ for x in classesInModule(src.classifiers)]
+    detailsFields = classifyFields = [x.__name__ for x in classes_in_module(src.classifiers)]
     classifyOperations = ["OR"] * (len(classifyFields) - 1)
     classifyValues = [1] * len(classifyFields)
     return detailsFields, classifyFields, classifyValues, classifyOperations

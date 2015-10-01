@@ -5,7 +5,7 @@ from itertools import izip
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from jobTree.src.bioio import setLoggingFromOptions, system, logger
-from lib.general_lib import classesInModule
+from lib.general_lib import classes_in_module
 import lib.sqlite_lib as sql_lib
 
 import src.classifiers
@@ -39,9 +39,9 @@ def build_parser():
 def buildAnalyses(target, psls, fastas, refFasta, gps, gencodeAttributeMap, genomes,
                   annotationGp, outDir, refGenome, primaryKeyColumn, sizes, augGps):
     # find all user-defined classes in the categories of analyses
-    classifiers = classesInModule(src.classifiers)
-    augustusClassifiers = classesInModule(src.augustusClassifiers)
-    attributes = classesInModule(src.attributes)
+    classifiers = classes_in_module(src.classifiers)
+    augustusClassifiers = classes_in_module(src.augustusClassifiers)
+    attributes = classes_in_module(src.attributes)
     for genome, psl, bed, fasta, augGp in izip(genomes, psls, gps, fastas, augGps):
         for c in classifiers:
             target.addChildTarget(c(genome, psl, fasta, refFasta, annotationGp, gencodeAttributeMap,
