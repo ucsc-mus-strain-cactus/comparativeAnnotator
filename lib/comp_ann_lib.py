@@ -126,6 +126,7 @@ def codon_pair_iterator(a, t, aln, target_seq_dict, query_seq_dict):
                                 for j in xrange(i, i + 3)]
         if None in target_cds_positions:
             continue
+        # sanity check - should probably remove. But should probably write tests too...
         assert all([target_cds_positions[2] - target_cds_positions[1] == 1, target_cds_positions[1] -
                     target_cds_positions[0] == 1, target_cds_positions[2] - target_cds_positions[0] == 2])
         target_codon = target_cds[target_cds_positions[0]:target_cds_positions[0] + 3]
@@ -138,6 +139,9 @@ def compare_intron_to_reference(intron, a, aln, compare_dict, ref_dict):
     For use with the splicing classifiers. Given an index of an intron in t that has a problem,
     determines if this intron exists in the reference. Then, determines if this reference splice
     also has the problem defined by compare_dict. Returns True if the reference also has a splicing problem.
+
+    TODO: I don't understand why I am effectively adding 2 below, once before and once after. a_start cannot ever have
+    been None because this would raise a TypeError. I am scared to change this without a test...
     """
     a_start = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.start - 1)) + 1
     a_stop = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.stop))

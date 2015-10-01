@@ -1,19 +1,21 @@
-import os
+"""
+This is the main driver script for comparativeAnnotator in AugustusTMR mode.
+"""
+
 import argparse
-from itertools import izip
 
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
-from jobTree.src.bioio import setLoggingFromOptions, system, logger
-from lib.general_lib import classes_in_module
-import lib.sqlite_lib as sql_lib
 
-import src.classifiers
-import src.augustusClassifiers
-import src.attributes
-from src.constructDatabases import ConstructDatabases, ConstructAugustusDatabases
-from src.buildTracks import BuildTracks
-from src.buildAugustusTracks import BuildAugustusTracks
+from sonLib.bioio import TempFileTree
+
+from lib.general_lib import classes_in_module
+
+import src.augustus_classifiers
+from src.construct_databases import ConstructDatabases
+from src.build_tracks import BuildTracks
+
+__author__ = "Ian Fiddes"
 
 
 def build_parser():
@@ -22,105 +24,48 @@ def build_parser():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--refGenome', type=str, required=True)
-    parser.add_argument('--genomes', nargs="+", required=True)
+    parser.add_argument('--genome', required=True)
     parser.add_argument('--annotationGp', required=True)
-    parser.add_argument('--psls', nargs='+', required=True)
-    parser.add_argument('--gps', nargs='+', required=True)
-    parser.add_argument('--augustusGps', nargs='+', required=True)
-    parser.add_argument('--fastas', nargs='+', required=True)
+    parser.add_argument('--psl', required=True)
+    parser.add_argument('--gp', required=True)
+    parser.add_argument('--augustusGp', required=True)
+    parser.add_argument('--fasta', required=True)
     parser.add_argument('--refFasta', type=str, required=True)
-    parser.add_argument('--sizes', nargs='+', required=True)
+    parser.add_argument('--sizes', required=True)
     parser.add_argument('--gencodeAttributeMap', required=True)
     parser.add_argument('--outDir', type=str, required=True)
-    parser.add_argument('--primaryKeyColumn', type=str, default="AlignmentId")
     return parser
 
 
-def buildAnalyses(target, psls, fastas, refFasta, gps, gencodeAttributeMap, genomes,
-                  annotationGp, outDir, refGenome, primaryKeyColumn, sizes, augGps):
+def build_analyses(target, ref_genome, genome, annotation_gp, psl, gp, aug_gp, fasta, ref_fasta, sizes,
+                   gencode_attributes, out_dir):
     # find all user-defined classes in the categories of analyses
-    classifiers = classes_in_module(src.classifiers)
-    augustusClassifiers = classes_in_module(src.augustusClassifiers)
-    attributes = classes_in_module(src.attributes)
-    for genome, psl, bed, fasta, augGp in izip(genomes, psls, gps, fastas, augGps):
-        for c in classifiers:
-            target.addChildTarget(c(genome, psl, fasta, refFasta, annotationGp, gencodeAttributeMap,
-                                    bed, refGenome, primaryKeyColumn, target.getGlobalTempDir()))
-        for a in attributes:
-            target.addChildTarget(a(genome, psl, fasta, refFasta, annotationGp, gencodeAttributeMap,
-                                    bed, refGenome, primaryKeyColumn, target.getGlobalTempDir()))
-        for aug in augustusClassifiers:
-            target.addChildTarget(aug(genome, psl, fasta, refFasta, annotationGp, gencodeAttributeMap,
-                                      bed, refGenome, primaryKeyColumn, target.getGlobalTempDir(), augGp))
-        # merge the resulting pickled files into sqlite databases
-    target.setFollowOnTargetFn(databaseWrapper, args=(outDir, genomes, psls, primaryKeyColumn, sizes, gps, augGps,
-                                                      annotationGp))
+    out_file_tree = TempFileTree(target.getGlobalTempDir())
+    classifiers = classes_in_module(src.augustus_classifiers)
+    for classifier in classifiers:
+        target.addChildTarget(classifier(genome, psl, fasta, ref_fasta, annotation_gp, gencode_attributes, gp,
+                                         ref_genome, out_file_tree, aug_gp))
+        # merge the resulting pickled files into sqlite databases and construct BED tracks
+    target.setFollowOnTargetFn(database, memory=8 * (1024 ** 3),
+                               args=(out_dir, genome, psl, sizes, gp, annotation_gp, out_file_tree))
 
 
-def databaseWrapper(target, outDir, genomes, psls, primaryKeyColumn, sizes, gps, augGps, annotationGp):
-    target.addChildTarget(ConstructDatabases(outDir, target.getGlobalTempDir(), genomes, psls, primaryKeyColumn))
-    target.addChildTarget(ConstructAugustusDatabases(outDir, target.getGlobalTempDir(), genomes, augGps,
-                                                     primaryKeyColumn))
-    target.setFollowOnTargetFn(tracksWrapper, args=(outDir, genomes, psls, primaryKeyColumn, sizes, gps, augGps, annotationGp))
-
-
-def tracksWrapper(target, outDir, genomes, psls, primaryKeyColumn, sizes, gps, augGps, annotationGp):
-    target.addChildTarget(BuildTracks(outDir, genomes, primaryKeyColumn, sizes, gps, annotationGp))
-    target.addChildTarget(BuildAugustusTracks(outDir, genomes, primaryKeyColumn, sizes, augGps, annotationGp))
+def database(target, out_dir, genome, psl, sizes, gp, annotation_gp, out_file_tree):
+    target.addChildTarget(ConstructDatabases(out_dir, out_file_tree, genome, psl))
+    target.setFollowOnTarget(BuildTracks(out_dir, genome, sizes, gp, annotation_gp))
 
 
 def main():
     parser = build_parser()
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
-    setLoggingFromOptions(args)
-
-    # hack to remove Rattus so I don't totally mess up the makefiles
-    args.psls = [x for x in args.psls if "Rattus" not in x]
-    args.gps = [x for x in args.gps if "Rattus" not in x]
-    args.augustusGps = [x for x in args.augustusGps if "Rattus" not in x]
-    args.genomes = [x for x in args.genomes if "Rattus" not in x]
-    args.sizes = [x for x in args.sizes if "Rattus" not in x]
-    args.fastas = [x for x in args.fastas if "Rattus" not in x]
-
-    assert len(args.psls) == len(args.fastas) == len(args.genomes) == len(args.gps) == len(args.sizes) == len(args.augustusGps)
-    for genome, psl, gp, fasta, size, augGp in izip(args.genomes, args.psls, args.gps, args.fastas, args.sizes, args.augustusGps):
-        assert all([genome in x for x in [psl, gp, fasta, size, augGp]])
-
-    if not os.path.exists(args.outDir):
-        os.mkdir(args.outDir)
-
-    if not os.path.exists(args.refFasta):
-        raise RuntimeError("Reference genome fasta not present at {}".format(args.refFasta))
-    elif not os.path.exists(args.annotationGp):
-        raise RuntimeError("Annotation bed not present at {}".format(args.annotationGp))
-
-    for x in args.psls:
-            if not os.path.exists(x):
-                raise RuntimeError("PSL not present at {}".format(x))
-
-    for x in args.gps:
-            if not os.path.exists(x):
-                raise RuntimeError("BED not present at {}".format(x))
-
-    for x in args.fastas:
-            if not os.path.exists(x):
-                raise RuntimeError("Fasta not present at {}".format(x))
-
-    for x in args.sizes:
-            if not os.path.exists(x):
-                raise RuntimeError("chrom.sizes not present at {}".format(x))
-
-    i = Stack(Target.makeTargetFn(buildAnalyses, args=(args.psls, args.fastas, args.refFasta,
-                                                       args.gps, args.gencodeAttributeMap, args.genomes,
-                                                       args.annotationGp, args.outDir, args.refGenome, 
-                                                       args.primaryKeyColumn, args.sizes, args.augustusGps,
-                                                       ))).startJobTree(args)
-
+    i = Stack(Target.makeTargetFn(build_analyses, args=(args.refGenome, args.genome, args.annotationGp, args.psl,
+                                                        args.gp, args.augustusGp, args.fasta, args.refFasta, args.sizes,
+                                                        args.gencodeAttributes, args.outDir))).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
 
 
 if __name__ == '__main__':
-    from src.annotationPipelineWithAugustus import *
+    from src.annotation_pipeline_augustus import *
     main()

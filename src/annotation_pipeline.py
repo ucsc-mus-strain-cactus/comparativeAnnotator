@@ -1,6 +1,8 @@
-import os
+"""
+This is the main driver script for comparativeAnnotator in transMap mode.
+"""
+
 import argparse
-import itertools
 
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
@@ -8,12 +10,13 @@ from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import TempFileTree
 
 from lib.general_lib import classes_in_module
-import lib.sqlite_lib as sql_lib
 
 import src.classifiers
 import src.attributes
-from src.constructDatabases import ConstructDatabases
-from src.buildTracks import BuildTracks
+from src.construct_databases import ConstructDatabases
+from src.build_tracks import BuildTracks
+
+__author__ = "Ian Fiddes"
 
 
 def build_parser():
@@ -51,24 +54,22 @@ def build_analyses(target, ref_genome, genome, annotation_gp, psl, gp, fasta, re
                                args=(out_dir, genome, psl, sizes, gp, annotation_gp, out_file_tree))
 
 
-def database(target, out_dir, genome, psl, sizes, gp, annotation_gp):
-    target.addChildTarget(ConstructDatabases(outDir, target.getGlobalTempDir(), genomes, psls))
-    target.setFollowOnTarget(BuildTracks(outDir, genomes, sizes, gps, annotationGp))
+def database(target, out_dir, genome, psl, sizes, gp, annotation_gp, out_file_tree):
+    target.addChildTarget(ConstructDatabases(out_dir, out_file_tree, genome, psl))
+    target.setFollowOnTarget(BuildTracks(out_dir, genome, sizes, gp, annotation_gp))
 
 
 def main():
     parser = build_parser()
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
-
     i = Stack(Target.makeTargetFn(build_analyses, args=(args.refGenome, args.genome, args.annotationGp, args.psl,
-                                                       args.gp, args.fasta, args.refFasta, args.sizes,
-                                                       args.gencodeAttributes, args.outDir))).startJobTree(args)
-
+                                                        args.gp, args.fasta, args.refFasta, args.sizes,
+                                                        args.gencodeAttributes, args.outDir))).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
 
 
 if __name__ == '__main__':
-    from src.annotationPipeline import *
+    from src.annotation_pipeline import *
     main()

@@ -1,10 +1,15 @@
+"""
+Base classifier classes used by all of the classifiers.
+"""
 import os
 import cPickle as pickle
 
 from jobTree.scriptTree.target import Target
 
-import lib.sequence_lib as seq_lib
+import lib.seq_lib as seq_lib
 import lib.psl_lib as psl_lib
+
+__author__ = "Ian Fiddes"
 
 
 class AbstractClassifier(Target):
@@ -17,22 +22,22 @@ class AbstractClassifier(Target):
                'generic': '152,156,45'     # grey-yellow
               }
 
-    def __init__(self, genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp, refGenome,
-                 primaryKey, outDir):
+    def __init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes, target_gp, ref_genome,
+outDir):
         # sanity check
-        assert all([genome in x for x in [alnPsl, fasta, targetGp]])
+        assert all([genome in x for x in [aln_psl, fasta, target_gp]])
         # initialize the Target
         Target.__init__(self)
         # primary key this will be keyed on (AlignmentId usually)
         self.primaryKey = primaryKey
         self.genome = genome
-        self.refGenome = refGenome
-        self.alnPsl = alnPsl
+        self.refGenome = ref_genome
+        self.alnPsl = aln_psl
         self.fasta = fasta
-        self.refFasta = refFasta
-        self.gencodeAttributeMap = gencodeAttributeMap
-        self.targetGp = targetGp
-        self.annotationGp = annotationGp
+        self.refFasta = ref_fasta
+        self.gencodeAttributeMap = gencode_attributes
+        self.targetGp = target_gp
+        self.annotationGp = annotation_gp
         self.outDir = os.path.join(outDir, self.genome)
         if not os.path.exists(outDir):
             os.mkdir(outDir)
@@ -75,10 +80,10 @@ class AbstractAugustusClassifier(AbstractClassifier):
     """
     Overwrites AbstractClassifier to add the extra genePred information and a way to load it.
     """
-    def __init__(self, genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp, refGenome,
+    def __init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes, target_gp, ref_genome,
                  primaryKey, outDir, augustusGp):
-        AbstractClassifier.__init__(self, genome, alnPsl, fasta, refFasta, annotationGp, gencodeAttributeMap, targetGp,
-                                    refGenome, primaryKey, outDir)
+        AbstractClassifier.__init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes, target_gp,
+                                    ref_genome, primaryKey, outDir)
         assert self.genome in augustusGp
         self.augustusGp = augustusGp
 
