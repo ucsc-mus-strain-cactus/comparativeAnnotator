@@ -65,7 +65,8 @@ def build_analyses(target, ref_genome, genome, annotation_gp, psl, gp, fasta, re
             target.addChildTarget(classifier(genome, psl, fasta, ref_fasta, annotation_gp, gencode_attributes, gp,
                                              ref_genome, augustus_gp, tmp_dir))
     else:
-        classifiers = classes_in_module(src.classifiers) + classes_in_module(src.attributes)
+        #classifiers = classes_in_module(src.classifiers) + classes_in_module(src.attributes)
+        classifiers = [src.classifiers.EndStop, src.classifiers.BeginStart, src.classifiers.AlignmentPartialMap]
         for classifier in classifiers:
             target.addChildTarget(classifier(genome, psl, fasta, ref_fasta, annotation_gp, gencode_attributes, gp,
                                              ref_genome, tmp_dir))
@@ -102,10 +103,10 @@ def database(target, genome, db, db_path, tmp_dir):
 def build_tracks_wrapper(target, out_dir, genome, sizes, gp, augustus):
     if augustus:
         classifier_tracks = augustus_classifier_tracks
-        ok_query = etc.config.augustusOk
+        ok_query = etc.config.augustusOk(genome)
     else:
         classifier_tracks = tm_classifier_tracks
-        ok_query = etc.config.transMapOk
+        ok_query = etc.config.transMapOk(genome)
     for f in classifier_tracks:
         query = f(genome)
         query_name = f.__name__

@@ -75,5 +75,13 @@ def write_dict(data_dict, database_path, table):
 
 
 def collapse_details_dict(details_dict):
-    return {x: "".join(["\n".join(map(str, y)), "\n"]) if type(y) == list else 
-            "".join([map(str, y), "\n"]) for x, y in details_dict.iteritems()}
+    """
+    Collapses a details dict into a string so that the database record is a string. Properly accounts for the two
+    possibilities: the record is a single BED entry (a string) or the record is a list of BED entries
+    """
+    for aln_id, rec in details_dict.iteritems():
+        if isinstance(rec, list):
+            rec = "\t".join([map(str, x) for x in rec])
+            return "".join([rec, "\n"])
+        else:
+            return "".join([map(str, rec), "\n"])

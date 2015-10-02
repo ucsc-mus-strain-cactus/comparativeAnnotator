@@ -1,4 +1,5 @@
 import re
+import argparse
 from scripts.consensus import *
 from scripts.coverage_identity_ok_plots import *
 import pandas as pd

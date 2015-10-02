@@ -88,7 +88,7 @@ def transMapOk(genome):
     base_query = "SELECT AlignmentId FROM main.'{}' WHERE {}"
     equality = ["{} = 0".format(x) for x in tm_coding_classifiers]
     classifiers = " AND ".join(equality)
-    query = base_query.format(classifiers, genome)
+    query = base_query.format(genome, classifiers)
     return query
 
 
@@ -96,5 +96,5 @@ def augustusOk(genome):
     base_query = "SELECT AlignmentId FROM main.'{}' WHERE {}"
     equality = ["{} = 0".format(x) for x in aug_ok_classifiers]
     classifiers = " AND ".join(equality)
-    query = base_query.format(classifiers, genome)
+    query = base_query.format(genome, classifiers)
     return query

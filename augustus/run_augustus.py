@@ -11,7 +11,7 @@ from pyfaidx import Fasta
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, popenCatch, getRandomAlphaNumericString, catFiles, TempFileTree
-from lib.sequence_lib import genePredTranscript
+from lib.seq_lib import GenePredTranscript
 from lib.general_lib import mkdir_p
 
 
@@ -148,7 +148,7 @@ def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_t
     """
     fasta = Fasta(fasta_path)
     chrom_sizes = {x.split()[0]: x.split()[1] for x in open(sizes_path)}
-    gp = genePredTranscript(gp_string.rstrip().split("\t"))
+    gp = GenePredTranscript(gp_string.rstrip().split("\t"))
     # ignore genes with no coding region or longer than max_gene_size
     if not (gp.thick_start >= gp.thick_stop or gp.stop - gp.start > max_gene_size):
         chrom = gp.chromosome
@@ -165,7 +165,7 @@ def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_t
                                           cfg_version, cfg_path, out_file_tree])
 
 
-def cat(target, genome, output_gtf, unsorted_tmp_file, out_file_tree):
+def cat(target, output_gtf, unsorted_tmp_file, out_file_tree):
     """
     Concatenates all of the results into one big genePred, and sorts it by chromosome/pos
     """
@@ -184,7 +184,7 @@ def wrapper(target, input_gp, output_gtf, genome, sizes_path, fasta_path):
     unsorted_tmp_file = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString(10))
     for line in open(input_gp):
         target.addChildTargetFn(transmap_2_aug, args=[line, genome, sizes_path, fasta_path, out_file_tree])
-    target.setFollowOnTargetFn(cat, args=[genome, output_gtf, unsorted_tmp_file, out_file_tree])
+    target.setFollowOnTargetFn(cat, args=[output_gtf, unsorted_tmp_file, out_file_tree])
 
 
 def main():
