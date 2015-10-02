@@ -135,11 +135,14 @@ def make_big_bed(out_bed_path, sizes, out_big_bed_path):
 
 def build_classifier_tracks(target, query, query_name, out_dir, genome, sizes, augustus):
     con, cur = sql_lib.attach_databases(out_dir, has_augustus=augustus)
+    print query
     bed_recs = cur.execute(query)
     out_bed_path, out_big_bed_path = get_bed_paths(out_dir, query_name, genome)
     with open(out_bed_path, "w") as outf:
-        for rec in bed_recs:
-            outf.write(rec)
+        for recs in bed_recs:
+            for rec in recs:
+                if rec is not None:
+                    outf.write(rec)
     make_big_bed(out_bed_path, sizes, out_big_bed_path)
 
 
@@ -152,8 +155,8 @@ def build_ok_track(target, query, query_name, out_dir, genome, sizes, gp, august
     with open(out_bed_path, "w") as outf:
         for aln_id, rec in gp_dict.iteritems():
             if aln_id in ok_ids:
-                bed = rec.getBed()
-                outf.write("".join([map(str, bed), "\n"]))
+                bed = rec.get_bed()
+                outf.write("".join(["\t".join(map(str, bed)), "\n"]))
     make_big_bed(out_bed_path, sizes, out_big_bed_path)
 
 
