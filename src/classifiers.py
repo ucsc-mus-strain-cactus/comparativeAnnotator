@@ -2,17 +2,17 @@ import re
 from itertools import izip
 from collections import defaultdict, Counter
 
-import lib.sequence_lib as seq_lib
+import lib.seq_lib as seq_lib
 import lib.psl_lib as psl_lib
 
-from src.abstractClassifier import AbstractClassifier
-from src.helperFunctions import deletionIterator, insertionIterator, frameShiftIterator, codonPairIterator, \
-    compareIntronToReference
+from src.abstract_classifier import AbstractClassifier
+from lib.comp_ann_lib import deletion_iterator, insertion_iterator, frame_shift_iterator, codon_pair_iterator, \
+    compare_intron_to_reference
 
 
 class AlignmentAbutsLeft(AbstractClassifier):
     """
-    Does the alignment extend off the 3' end of a scaffold?
+    Does the alignment ext_end off the 3' end of a scaffold?
     (regardless of transcript orientation)
     If so, reports BED of entire transcript
     aligned: #  unaligned: -  whatever: .  edge: |
@@ -25,27 +25,27 @@ class AlignmentAbutsLeft(AbstractClassifier):
         return self.colors["assembly"]
 
     def run(self):
-        self.getAlignmentDict()
-        self.getTranscriptDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            if aId not in self.transcriptDict:
+        self.get_alignment_dict()
+        self.get_transcript_dict()
+        details_dict = {}
+        classify_dict = {}
+        for aln_id, aln in self.alignment_dict.iteritems():
+            if aln_id not in self.transcript_dict:
                 continue
-            if aln.strand == "+" and aln.tStart == 0 and aln.qStart != 0:
-                detailsDict[aId] = seq_lib.transcript_to_bed(self.transcriptDict[aId], self.rgb, self.column)
-                classifyDict[aId] = 1
-            elif aln.strand == "-" and aln.tEnd == aln.tSize and aln.qEnd != aln.qSize:
-                detailsDict[aId] = seq_lib.transcript_to_bed(self.transcriptDict[aId], self.rgb, self.column)
-                classifyDict[aId] = 1
+            if aln.strand == "+" and aln.t_start == 0 and aln.qStart != 0:
+                details_dict[aln_id] = seq_lib.transcript_to_bed(self.transcript_dict[aln_id], self.rgb, self.column)
+                classify_dict[aln_id] = 1
+            elif aln.strand == "-" and aln.t_end == aln.t_size and aln.q_end != aln.q_size:
+                details_dict[aln_id] = seq_lib.transcript_to_bed(self.transcript_dict[aln_id], self.rgb, self.column)
+                classify_dict[aln_id] = 1
             else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class AlignmentAbutsRight(AbstractClassifier):
     """
-    Does the alignment extend off the 3' end of a scaffold?
+    Does the alignment ext_end off the 3' end of a scaffold?
     (regardless of transcript orientation)
     If so, reports BED of entire transcript
     aligned: #  unaligned: -  whatever: .  edge: |
@@ -58,53 +58,53 @@ class AlignmentAbutsRight(AbstractClassifier):
         return self.colors["assembly"]
 
     def run(self):
-        self.getAlignmentDict()
-        self.getTranscriptDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            if aId not in self.transcriptDict:
+        self.get_alignment_dict()
+        self.get_transcript_dict()
+        details_dict = {}
+        classify_dict = {}
+        for aln_id, aln in self.alignment_dict.iteritems():
+            if aln_id not in self.transcript_dict:
                 continue
-            if aln.strand == "+" and aln.tEnd == aln.tSize and aln.qEnd != aln.qSize:
-                detailsDict[aId] = seq_lib.transcript_to_bed(self.transcriptDict[aId], self.rgb, self.column)
-                classifyDict[aId] = 1
-            elif aln.strand == "-" and aln.tStart == 0 and aln.qStart != 0:
-                detailsDict[aId] = seq_lib.transcript_to_bed(self.transcriptDict[aId], self.rgb, self.column)
-                classifyDict[aId] = 1
+            if aln.strand == "+" and aln.t_end == aln.t_size and aln.q_end != aln.q_size:
+                details_dict[aln_id] = seq_lib.transcript_to_bed(self.transcript_dict[aln_id], self.rgb, self.column)
+                classify_dict[aln_id] = 1
+            elif aln.strand == "-" and aln.t_start == 0 and aln.qStart != 0:
+                details_dict[aln_id] = seq_lib.transcript_to_bed(self.transcript_dict[aln_id], self.rgb, self.column)
+                classify_dict[aln_id] = 1
             else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class AlignmentAbutsUnknownBases(AbstractClassifier):
     """
     Do any of the exons in this alignment abut unknown bases? Defined as there being a N within 2bp of a exon
-    Ignores introns below shortIntronSize (which will be picked up by UnknownGap)
+    Ignores introns below short_intron_size (which will be picked up by UnknownGap)
     """
     @property
     def rgb(self):
         return self.colors["assembly"]
 
-    def run(self, distance=2, shortIntronSize=30):
-        self.getTranscriptDict()
-        self.getSeqDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
+    def run(self, distance=2, short_intron_size=30):
+        self.get_transcript_dict()
+        self.get_fasta()
+        details_dict = defaultdict(list)
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
             intervals = [[t.exonIntervals[0].start - distance, t.exonIntervals[0].start]]
-            for intron in t.intronIntervals:
-                if len(intron) > shortIntronSize:
+            for intron in t.intron_intervals:
+                if len(intron) > short_intron_size:
                     intervals.append([intron.start, intron.start + distance])
             intervals.append([t.exonIntervals[-1].stop, t.exonIntervals[-1].stop + distance])
             for start, stop in intervals:
-                seq = self.seqDict[t.chromosome][start:stop].upper()
+                seq = self.fasta[t.chromosome][start:stop].upper()
                 if "N" in seq:
-                    classifyDict[aId] = 1
-                    detailsDict[aId].append(t.get_bed(self.rgb, self.column))
+                    classify_dict[aln_id] = 1
+                    details_dict[aln_id].append(t.get_bed(self.rgb, self.column))
                     break
-            if aId not in classifyDict:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+            if aln_id not in classify_dict:
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class HasOriginalIntrons(AbstractClassifier):
@@ -118,36 +118,37 @@ class HasOriginalIntrons(AbstractClassifier):
     def rgb(self):
         return self.colors["alignment"]
 
-    def run(self, shortIntronSize=30):
-        self.getAnnotationDict()
-        self.getTranscriptDict()
-        self.getAlignmentDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            if aId not in self.transcriptDict:
+    def run(self, short_intron_size=30):
+        self.get_annotation_dict()
+        self.get_transcript_dict()
+        self.get_alignment_dict()
+        details_dict = defaultdict(list)
+        classify_dict = {}
+        for aln_id, aln in self.alignment_dict.iteritems():
+            if aln_id not in self.transcript_dict:
                 continue
-            t = self.transcriptDict[aId]
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
-            original_introns = {(x.start, x.stop) for x in a.intronIntervals}
+            t = self.transcript_dict[aln_id]
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
+            original_introns = {(x.start, x.stop) for x in a.intron_intervals}
             target_introns = set()
             target_intron_mapping = {}
-            for intron in t.intronIntervals:
+            for intron in t.intron_intervals:
                 a_start = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.start - 1)) + 1
                 a_stop = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.stop))
                 target_introns.add((a_start, a_stop))
                 target_intron_mapping[(a_start, a_stop)] = intron
             missing_introns = original_introns - target_introns
             if len(missing_introns) != 0:
-                classifyDict[aId] = 1
+                classify_dict[aln_id] = 1
                 not_original_introns = target_introns - original_introns
                 for a_start, a_stop in not_original_introns:
                     intron = target_intron_mapping[(a_start, a_stop)]
-                    if len(intron) >= shortIntronSize:
-                        detailsDict[aId].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb, self.column))
+                    if len(intron) >= short_intron_size:
+                        details_dict[aln_id].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb,
+                                                                                          self.column))
             else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class CodingInsertions(AbstractClassifier):
@@ -168,27 +169,27 @@ class CodingInsertions(AbstractClassifier):
         return self.colors["mutation"]
 
     def run(self, mult3=False):
-        self.getAnnotationDict()
-        self.getAlignmentDict()
-        self.getTranscriptDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            if aId not in self.transcriptDict:
+        self.get_annotation_dict()
+        self.get_alignment_dict()
+        self.get_transcript_dict()
+        details_dict = {}
+        classify_dict = {}
+        for aln_id, aln in self.alignment_dict.iteritems():
+            if aln_id not in self.transcript_dict:
                 continue
-            t = self.transcriptDict[aId]
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
+            t = self.transcript_dict[aln_id]
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
             # do not include noncoding transcripts or lift-overs that contain less than 25 codon
-            if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
+            if a.get_cds_length() <= 75 or t.get_cds_length() <= 75:
                 continue
             insertions = [seq_lib.chromosome_region_to_bed(t, start, stop, self.rgb, self.column) for start, stop, size
-                          in insertionIterator(a, t, aln, mult3) if start >= t.thickStart and stop < t.thickStop]
+                          in insertion_iterator(a, t, aln, mult3) if start >= t.thick_start and stop < t.thick_stop]
             if len(insertions) > 0:
-                detailsDict[aId] = insertions
-                classifyDict[aId] = 1
+                details_dict[aln_id] = insertions
+                classify_dict[aln_id] = 1
             else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class CodingMult3Insertions(CodingInsertions):
@@ -216,27 +217,27 @@ class CodingDeletions(AbstractClassifier):
         return self.colors["mutation"]
 
     def run(self, mult3=False):
-        self.getAlignmentDict()
-        self.getTranscriptDict()
-        self.getAnnotationDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            if aId not in self.transcriptDict:
+        self.get_alignment_dict()
+        self.get_transcript_dict()
+        self.get_annotation_dict()
+        details_dict = {}
+        classify_dict = {}
+        for aln_id, aln in self.alignment_dict.iteritems():
+            if aln_id not in self.transcript_dict:
                 continue
-            t = self.transcriptDict[aId]
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
+            t = self.transcript_dict[aln_id]
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
             # do not include noncoding transcripts or lift-overs that contain less than 25 codon
-            if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
+            if a.get_cds_length() <= 75 or t.get_cds_length() <= 75:
                 continue
-            deletions = [seq_lib.chromosome_region_to_bed(t, start, stop, self.rgb, self.column) for start, stop, size in
-                         deletionIterator(a, t, aln, mult3) if start >= t.thickStart and stop < t.thickStop]
+            deletions = [seq_lib.chromosome_region_to_bed(t, start, stop, self.rgb, self.column) for start, stop, size
+                         in deletion_iterator(a, t, aln, mult3) if start >= t.thick_start and stop < t.thick_stop]
             if len(deletions) > 0:
-                detailsDict[aId] = deletions
-                classifyDict[aId] = 1
+                details_dict[aln_id] = deletions
+                classify_dict[aln_id] = 1
             else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class CodingMult3Deletions(CodingDeletions):
@@ -259,30 +260,30 @@ class StartOutOfFrame(AbstractClassifier):
         return self.colors["alignment"]
 
     def run(self):
-        self.getTranscriptDict()
-        self.getAnnotationDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
+        self.get_transcript_dict()
+        self.get_annotation_dict()
+        details_dict = {}
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
             # do not include noncoding transcripts or lift-overs that contain less than 25 codon
-            if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
+            if a.get_cds_length() <= 75 or t.get_cds_length() <= 75:
                 continue
             # is this is a problem in the reference?
             # remove all -1 frames because those are UTR exons
-            a_frames = [x for x in a.exonFrames if x != -1]
+            a_frames = [x for x in a.exon_frames if x != -1]
             if a.strand is True and a_frames[0] != 0 or a.strand is False and a_frames[-1] != 0:
-                classifyDict[aId] = 1
-                detailsDict[aId] = seq_lib.cds_coordinate_to_bed(t, 0, 3, self.colors["input"], self.column)
+                classify_dict[aln_id] = 1
+                details_dict[aln_id] = seq_lib.cds_coordinate_to_bed(t, 0, 3, self.colors["input"], self.column)
                 continue
             # remove all -1 frames because those are UTR exons
-            t_frames = [x for x in t.exonFrames if x != -1]
+            t_frames = [x for x in t.exon_frames if x != -1]
             if t.strand is True and t_frames[0] != 0 or t.strand is False and t_frames[-1] != 0:
-                classifyDict[aId] = 1
-                detailsDict[aId] = seq_lib.cds_coordinate_to_bed(t, 0, 3, self.rgb, self.column)
+                classify_dict[aln_id] = 1
+                details_dict[aln_id] = seq_lib.cds_coordinate_to_bed(t, 0, 3, self.rgb, self.column)
                 continue
-            classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+            classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class FrameShift(AbstractClassifier):
@@ -297,22 +298,22 @@ class FrameShift(AbstractClassifier):
         return self.colors["mutation"]
 
     def run(self):
-        self.getAlignmentDict()
-        self.getTranscriptDict()
-        self.getAnnotationDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            if aId not in self.transcriptDict:
+        self.get_alignment_dict()
+        self.get_transcript_dict()
+        self.get_annotation_dict()
+        details_dict = defaultdict(list)
+        classify_dict = {}
+        for aln_id, aln in self.alignment_dict.iteritems():
+            if aln_id not in self.transcript_dict:
                 continue
-            t = self.transcriptDict[aId]
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
+            t = self.transcript_dict[aln_id]
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
             # do not include noncoding transcripts or lift-overs that contain less than 1 codon
-            if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
+            if a.get_cds_length() <= 75 or t.get_cds_length() <= 75:
                 continue
-            frame_shifts = list(frameShiftIterator(a, t, aln))
+            frame_shifts = list(frame_shift_iterator(a, t, aln))
             if len(frame_shifts) == 0:
-                classifyDict[aId] = 0
+                classify_dict[aln_id] = 0
                 continue
             indel_starts, indel_stops, spans = zip(*frame_shifts)
             # calculate cumulative frame by adding each span and taking mod 3 - zeroes imply regaining frame
@@ -324,27 +325,27 @@ class FrameShift(AbstractClassifier):
             windowed_stops = [x for x, y in izip(indel_stops, cumulative_frame[1:]) if y == 0]
             # sanity check
             assert any([len(windowed_starts) == len(windowed_stops), len(windowed_starts) - 1 == len(windowed_stops)]),\
-                (self.genome, self.column, aId)
+                (self.genome, self.column, aln_id)
             # now we need to fix frame and stops - if this shift extends to the end of the transcript, add that stop
             # additionally, if this is a negative strand transcript, flip starts/stops so that start is always < stop
             if len(windowed_stops) < len(windowed_starts) and t.strand is False:
-                windowed_stops.append(t.thickStart)
+                windowed_stops.append(t.thick_start)
                 windowed_stops, windowed_starts = windowed_starts, windowed_stops
             elif len(windowed_stops) < len(windowed_starts):
-                windowed_stops.append(t.thickStop)
+                windowed_stops.append(t.thick_stop)
             elif t.strand is False:
                 windowed_stops, windowed_starts = windowed_starts, windowed_stops
             for start, stop in izip(windowed_starts, windowed_stops):
-                detailsDict[aId].append(seq_lib.chromosome_coordinate_to_bed(t, start, stop, self.rgb, self.column))
-            classifyDict[aId] = 1
-        self.dumpValueDicts(classifyDict, detailsDict)
+                details_dict[aln_id].append(seq_lib.chromosome_coordinate_to_bed(t, start, stop, self.rgb, self.column))
+            classify_dict[aln_id] = 1
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class AlignmentPartialMap(AbstractClassifier):
     """
     Does the query sequence NOT map entirely?
 
-    a.qSize != a.qEnd - a.qStart
+    a.q_size != a.q_end - a.qStart
 
     If so, reports the entire transcript
 
@@ -355,19 +356,19 @@ class AlignmentPartialMap(AbstractClassifier):
         return self.colors["assembly"]
 
     def run(self):
-        self.getAlignmentDict()
-        self.getTranscriptDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            if aId not in self.transcriptDict:
+        self.get_alignment_dict()
+        self.get_transcript_dict()
+        details_dict = {}
+        classify_dict = {}
+        for aln_id, aln in self.alignment_dict.iteritems():
+            if aln_id not in self.transcript_dict:
                 continue
-            if aln.qSize != aln.qEnd - aln.qStart:
-                detailsDict[aId] = seq_lib.transcript_to_bed(self.transcriptDict[aId], self.rgb, self.column)
-                classifyDict[aId] = 1
+            if aln.q_size != aln.q_end - aln.qStart:
+                details_dict[aln_id] = seq_lib.transcript_to_bed(self.transcript_dict[aln_id], self.rgb, self.column)
+                classify_dict[aln_id] = 1
             else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class BadFrame(AbstractClassifier):
@@ -381,26 +382,26 @@ class BadFrame(AbstractClassifier):
         return self.colors["generic"]
 
     def run(self):
-        self.getAlignmentDict()
-        self.getTranscriptDict()
-        self.getAnnotationDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
-            if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
+        self.get_alignment_dict()
+        self.get_transcript_dict()
+        self.get_annotation_dict()
+        details_dict = {}
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
+            if a.get_cds_length() <= 75 or t.get_cds_length() <= 75:
                 continue
-            if t.getCdsLength() % 3 != 0 and a.getCdsLength() % 3 != 0:
-                detailsDict[aId] = seq_lib.chromosome_coordinate_to_bed(t, t.thickStart, t.thickStop, self.colors["input"],
-                                                                     self.column)
-                classifyDict[aId] = 1
-            elif t.getCdsLength() % 3 != 0:
-                detailsDict[aId] = seq_lib.chromosome_coordinate_to_bed(t, t.thickStart, t.thickStop, self.rgb,
-                                                                     self.column)
-                classifyDict[aId] = 1
+            if t.get_cds_length() % 3 != 0 and a.get_cds_length() % 3 != 0:
+                details_dict[aln_id] = seq_lib.chromosome_coordinate_to_bed(t, t.thick_start, t.thick_stop, 
+                                                                            self.colors["input"], self.column)
+                classify_dict[aln_id] = 1
+            elif t.get_cds_length() % 3 != 0:
+                details_dict[aln_id] = seq_lib.chromosome_coordinate_to_bed(t, t.thick_start, t.thick_stop, self.rgb,
+                                                                            self.column)
+                classify_dict[aln_id] = 1
             else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class BeginStart(AbstractClassifier):
@@ -415,33 +416,34 @@ class BeginStart(AbstractClassifier):
         return self.colors["generic"]
 
     def run(self):
-        self.getTranscriptDict()
-        self.getAlignmentDict()
-        self.getAnnotationDict()
-        self.getSeqDict()
-        self.getRefDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
-            aln = self.alignmentDict[aId]
+        self.get_transcript_dict()
+        self.get_alignment_dict()
+        self.get_annotation_dict()
+        self.get_fasta()
+        self.get_ref_fasta()
+        details_dict = {}
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
+            aln = self.alignment_dict[aln_id]
             # do not include noncoding transcripts or lift-overs that contain less than 25 codons
-            if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
+            if a.get_cds_length() <= 75 or t.get_cds_length() <= 75:
                 continue
-            cds_positions = [t.chromosome_coordinate_to_cds(aln.query_coordinate_to_target(a.cds_coordinate_to_transcript(i)))
+            cds_positions = [t.chromosome_coordinate_to_cds(
+                             aln.query_coordinate_to_target(a.cds_coordinate_to_transcript(i)))
                              for i in xrange(3)]
             if None in cds_positions:
-                detailsDict[aId] = seq_lib.cds_coordinate_to_bed(t, 0, 3, self.rgb, self.column)
-                classifyDict[aId] = 1
-            elif t.get_cds(self.seqDict)[:3] != "ATG":
-                if a.get_cds(self.refDict)[:3] != "ATG":
-                    detailsDict[aId] = seq_lib.cds_coordinate_to_bed(t, 0, 3, self.colors["input"], self.column)
+                details_dict[aln_id] = seq_lib.cds_coordinate_to_bed(t, 0, 3, self.rgb, self.column)
+                classify_dict[aln_id] = 1
+            elif t.get_cds(self.fasta)[:3] != "ATG":
+                if a.get_cds(self.ref_fasta)[:3] != "ATG":
+                    details_dict[aln_id] = seq_lib.cds_coordinate_to_bed(t, 0, 3, self.colors["input"], self.column)
                 else:
-                    detailsDict[aId] = seq_lib.cds_coordinate_to_bed(t, 0, 3, self.rgb, self.column)
-                classifyDict[aId] = 1
+                    details_dict[aln_id] = seq_lib.cds_coordinate_to_bed(t, 0, 3, self.rgb, self.column)
+                classify_dict[aln_id] = 1
             else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class CdsGap(AbstractClassifier):
@@ -456,24 +458,24 @@ class CdsGap(AbstractClassifier):
     def rgb(self):
         return self.colors["alignment"]
 
-    def run(self, shortIntronSize=30):
-        self.getTranscriptDict()
-        self.getSeqDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            for i, intron in enumerate(t.intronIntervals):
-                if len(intron) >= shortIntronSize:
+    def run(self, short_intron_size=30):
+        self.get_transcript_dict()
+        self.get_fasta()
+        details_dict = defaultdict(list)
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
+            for i, intron in enumerate(t.intron_intervals):
+                if len(intron) >= short_intron_size:
                     continue
-                elif "N" in intron.get_sequence(self.seqDict):
+                elif "N" in intron.get_sequence(self.fasta):
                     continue
-                elif not (intron.start >= t.thickStart and intron.stop < t.thickStop):
+                elif not (intron.start >= t.thick_start and intron.stop < t.thick_stop):
                     continue
-                detailsDict[aId].append(seq_lib.interval_to_bed(t, intron, self.rgb, self.column))
-                classifyDict[aId] = 1
-            if aId not in classifyDict:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                details_dict[aln_id].append(seq_lib.interval_to_bed(t, intron, self.rgb, self.column))
+                classify_dict[aln_id] = 1
+            if aln_id not in classify_dict:
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class CdsMult3Gap(AbstractClassifier):
@@ -484,26 +486,26 @@ class CdsMult3Gap(AbstractClassifier):
     def rgb(self):
         return self.colors["mutation"]
 
-    def run(self, shortIntronSize=30):
-        self.getTranscriptDict()
-        self.getSeqDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            for i, intron in enumerate(t.intronIntervals):
-                if len(intron) >= shortIntronSize:
+    def run(self, short_intron_size=30):
+        self.get_transcript_dict()
+        self.get_fasta()
+        details_dict = defaultdict(list)
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
+            for i, intron in enumerate(t.intron_intervals):
+                if len(intron) >= short_intron_size:
                     continue
                 elif len(intron) % 3 != 0:
                     continue
-                elif "N" in intron.get_sequence(self.seqDict):
+                elif "N" in intron.get_sequence(self.fasta):
                     continue
-                elif not (intron.start >= t.thickStart and intron.stop < t.thickStop):
+                elif not (intron.start >= t.thick_start and intron.stop < t.thick_stop):
                     continue
-                detailsDict[aId].append(seq_lib.interval_to_bed(t, intron, self.rgb, self.column))
-                classifyDict[aId] = 1
-            if aId not in classifyDict:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                details_dict[aln_id].append(seq_lib.interval_to_bed(t, intron, self.rgb, self.column))
+                classify_dict[aln_id] = 1
+            if aln_id not in classify_dict:
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class UtrGap(AbstractClassifier):
@@ -518,24 +520,24 @@ class UtrGap(AbstractClassifier):
     def rgb(self):
         return self.colors["alignment"]
 
-    def run(self, shortIntronSize=30):
-        self.getTranscriptDict()
-        self.getSeqDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            for i, intron in enumerate(t.intronIntervals):
-                if len(intron) >= shortIntronSize:
+    def run(self, short_intron_size=30):
+        self.get_transcript_dict()
+        self.get_fasta()
+        details_dict = defaultdict(list)
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
+            for i, intron in enumerate(t.intron_intervals):
+                if len(intron) >= short_intron_size:
                     continue
-                elif "N" in intron.get_sequence(self.seqDict):
+                elif "N" in intron.get_sequence(self.fasta):
                     continue
-                elif intron.start >= t.thickStart and intron.stop < t.thickStop:
+                elif intron.start >= t.thick_start and intron.stop < t.thick_stop:
                     continue
-                detailsDict[aId].append(seq_lib.interval_to_bed(t, intron, self.rgb, self.column))
-                classifyDict[aId] = 1
-            if aId not in classifyDict:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                details_dict[aln_id].append(seq_lib.interval_to_bed(t, intron, self.rgb, self.column))
+                classify_dict[aln_id] = 1
+            if aln_id not in classify_dict:
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class UnknownGap(AbstractClassifier):
@@ -548,22 +550,22 @@ class UnknownGap(AbstractClassifier):
     def rgb(self):
         return self.colors["assembly"]
 
-    def run(self, shortIntronSize=30):
-        self.getTranscriptDict()
-        self.getSeqDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            for i, intron in enumerate(t.intronIntervals):
-                if len(intron) >= shortIntronSize:
+    def run(self, short_intron_size=30):
+        self.get_transcript_dict()
+        self.get_fasta()
+        details_dict = defaultdict(list)
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
+            for i, intron in enumerate(t.intron_intervals):
+                if len(intron) >= short_intron_size:
                     continue
-                elif "N" not in intron.get_sequence(self.seqDict):
+                elif "N" not in intron.get_sequence(self.fasta):
                     continue
-                detailsDict[aId].append(seq_lib.interval_to_bed(t, intron, self.rgb, self.column))
-                classifyDict[aId] = 1
-            if aId not in classifyDict:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                details_dict[aln_id].append(seq_lib.interval_to_bed(t, intron, self.rgb, self.column))
+                classify_dict[aln_id] = 1
+            if aln_id not in classify_dict:
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class CdsNonCanonSplice(AbstractClassifier):
@@ -582,35 +584,37 @@ class CdsNonCanonSplice(AbstractClassifier):
     def rgb(self):
         return self.colors["mutation"]
 
-    def run(self, shortIntronSize=30):
-        self.getTranscriptDict()
-        self.getSeqDict()
-        self.getRefDict()
-        self.getAnnotationDict()
-        self.getAlignmentDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
-            aln = self.alignmentDict[aId]
-            for intron in t.intronIntervals:
-                if len(intron) <= shortIntronSize:
+    def run(self, short_intron_size=30):
+        self.get_transcript_dict()
+        self.get_fasta()
+        self.get_ref_fasta()
+        self.get_annotation_dict()
+        self.get_alignment_dict()
+        details_dict = defaultdict(list)
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
+            aln = self.alignment_dict[aln_id]
+            for intron in t.intron_intervals:
+                if len(intron) <= short_intron_size:
                     continue
-                elif not (intron.start >= t.thickStart and intron.stop < t.thickStop):
+                elif not (intron.start >= t.thick_start and intron.stop < t.thick_stop):
                     continue
-                seq = intron.get_sequence(self.seqDict, strand=True)
+                seq = intron.get_sequence(self.fasta, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
                 if donor not in self.canonical or self.canonical[donor] != acceptor:
-                    classifyDict[aId] = 1
+                    classify_dict[aln_id] = 1
                     # is this a intron that exists in the reference that also has this problem?
-                    if compareIntronToReference(intron, a, aln, self.canonical, self.refDict) is True:
-                        detailsDict[aId].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.colors["input"],
-                                                                                  self.column))
+                    if compare_intron_to_reference(intron, a, aln, self.canonical, self.ref_fasta) is True:
+                        details_dict[aln_id].append(seq_lib.splice_intron_interval_to_bed(t, intron,
+                                                                                          self.colors["input"],
+                                                                                          self.column))
                     else:
-                        detailsDict[aId].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb, self.column))
-            if aId not in classifyDict:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                        details_dict[aln_id].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb,
+                                                                                          self.column))
+            if aln_id not in classify_dict:
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class CdsUnknownSplice(AbstractClassifier):
@@ -627,35 +631,37 @@ class CdsUnknownSplice(AbstractClassifier):
     def rgb(self):
         return self.colors["mutation"]
 
-    def run(self, shortIntronSize=30):
-        self.getTranscriptDict()
-        self.getSeqDict()
-        self.getRefDict()
-        self.getAnnotationDict()
-        self.getAlignmentDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
-            aln = self.alignmentDict[aId]
-            for intron in t.intronIntervals:
-                if len(intron) <= shortIntronSize:
+    def run(self, short_intron_size=30):
+        self.get_transcript_dict()
+        self.get_fasta()
+        self.get_ref_fasta()
+        self.get_annotation_dict()
+        self.get_alignment_dict()
+        details_dict = defaultdict(list)
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
+            aln = self.alignment_dict[aln_id]
+            for intron in t.intron_intervals:
+                if len(intron) <= short_intron_size:
                     continue
-                elif not (intron.start >= t.thickStart and intron.stop < t.thickStop):
+                elif not (intron.start >= t.thick_start and intron.stop < t.thick_stop):
                     continue
-                seq = intron.get_sequence(self.seqDict, strand=True)
+                seq = intron.get_sequence(self.fasta, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
                 if donor not in self.non_canonical or self.non_canonical[donor] != acceptor:
-                    classifyDict[aId] = 1
+                    classify_dict[aln_id] = 1
                     # is this a intron that exists in the reference that also has this problem?
-                    if compareIntronToReference(intron, a, aln, self.non_canonical, self.refDict) is True:
-                        detailsDict[aId].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.colors["input"],
-                                                                                  self.column))
+                    if compare_intron_to_reference(intron, a, aln, self.non_canonical, self.ref_fasta) is True:
+                        details_dict[aln_id].append(seq_lib.splice_intron_interval_to_bed(t, intron,
+                                                                                          self.colors["input"],
+                                                                                          self.column))
                     else:
-                        detailsDict[aId].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb, self.column))
-            if aId not in classifyDict:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                        details_dict[aln_id].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb, 
+                                                                                          self.column))
+            if aln_id not in classify_dict:
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class UtrNonCanonSplice(AbstractClassifier):
@@ -672,35 +678,37 @@ class UtrNonCanonSplice(AbstractClassifier):
     def rgb(self):
         return self.colors["mutation"]
 
-    def run(self, shortIntronSize=30):
-        self.getTranscriptDict()
-        self.getSeqDict()
-        self.getRefDict()
-        self.getAnnotationDict()
-        self.getAlignmentDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
-            aln = self.alignmentDict[aId]
-            for intron in t.intronIntervals:
-                if len(intron) <= shortIntronSize:
+    def run(self, short_intron_size=30):
+        self.get_transcript_dict()
+        self.get_fasta()
+        self.get_ref_fasta()
+        self.get_annotation_dict()
+        self.get_alignment_dict()
+        details_dict = defaultdict(list)
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
+            aln = self.alignment_dict[aln_id]
+            for intron in t.intron_intervals:
+                if len(intron) <= short_intron_size:
                     continue
-                elif intron.start >= t.thickStart and intron.stop < t.thickStop:
+                elif intron.start >= t.thick_start and intron.stop < t.thick_stop:
                     continue
-                seq = intron.get_sequence(self.seqDict, strand=True)
+                seq = intron.get_sequence(self.fasta, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
                 if donor not in self.canonical or self.canonical[donor] != acceptor:
-                    classifyDict[aId] = 1
+                    classify_dict[aln_id] = 1
                     # is this a intron that exists in the reference that also has this problem?
-                    if compareIntronToReference(intron, a, aln, self.canonical, self.refDict) is True:
-                        detailsDict[aId].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.colors["input"],
-                                                                                  self.column))
+                    if compare_intron_to_reference(intron, a, aln, self.canonical, self.ref_fasta) is True:
+                        details_dict[aln_id].append(seq_lib.splice_intron_interval_to_bed(t, intron, 
+                                                                                          self.colors["input"],
+                                                                                          self.column))
                     else:
-                        detailsDict[aId].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb, self.column))
-            if aId not in classifyDict:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                        details_dict[aln_id].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb, 
+                                                                                          self.column))
+            if aln_id not in classify_dict:
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class UtrUnknownSplice(AbstractClassifier):
@@ -717,35 +725,37 @@ class UtrUnknownSplice(AbstractClassifier):
     def rgb(self):
         return self.colors["mutation"]
 
-    def run(self, shortIntronSize=30):
-        self.getTranscriptDict()
-        self.getSeqDict()
-        self.getAlignmentDict()
-        self.getAnnotationDict()
-        self.getRefDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
-            aln = self.alignmentDict[aId]
-            for intron in t.intronIntervals:
-                if len(intron) <= shortIntronSize:
+    def run(self, short_intron_size=30):
+        self.get_transcript_dict()
+        self.get_fasta()
+        self.get_alignment_dict()
+        self.get_annotation_dict()
+        self.get_ref_fasta()
+        details_dict = defaultdict(list)
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
+            aln = self.alignment_dict[aln_id]
+            for intron in t.intron_intervals:
+                if len(intron) <= short_intron_size:
                     continue
-                elif intron.start >= t.thickStart and intron.stop < t.thickStop:
+                elif intron.start >= t.thick_start and intron.stop < t.thick_stop:
                     continue
-                seq = intron.get_sequence(self.seqDict, strand=True)
+                seq = intron.get_sequence(self.fasta, strand=True)
                 donor, acceptor = seq[:2], seq[-2:]
                 if donor not in self.non_canonical or self.non_canonical[donor] != acceptor:
-                    classifyDict[aId] = 1
+                    classify_dict[aln_id] = 1
                     # is this a intron that exists in the reference that also has this problem?
-                    if compareIntronToReference(intron, a, aln, self.non_canonical, self.refDict) is True:
-                        detailsDict[aId].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.colors["input"],
-                                                                                  self.column))
+                    if compare_intron_to_reference(intron, a, aln, self.non_canonical, self.ref_fasta) is True:
+                        details_dict[aln_id].append(seq_lib.splice_intron_interval_to_bed(t, intron,
+                                                                                          self.colors["input"],
+                                                                                          self.column))
                     else:
-                        detailsDict[aId].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb, self.column))
-            if aId not in classifyDict:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                        details_dict[aln_id].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb, 
+                                                                                          self.column))
+            if aln_id not in classify_dict:
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class EndStop(AbstractClassifier):
@@ -756,7 +766,7 @@ class EndStop(AbstractClassifier):
     If this is NOT true, will report a BED record of the last 3 bases.
 
     Value will be NULL if there is insufficient information, which is defined as:
-        1) thickStop - thickStart <= 9: (no useful CDS annotation)
+        1) thick_stop - thick_start <= 9: (no useful CDS annotation)
         2) this alignment was not trans-mapped
     """
     @property
@@ -764,32 +774,33 @@ class EndStop(AbstractClassifier):
         return self.colors["alignment"]
 
     def run(self):
-        stopCodons = ('TAA', 'TGA', 'TAG')
-        self.getAlignmentDict()
-        self.getTranscriptDict()
-        self.getAnnotationDict()
-        self.getSeqDict()
-        self.getRefDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
-            aln = self.alignmentDict[aId]
-            if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
+        stop_codons = ('TAA', 'TGA', 'TAG')
+        self.get_alignment_dict()
+        self.get_transcript_dict()
+        self.get_annotation_dict()
+        self.get_fasta()
+        self.get_ref_fasta()
+        details_dict = {}
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
+            aln = self.alignment_dict[aln_id]
+            if a.get_cds_length() <= 75 or t.get_cds_length() <= 75:
                 continue
-            s = t.getCdsLength()
-            cds_positions = [t.chromosome_coordinate_to_cds(aln.query_coordinate_to_target(a.cds_coordinate_to_transcript(i)))
+            s = t.get_cds_length()
+            cds_positions = [t.chromosome_coordinate_to_cds(
+                             aln.query_coordinate_to_target(a.cds_coordinate_to_transcript(i)))
                              for i in xrange(s - 4, s - 1)]
-            if None in cds_positions or t.get_cds(self.seqDict)[-3:] not in stopCodons:
+            if None in cds_positions or t.get_cds(self.fasta)[-3:] not in stop_codons:
                 # does this problem exist in the reference?
-                if a.get_cds(self.refDict)[-3:] not in stopCodons:
-                    detailsDict[aId] = seq_lib.cds_coordinate_to_bed(t, s - 3, s, self.colors["input"], self.column)
+                if a.get_cds(self.ref_fasta)[-3:] not in stop_codons:
+                    details_dict[aln_id] = seq_lib.cds_coordinate_to_bed(t, s - 3, s, self.colors["input"], self.column)
                 else:
-                    detailsDict[aId] = seq_lib.cds_coordinate_to_bed(t, s - 3, s, self.rgb, self.column)
-                classifyDict[aId] = 1
+                    details_dict[aln_id] = seq_lib.cds_coordinate_to_bed(t, s - 3, s, self.rgb, self.column)
+                classify_dict[aln_id] = 1
             else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class InFrameStop(AbstractClassifier):
@@ -805,38 +816,38 @@ class InFrameStop(AbstractClassifier):
         return self.colors["mutation"]
 
     def run(self):
-        self.getTranscriptDict()
-        self.getAnnotationDict()
-        self.getSeqDict()
-        self.getRefDict()
-        self.getAlignmentDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
-            aln = self.alignmentDict[aId]
-            if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
+        self.get_transcript_dict()
+        self.get_annotation_dict()
+        self.get_fasta()
+        self.get_ref_fasta()
+        self.get_alignment_dict()
+        details_dict = defaultdict(list)
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
+            aln = self.alignment_dict[aln_id]
+            if a.get_cds_length() <= 75 or t.get_cds_length() <= 75:
                 continue
             # TODO: this will miss an inframe stop if it is the last 3 bases that are not the annotated stop.
             # use the logic from EndStop to flag this
-            codons = list(codonPairIterator(a, t, aln, self.seqDict, self.refDict))[:-1]
+            codons = list(codon_pair_iterator(a, t, aln, self.fasta, self.ref_fasta))[:-1]
             for i, target_codon, query_codon in codons:
                 if seq_lib.codon_to_amino_acid(target_codon) == "*":
                     if target_codon == query_codon:
-                        detailsDict[aId].append(seq_lib.cds_coordinate_to_bed(t, i, i + 3, self.colors["input"],
-                                                                           self.column))
+                        details_dict[aln_id].append(seq_lib.cds_coordinate_to_bed(t, i, i + 3, self.colors["input"],
+                                                                                  self.column))
                     else:
-                        detailsDict[aId].append(seq_lib.cds_coordinate_to_bed(t, i, i + 3, self.rgb, self.column))
-                    classifyDict[aId] = 1
-            if aId not in classifyDict:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                        details_dict[aln_id].append(seq_lib.cds_coordinate_to_bed(t, i, i + 3, self.rgb, self.column))
+                    classify_dict[aln_id] = 1
+            if aln_id not in classify_dict:
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class ShortCds(AbstractClassifier):
     """
     Looks to see if this transcript actually has a CDS, which is defined as having a CDS region of
-    at least 25 codons. Adjusting cdsCutoff can change this.
+    at least 25 codons. Adjusting cds_cutoff can change this.
 
     If True, reports entire transcript.
 
@@ -846,25 +857,25 @@ class ShortCds(AbstractClassifier):
     def rgb(self):
         return self.colors["alignment"]
 
-    def run(self, cdsCutoff=75):
-        self.getTranscriptDict()
-        self.getAnnotationDict()
-        detailsDict = {}
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
+    def run(self, cds_cutoff=75):
+        self.get_transcript_dict()
+        self.get_annotation_dict()
+        details_dict = {}
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
             # do not include noncoding transcripts
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
-            if a.getCdsLength() < 3:
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
+            if a.get_cds_length() < 3:
                 continue
-            elif a.getCdsLength() <= cdsCutoff:
-                detailsDict[aId] = seq_lib.transcript_to_bed(t, self.colors["input"], self.column)
-                classifyDict[aId] = 1
-            elif t.getCdsLength() <= cdsCutoff:
-                detailsDict[aId] = seq_lib.transcript_to_bed(t, self.rgb, self.column)
-                classifyDict[aId] = 1
+            elif a.get_cds_length() <= cds_cutoff:
+                details_dict[aln_id] = seq_lib.transcript_to_bed(t, self.colors["input"], self.column)
+                classify_dict[aln_id] = 1
+            elif t.get_cds_length() <= cds_cutoff:
+                details_dict[aln_id] = seq_lib.transcript_to_bed(t, self.rgb, self.column)
+                classify_dict[aln_id] = 1
             else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class ScaffoldGap(AbstractClassifier):
@@ -878,20 +889,20 @@ class ScaffoldGap(AbstractClassifier):
         return self.colors["assembly"]
 
     def run(self):
-        self.getSeqDict()
-        self.getTranscriptDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
+        self.get_fasta()
+        self.get_transcript_dict()
+        details_dict = defaultdict(list)
+        classify_dict = {}
         r = re.compile("[ATGC][N]{11,}[ATGC]")
-        for aId, t in self.transcriptDict.iteritems():
+        for aln_id, t in self.transcript_dict.iteritems():
             for exon in t.exonIntervals:
-                exonSeq = exon.get_sequence(self.seqDict, strand=False)
-                if r.match(exonSeq):
-                    classifyDict[aId] = 1
-                    detailsDict[aId].append(exon.get_bed(self.rgb, self.column))
-            if aId not in classifyDict:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                exon_seq = exon.get_sequence(self.fasta, strand=False)
+                if r.match(exon_seq):
+                    classify_dict[aln_id] = 1
+                    details_dict[aln_id].append(exon.get_bed(self.rgb, self.column))
+            if aln_id not in classify_dict:
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class UnknownBases(AbstractClassifier):
@@ -905,26 +916,26 @@ class UnknownBases(AbstractClassifier):
         return self.colors["assembly"]
 
     def run(self, cds=False):
-        self.getTranscriptDict()
-        self.getSeqDict()
-        detailsDict = {}
-        classifyDict = {}
+        self.get_transcript_dict()
+        self.get_fasta()
+        details_dict = {}
+        classify_dict = {}
         r = re.compile("[atgcATGC][N]+[atgcATGC]")
-        for aId, t in self.transcriptDict.iteritems():
+        for aln_id, t in self.transcript_dict.iteritems():
             if cds is True:
-                s = t.get_cds(self.seqDict)
+                s = t.get_cds(self.fasta)
                 tmp = [seq_lib.cds_coordinate_to_bed(t, m.start() + 1, m.end() - 1, self.rgb, self.column) for m in
                        re.finditer(r, s)]
             else:
-                s = t.get_mrna(self.seqDict)
-                tmp = [seq_lib.transcript_coordinate_to_bed(t, m.start() + 1, m.end() - 1, self.rgb, self.column) for m in
-                       re.finditer(r, s)]
+                s = t.get_mrna(self.fasta)
+                tmp = [seq_lib.transcript_coordinate_to_bed(t, m.start() + 1, m.end() - 1, self.rgb, self.column) for m
+                       in re.finditer(r, s)]
             if len(tmp) > 0:
-                detailsDict[aId] = tmp
-                classifyDict[aId] = 1
+                details_dict[aln_id] = tmp
+                classify_dict[aln_id] = 1
             else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class Nonsynonymous(AbstractClassifier):
@@ -937,28 +948,28 @@ class Nonsynonymous(AbstractClassifier):
         return self.colors["nonsynon"]
 
     def run(self):
-        self.getTranscriptDict()
-        self.getAnnotationDict()
-        self.getSeqDict()
-        self.getRefDict()
-        self.getAlignmentDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            if aId not in self.transcriptDict:
+        self.get_transcript_dict()
+        self.get_annotation_dict()
+        self.get_fasta()
+        self.get_ref_fasta()
+        self.get_alignment_dict()
+        details_dict = defaultdict(list)
+        classify_dict = {}
+        for aln_id, aln in self.alignment_dict.iteritems():
+            if aln_id not in self.transcript_dict:
                 continue
-            t = self.transcriptDict[aId]
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
-            if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
+            t = self.transcript_dict[aln_id]
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
+            if a.get_cds_length() <= 75 or t.get_cds_length() <= 75:
                 continue
-            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
-                if "N" not in target_codon and target_codon != query_codon and seq_lib.codon_to_amino_acid(target_codon)\
-                        != seq_lib.codon_to_amino_acid(query_codon):
-                    detailsDict[aId].append(seq_lib.cds_coordinate_to_bed(t, i, i + 3, self.rgb, self.column))
-                    classifyDict[aId] = 1
-            if aId not in classifyDict:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+            for i, target_codon, query_codon in codon_pair_iterator(a, t, aln, self.fasta, self.ref_fasta):
+                if ("N" not in target_codon and target_codon != query_codon and
+                        seq_lib.codon_to_amino_acid(target_codon) != seq_lib.codon_to_amino_acid(query_codon)):
+                    details_dict[aln_id].append(seq_lib.cds_coordinate_to_bed(t, i, i + 3, self.rgb, self.column))
+                    classify_dict[aln_id] = 1
+            if aln_id not in classify_dict:
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class Synonymous(AbstractClassifier):
@@ -971,28 +982,28 @@ class Synonymous(AbstractClassifier):
         return self.colors["synon"]
 
     def run(self):
-        self.getTranscriptDict()
-        self.getAnnotationDict()
-        self.getSeqDict()
-        self.getRefDict()
-        self.getAlignmentDict()
-        detailsDict = defaultdict(list)
-        classifyDict = {}
-        for aId, aln in self.alignmentDict.iteritems():
-            if aId not in self.transcriptDict:
+        self.get_transcript_dict()
+        self.get_annotation_dict()
+        self.get_fasta()
+        self.get_ref_fasta()
+        self.get_alignment_dict()
+        details_dict = defaultdict(list)
+        classify_dict = {}
+        for aln_id, aln in self.alignment_dict.iteritems():
+            if aln_id not in self.transcript_dict:
                 continue
-            t = self.transcriptDict[aId]
-            a = self.annotationDict[psl_lib.remove_alignment_number(aId)]
-            if a.getCdsLength() <= 75 or t.getCdsLength() <= 75:
+            t = self.transcript_dict[aln_id]
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
+            if a.get_cds_length() <= 75 or t.get_cds_length() <= 75:
                 continue
-            for i, target_codon, query_codon in codonPairIterator(a, t, aln, self.seqDict, self.refDict):
-                if target_codon != query_codon and seq_lib.codon_to_amino_acid(target_codon) == \
-                        seq_lib.codon_to_amino_acid(query_codon):
-                    detailsDict[aId].append(seq_lib.cds_coordinate_to_bed(t, i, i + 3, self.rgb, self.column))
-                    classifyDict[aId] = 1
-            if aId not in classifyDict:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+            for i, target_codon, query_codon in codon_pair_iterator(a, t, aln, self.fasta, self.ref_fasta):
+                if (target_codon != query_codon and
+                            seq_lib.codon_to_amino_acid(target_codon) == seq_lib.codon_to_amino_acid(query_codon)):
+                    details_dict[aln_id].append(seq_lib.cds_coordinate_to_bed(t, i, i + 3, self.rgb, self.column))
+                    classify_dict[aln_id] = 1
+            if aln_id not in classify_dict:
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)
 
 
 class Paralogy(AbstractClassifier):
@@ -1004,15 +1015,16 @@ class Paralogy(AbstractClassifier):
         return self.colors["mutation"]
 
     def run(self):
-        self.getTranscriptDict()
-        counts = Counter(psl_lib.remove_alignment_number(aId) for aId in self.transcriptDict)
-        detailsDict = {}
-        classifyDict = {}
-        for aId, t in self.transcriptDict.iteritems():
-            if counts[psl_lib.remove_alignment_number(aId)] > 1:
-                detailsDict[aId] = seq_lib.transcript_to_bed(t, self.rgb, self.column + "_{}_Copies".format(
-                    counts[psl_lib.remove_alignment_number(aId)] - 1))
-                classifyDict[aId] = 1
+        self.get_transcript_dict()
+        counts = Counter(psl_lib.remove_alignment_number(aln_id) for aln_id in self.transcript_dict)
+        details_dict = {}
+        classify_dict = {}
+        for aln_id, t in self.transcript_dict.iteritems():
+            if counts[psl_lib.remove_alignment_number(aln_id)] > 1:
+                n = self.column + "_{}_Copies".format(counts[psl_lib.remove_alignment_number(aln_id)] - 1)
+                b = seq_lib.transcript_to_bed(t, self.rgb, n)
+                details_dict[aln_id] = b
+                classify_dict[aln_id] = 1
             else:
-                classifyDict[aId] = 0
-        self.dumpValueDicts(classifyDict, detailsDict)
+                classify_dict[aln_id] = 0
+        self.dump_results_to_disk(classify_dict, details_dict)

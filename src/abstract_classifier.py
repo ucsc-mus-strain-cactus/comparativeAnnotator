@@ -22,58 +22,60 @@ class AbstractClassifier(Target):
                'generic': '152,156,45'     # grey-yellow
               }
 
-    def __init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes, target_gp, ref_genome,
-outDir):
+    def __init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes, target_gp, ref_genome):
         # sanity check
         assert all([genome in x for x in [aln_psl, fasta, target_gp]])
         # initialize the Target
         Target.__init__(self)
-        # primary key this will be keyed on (AlignmentId usually)
-        self.primaryKey = primaryKey
         self.genome = genome
-        self.refGenome = ref_genome
+        self.ref_genome = ref_genome
         self.alnPsl = aln_psl
-        self.fasta = fasta
-        self.refFasta = ref_fasta
-        self.gencodeAttributeMap = gencode_attributes
-        self.targetGp = target_gp
-        self.annotationGp = annotation_gp
-        self.outDir = os.path.join(outDir, self.genome)
-        if not os.path.exists(outDir):
-            os.mkdir(outDir)
-        if not os.path.exists(self.outDir):
-            os.mkdir(self.outDir)
+        self.fasta_path = fasta
+        self.ref_fasta_path = ref_fasta
+        self.gencode_attributes = gencode_attributes
+        self.target_gp = target_gp
+        self.annotation_gp = annotation_gp
+        self.out_data_path = self.getGlobalTempDir()
+        # these variables will be initialized by individual classifiers as needed
+        self.transcripts = None
+        self.transcript_dict = None
+        self.ref_fasta = None
+        self.fasta = None
+        self.psls = None
+        self.alignment_dict = None
+        self.annotations = None
+        self.annotation_dict = None
 
-    def getTranscriptDict(self):
-        self.transcripts = seq_lib.get_gene_pred_transcripts(self.targetGp)
-        self.transcriptDict = seq_lib.transcript_list_to_dict(self.transcripts, noDuplicates=True)
+    def get_transcript_dict(self):
+        self.transcripts = seq_lib.get_gene_pred_transcripts(self.target_gp)
+        self.transcript_dict = seq_lib.transcript_list_to_dict(self.transcripts)
 
-    def getRefDict(self):
-        self.refDict = seq_lib.get_sequence_dict(self.refFasta)
+    def get_ref_fasta(self):
+        self.ref_fasta = seq_lib.get_sequence_dict(self.ref_fasta_path)
 
-    def getSeqDict(self):
-        self.seqDict = seq_lib.get_sequence_dict(self.fasta)
+    def get_fasta(self):
+        self.fasta = seq_lib.get_sequence_dict(self.fasta_path)
 
-    def getAlignmentDict(self):
+    def get_alignment_dict(self):
         self.psls = psl_lib.read_psl(self.alnPsl)
-        self.alignmentDict = psl_lib.get_psl_dict(self.psls, noDuplicates=True)
+        self.alignment_dict = psl_lib.get_psl_dict(self.psls)
 
-    def getAnnotationDict(self):
-        self.annotations = seq_lib.get_gene_pred_transcripts(self.annotationGp)
-        self.annotationDict = seq_lib.transcript_list_to_dict(self.annotations, noDuplicates=True)
+    def get_annotation_dict(self):
+        self.annotations = seq_lib.get_gene_pred_transcripts(self.annotation_gp)
+        self.annotation_dict = seq_lib.transcript_list_to_dict(self.annotations)
 
     @property
     def column(self):
         return self.__class__.__name__
 
-    def dumpValueDicts(self, classifyDict, detailsDict):
+    def dump_results_to_disk(self, classify_dict, details_dict):
         """
         Dumps a pair of classify/details dicts to disk in the globalTempDir for later merging.
         """
-        with open(os.path.join(self.outDir, "Details" + self.column + self.genome), "wb") as outf:
-            pickle.dump(detailsDict, outf)
-        with open(os.path.join(self.outDir, "Classify" + self.column + self.genome), "wb") as outf:
-            pickle.dump(classifyDict, outf)
+        with open(os.path.join(self.out_data_path, "Details" + self.column), "wb") as outf:
+            pickle.dump(details_dict, outf)
+        with open(os.path.join(self.out_data_path, "Classify" + self.column), "wb") as outf:
+            pickle.dump(classify_dict, outf)
 
 
 class AbstractAugustusClassifier(AbstractClassifier):
@@ -81,25 +83,27 @@ class AbstractAugustusClassifier(AbstractClassifier):
     Overwrites AbstractClassifier to add the extra genePred information and a way to load it.
     """
     def __init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes, target_gp, ref_genome,
-                 primaryKey, outDir, augustusGp):
-        AbstractClassifier.__init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes, target_gp,
-                                    ref_genome, primaryKey, outDir)
-        assert self.genome in augustusGp
-        self.augustusGp = augustusGp
+                 augustus_gp):
+        AbstractClassifier.__init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes,
+                                    target_gp, ref_genome)
+        assert self.genome in augustus_gp
+        self.augustus_gp = augustus_gp
+        self.augustus_transcripts = None
+        self.augustus_transcript_dict = None
 
-    def getAugustusTranscriptDict(self):
-        self.augustusTranscripts = seq_lib.get_gene_pred_transcripts(self.augustusGp)
-        self.augustusTranscriptDict = seq_lib.transcript_list_to_dict(self.augustusTranscripts, noDuplicates=True)
+    def get_augustus_transcript_dict(self):
+        self.augustus_transcripts = seq_lib.get_gene_pred_transcripts(self.augustus_gp)
+        self.augustus_transcript_dict = seq_lib.transcript_list_to_dict(self.augustus_transcripts)
 
 
 class Attribute(AbstractClassifier):
     """Need to overwrite the dumpValueDict method for attributes"""
-    def getAttributeDict(self):
-        self.attributeDict = seq_lib.get_transcript_attribute_dict(self.gencodeAttributeMap)
+    def get_attribute_dict(self):
+        self.attribute_dict = seq_lib.get_transcript_attribute_dict(self.gencode_attributes)
 
-    def dumpValueDict(self, valueDict):
+    def dump_attribute_results_to_disk(self, attribute_dict):
         """
         Dumps a attribute dict.
         """
-        with open(os.path.join(self.outDir, "Attribute" + self.column + self.genome), "wb") as outf:
-            pickle.dump(valueDict, outf)
+        with open(os.path.join(self.out_data_path, "Attribute" + self.column + self.genome), "wb") as outf:
+            pickle.dump(attribute_dict, outf)
