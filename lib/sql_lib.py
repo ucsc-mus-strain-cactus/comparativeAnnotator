@@ -79,9 +79,11 @@ def collapse_details_dict(details_dict):
     Collapses a details dict into a string so that the database record is a string. Properly accounts for the two
     possibilities: the record is a single BED entry (a string) or the record is a list of BED entries
     """
+    collapsed = {}
     for aln_id, rec in details_dict.iteritems():
-        if isinstance(rec, list):
-            rec = "\t".join([map(str, x) for x in rec])
-            return "".join([rec, "\n"])
+        if isinstance(rec[0], list):  # hack to determine if this is a list of lists
+            rec = "\n".join(["\t".join(map(str, x)) for x in rec])
         else:
-            return "".join([map(str, rec), "\n"])
+            rec = "\t".join(map(str, rec))
+        collapsed[aln_id] = "".join([rec, "\n"])
+    return collapsed

@@ -48,6 +48,8 @@ def parse_args():
     args = parser.parse_args()
     if args.augustus and args.augustusGp is None:
         raise RuntimeError("Error: augustus mode activated but no augustusGp provided.")
+    elif args.augustus is False and args.augustusGp is not None:
+        raise RuntimeError("Error: augustusGp provided but augustus flag not set.")
     return args
 
 
@@ -65,8 +67,8 @@ def build_analyses(target, ref_genome, genome, annotation_gp, psl, gp, fasta, re
             target.addChildTarget(classifier(genome, psl, fasta, ref_fasta, annotation_gp, gencode_attributes, gp,
                                              ref_genome, augustus_gp, tmp_dir))
     else:
-        #classifiers = classes_in_module(src.classifiers) + classes_in_module(src.attributes)
-        classifiers = [src.classifiers.EndStop, src.classifiers.BeginStart, src.classifiers.AlignmentPartialMap]
+        classifiers = classes_in_module(src.classifiers) + classes_in_module(src.attributes)
+        #classifiers = [src.classifiers.EndStop, src.classifiers.BeginStart, src.classifiers.AlignmentPartialMap, src.attributes.AlignmentIdentity]
         for classifier in classifiers:
             target.addChildTarget(classifier(genome, psl, fasta, ref_fasta, annotation_gp, gencode_attributes, gp,
                                              ref_genome, tmp_dir))
@@ -103,15 +105,16 @@ def database(target, genome, db, db_path, tmp_dir):
 def build_tracks_wrapper(target, out_dir, genome, sizes, gp, augustus):
     if augustus:
         classifier_tracks = augustus_classifier_tracks
-        ok_query = etc.config.augustusOk(genome)
+        ok_query_fn = etc.config.augustusOk
     else:
         classifier_tracks = tm_classifier_tracks
-        ok_query = etc.config.transMapOk(genome)
+        ok_query_fn = etc.config.transMapOk
     for f in classifier_tracks:
         query = f(genome)
         query_name = f.__name__
         target.addChildTargetFn(build_classifier_tracks, args=[query, query_name, out_dir, genome, sizes, augustus])
-    ok_query_name = ok_query.__name__
+    ok_query_name = ok_query_fn.__name__
+    ok_query = ok_query_fn(genome)
     target.addChildTargetFn(build_ok_track, args=[ok_query, ok_query_name, out_dir, genome, sizes, gp, augustus])
 
 
@@ -150,7 +153,7 @@ def build_ok_track(target, query, query_name, out_dir, genome, sizes, gp, august
         for aln_id, rec in gp_dict.iteritems():
             if aln_id in ok_ids:
                 bed = rec.getBed()
-                outf.write("".join([bed, "\n"]))
+                outf.write("".join([map(str, bed), "\n"]))
     make_big_bed(out_bed_path, sizes, out_big_bed_path)
 
 
