@@ -11,6 +11,8 @@ from collections import defaultdict
 import lib.seq_lib as seq_lib
 import lib.sql_lib as sql_lib
 
+__author__ = "Ian Fiddes"
+
 
 def parse_args():
     parser = argparse.ArgumentParser()

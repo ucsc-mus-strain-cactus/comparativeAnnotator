@@ -4,6 +4,7 @@ Convenience library for interfacting with a sqlite database.
 import os
 import sqlite3 as sql
 import pandas as pd
+from etc.config import *
 
 __author__ = "Ian Fiddes"
 
@@ -49,12 +50,19 @@ def attach_databases(comp_ann_path, has_augustus=False):
     attach_database(con, attr_path, "attributes")
     attach_database(con, details_path, "details")
     if has_augustus:
-        aug_classify_path = os.path.join(comp_ann_path, "augustusClassify.db")
-        aug_details_path = os.path.join(comp_ann_path, "augustusDetails.db")
+        aug_classify_path = os.path.join(comp_ann_path, "augustus_classify.db")
+        aug_details_path = os.path.join(comp_ann_path, "augustus_details.db")
         assert all([os.path.exists(x) for x in [aug_classify_path, aug_details_path]])
         attach_database(con, aug_classify_path, "augustus")
         attach_database(con, aug_details_path, "augustus_details")
     return con, cur
+
+
+def get_ok_ids(cur, query):
+    """
+    Returns a list of aln_ids which are OK based on the definition of OK in config.py that made this query
+    """
+    return {x[0] for x in cur.execute(query).fetchall()}
 
 
 def write_dict(data_dict, database_path, table):
@@ -64,4 +72,9 @@ def write_dict(data_dict, database_path, table):
     df = pd.DataFrame.from_dict(data_dict)
     df.sort_index()
     with ExclusiveSqlConnection(database_path) as con:
-        df.to_sql(table, con, if_exists="replace")
+        df.to_sql(table, con, if_exists="replace", index_label="AlignmentId")
+
+
+def collapse_details_dict(details_dict):
+    return {x: "".join(["\n".join(y), "\n"]) if type(y) == list else "".join([y, "\n"]) for x, y in
+            details_dict.iteritems()}

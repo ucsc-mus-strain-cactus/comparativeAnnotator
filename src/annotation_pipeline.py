@@ -3,19 +3,28 @@ This is the main driver script for comparativeAnnotator in transMap mode.
 """
 
 import argparse
+import os
+import subprocess
+import cPickle as pickle
 
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 
-from lib.general_lib import classes_in_module
+import lib.sql_lib as sql_lib
+import lib.seq_lib as seq_lib
+from lib.general_lib import classes_in_module, mkdir_p
 
 import src.classifiers
 import src.augustus_classifiers
 import src.attributes
-from src.construct_databases import ConstructDatabases
-from src.build_tracks import BuildTracks
+import etc.config
 
 __author__ = "Ian Fiddes"
+
+
+augustus_classifier_tracks = [etc.config.allAugustusClassifiers]
+tm_classifier_tracks = [etc.config.allClassifiers, etc.config.potentiallyInterestingBiology, etc.config.assemblyErrors,
+                        etc.config.alignmentErrors]
 
 
 def parse_args():
@@ -44,6 +53,10 @@ def parse_args():
 
 def build_analyses(target, ref_genome, genome, annotation_gp, psl, gp, fasta, ref_fasta, sizes, gencode_attributes,
                    out_dir, augustus, augustus_gp):
+    """
+    Wrapper function that will call all classifiers. Each classifier will dump its results to disk as a pickled dict.
+    Calls database_wrapper to load these into a sqlite3 database.
+    """
     # find all user-defined classes in the categories of analyses
     if augustus is True:
         augustus_classifiers = classes_in_module(src.augustus_classifiers)
@@ -56,13 +69,85 @@ def build_analyses(target, ref_genome, genome, annotation_gp, psl, gp, fasta, re
             target.addChildTarget(classifier(genome, psl, fasta, ref_fasta, annotation_gp, gencode_attributes, gp,
                                              ref_genome))
         # merge the resulting pickled files into sqlite databases and construct BED tracks
-    target.setFollowOnTargetFn(database, memory=8 * (1024 ** 3),
-                               args=[out_dir, genome, psl, sizes, gp, annotation_gp])
+    target.setFollowOnTargetFn(database_wrapper, memory=8 * (1024 ** 3),
+                               args=[out_dir, genome, sizes, gp, augustus])
 
 
-def database(target, out_dir, genome, psl, sizes, gp, annotation_gp):
-    target.addChildTarget(ConstructDatabases(out_dir, genome, psl))
-    target.setFollowOnTarget(BuildTracks(out_dir, genome, sizes, gp, annotation_gp))
+def database_wrapper(target, out_dir, genome, sizes, gp, augustus):
+    """
+    Calls database for each database in this analysis.
+    """
+    if augustus is True:
+        for db in ["classify", "details"]:
+            db_path = os.path.join(out_dir, "augustus_{}.db".format(db))
+            target.addChildTargetFn(database, args=[genome, db, db_path])
+    else:
+        for db in ["classify", "details", "attributes"]:
+            db_path = os.path.join(out_dir, "{}.db".format(db))
+            target.addChildTargetFn(database, args=[genome, db, db_path])
+    target.setFollowOnTarget(build_tracks_wrapper(out_dir, genome, sizes, gp, augustus))
+
+
+def database(target, genome, db, db_path):
+    data_dict = {}
+    data_path = os.path.join(target.getGlobalTempDir(), db)
+    for col in os.listdir(data_path):
+        data_dict[col] = pickle.load(col)
+    sql_lib.write_dict(data_dict, db_path, genome)
+
+
+def build_tracks_wrapper(target, out_dir, genome, sizes, gp, augustus):
+    if augustus:
+        classifier_tracks = augustus_classifier_tracks
+        ok_query = etc.config.augustusOk
+    else:
+        classifier_tracks = tm_classifier_tracks
+        ok_query = etc.config.transMapOk
+    for f in classifier_tracks:
+        query = f(genome)
+        query_name = f.__name__
+        target.addChildTargetFn(build_classifier_tracks, args=[query, query_name, out_dir, genome, sizes, augustus])
+    ok_query_name = ok_query.__name__
+    target.addChildTargetFn(build_ok_track, args=[ok_query, ok_query_name, out_dir, genome, sizes, gp, augustus])
+
+
+def get_bed_paths(out_dir, query_name, genome):
+    out_bed_dir = os.path.join(out_dir, "bedfiles", query_name, genome)
+    out_bed_path = os.path.join(out_bed_dir, "{}.bed".format(genome))
+    out_big_bed_dir = os.path.join(out_dir, "bigBedfiles", query_name, genome)
+    out_big_bed_path = os.path.join(out_big_bed_dir, "{}.bb".format(genome))
+    mkdir_p(out_bed_dir)
+    mkdir_p(out_big_bed_dir)
+    return out_bed_path, out_big_bed_path
+
+
+def make_big_bed(out_bed_path, sizes, out_big_bed_path):
+    subprocess.call(["bedSort", out_bed_path, out_bed_path])
+    subprocess.call(["bedToBigBed", out_bed_path, sizes, out_big_bed_path])
+
+
+def build_classifier_tracks(target, query, query_name, out_dir, genome, sizes, augustus):
+    con, cur = sql_lib.attach_databases(out_dir, has_augustus=augustus)
+    bed_recs = cur.execute(query)
+    out_bed_path, out_big_bed_path = get_bed_paths(out_dir, query_name, genome)
+    with open(out_bed_path, "w") as outf:
+        for rec in bed_recs:
+            outf.write(rec)
+    make_big_bed(out_bed_path, sizes, out_big_bed_path)
+
+
+def build_ok_track(target, query, query_name, out_dir, genome, sizes, gp, augustus):
+    con, cur = sql_lib.attach_databases(out_dir, has_augustus=augustus)
+    ok_ids = sql_lib.get_ok_ids(cur, query)
+    gp_recs = seq_lib.get_gene_pred_transcripts(gp)
+    gp_dict = seq_lib.transcript_list_to_dict(gp_recs)
+    out_bed_path, out_big_bed_path = get_bed_paths(out_dir, query_name, genome)
+    with open(out_bed_path, "w") as outf:
+        for aln_id, rec in gp_dict.iteritems():
+            if aln_id in ok_ids:
+                bed = rec.getBed()
+                outf.write("".join([bed, "\n"]))
+    make_big_bed(out_bed_path, sizes, out_big_bed_path)
 
 
 def main():

@@ -170,7 +170,7 @@ def cat(target, genome, output_gtf, unsorted_tmp_file, out_file_tree):
     Concatenates all of the results into one big genePred, and sorts it by chromosome/pos
     """
     catFiles(out_file_tree.listFiles(), unsorted_tmp_file)
-    system("sort -k1,1 -k4,4 {} > {}".format(unsorted_tmp_file, output_gtf))
+    system("sort -k1,1 -k4,4n {} > {}".format(unsorted_tmp_file, output_gtf))
 
 
 def wrapper(target, input_gp, output_gtf, genome, sizes_path, fasta_path):

@@ -20,7 +20,7 @@ import matplotlib.backends.backend_pdf as plt_back
 from lib.psl_lib import remove_alignment_number, remove_augustus_alignment_number
 from lib.general_lib import skip_header
 
-from config import *
+from etc.config import *
 
 __author__ = "Ian Fiddes"
 
@@ -37,30 +37,6 @@ def get_all_biotypes(attr_path):
     Returns all biotypes in the attribute database.
     """
     return {x.split()[4] for x in skip_header(attr_path)}
-
-
-def transmap_ok(cur, genome, classify_fields):
-    """
-    Finds all aIds which are 'OK' based on the classify_fields below
-    """
-    cmd = """SELECT AlignmentId FROM main.'{0}' WHERE (""".format(genome)
-    for col in classify_fields[:-1]:
-        cmd += " {} = ? {}".format(col, "AND")
-    cmd += " {} = ? )".format(classify_fields[-1])
-    vals = [0] * len(classify_fields)
-    return {x[0] for x in cur.execute(cmd, vals).fetchall()}
-
-
-def augustus_ok(cur, genome):
-    """
-    Finds all aug_aIds which are 'OK' as defined by the fields in aug_ok_fields
-    """
-    cmd = """SELECT augustus.'{0}'.'AlignmentId' FROM augustus.'{0}' WHERE (""".format(genome)
-    for col in aug_ok_fields[:-1]:
-        cmd += " augustus.'{}'.'{}' = ? {}".format(genome, col, "AND")
-    cmd += " augustus.'{}'.'{}' = ?)".format(genome, aug_ok_fields[-1])
-    vals = [0] * len(aug_ok_fields)
-    return {x[0] for x in cur.execute(cmd, vals).fetchall()}
 
 
 def get_all_ok(cur, genome, tm_classifiers):

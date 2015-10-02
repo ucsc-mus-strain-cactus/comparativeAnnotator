@@ -3,11 +3,14 @@ Base classifier classes used by all of the classifiers.
 """
 import os
 import cPickle as pickle
+import itertools
 
 from jobTree.scriptTree.target import Target
 
 import lib.seq_lib as seq_lib
 import lib.psl_lib as psl_lib
+import lib.sql_lib as sql_lib
+from lib.general_lib import mkdir_p
 
 __author__ = "Ian Fiddes"
 
@@ -45,6 +48,7 @@ class AbstractClassifier(Target):
         self.alignment_dict = None
         self.annotations = None
         self.annotation_dict = None
+        self.attribute_dict = None
 
     def get_transcript_dict(self):
         self.transcripts = seq_lib.get_gene_pred_transcripts(self.target_gp)
@@ -72,10 +76,13 @@ class AbstractClassifier(Target):
         """
         Dumps a pair of classify/details dicts to disk in the globalTempDir for later merging.
         """
-        with open(os.path.join(self.out_data_path, "Details" + self.column), "wb") as outf:
-            pickle.dump(details_dict, outf)
-        with open(os.path.join(self.out_data_path, "Classify" + self.column), "wb") as outf:
-            pickle.dump(classify_dict, outf)
+        details_dict = sql_lib.collapse_details_dict(details_dict)
+        for db, this_dict in itertools.izip(*[["details", "classify"], [details_dict, classify_dict]]):
+            base_p = os.path.join(self.getGlobalTempDir(), db)
+            mkdir_p(base_p)
+            p = os.path.join(base_p, self.column)
+            with open(p, "wb") as outf:
+                pickle.dump(this_dict, outf)
 
 
 class AbstractAugustusClassifier(AbstractClassifier):
@@ -105,5 +112,9 @@ class Attribute(AbstractClassifier):
         """
         Dumps a attribute dict.
         """
-        with open(os.path.join(self.out_data_path, "Attribute" + self.column + self.genome), "wb") as outf:
+        db = "attribute"
+        base_p = os.path.join(self.getGlobalTempDir(), db)
+        mkdir_p(base_p)
+        p = os.path.join(base_p, self.column)
+        with open(p, "wb") as outf:
             pickle.dump(attribute_dict, outf)
