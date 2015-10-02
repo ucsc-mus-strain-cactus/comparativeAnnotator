@@ -4,7 +4,6 @@ Convenience library for interfacting with a sqlite database.
 import os
 import sqlite3 as sql
 import pandas as pd
-from etc.config import *
 
 __author__ = "Ian Fiddes"
 
@@ -76,5 +75,5 @@ def write_dict(data_dict, database_path, table):
 
 
 def collapse_details_dict(details_dict):
-    return {x: "".join(["\n".join(y), "\n"]) if type(y) == list else "".join([y, "\n"]) for x, y in
-            details_dict.iteritems()}
+    return {x: "".join(["\n".join(map(str, y)), "\n"]) if type(y) == list else 
+            "".join([map(str, y), "\n"]) for x, y in details_dict.iteritems()}

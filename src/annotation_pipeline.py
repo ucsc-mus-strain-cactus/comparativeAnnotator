@@ -58,41 +58,44 @@ def build_analyses(target, ref_genome, genome, annotation_gp, psl, gp, fasta, re
     Calls database_wrapper to load these into a sqlite3 database.
     """
     # find all user-defined classes in the categories of analyses
+    tmp_dir = target.getGlobalTempDir()
     if augustus is True:
         augustus_classifiers = classes_in_module(src.augustus_classifiers)
         for classifier in augustus_classifiers:
             target.addChildTarget(classifier(genome, psl, fasta, ref_fasta, annotation_gp, gencode_attributes, gp,
-                                             ref_genome, augustus_gp))
+                                             ref_genome, augustus_gp, tmp_dir))
     else:
         classifiers = classes_in_module(src.classifiers) + classes_in_module(src.attributes)
         for classifier in classifiers:
             target.addChildTarget(classifier(genome, psl, fasta, ref_fasta, annotation_gp, gencode_attributes, gp,
-                                             ref_genome))
+                                             ref_genome, tmp_dir))
         # merge the resulting pickled files into sqlite databases and construct BED tracks
     target.setFollowOnTargetFn(database_wrapper, memory=8 * (1024 ** 3),
-                               args=[out_dir, genome, sizes, gp, augustus])
+                               args=[out_dir, genome, sizes, gp, augustus, tmp_dir])
 
 
-def database_wrapper(target, out_dir, genome, sizes, gp, augustus):
+def database_wrapper(target, out_dir, genome, sizes, gp, augustus, tmp_dir):
     """
     Calls database for each database in this analysis.
     """
     if augustus is True:
         for db in ["classify", "details"]:
             db_path = os.path.join(out_dir, "augustus_{}.db".format(db))
-            target.addChildTargetFn(database, args=[genome, db, db_path])
+            target.addChildTargetFn(database, args=[genome, db, db_path, tmp_dir])
     else:
         for db in ["classify", "details", "attributes"]:
             db_path = os.path.join(out_dir, "{}.db".format(db))
-            target.addChildTargetFn(database, args=[genome, db, db_path])
-    target.setFollowOnTarget(build_tracks_wrapper(out_dir, genome, sizes, gp, augustus))
+            target.addChildTargetFn(database, args=[genome, db, db_path, tmp_dir])
+    target.setFollowOnTargetFn(build_tracks_wrapper, args=[out_dir, genome, sizes, gp, augustus])
 
 
-def database(target, genome, db, db_path):
+def database(target, genome, db, db_path, tmp_dir):
     data_dict = {}
-    data_path = os.path.join(target.getGlobalTempDir(), db)
+    data_path = os.path.join(tmp_dir, db)
     for col in os.listdir(data_path):
-        data_dict[col] = pickle.load(col)
+        p = os.path.join(data_path, col)
+        with open(p) as p_h:
+            data_dict[col] = pickle.load(p_h)
     sql_lib.write_dict(data_dict, db_path, genome)
 
 
@@ -152,10 +155,10 @@ def build_ok_track(target, query, query_name, out_dir, genome, sizes, gp, august
 
 def main():
     args = parse_args()
-    i = Stack(Target.makeTargetFn(build_analyses, args=[args.refGenome, args.genome, args.annotationGp, args.psl,
-                                                        args.gp, args.fasta, args.refFasta, args.sizes,
-                                                        args.gencodeAttributes, args.outDir, args.augustus,
-                                                        args.augustutsGp])).startJobTree(args)
+    i = Stack(Target.makeTargetFn(build_analyses, memory=8 * (1024 ** 3),
+                                  args=[args.refGenome, args.genome, args.annotationGp, args.psl, args.gp, args.fasta, 
+                                        args.refFasta, args.sizes, args.gencodeAttributes, args.outDir, args.augustus,
+                                        args.augustusGp])).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
 

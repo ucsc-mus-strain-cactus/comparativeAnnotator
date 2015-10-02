@@ -22,7 +22,7 @@ class GeneId(Attribute):
     def run(self):
         self.get_attribute_dict()
         self.get_alignment_dict()
-        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].geneId for aln_id in
+        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].gene_id for aln_id in
                         self.alignment_dict}
         self.dump_attribute_results_to_disk(results_dict)
 
@@ -34,7 +34,7 @@ class GeneName(Attribute):
     def run(self):
         self.get_attribute_dict()
         self.get_alignment_dict()
-        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].geneName for aln_id in
+        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].gene_name for aln_id in
                         self.alignment_dict}
         self.dump_attribute_results_to_disk(results_dict)
 
@@ -46,7 +46,7 @@ class GeneType(Attribute):
     def run(self):
         self.get_attribute_dict()
         self.get_alignment_dict()
-        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].geneType for aln_id in
+        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].gene_type for aln_id in
                         self.alignment_dict}
         self.dump_attribute_results_to_disk(results_dict)
 
@@ -58,7 +58,7 @@ class TranscriptType(Attribute):
     def run(self):
         self.get_attribute_dict()
         self.get_alignment_dict()
-        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].transcriptType for aln_id
+        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].transcript_type for aln_id
                         in self.alignment_dict}
         self.dump_attribute_results_to_disk(results_dict)
 

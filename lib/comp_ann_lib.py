@@ -99,7 +99,7 @@ def frame_shift_iterator(a, t, aln):
     else:
         merged = [[x, y, z] for x, y, z in merged if z % 3 != 0]
     for start, stop, span in merged:
-        if start >= t.thickStart and stop < t.thickStop:
+        if start >= t.thick_start and stop < t.thick_stop:
             yield start, stop, span
 
 
@@ -114,12 +114,12 @@ def codon_pair_iterator(a, t, aln, target_seq_dict, query_seq_dict):
     """
     target_cds = t.get_cds(target_seq_dict)
     query_cds = a.get_cds(query_seq_dict)
-    a_frames = [x for x in a.exonFrames if x != -1]
+    a_frames = [x for x in a.exon_frames if x != -1]
     if a.strand is True:
         a_offset = a_frames[0]
     else:
         a_offset = 3 - a_frames[-1]
-    for i in xrange(a_offset, a.getCdsLength(), 3):
+    for i in xrange(a_offset, a.get_cds_length(), 3):
         target_cds_positions = [t.chromosome_coordinate_to_cds(
                                 aln.query_coordinate_to_target(
                                 a.cds_coordinate_to_transcript(j)))
@@ -148,7 +148,7 @@ def compare_intron_to_reference(intron, a, aln, compare_dict, ref_dict):
     if a_start is None or a_stop is None:
         return False
     a_start += 1
-    for a_intron in a.intronIntervals:
+    for a_intron in a.intron_intervals:
         if a_intron.start == a_start and a_intron.stop == a_stop:
             ref_seq = a_intron.get_sequence(ref_dict, strand=True)
             donor, acceptor = ref_seq[:2], ref_seq[-2:]

@@ -139,10 +139,11 @@ def get_psl_dict(alignments):
     """
     alignments_dict = {}
     for a in alignments:
-        if a.qName in alignments_dict:
-                raise RuntimeError("getPslDict found duplicate transcript {} when noDuplicates was set".format(a.qName))
+        if a.q_name in alignments_dict:
+                raise RuntimeError("getPslDict found duplicate transcript {} when noDuplicates"
+                                   " was set".format(a.q_name))
         else:
-            alignments_dict[a.qName] = a
+            alignments_dict[a.q_name] = a
     return alignments_dict
 
 
@@ -165,5 +166,5 @@ def remove_augustus_alignment_number(s, aug_re=re.compile("^((augI[0-9]+-[0-9]+)
 def uniqify_psl_row(row, val):
     """ Uniqifies the name of <row> by adding -<val> to it
     """
-    row.qName = "-".join([row.qName, str(val)])
+    row.qName = "-".join([row.q_name, str(val)])
     return row

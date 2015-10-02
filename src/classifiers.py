@@ -32,7 +32,7 @@ class AlignmentAbutsLeft(AbstractClassifier):
         for aln_id, aln in self.alignment_dict.iteritems():
             if aln_id not in self.transcript_dict:
                 continue
-            if aln.strand == "+" and aln.t_start == 0 and aln.qStart != 0:
+            if aln.strand == "+" and aln.t_start == 0 and aln.q_start != 0:
                 details_dict[aln_id] = seq_lib.transcript_to_bed(self.transcript_dict[aln_id], self.rgb, self.column)
                 classify_dict[aln_id] = 1
             elif aln.strand == "-" and aln.t_end == aln.t_size and aln.q_end != aln.q_size:
@@ -68,7 +68,7 @@ class AlignmentAbutsRight(AbstractClassifier):
             if aln.strand == "+" and aln.t_end == aln.t_size and aln.q_end != aln.q_size:
                 details_dict[aln_id] = seq_lib.transcript_to_bed(self.transcript_dict[aln_id], self.rgb, self.column)
                 classify_dict[aln_id] = 1
-            elif aln.strand == "-" and aln.t_start == 0 and aln.qStart != 0:
+            elif aln.strand == "-" and aln.t_start == 0 and aln.q_start != 0:
                 details_dict[aln_id] = seq_lib.transcript_to_bed(self.transcript_dict[aln_id], self.rgb, self.column)
                 classify_dict[aln_id] = 1
             else:
@@ -91,11 +91,11 @@ class AlignmentAbutsUnknownBases(AbstractClassifier):
         details_dict = defaultdict(list)
         classify_dict = {}
         for aln_id, t in self.transcript_dict.iteritems():
-            intervals = [[t.exonIntervals[0].start - distance, t.exonIntervals[0].start]]
+            intervals = [[t.exon_intervals[0].start - distance, t.exon_intervals[0].start]]
             for intron in t.intron_intervals:
                 if len(intron) > short_intron_size:
                     intervals.append([intron.start, intron.start + distance])
-            intervals.append([t.exonIntervals[-1].stop, t.exonIntervals[-1].stop + distance])
+            intervals.append([t.exon_intervals[-1].stop, t.exon_intervals[-1].stop + distance])
             for start, stop in intervals:
                 seq = self.fasta[t.chromosome][start:stop].upper()
                 if "N" in seq:
@@ -363,7 +363,7 @@ class AlignmentPartialMap(AbstractClassifier):
         for aln_id, aln in self.alignment_dict.iteritems():
             if aln_id not in self.transcript_dict:
                 continue
-            if aln.q_size != aln.q_end - aln.qStart:
+            if aln.q_size != aln.q_end - aln.q_start:
                 details_dict[aln_id] = seq_lib.transcript_to_bed(self.transcript_dict[aln_id], self.rgb, self.column)
                 classify_dict[aln_id] = 1
             else:
@@ -895,7 +895,7 @@ class ScaffoldGap(AbstractClassifier):
         classify_dict = {}
         r = re.compile("[ATGC][N]{11,}[ATGC]")
         for aln_id, t in self.transcript_dict.iteritems():
-            for exon in t.exonIntervals:
+            for exon in t.exon_intervals:
                 exon_seq = exon.get_sequence(self.fasta, strand=False)
                 if r.match(exon_seq):
                     classify_dict[aln_id] = 1

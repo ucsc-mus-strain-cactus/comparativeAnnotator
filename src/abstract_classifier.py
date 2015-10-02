@@ -25,7 +25,8 @@ class AbstractClassifier(Target):
                'generic': '152,156,45'     # grey-yellow
               }
 
-    def __init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes, target_gp, ref_genome):
+    def __init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes, target_gp, ref_genome,
+                 tmp_dir):
         # sanity check
         assert all([genome in x for x in [aln_psl, fasta, target_gp]])
         # initialize the Target
@@ -38,7 +39,7 @@ class AbstractClassifier(Target):
         self.gencode_attributes = gencode_attributes
         self.target_gp = target_gp
         self.annotation_gp = annotation_gp
-        self.out_data_path = self.getGlobalTempDir()
+        self.tmp_dir = tmp_dir
         # these variables will be initialized by individual classifiers as needed
         self.transcripts = None
         self.transcript_dict = None
@@ -78,7 +79,7 @@ class AbstractClassifier(Target):
         """
         details_dict = sql_lib.collapse_details_dict(details_dict)
         for db, this_dict in itertools.izip(*[["details", "classify"], [details_dict, classify_dict]]):
-            base_p = os.path.join(self.getGlobalTempDir(), db)
+            base_p = os.path.join(self.tmp_dir, db)
             mkdir_p(base_p)
             p = os.path.join(base_p, self.column)
             with open(p, "wb") as outf:
@@ -90,7 +91,7 @@ class AbstractAugustusClassifier(AbstractClassifier):
     Overwrites AbstractClassifier to add the extra genePred information and a way to load it.
     """
     def __init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes, target_gp, ref_genome,
-                 augustus_gp):
+                 tmp_dir, augustus_gp):
         AbstractClassifier.__init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes,
                                     target_gp, ref_genome)
         assert self.genome in augustus_gp
@@ -112,8 +113,8 @@ class Attribute(AbstractClassifier):
         """
         Dumps a attribute dict.
         """
-        db = "attribute"
-        base_p = os.path.join(self.getGlobalTempDir(), db)
+        db = "attributes"
+        base_p = os.path.join(self.tmp_dir, db)
         mkdir_p(base_p)
         p = os.path.join(base_p, self.column)
         with open(p, "wb") as outf:
