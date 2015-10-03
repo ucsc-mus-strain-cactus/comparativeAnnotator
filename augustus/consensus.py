@@ -1,5 +1,7 @@
 import argparse
-from scripts.plot_functions import *
+from plotting.plot_functions import *
+import lib.sql_lib as sql_lib
+from lib.general_lib import mkdir_p
 
 
 def parse_args():
@@ -23,8 +25,8 @@ def get_aug_stats(stats_dir, genome):
     aln_stats = {}
     with open(os.path.join(stats_dir, genome + ".stats")) as f:
         for l in f:
-            aug_aId, ident, cov = l.split()
-            aln_stats[aug_aId] = [aug_aId] + map(float, [ident, cov])
+            aug_aln_id, ident, cov = l.split()
+            aln_stats[aug_aln_id] = [aug_aln_id] + map(float, [ident, cov])
     return aln_stats
 
 
@@ -32,8 +34,8 @@ def merge_stats(cur, stats_dir, genome):
     """
     Adapter function to return the combination of the stats dicts produced for augustus and transMap
     """
-    tm_stats = get_tm_stats(cur, genome)
-    aug_stats = get_aug_stats(stats_dir, genome)
+    tm_stats = sql_lib.get_stats(cur, genome, category="transMap")
+    aug_stats = sql_lib.get_stats(cur, genome, category="augustus")
     r = tm_stats.copy()
     r.update(aug_stats)
     return r

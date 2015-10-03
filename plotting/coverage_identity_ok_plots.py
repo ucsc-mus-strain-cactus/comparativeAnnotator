@@ -1,6 +1,9 @@
 import argparse
-from scripts.plot_functions import *
-from src.queries import assemblyErrors, alignmentErrors
+from collections import Counter
+import lib.sql_lib as sql_lib
+from lib.general_lib import mkdir_p
+from plotting.plot_functions import *
+from etc.config import *
 
 
 def parse_args():
@@ -29,18 +32,16 @@ def paralogy(cur, genome):
     return Counter([x[0] for x in cur.execute(cmd).fetchall()])
 
 
-def number_categorized(cur, genome, cat_fn, biotype=None):
+def number_categorized(cur, genome, query_fn, biotype=None):
     """
     Finds the alignment IDs categorized by a categorizing function. Can be restricted by biotype
     """
-    classify_fields, details_fields, classify_values, classify_operations = cat_fn()
-    cmd = """SELECT AlignmentId FROM main.'{0}' JOIN attributes.'{0}' USING (AlignmentId) WHERE (""".format(genome)
-    for col, mod in zip(classify_fields[:-1], classify_operations):
-        cmd += " {} = ? {}".format(col, mod)
-    cmd += " {} = ?)".format(classify_fields[-1])
+    query = query_fn(genome)
+    ok_ids = sql_lib.get_ok_ids(cur, query)
     if biotype is not None:
-        cmd += " AND TranscriptType = '{}'".format(biotype)
-    return {x[0] for x in cur.execute(cmd, classify_values).fetchall()}
+        biotype_ids = sql_lib.get_biotype_ids(cur, genome, biotype)
+        return ok_ids & biotype_ids
+    return ok_ids
 
 
 def find_genome_order(highest_cov_dict, filter_set):
@@ -78,23 +79,24 @@ def paralogy_plot(cur, genome_order, out_path, base_file_name, biotype, gencode,
     stacked_barplot(results, legend_labels, out_path, file_name, title_string)
 
 
-def categorized_plot(cur, highest_cov_dict, genome_order, out_path, file_name, biotype, gencode, filter_set, cat_fn):
+def categorized_plot(cur, highest_cov_dict, genome_order, out_path, file_name, biotype, gencode, filter_set, query_fn):
     results = []
     for g in genome_order:
         best_ids = set(zip(*highest_cov_dict[g].itervalues())[0])
-        r = number_categorized(cur, g, cat_fn, biotype=biotype)
+        r = number_categorized(cur, g, query_fn, biotype=biotype)
         raw = len({x for x in r if strip_alignment_numbers(x) in filter_set and x in best_ids})
         norm = raw / (0.01 * len(filter_set))
         results.append([g, norm, raw])
     title_string = "Proportion of {:,} {} transcripts in {}\ncategorized as {}".format(len(filter_set), biotype, 
-                                                                                       gencode, cat_fn.__name__)
+                                                                                       gencode, query_fn.__name__)
     barplot(results, out_path, file_name, title_string, adjust_y=False)
 
 
 def cat_plot_wrapper(cur, highest_cov_dict, genome_order, out_path, base_file_name, biotype, gencode, filter_set):
-    for cat_fn in [assemblyErrors, alignmentErrors]:
-        file_name = "{}_{}".format(base_file_name, cat_fn.__name__)
-        categorized_plot(cur, highest_cov_dict, genome_order, out_path, file_name, biotype, gencode, filter_set, cat_fn)
+    for query_fn in [alignmentErrors, assemblyErrors]:
+        file_name = "{}_{}".format(base_file_name, query_fn.__name__)
+        categorized_plot(cur, highest_cov_dict, genome_order, out_path, file_name, biotype, gencode, filter_set,
+                         query_fn)
 
 
 def metrics_plot(highest_cov_dict, bins, genome_order, out_path, file_name, biotype, gencode, filter_set, analysis):
@@ -128,7 +130,7 @@ def num_ok(highest_cov_dict, cur, genome_order, out_path, base_file_name, biotyp
         classifiers = tm_noncoding_classifiers
     results = []
     for genome in genome_order:
-        tm_ok = transmap_ok(cur, genome, classifiers)
+        tm_ok = transmap_ok(cur, genome)
         best_ids = set(zip(*highest_cov_dict[genome].itervalues())[0])
         raw = len({x for x in tm_ok if strip_alignment_numbers(x) in filter_set and x in best_ids})
         norm = raw / (0.01 * len(filter_set))
@@ -140,7 +142,7 @@ def num_ok(highest_cov_dict, cur, genome_order, out_path, base_file_name, biotyp
 
 def main():
     args = parse_args()
-    con, cur = attach_databases(args.comparativeAnnotationDir)
+    con, cur = sql_lib.attach_databases(args.comparativeAnnotationDir)
     highest_cov_dict = {}
     for genome in args.genomes:
         highest_cov_dict[genome] = highest_cov_aln(cur, genome)

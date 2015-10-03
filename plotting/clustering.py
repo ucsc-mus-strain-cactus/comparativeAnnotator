@@ -1,8 +1,11 @@
 import re
 import argparse
-from scripts.consensus import *
-from scripts.coverage_identity_ok_plots import *
 import pandas as pd
+from plotting.plot_functions import *
+from plotting.coverage_identity_ok_plots import *
+from etc.config import *
+import lib.sql_lib as sql_lib
+from lib.general_lib import mkdir_p
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, getRandomAlphaNumericString
@@ -20,7 +23,7 @@ tm_noncoding_grouped = {"AlignmentGaps": ["UtrGap"], "UnknownSplice": ["UtrUnkno
 
 def build_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--genomes", type=str, nargs="+", required=True, help="genomes in this comparison")
+    parser.add_argument("--genome", type=str, required=True, help="genome in this comparison")
     parser.add_argument("--outDir", required=True, help="output directory")
     parser.add_argument("--comparativeAnnotationDir", required=True, help="directory containing databases")
     parser.add_argument("--annotationGp", type=str, required=True, help="annotation genePred")
@@ -30,7 +33,7 @@ def build_parser():
 
 
 def load_data(con, genome, classifiers):
-    base_query = "select AlignmentId, {} from main.".format(", ".join(classifiers)) + "'{}'"
+    base_query = "SELECT AlignmentId, {} FROM main.".format(", ".join(classifiers)) + "'{}'"
     return pd.read_sql_query(base_query.format(genome), con, index_col="AlignmentId")
 
 
@@ -70,7 +73,7 @@ def munge_data(d, filter_set, pre_cluster=False, coding=False):
     return m, s
 
 
-def find_aln_id_set(cur, attr_path, ref_gp_path, genome, biotype, classifiers):
+def find_aln_id_set(cur, attr_path, ref_gp_path, genome, biotype):
     """
     Finds the set of aln_ids for this combination of reference gencode set, biotype, and fail these classifiers
     (are not OK)
@@ -79,17 +82,17 @@ def find_aln_id_set(cur, attr_path, ref_gp_path, genome, biotype, classifiers):
     chr_y_names = gp_chrom_filter(ref_gp_path)
     biotype_set = biotype_names - chr_y_names  # filter out ens_ids that are on chromosome Y
     best_covs = set(zip(*highest_cov_aln(cur, genome).itervalues())[0])  # find which aln_ids are the best
-    tm_ok_names = transmap_ok(cur, genome, classifiers)  # find the set of OK with these classifiers
+    tm_ok_names = transmap_ok(cur, genome)  # find the set of OK
     filter_set = {x for x in best_covs if x not in tm_ok_names and strip_alignment_numbers(x) in biotype_set}
     return filter_set, len(biotype_set)
 
 
 def main_fn(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, biotype, base_out_path, method):
     base_clust_title = "Hierarchical_clustering_of_transMap_classifiers"
-    base_barplot_title = ("Proportion of transcripts that fail transMap classifiers\ngenome: {}.    {:,} ({:0.2f}%) not OK "
-                    "transcripts \nGencode set: {}    Biotype: {}")
+    base_barplot_title = ("Proportion of transcripts that fail transMap classifiers\ngenome: {}.    {:,} "
+                          "({:0.2f}%) not OK transcripts \nGencode set: {}    Biotype: {}")
     out_path = os.path.join(base_out_path, biotype, "clustering", method, genome)
-    con, cur = attach_databases(comp_ann_path)
+    con, cur = sql_lib.attach_databases(comp_ann_path)
     if biotype == "protein_coding":
         classifiers = tm_coding_classifiers
         coding = True
@@ -97,7 +100,7 @@ def main_fn(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, biot
         classifiers = tm_noncoding_classifiers
         coding = False
     sql_data = load_data(con, genome, classifiers)
-    filter_set, num_biotype = find_aln_id_set(cur, attr_path, ref_gp_path, genome, biotype, classifiers)
+    filter_set, num_biotype = find_aln_id_set(cur, attr_path, ref_gp_path, genome, biotype)
     if num_biotype > 25 and len(filter_set) > 10:
         percent_not_ok = round(100.0 * len(filter_set) / num_biotype, 2)
         if method == "pre_cluster":
@@ -112,17 +115,16 @@ def main_fn(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, biot
         tmp_path = os.path.join(target.getGlobalTempDir(), "{}.txt".format(getRandomAlphaNumericString()))
         munged.to_csv(tmp_path)
         out_cluster_file = os.path.join(out_path, "clustering_{}_{}".format(genome, biotype))
-        # TODO: why do we have to use my R? 
-        system("export R_HOME=/cluster/home/ifiddes/lib64/R && /cluster/home/ifiddes/bin/Rscript {}/scripts/cluster.R {} {} {} {} {} {} {} {}".format(os.getcwd(), tmp_path, base_clust_title, 
-                                                                       genome, len(filter_set), percent_not_ok, gencode, 
-                                                                       biotype, out_cluster_file))
+        # TODO: why do we have to use my R and export R_HOME?
+        system("export R_HOME=/cluster/home/ifiddes/lib64/R && /cluster/home/ifiddes/bin/Rscript {}/scripts/cluster.R"
+               "{} {} {} {} {} {} {} {}".format(os.getcwd(), tmp_path, base_clust_title, genome, len(filter_set),
+                                                percent_not_ok, gencode, biotype, out_cluster_file))
 
 
-def wrapper(target, comp_ann_path, attr_path, ref_gp_path, gencode, genomes, biotypes, base_out_path):
-    for genome in genomes:
-        for biotype in biotypes:
-            for method in ["full", "pre_cluster"]:
-                target.addChildTargetFn(main_fn, args=(comp_ann_path, attr_path, ref_gp_path, gencode, genome, biotype,
+def wrapper(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, biotypes, base_out_path):
+    for biotype in biotypes:
+        for method in ["full", "pre_cluster"]:
+            target.addChildTargetFn(main_fn, args=(comp_ann_path, attr_path, ref_gp_path, gencode, genome, biotype,
                                                    base_out_path, method))
 
 
@@ -130,16 +132,14 @@ def main():
     parser = build_parser()
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
-    #biotypes = get_all_biotypes(args.attributePath)
-    biotypes = ["protein_coding", "miRNA", "snoRNA", "snRNA", "lincRNA", "processed_pseudogenes", "unprocessed_pseudogenes", 
-                "pseudogenes"]
-    job_args = (args.comparativeAnnotationDir, args.attributePath, args.annotationGp, args.gencode, args.genomes,
-                biotypes, args.outDir)
-    i = Stack(Target.makeTargetFn(wrapper, args=job_args)).startJobTree(args)
+    biotypes = ["protein_coding", "miRNA", "snoRNA", "snRNA", "lincRNA", "processed_pseudogenes",
+                "unprocessed_pseudogenes", "pseudogenes"]
+    i = Stack(Target.makeTargetFn(wrapper, args=[args.comparativeAnnotationDir, args.attributePath, args.annotationGp,
+                                                 args.gencode, args.genome, biotypes, args.outDir])).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
 
 
 if __name__ == '__main__':
-    from scripts.clustering import *
+    from plotting.clustering import *
     main()

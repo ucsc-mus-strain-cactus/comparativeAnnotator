@@ -19,6 +19,7 @@ import matplotlib.backends.backend_pdf as plt_back
 
 from lib.psl_lib import remove_alignment_number, remove_augustus_alignment_number
 from lib.general_lib import skip_header
+import lib.sql_lib as sql_lib
 
 from etc.config import *
 
@@ -39,11 +40,25 @@ def get_all_biotypes(attr_path):
     return {x.split()[4] for x in skip_header(attr_path)}
 
 
-def get_all_ok(cur, genome, tm_classifiers):
+def transmap_ok(cur, genome):
+    """
+    Convenience function for using the transMapOk query in config.py to get OK ids
+    """
+    return sql_lib.get_ok_ids(cur, transMapOk(genome))
+
+
+def augustus_ok(cur, genome):
+    """
+    Convenience function for using the augustusOk query in config.py to get OK ids
+    """
+    return sql_lib.get_ok_ids(cur, augustusOk(genome))
+
+
+def get_all_ok(cur, genome):
     """
     Adapter function to return the combined sets of ok from augustus and transmap
     """
-    return augustus_ok(cur, genome) | transmap_ok(cur, genome, tm_classifiers)
+    return augustus_ok(cur, genome) | transmap_ok(cur, genome)
 
 
 def highest_cov_aln(cur, genome):
@@ -51,7 +66,7 @@ def highest_cov_aln(cur, genome):
     Returns the set of alignment IDs that represent the best alignment for each source transcript (that mapped over)
     Best is defined as highest %COV. Also reports the associated coverage value.
     """
-    tm_stats = get_tm_stats(cur, genome)  # dictionary mapping each aln_id to [aln_id, %ID, %COV]
+    tm_stats = sql_lib.get_stats(cur, genome, category="transMap")
     combined_covs = defaultdict(list)
     for aln_id, ident, cov in tm_stats.itervalues():
         tx_id = strip_alignment_numbers(aln_id)
@@ -145,11 +160,16 @@ def get_gene_map(attr_path):
     return {x.split()[3]: x.split()[0] for x in skip_header(attr_path)}
 
 
-def get_tm_stats(cur, genome):
+def get_aln_stats(cur, genome, cat="transMap"):
     """
     Pulls the alignment metrics from the attributes database
     """
-    cmd = "SELECT AlignmentId, AlignmentIdentity, AlignmentCoverage FROM attributes.'{}'".format(genome)
+    assert cat in ["transMap", "augustus"]
+    if cat == "transMap":
+        db = "attributes"
+    else:
+        db = "augustus_attributes"
+    cmd = "SELECT AlignmentId, AlignmentIdentity, AlignmentCoverage FROM {}.'{}'".format(genome, db)
     result = cur.execute(cmd).fetchall()
     return {x[0]: x for x in result}
 

@@ -51,17 +51,39 @@ def attach_databases(comp_ann_path, has_augustus=False):
     if has_augustus:
         aug_classify_path = os.path.join(comp_ann_path, "augustus_classify.db")
         aug_details_path = os.path.join(comp_ann_path, "augustus_details.db")
-        assert all([os.path.exists(x) for x in [aug_classify_path, aug_details_path]])
+        aug_attributes_path = os.path.join(comp_ann_path, "augustus_attributes.db")
+        assert all([os.path.exists(x) for x in [aug_classify_path, aug_details_path, aug_attributes_path]])
         attach_database(con, aug_classify_path, "augustus")
         attach_database(con, aug_details_path, "augustus_details")
+        attach_database(con, aug_attributes_path, "augustus_attributes")
     return con, cur
 
 
 def get_ok_ids(cur, query):
     """
-    Returns a list of aln_ids which are OK based on the definition of OK in config.py that made this query
+    Returns a set of aln_ids which are OK based on the definition of OK in config.py that made this query
     """
     return {x[0] for x in cur.execute(query).fetchall()}
+
+
+def get_biotype_ids(cur, genome, biotype, category="Transcript"):
+    """
+    Returns a set of aln_ids which are members of the biotype. Category should be Transcript or Gene
+    """
+    assert category in ["Transcript", "Gene"]
+    query = "SELECT AlignmentId FROM attributes.'{}' WHERE {}Type={}".format(genome, category, biotype)
+    return {x[0] for x in cur.execute(query).fetchall()}
+
+
+def get_stats(cur, genome, category="transMap"):
+    """
+    Returns a dictionary mapping each aln_id to [aln_id, %ID, %COV]
+    """
+    if category == "transMap":
+        cmd = "SELECT AlignmentId,AlignmentIdentity,AlignmentCoverage FROM attributes.'{}'".format(genome)
+    else:
+        cmd = "SELECT AlignmentId,AlignmentIdentity,AlignmentCoverage FROM augustus_attributes.'{}'".format(genome)
+    return {x[0]: x for x in cur.execute(cmd).fetchall()}
 
 
 def write_dict(data_dict, database_path, table):
