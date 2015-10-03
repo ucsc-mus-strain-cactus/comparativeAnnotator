@@ -130,7 +130,7 @@ def get_bed_paths(out_dir, query_name, genome):
 
 def make_big_bed(out_bed_path, sizes, out_big_bed_path):
     subprocess.call(["bedSort", out_bed_path, out_bed_path])
-    subprocess.call(["bedToBigBed", out_bed_path, sizes, out_big_bed_path])
+    subprocess.call(["bedToBigBed", "-extraIndex=name", out_bed_path, sizes, out_big_bed_path])
 
 
 def build_classifier_tracks(target, query, query_name, out_dir, genome, sizes, augustus):
