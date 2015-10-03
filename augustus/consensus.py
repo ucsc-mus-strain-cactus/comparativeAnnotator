@@ -6,13 +6,12 @@ from lib.general_lib import mkdir_p
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--genomes", nargs="+", required=True)
+    parser.add_argument("--genome", required=True)
     parser.add_argument("--compAnnPath", required=True)
-    parser.add_argument("--statsDir", required=True)
     parser.add_argument("--outDir", required=True)
     parser.add_argument("--attributePath", required=True)
-    parser.add_argument("--augGps", nargs="+", required=True)
-    parser.add_argument("--tmGps", nargs="+", required=True)
+    parser.add_argument("--augGp", required=True)
+    parser.add_argument("--tmGp", required=True)
     parser.add_argument("--compGp", required=True)
     parser.add_argument("--basicGp", required=True)
     return parser.parse_args()
@@ -30,7 +29,7 @@ def get_aug_stats(stats_dir, genome):
     return aln_stats
 
 
-def merge_stats(cur, stats_dir, genome):
+def merge_stats(cur, genome):
     """
     Adapter function to return the combination of the stats dicts produced for augustus and transMap
     """
@@ -302,14 +301,11 @@ def ok_gene_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, 
 
 def main():
     args = parse_args()
-    con, cur = attach_databases(args.compAnnPath, has_augustus=True)
+    con, cur = sql_lib.attach_databases(args.compAnnPath, has_augustus=True)
     biotypes = get_all_biotypes(args.attributePath)
     gene_map = get_gene_map(args.attributePath)
     gene_biotype_map = get_gene_biotype_map(args.attributePath)
     chr_y_ids = gp_chrom_filter(args.compGp)
-    sorted_genomes = sorted(args.genomes)
-    sorted_tm_gps = sorted(args.tmGps)
-    sorted_aug_gps = sorted(args.augGps)
     consensus_base_path = os.path.join(args.outDir, "geneSets")
     mkdir_p(consensus_base_path)
     plots_path = os.path.join(args.outDir, "geneSetMetrics")
@@ -317,28 +313,26 @@ def main():
     raw_bins_base_path = os.path.join(args.outDir, "binnedTranscripts")
     mkdir_p(raw_bins_base_path)
     binned_transcript_holder = defaultdict(dict)  # save all bins to make some plots at the end
-    for genome, tm_gp, aug_gp in itertools.izip(sorted_genomes, sorted_tm_gps, sorted_aug_gps):
-        consensus = []
-        assert genome in tm_gp and genome in aug_gp # sanity check that the right genePreds are being used
-        coding_ok = get_all_ok(cur, genome, tm_coding_classifiers)
-        noncoding_ok = get_all_ok(cur, genome, tm_noncoding_classifiers)
-        gps = load_gps([tm_gp, aug_gp])
-        for biotype in biotypes:
-            ens_ids = get_all_ids(args.attributePath, biotype=biotype) - chr_y_ids  # filter out chrY
-            reverse_name_map = get_reverse_name_map(cur, genome, whitelist=ens_ids, has_augustus=True)
-            stats_dict = merge_stats(cur, args.statsDir, genome)
-            if biotype == "protein_coding": 
-                binned_transcripts = bin_transcripts(reverse_name_map, stats_dict, coding_ok, ens_ids)
-            else:
-                binned_transcripts = bin_transcripts(reverse_name_map, stats_dict, noncoding_ok, ens_ids)
-            consensus.extend(consensus_gene_set(binned_transcripts, stats_dict, gps, gene_map, gene_biotype_map))
-            write_gps(binned_transcripts, gps, raw_bins_base_path, genome, biotype, gene_map)
-            binned_transcript_holder[genome][biotype] = binned_transcripts
-        consensus_path = os.path.join(consensus_base_path, genome + "consensusGeneSet.gp")
-        write_consensus(consensus, gene_map, consensus_path)
+    consensus = []
+    coding_ok = get_all_ok(cur, args.genome)
+    noncoding_ok = get_all_ok(cur, args.genome)
+    gps = load_gps([args.tmGp, args.augGp])
+    for biotype in biotypes:
+        ens_ids = get_all_ids(args.attributePath, biotype=biotype) - chr_y_ids  # filter out chrY
+        reverse_name_map = get_reverse_name_map(cur, args.genome, whitelist=ens_ids, has_augustus=True)
+        stats_dict = merge_stats(cur, args.genome)
+        if biotype == "protein_coding": 
+            binned_transcripts = bin_transcripts(reverse_name_map, stats_dict, coding_ok, ens_ids)
+        else:
+            binned_transcripts = bin_transcripts(reverse_name_map, stats_dict, noncoding_ok, ens_ids)
+        consensus.extend(consensus_gene_set(binned_transcripts, stats_dict, gps, gene_map, gene_biotype_map))
+        write_gps(binned_transcripts, gps, raw_bins_base_path, args.genome, biotype, gene_map)
+        binned_transcript_holder[args.genome][biotype] = binned_transcripts
+    consensus_path = os.path.join(consensus_base_path, args.genome + "consensusGeneSet.gp")
+    write_consensus(consensus, gene_map, consensus_path)
     make_coding_transcript_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, args.attributePath)
     biotype = "protein_coding"
-    # ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, genome_order, biotype)
+    # ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, args.genome_order, biotype)
     ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, hard_coded_genome_order,
                        biotype)
 
