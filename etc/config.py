@@ -58,8 +58,8 @@ def allAugustusClassifiers(genome):
 def potentiallyInterestingBiology(genome):
     base_query = ("SELECT details.'{0}'.InFrameStop,details.'{0}'.CodingMult3Insertions,"
                   "details.'{0}'.CodingMult3Deletions,details.'{0}'.Nonsynonymous,details.'{0}'.FrameShift FROM "
-                  "details.'{0}'.'{0}' JOIN main.'{0}'.'{0}' USING ('AlignmentId') WHERE {1} ")
-    equality = ["main.'{0}'.{} = 0".format(x) for x in tm_coding_classifiers]
+                  "details.'{0}' JOIN main.'{0}' USING ('AlignmentId') WHERE {1} ")
+    equality = ["main.'{}'.{} = 0".format(genome, x) for x in tm_coding_classifiers]
     classifiers = " AND ".join(equality)
     query = base_query.format(genome, classifiers)
     return query
@@ -68,7 +68,7 @@ def potentiallyInterestingBiology(genome):
 def assemblyErrors(genome):
     base_query = ("SELECT details.'{0}'.AlignmentPartialMap,details.'{0}'.UnknownBases,details.'{0}'.UnknownGap,"
                   "details.'{0}'.ShortCds,details.'{0}'.AlignmentAbutsUnknownBases,details.'{0}'.AlignmentAbutsRight,"
-                  "details.'{0}'.AlignmentAbutsLeft FROM details.'{0}'.'{0}' JOIN main.'{0}'.'{0}' USING "
+                  "details.'{0}'.AlignmentAbutsLeft FROM details.'{0}' JOIN main.'{0}' USING "
                   "('AlignmentId') WHERE main.'{0}'.AlignmentPartialMap = 1 OR main.'{0}'.UnknownBases = 1 OR "
                   "main.'{0}'.UnknownGap = 1 OR main.'{0}'.ShortCds = 1 OR main.'{0}'.AlignmentAbutsUnknownBases = 1 "
                   "OR main.'{0}'.AlignmentAbutsRight = 1 OR main.'{0}'.AlignmentAbutsLeft = 1")
@@ -79,7 +79,7 @@ def assemblyErrors(genome):
 def alignmentErrors(genome):
     base_query = ("SELECT details.'{0}'.BadFrame,details.'{0}'.CdsGap,details.'{0}'.CdsMult3Gap,details.'{0}'.UtrGap,"
                   "details.'{0}'.Paralogy,details.'{0}'.HasOriginalIntrons,details.'{0}'.StartOutOfFrame FROM "
-                  "details.'{0}'.'{0}' JOIN main.'{0}'.'{0}' USING (AlignmentId) WHERE main.'{0}'.BadFrame = 1 OR "
+                  "details.'{0}' JOIN main.'{0}' USING (AlignmentId) WHERE main.'{0}'.BadFrame = 1 OR "
                   "main.'{0}'.CdsGap = 1 OR main.'{0}'.CdsMult3Gap = 1 OR main.'{0}'.UtrGap = 1 OR "
                   "main.'{0}'.Paralogy = 1 OR main.'{0}'.HasOriginalIntrons = 1")
     query = base_query.format(genome)
