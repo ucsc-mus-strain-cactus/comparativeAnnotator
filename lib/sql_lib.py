@@ -91,7 +91,7 @@ def write_dict(data_dict, database_path, table):
     Writes a dict of dicts to a sqlite database.
     """
     df = pd.DataFrame.from_dict(data_dict)
-    df.sort_index()
+    df = df.sort_index()
     with ExclusiveSqlConnection(database_path) as con:
         df.to_sql(table, con, if_exists="replace", index_label="AlignmentId")
 

@@ -1,47 +1,39 @@
 import sys
 import os
 import argparse
-from scripts.plot_functions import attach_databases
-import lib.sequence_lib as seq_lib
+import lib.seq_lib as seq_lib
+import lib.psl_lib as psl_lib
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--genome", required=True, help="genome to get intron information from")
     parser.add_argument("--gp", required=True, help="genePred for this genome's transMap results")
-    parser.add_argument("--comparativeAnnotationDir", required=True, help="directory containing databases")
-    parser.add_argument("--outPath", required=True, help="File name for output.")
+    parser.add_argument("--psl", required=True, help="transMap PSL")
+    parser.add_argument("--refGp", required=True, help="reference genePred")
+    parser.add_argument("--outPath", required=True, help="File name for output")
     return parser.parse_args()
 
 
 def load_gp(path):
     tm_recs = seq_lib.get_gene_pred_transcripts(path)
-    tm_dict = seq_lib.transcript_list_to_dict(tm_recs, noDuplicates=True)
+    tm_dict = seq_lib.transcript_list_to_dict(tm_recs)
     return tm_dict
 
 
-def load_database_results(cur, genome):
-    cmd = "SELECT AlignmentId, HasOriginalIntrons from details.'{}'".format(genome)
-    results = {x: y for x, y in cur.execute(cmd).fetchall()}
-    return results
+def load_psl(path):
+    psl_recs = psl_lib.read_psl(path)
+    psl_dict = psl_lib.get_psl_dict(psl_recs)
+    return psl_dict
 
 
-def parse_db_rec(db_rec):
-    if db_rec is not None:
-        db_rec = db_rec.split("\n")
-        result = {tuple(map(int, x.split()[1:3])) for x in db_rec}
-        return result
-    return set()
-
-
-def build_intron_vector(gene_rec, db_rec):
-    db_rec_set = parse_db_rec(db_rec)
+def build_intron_vector(a, t, aln):
+    original_introns = {(x.start, x.stop) for x in a.intron_intervals}
     result = []
-    for intron in gene_rec.intronIntervals:
-        if len(intron) == 0:
-            # ignore the 0bp introns that Mark has in the new chaining
-            continue
-        if (intron.start, intron.stop) in db_rec_set:
+    for intron in t.intron_intervals:
+        a_start = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.start - 1)) + 1
+        a_stop = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.stop))
+        if (a.start, a.stop) not in original_introns:
             result.append(0)
         else:
             result.append(1)
@@ -50,14 +42,15 @@ def build_intron_vector(gene_rec, db_rec):
 
 def main():
     args = parse_args()
-    con, cur = attach_databases(args.comparativeAnnotationDir)
-    tm_dict = load_gp(args.gp)
-    db_dict = load_database_results(cur, args.genome)
+    ref_dict = load_gp(args.refGp)
+    target_dict = load_gp(args.gp)
+    aln_dict = load_psl(args.psl)
     with open(args.outPath, "w") as outf:
-        for aln_id, gene_rec in sorted(tm_dict.iteritems(), key=lambda x: x[0]):
-            db_rec = db_dict[aln_id]
-            vec = build_intron_vector(gene_rec, db_rec)
-            outf.write("{}\t{}\n".format(aln_id, ",".join(map(str, vec))))
+        for aln_id, t in sorted(target_dict.iteritems(), key=lambda x: x[0]):
+            a = ref_dict[aln_id]
+            aln = aln_dict[aln_id]
+            vec = build_intron_vector(a, t, aln)
+            outf.write("{}\t{}\n".format(aln_id, ", ".join(map(str, vec))))
 
 
 if __name__ == "__main__":
