@@ -38,7 +38,7 @@ augustus_base_cmd = ("{fasta} --predictionStart=-{start} --predictionEnd=-{start
                      "--outfile=/dev/stdout")
 augustus_cmd = " ".join([augustus_bin, augustus_base_cmd])
 
-cfgs = {1: "etc/extrinsic.ETM1.cfg"}#, 2: "etc/extrinsic.ETM2.cfg"}
+cfgs = {1: "etc/extrinsic.ETM1.cfg", 2: "etc/extrinsic.ETM2.cfg"}
 
 
 def attach_database(path):
