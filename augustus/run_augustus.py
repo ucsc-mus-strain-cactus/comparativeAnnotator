@@ -122,7 +122,7 @@ def write_augustus(r, name_map, out_path, start_offset):
                     outf.write("\t".join(map(str, x)) + "\n")
 
 
-def run_augustus(target, hint_f, seq_f, name, start, stop, aln_start, aln_stop, cfg_version, cfg_path, out_file_tree):
+def run_augustus(hint_f, seq_f, name, start, stop, aln_start, aln_stop, cfg_version, cfg_path, out_file_tree):
     """
     Runs Augustus for each cfg/gp_string pair.
     """
@@ -160,9 +160,7 @@ def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_t
         seq = fasta[chrom][start:stop]
         hint_f, seq_f = write_hint_fasta(hint, seq, chrom, target.getGlobalTempDir())
         for cfg_version, cfg_path in cfgs.iteritems():
-            target.addChildTargetFn(run_augustus, memory=8 * (1024 ** 3),
-                                    args=[hint_f, seq_f, gp.name, start, stop, gp.start, gp.stop,
-                                          cfg_version, cfg_path, out_file_tree])
+            run_augustus(hint_f, seq_f, gp.name, start, stop, gp.start, gp.stop, cfg_version, cfg_path, out_file_tree)
 
 
 def cat(target, output_gtf, unsorted_tmp_file, out_file_tree):
@@ -175,9 +173,7 @@ def cat(target, output_gtf, unsorted_tmp_file, out_file_tree):
 
 def wrapper(target, input_gp, output_gtf, genome, sizes_path, fasta_path):
     """
-    Produces one jobTree target per genePred entry. In the future, we could try chunking this per target but during
-    initial testing I found that it takes ~15 seconds to extract the RNAseq hints and ~1 minute to run each Augustus
-    instance. This seems to be a good time per job to me.
+    Produces one jobTree target per genePred entry.
     """
     # create a file tree in the global output directory. This tree will store the gtf created by each Augustus instance
     out_file_tree = TempFileTree(target.getGlobalTempDir())

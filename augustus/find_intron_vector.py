@@ -47,10 +47,10 @@ def main():
     aln_dict = load_psl(args.psl)
     with open(args.outPath, "w") as outf:
         for aln_id, t in sorted(target_dict.iteritems(), key=lambda x: x[0]):
-            a = ref_dict[aln_id]
+            a = ref_dict[psl_lib.remove_alignment_number(aln_id)]
             aln = aln_dict[aln_id]
             vec = build_intron_vector(a, t, aln)
-            outf.write("{}\t{}\n".format(aln_id, ", ".join(map(str, vec))))
+            outf.write("{}\t{}\n".format(aln_id, ",".join(map(str, vec))))
 
 
 if __name__ == "__main__":
