@@ -137,7 +137,7 @@ def run_augustus(hint_f, seq_f, name, start, stop, cfg_version, cfg_path, out_fi
         # write this to a shared location where we will combine later
         out_path = out_file_tree.getTempFile()
         write_augustus(r, name_map, out_path)
-    # delete the seq and hint file
+    # delete the seq and hint file. This makes the final tree cleanup not take so long.
     os.remove(hint_f)
     os.remove(seq_f)
 

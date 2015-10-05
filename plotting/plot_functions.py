@@ -40,11 +40,11 @@ def get_all_biotypes(attr_path):
     return {x.split()[4] for x in skip_header(attr_path)}
 
 
-def transmap_ok(cur, genome):
+def transmap_ok(cur, genome, coding=True):
     """
     Convenience function for using the transMapOk query in config.py to get OK ids
     """
-    return sql_lib.get_ok_ids(cur, transMapOk(genome))
+    return sql_lib.get_ok_ids(cur, transMapOk(genome, coding=coding))
 
 
 def augustus_ok(cur, genome):
@@ -57,8 +57,9 @@ def augustus_ok(cur, genome):
 def get_all_ok(cur, genome):
     """
     Adapter function to return the combined sets of ok from augustus and transmap
+    Since Augustus is involved we assume that transMap is coding
     """
-    return augustus_ok(cur, genome) | transmap_ok(cur, genome)
+    return augustus_ok(cur, genome) | transmap_ok(cur, genome, coding=True)
 
 
 def highest_cov_aln(cur, genome):

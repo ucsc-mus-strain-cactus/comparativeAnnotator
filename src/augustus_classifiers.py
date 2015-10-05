@@ -198,11 +198,11 @@ class AugustusNotSameStartStop(AbstractAugustusClassifier):
             if psl_lib.remove_augustus_alignment_number(aug_aln_id) not in self.transcript_dict:
                 continue
             t = self.transcript_dict[psl_lib.remove_augustus_alignment_number(aug_aln_id)]
-            if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome or t.thickStart == t.thickStop:
+            if aug_t.strand != t.strand or aug_t.chromosome != t.chromosome or t.thick_start == t.thick_stop:
                 continue
-            if t.thickStart != aug_t.thickStart or t.thickStop != aug_t.thickStop:
+            if t.thick_start != aug_t.thick_start or t.thick_stop != aug_t.thick_stop:
                 classify_dict[aug_aln_id] = 1
-                s = aug_t.getCdsLength()
+                s = aug_t.get_cds_length()
                 if s > 9:
                     details_dict[aug_aln_id] = [seq_lib.cds_coordinate_to_bed(aug_t, 0, 3, self.rgb, self.column),
                                             seq_lib.cds_coordinate_to_bed(aug_t, s - 3, s, self.rgb, self.column)]

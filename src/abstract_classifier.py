@@ -93,7 +93,7 @@ class AbstractAugustusClassifier(AbstractClassifier):
     def __init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes, target_gp, ref_genome,
                  tmp_dir, augustus_gp):
         AbstractClassifier.__init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes,
-                                    target_gp, ref_genome)
+                                    target_gp, ref_genome, tmp_dir)
         assert self.genome in augustus_gp
         self.augustus_gp = augustus_gp
         self.augustus_transcripts = None

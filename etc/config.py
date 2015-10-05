@@ -1,5 +1,5 @@
 """
-This file declares configuration variables used for plotting.
+This file configures the plotting and queries for the comparativeAnnotator pipeline.
 """
 
 import src.classifiers
@@ -49,7 +49,7 @@ def allClassifiers(genome):
 
 
 def allAugustusClassifiers(genome):
-    base_query = "SELECT {} FROM details.'{}'"
+    base_query = "SELECT {} FROM augustus_details.'{}'"
     classifiers = ",".join([x.__name__ for x in classes_in_module(src.augustus_classifiers)])
     query = base_query.format(classifiers, genome)
     return query
@@ -86,16 +86,19 @@ def alignmentErrors(genome):
     return query
 
 
-def transMapOk(genome):
+def transMapOk(genome, coding=True):
     base_query = "SELECT AlignmentId FROM main.'{}' WHERE {}"
-    equality = ["{} = 0".format(x) for x in tm_coding_classifiers]
+    if coding:
+        equality = ["{} = 0".format(x) for x in tm_coding_classifiers]
+    else:
+        equality = ["{} = 0".format(x) for x in tm_noncoding_classifiers]
     classifiers = " AND ".join(equality)
     query = base_query.format(genome, classifiers)
     return query
 
 
 def augustusOk(genome):
-    base_query = "SELECT AlignmentId FROM main.'{}' WHERE {}"
+    base_query = "SELECT AlignmentId FROM augustus.'{}' WHERE {}"
     equality = ["{} = 0".format(x) for x in aug_ok_classifiers]
     classifiers = " AND ".join(equality)
     query = base_query.format(genome, classifiers)
