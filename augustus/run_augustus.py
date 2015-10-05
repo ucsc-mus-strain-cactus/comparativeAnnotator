@@ -100,7 +100,7 @@ def rename_transcripts(transcripts, cfg_version, name):
     return name_map
 
 
-def write_augustus(r, name_map, out_path, start_offset):
+def write_augustus(r, name_map, out_path):
     """
     Writes the results of AugustusTMR to a file.
     """
@@ -136,7 +136,7 @@ def run_augustus(hint_f, seq_f, name, start, stop, cfg_version, cfg_path, out_fi
         name_map = rename_transcripts(transcripts, cfg_version, name)
         # write this to a shared location where we will combine later
         out_path = out_file_tree.getTempFile()
-        write_augustus(r, name_map, out_path, start)
+        write_augustus(r, name_map, out_path)
     # delete the seq and hint file
     os.remove(hint_f)
     os.remove(seq_f)
@@ -177,6 +177,7 @@ def wrapper(target, input_gp, output_gtf, genome, sizes_path, fasta_path):
     """
     # create a file tree in the global output directory. This tree will store the gtf created by each Augustus instance
     out_file_tree = TempFileTree(target.getGlobalTempDir())
+    # this file will be where we reduce the final results to before sorting
     unsorted_tmp_file = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString(10))
     for line in open(input_gp):
         target.addChildTargetFn(transmap_2_aug, memory=8 * (1024 ** 3), 
