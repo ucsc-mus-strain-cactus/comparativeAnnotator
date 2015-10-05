@@ -4,7 +4,6 @@ jobTree wrapper for AugustusTMR.
 
 import os
 import argparse
-import shutil
 import itertools
 import sqlite3 as sql
 from pyfaidx import Fasta
@@ -39,7 +38,7 @@ augustus_base_cmd = ("{fasta} --predictionStart=-{start} --predictionEnd=-{start
                      "--outfile=/dev/stdout")
 augustus_cmd = " ".join([augustus_bin, augustus_base_cmd])
 
-cfgs = {1: "etc/extrinsic.ETM1.cfg", 2: "etc/extrinsic.ETM2.cfg"}
+cfgs = {1: "etc/extrinsic.ETM1.cfg"}#, 2: "etc/extrinsic.ETM2.cfg"}
 
 
 def attach_database(path):
@@ -116,17 +115,15 @@ def write_augustus(r, name_map, out_path, start_offset):
                     n = t[-3].split('"')[1]
                     t[-1] = t[-3] = '"{}";'.format(name_map[n])
                     t = " ".join(t)
-                    x[3] = int(x[3]) + start_offset
-                    x[4] = int(x[4]) + start_offset
                     x[-1] = t
                     outf.write("\t".join(map(str, x)) + "\n")
 
 
-def run_augustus(hint_f, seq_f, name, start, stop, aln_start, aln_stop, cfg_version, cfg_path, out_file_tree):
+def run_augustus(hint_f, seq_f, name, start, stop, cfg_version, cfg_path, out_file_tree):
     """
     Runs Augustus for each cfg/gp_string pair.
     """
-    cmd = augustus_cmd.format(fasta=seq_f, start=start, stop=stop, cfg=cfg_path, hints=hint_f)
+    cmd = augustus_cmd.format(fasta=seq_f, start=start, cfg=cfg_path, hints=hint_f)
     r = popenCatch(cmd)
     r = r.split("\n")
     # extract only the transcript lines
@@ -140,6 +137,9 @@ def run_augustus(hint_f, seq_f, name, start, stop, aln_start, aln_stop, cfg_vers
         # write this to a shared location where we will combine later
         out_path = out_file_tree.getTempFile()
         write_augustus(r, name_map, out_path, start)
+    # delete the seq and hint file
+    os.remove(hint_f)
+    os.remove(seq_f)
 
 
 def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_tree):
@@ -160,7 +160,7 @@ def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_t
         seq = fasta[chrom][start:stop]
         hint_f, seq_f = write_hint_fasta(hint, seq, chrom, target.getGlobalTempDir())
         for cfg_version, cfg_path in cfgs.iteritems():
-            run_augustus(hint_f, seq_f, gp.name, start, stop, gp.start, gp.stop, cfg_version, cfg_path, out_file_tree)
+            run_augustus(hint_f, seq_f, gp.name, start, stop, cfg_version, cfg_path, out_file_tree)
 
 
 def cat(target, output_gtf, unsorted_tmp_file, out_file_tree):
@@ -179,7 +179,8 @@ def wrapper(target, input_gp, output_gtf, genome, sizes_path, fasta_path):
     out_file_tree = TempFileTree(target.getGlobalTempDir())
     unsorted_tmp_file = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString(10))
     for line in open(input_gp):
-        target.addChildTargetFn(transmap_2_aug, args=[line, genome, sizes_path, fasta_path, out_file_tree])
+        target.addChildTargetFn(transmap_2_aug, memory=8 * (1024 ** 3), 
+                                args=[line, genome, sizes_path, fasta_path, out_file_tree])
     target.setFollowOnTargetFn(cat, args=[output_gtf, unsorted_tmp_file, out_file_tree])
 
 
@@ -192,8 +193,9 @@ def main():
     parser.add_argument("--fasta", required=True)
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
-    i = Stack(Target.makeTargetFn(wrapper, args=(args.inputGp, args.outputGtf, args.genome,
-                                                 args.chromSizes, args.fasta))).startJobTree(args)
+    i = Stack(Target.makeTargetFn(wrapper, memory=8 * (1024 ** 3), 
+                                  args=[args.inputGp, args.outputGtf, args.genome,
+                                        args.chromSizes, args.fasta])).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
 
