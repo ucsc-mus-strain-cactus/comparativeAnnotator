@@ -85,7 +85,7 @@ def main_fn(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, biot
         munged, stats = munge_data(sql_data, filter_set, coding=coding)
         mkdir_p(out_path)
         barplot_title = base_barplot_title.format(genome, len(filter_set), percent_not_ok, gencode, biotype)
-        out_barplot_file = os.path.join(out_path, "barplot{}_{}".format(genome, biotype))
+        out_barplot_file = os.path.join(out_path, "barplot_{}_{}".format(genome, biotype))
         barplot(stats, out_path, out_barplot_file, barplot_title)
         # TODO: why can't I use local temp? R fails inexplicably
         tmp_path = os.path.join(target.getGlobalTempDir(), "{}.txt".format(getRandomAlphaNumericString()))
