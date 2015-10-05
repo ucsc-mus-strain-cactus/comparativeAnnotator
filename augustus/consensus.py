@@ -1,5 +1,11 @@
 import argparse
-from plotting.plot_functions import *
+import re
+import os
+import itertools
+from collections import defaultdict
+from plotting.plot_functions import get_all_biotypes, get_gene_map, get_gene_biotype_map, gp_chrom_filter, get_all_ok, \
+                                    load_gps, get_all_ids, get_reverse_name_map, strip_alignment_numbers
+import cPickle as pickle
 import lib.sql_lib as sql_lib
 from lib.general_lib import mkdir_p
 
@@ -9,24 +15,13 @@ def parse_args():
     parser.add_argument("--genome", required=True)
     parser.add_argument("--compAnnPath", required=True)
     parser.add_argument("--outDir", required=True)
+    parser.add_argument("--binnedTranscriptPath", required=True)
     parser.add_argument("--attributePath", required=True)
     parser.add_argument("--augGp", required=True)
     parser.add_argument("--tmGp", required=True)
     parser.add_argument("--compGp", required=True)
     parser.add_argument("--basicGp", required=True)
     return parser.parse_args()
-
-
-def get_aug_stats(stats_dir, genome):
-    """
-    Pulls the alignment metrics from the output of alignAugustus.py
-    """
-    aln_stats = {}
-    with open(os.path.join(stats_dir, genome + ".stats")) as f:
-        for l in f:
-            aug_aln_id, ident, cov = l.split()
-            aln_stats[aug_aln_id] = [aug_aln_id] + map(float, [ident, cov])
-    return aln_stats
 
 
 def merge_stats(cur, genome):
@@ -230,75 +225,6 @@ def make_tx_counts_dict(binned_transcripts, filter_set=set()):
     counts["fail"] = len(binned_transcripts["fail"])
     return counts
 
-
-def find_genome_order(binned_transcript_holder, ens_ids):
-    """
-    Defines a fixed order of genomes based on the most OK protein coding.
-    This is deprecated in favor of using a hard coded order provided by Joel.
-    """
-    ok_counts = []
-    for genome, binned_transcripts in binned_transcript_holder.iteritems():
-        num_ok = len(binned_transcripts["protein_coding"]["bestOk"])
-        ok_counts.append([genome, 1.0 * num_ok / len(ens_ids)])
-    genome_order = sorted(ok_counts, key=lambda x: -x[1])
-    return zip(*genome_order)[0]
-
-
-def make_coding_transcript_plot(binned_transcript_holder, out_path, out_name, genome_order, ens_ids, title_string):
-    coding_metrics = OrderedDict()
-    for g in genome_order:
-        bins = binned_transcript_holder[g]['protein_coding']
-        coding_metrics[g] = make_counts_frequency(make_tx_counts_dict(bins, filter_set=ens_ids))
-    categories = zip(*coding_metrics[g])[0]
-    results = [[g, zip(*coding_metrics[g])[1]] for g in coding_metrics]
-    stacked_barplot(results, categories, out_path, out_name, title_string, color_palette=paired_palette)
-
-
-base_title_string = "Proportion of {:,} {}\nOK / not OK In Target Genomes"
-title_string_dict = {"Comp": "Protein-coding {} in GencodeCompVM4", 
-                     "Basic": "Protein-coding {} in GencodeBasicVM4", 
-                     "Complement": "Protein-coding {}\nin GencodeCompVM4 and NOT in GencodeBasicVM4"}
-file_name_dict = {"Comp": "protein_coding_comprehensive", "Basic": "protein_coding_basic", 
-                  "Complement": "protein_coding_complement"}
-
-
-def make_coding_transcript_plots(binned_transcript_holder, out_path, comp_gp, basic_gp, attr_path):
-    comp_ids = get_gp_ids(comp_gp)
-    basic_ids = get_gp_ids(basic_gp)
-    coding_ids = get_all_ids(attr_path, biotype="protein_coding")
-    basic_coding = basic_ids & coding_ids
-    comp_coding = comp_ids & coding_ids
-    complement_coding = comp_coding - basic_coding
-    #genome_order = find_genome_order(binned_transcript_holder, comp_coding)
-    genome_order = hard_coded_genome_order
-    for cat, ids in zip(*[["Comp", "Basic", "Complement"], [comp_coding, basic_coding, complement_coding]]):
-        title_string = base_title_string.format(len(ids), title_string_dict[cat].format("Transcript"))
-        out_name = file_name_dict[cat]
-        make_coding_transcript_plot(binned_transcript_holder, out_path, out_name, genome_order, ids, title_string)
-
-
-def calculate_gene_ok_metrics(bins, gene_map, gene_ids):
-    ok_genes = {gene_map[strip_alignment_numbers(x)] for x in bins["bestOk"] if strip_alignment_numbers(x) in gene_map}
-    not_ok_genes = {gene_map[strip_alignment_numbers(x)] for x in bins["bestNotOk"] if strip_alignment_numbers(x) in 
-                    gene_map and gene_map[strip_alignment_numbers(x)] not in ok_genes}
-    fail_genes = gene_ids - (ok_genes | not_ok_genes)
-    od = OrderedDict([["Has OK Tx", len(ok_genes)], ["No OK Tx", len(not_ok_genes)], ["No Tx", len(fail_genes)]])
-    return make_counts_frequency(od)
-
-
-def ok_gene_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, genome_order, biotype):
-    biotype_ids = get_all_ids(attr_path, biotype=biotype, id_type="Gene")
-    title_string = "Proportion of {:,} {} genes with at least one OK transcript".format(len(biotype_ids), biotype)
-    file_name = "{}_gene".format(biotype)
-    metrics = OrderedDict()
-    for g in genome_order:
-        bins = binned_transcript_holder[g][biotype]
-        metrics[g] = calculate_gene_ok_metrics(bins, gene_map, biotype_ids)
-    categories = zip(*metrics[g])[0]
-    results = [[g, zip(*metrics[g])[1]] for g in metrics]
-    stacked_barplot(results, categories, out_path, file_name, title_string)
-
-
 def main():
     args = parse_args()
     con, cur = sql_lib.attach_databases(args.compAnnPath, has_augustus=True)
@@ -308,14 +234,12 @@ def main():
     chr_y_ids = gp_chrom_filter(args.compGp)
     consensus_base_path = os.path.join(args.outDir, "geneSets")
     mkdir_p(consensus_base_path)
-    plots_path = os.path.join(args.outDir, "geneSetMetrics")
-    mkdir_p(plots_path)
     raw_bins_base_path = os.path.join(args.outDir, "binnedTranscripts")
     mkdir_p(raw_bins_base_path)
     binned_transcript_holder = defaultdict(dict)  # save all bins to make some plots at the end
     consensus = []
     coding_ok = get_all_ok(cur, args.genome)
-    noncoding_ok = get_all_ok(cur, args.genome)
+    noncoding_ok = transmap_ok(cur, args.genome, coding=False)
     gps = load_gps([args.tmGp, args.augGp])
     for biotype in biotypes:
         ens_ids = get_all_ids(args.attributePath, biotype=biotype) - chr_y_ids  # filter out chrY
@@ -327,14 +251,11 @@ def main():
             binned_transcripts = bin_transcripts(reverse_name_map, stats_dict, noncoding_ok, ens_ids)
         consensus.extend(consensus_gene_set(binned_transcripts, stats_dict, gps, gene_map, gene_biotype_map))
         write_gps(binned_transcripts, gps, raw_bins_base_path, args.genome, biotype, gene_map)
-        binned_transcript_holder[args.genome][biotype] = binned_transcripts
-    consensus_path = os.path.join(consensus_base_path, args.genome + "consensusGeneSet.gp")
+        binned_transcript_holder[biotype] = binned_transcripts
+    consensus_path = os.path.join(consensus_base_path, args.genome + "_consensusGeneSet.gp")
     write_consensus(consensus, gene_map, consensus_path)
-    make_coding_transcript_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, args.attributePath)
-    biotype = "protein_coding"
-    # ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, args.genome_order, biotype)
-    ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, hard_coded_genome_order,
-                       biotype)
+    with open(args.binnedTranscriptPath, 'w') as outf:
+        pickle.dump(binned_transcript_holder, outf) 
 
 
 if __name__ == "__main__":

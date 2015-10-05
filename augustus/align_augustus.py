@@ -74,9 +74,10 @@ def cat(target, genome, file_tree, out_dir):
 
 
 def load_db(target, genome, tmp_file, out_dir):
-    df = pd.DataFrame.from_csv(tmp_file)
-    database_path = os.path.join(out_dir, "augustus_attributes.db")
+    df = pd.read_csv(tmp_file, index_col=0, header=0)
+    df = df.convert_objects(convert_numeric=True)  # have to convert to float because pandas lacks a good dtype function
     df = df.sort_index()
+    database_path = os.path.join(out_dir, "augustus_attributes.db")
     with ExclusiveSqlConnection(database_path) as con:
         df.to_sql(genome, con, if_exists="replace", index_label="AlignmentId")
 
