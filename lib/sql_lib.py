@@ -92,10 +92,6 @@ def write_dict(data_dict, database_path, table):
     """
     df = pd.DataFrame.from_dict(data_dict)
     df = df.sort_index()
-    # make numeric table names work by stripping all quotes then adding quotes
-    table = table.replace("'", "")
-    table = table.replace('"', "")
-    table = '"{}"'.format(table)
     with ExclusiveSqlConnection(database_path) as con:
         df.to_sql(table, con, if_exists="replace", index_label="AlignmentId")
 
