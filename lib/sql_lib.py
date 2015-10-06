@@ -71,7 +71,7 @@ def get_biotype_ids(cur, genome, biotype, category="Transcript"):
     Returns a set of aln_ids which are members of the biotype. Category should be Transcript or Gene
     """
     assert category in ["Transcript", "Gene"]
-    query = "SELECT AlignmentId FROM attributes.'{}' WHERE {}Type={}".format(genome, category, biotype)
+    query = "SELECT AlignmentId FROM attributes.{} WHERE {}Type={}".format(genome, category, biotype)
     return {x[0] for x in cur.execute(query).fetchall()}
 
 
@@ -80,9 +80,9 @@ def get_stats(cur, genome, category="transMap"):
     Returns a dictionary mapping each aln_id to [aln_id, %ID, %COV]
     """
     if category == "transMap":
-        cmd = "SELECT AlignmentId,AlignmentIdentity,AlignmentCoverage FROM attributes.'{}'".format(genome)
+        cmd = "SELECT AlignmentId,AlignmentIdentity,AlignmentCoverage FROM attributes.{}".format(genome)
     else:
-        cmd = "SELECT AlignmentId,AlignmentIdentity,AlignmentCoverage FROM augustus_attributes.'{}'".format(genome)
+        cmd = "SELECT AlignmentId,AlignmentIdentity,AlignmentCoverage FROM augustus_attributes.{}".format(genome)
     return {x[0]: x for x in cur.execute(cmd).fetchall()}
 
 
@@ -95,7 +95,7 @@ def write_dict(data_dict, database_path, table):
     # make numeric table names work by stripping all quotes then adding quotes
     table = table.replace("'", "")
     table = table.replace('"', "")
-    table = "'{}'".format(table)
+    table = '"{}"'.format(table)
     with ExclusiveSqlConnection(database_path) as con:
         df.to_sql(table, con, if_exists="replace", index_label="AlignmentId")
 
