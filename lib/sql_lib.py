@@ -80,9 +80,9 @@ def get_stats(cur, genome, category="transMap"):
     Returns a dictionary mapping each aln_id to [aln_id, %ID, %COV]
     """
     if category == "transMap":
-        cmd = "SELECT AlignmentId,AlignmentIdentity,AlignmentCoverage FROM attributes.{}".format(genome)
+        cmd = "SELECT AlignmentId,AlignmentIdentity,AlignmentCoverage FROM attributes.'{}'".format(genome)
     else:
-        cmd = "SELECT AlignmentId,AlignmentIdentity,AlignmentCoverage FROM augustus_attributes.{}".format(genome)
+        cmd = "SELECT AlignmentId,AlignmentIdentity,AlignmentCoverage FROM augustus_attributes.'{}'".format(genome)
     return {x[0]: x for x in cur.execute(cmd).fetchall()}
 
 
