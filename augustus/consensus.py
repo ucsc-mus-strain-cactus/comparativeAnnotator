@@ -4,7 +4,7 @@ import os
 import itertools
 from collections import defaultdict
 from plotting.plot_functions import get_all_biotypes, get_gene_map, get_gene_biotype_map, gp_chrom_filter, get_all_ok, \
-                                    load_gps, get_all_ids, get_reverse_name_map, strip_alignment_numbers
+                                    load_gps, get_all_ids, get_reverse_name_map, strip_alignment_numbers, transmap_ok
 import cPickle as pickle
 import lib.sql_lib as sql_lib
 from lib.general_lib import mkdir_p
@@ -224,6 +224,7 @@ def make_tx_counts_dict(binned_transcripts, filter_set=set()):
             counts["tmNotOk"] += 1
     counts["fail"] = len(binned_transcripts["fail"])
     return counts
+
 
 def main():
     args = parse_args()

@@ -137,9 +137,6 @@ def run_augustus(hint_f, seq_f, name, start, stop, cfg_version, cfg_path, out_fi
         # write this to a shared location where we will combine later
         out_path = out_file_tree.getTempFile()
         write_augustus(r, name_map, out_path)
-    # delete the seq and hint file. This makes the final tree cleanup not take so long.
-    os.remove(hint_f)
-    os.remove(seq_f)
 
 
 def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_tree):
@@ -161,6 +158,9 @@ def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_t
         hint_f, seq_f = write_hint_fasta(hint, seq, chrom, target.getGlobalTempDir())
         for cfg_version, cfg_path in cfgs.iteritems():
             run_augustus(hint_f, seq_f, gp.name, start, stop, cfg_version, cfg_path, out_file_tree)
+        # delete the seq and hint file. This makes the final tree cleanup not take so long.
+        os.remove(hint_f)
+        os.remove(seq_f)
 
 
 def cat(target, output_gtf, unsorted_tmp_file, out_file_tree):

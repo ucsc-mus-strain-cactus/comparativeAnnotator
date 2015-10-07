@@ -20,7 +20,7 @@ class ExclusiveSqlConnection(object):
         try:
             self.con.execute("BEGIN EXCLUSIVE")
         except sql.OperationalError:
-            print ("Database still locked after {} seconds.".format(self.timeout))
+            raise RuntimeError("Database still locked after {} seconds.".format(self.timeout))
         return self.con
 
     def __exit__(self, exception_type, exception_val, trace):
