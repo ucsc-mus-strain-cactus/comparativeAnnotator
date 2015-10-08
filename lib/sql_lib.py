@@ -71,7 +71,7 @@ def get_biotype_ids(cur, genome, biotype, category="Transcript"):
     Returns a set of aln_ids which are members of the biotype. Category should be Transcript or Gene
     """
     assert category in ["Transcript", "Gene"]
-    query = "SELECT AlignmentId FROM attributes.{} WHERE {}Type={}".format(genome, category, biotype)
+    query = "SELECT AlignmentId FROM attributes.'{}' WHERE {}Type='{}'".format(genome, category, biotype)
     return {x[0] for x in cur.execute(query).fetchall()}
 
 
