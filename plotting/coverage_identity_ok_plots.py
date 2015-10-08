@@ -36,7 +36,7 @@ def number_categorized(cur, genome, query_fn, biotype=None):
     """
     Finds the alignment IDs categorized by a categorizing function. Can be restricted by biotype
     """
-    query = query_fn(genome)
+    query = query_fn(genome, details=False)
     ok_ids = sql_lib.get_ok_ids(cur, query)
     if biotype is not None:
         biotype_ids = sql_lib.get_biotype_ids(cur, genome, biotype)

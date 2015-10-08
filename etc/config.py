@@ -65,24 +65,30 @@ def potentiallyInterestingBiology(genome):
     return query
 
 
-def assemblyErrors(genome):
-    base_query = ("SELECT details.'{0}'.AlignmentPartialMap,details.'{0}'.UnknownBases,details.'{0}'.UnknownGap,"
-                  "details.'{0}'.ShortCds,details.'{0}'.AlignmentAbutsUnknownBases,details.'{0}'.AlignmentAbutsRight,"
-                  "details.'{0}'.AlignmentAbutsLeft FROM details.'{0}' JOIN main.'{0}' USING "
+def assemblyErrors(genome, details=True):
+    base_query = ("FROM details.'{0}' JOIN main.'{0}' USING "
                   "('AlignmentId') WHERE main.'{0}'.AlignmentPartialMap = 1 OR main.'{0}'.UnknownBases = 1 OR "
                   "main.'{0}'.UnknownGap = 1 OR main.'{0}'.ShortCds = 1 OR main.'{0}'.AlignmentAbutsUnknownBases = 1 "
                   "OR main.'{0}'.AlignmentAbutsRight = 1 OR main.'{0}'.AlignmentAbutsLeft = 1")
-    query = base_query.format(genome)
+    details_selection = ("SELECT details.'{0}'.AlignmentPartialMap,details.'{0}'.UnknownBases,details.'{0}'.UnknownGap,"
+                  "details.'{0}'.ShortCds,details.'{0}'.AlignmentAbutsUnknownBases,details.'{0}'.AlignmentAbutsRight,"
+                  "details.'{0}'.AlignmentAbutsLeft ")
+    classify_selection = ("SELECT main.'{0}'.AlignmentId ")
+    added_query = details_selection + base_query if details else classify_selection + base_query
+    query = added_query.format(genome)
     return query
 
 
-def alignmentErrors(genome):
-    base_query = ("SELECT details.'{0}'.BadFrame,details.'{0}'.CdsGap,details.'{0}'.CdsMult3Gap,details.'{0}'.UtrGap,"
-                  "details.'{0}'.Paralogy,details.'{0}'.HasOriginalIntrons,details.'{0}'.StartOutOfFrame FROM "
-                  "details.'{0}' JOIN main.'{0}' USING (AlignmentId) WHERE main.'{0}'.BadFrame = 1 OR "
+def alignmentErrors(genome, details=True):
+    base_query = ("FROM details.'{0}' JOIN main.'{0}' USING (AlignmentId) WHERE main.'{0}'.BadFrame = 1 OR "
                   "main.'{0}'.CdsGap = 1 OR main.'{0}'.CdsMult3Gap = 1 OR main.'{0}'.UtrGap = 1 OR "
-                  "main.'{0}'.Paralogy = 1 OR main.'{0}'.HasOriginalIntrons = 1")
-    query = base_query.format(genome)
+                  "main.'{0}'.Paralogy = 1 OR main.'{0}'.HasOriginalIntrons = 1 OR main.'{0}'.StartOutOfFrame = 1")
+    details_selection = ("SELECT details.'{0}'.BadFrame,details.'{0}'.CdsGap,details.'{0}'.CdsMult3Gap,"
+                         "details.'{0}'.UtrGap,details.'{0}'.Paralogy,details.'{0}'.HasOriginalIntrons,"
+                         "details.'{0}'.StartOutOfFrame ")
+    classify_selection = ("SELECT main.'{0}'.AlignmentId ")
+    added_query = details_selection + base_query if details else classify_selection + base_query
+    query = added_query.format(genome)
     return query
 
 
