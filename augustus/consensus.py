@@ -194,38 +194,6 @@ def write_consensus(consensus, gene_map, consensus_path):
             outf.write(x)
 
 
-def make_tx_counts_dict(binned_transcripts, filter_set=set()):
-    """
-    Makes a counts dictionary from binned_transcripts.
-    """
-    counts = OrderedDict()
-    for key in ['sameOk', 'augOk', 'tmOk', 'sameNotOk', 'augNotOk', 'tmNotOk',  'fail']:
-        counts[key] = 0
-    tie_ids = binned_transcripts["tieIds"]
-    for x in binned_transcripts["bestOk"]:
-        aln_id = strip_alignment_numbers(x)
-        if aln_id not in filter_set:
-            continue
-        elif aln_id in tie_ids:
-            counts["sameOk"] += 1
-        elif 'aug' in x:
-            counts["augOk"] += 1
-        else:
-            counts["tmOk"] += 1
-    for x in binned_transcripts["bestNotOk"]:
-        aln_id = strip_alignment_numbers(x)
-        if aln_id not in filter_set:
-            continue
-        elif aln_id in tie_ids:
-            counts["sameNotOk"] += 1
-        elif 'aug' in x:
-            counts["augNotOk"] += 1
-        else:
-            counts["tmNotOk"] += 1
-    counts["fail"] = len(binned_transcripts["fail"])
-    return counts
-
-
 def main():
     args = parse_args()
     con, cur = sql_lib.attach_databases(args.compAnnPath, has_augustus=True)

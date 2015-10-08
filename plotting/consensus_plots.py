@@ -1,6 +1,8 @@
 import argparse
+from collections import OrderedDict
+from lib.general_lib import mkdir_p
+import cPickle as pickle
 from plotting.plot_functions import *
-from augustus.consensus import 
 
 
 def parse_args():
@@ -9,8 +11,6 @@ def parse_args():
     parser.add_argument("--outDir", required=True)
     parser.add_argument("--binnedTranscriptDir", required=True)
     parser.add_argument("--attributePath", required=True)
-    parser.add_argument("--augGp", required=True)
-    parser.add_argument("--tmGp", required=True)
     parser.add_argument("--compGp", required=True)
     parser.add_argument("--basicGp", required=True)
     return parser.parse_args()
@@ -27,6 +27,38 @@ def find_genome_order(binned_transcript_holder, ens_ids):
         ok_counts.append([genome, 1.0 * num_ok / len(ens_ids)])
     genome_order = sorted(ok_counts, key=lambda x: -x[1])
     return zip(*genome_order)[0]
+
+
+def make_tx_counts_dict(binned_transcripts, filter_set=set()):
+    """
+    Makes a counts dictionary from binned_transcripts.
+    """
+    counts = OrderedDict()
+    for key in ['sameOk', 'augOk', 'tmOk', 'sameNotOk', 'augNotOk', 'tmNotOk',  'fail']:
+        counts[key] = 0
+    tie_ids = binned_transcripts["tieIds"]
+    for x in binned_transcripts["bestOk"]:
+        aln_id = strip_alignment_numbers(x)
+        if aln_id not in filter_set:
+            continue
+        elif aln_id in tie_ids:
+            counts["sameOk"] += 1
+        elif 'aug' in x:
+            counts["augOk"] += 1
+        else:
+            counts["tmOk"] += 1
+    for x in binned_transcripts["bestNotOk"]:
+        aln_id = strip_alignment_numbers(x)
+        if aln_id not in filter_set:
+            continue
+        elif aln_id in tie_ids:
+            counts["sameNotOk"] += 1
+        elif 'aug' in x:
+            counts["augNotOk"] += 1
+        else:
+            counts["tmNotOk"] += 1
+    counts["fail"] = len(binned_transcripts["fail"])
+    return counts
 
 
 def make_coding_transcript_plot(binned_transcript_holder, out_path, out_name, genome_order, ens_ids, title_string):
@@ -85,16 +117,16 @@ def ok_gene_by_biotype(binned_transcript_holder, out_path, attr_path, gene_map, 
 
 
 def main():
-    plots_path = os.path.join(args.outDir, "geneSetMetrics")
-    mkdir_p(plots_path)
+    args = parse_args()
+    mkdir_p(args.outDir)
     gene_map = get_gene_map(args.attributePath)
     binned_transcript_holder = {}
     for g in os.listdir(args.binnedTranscriptDir):
         binned_transcript_holder[g] = pickle.load(open(os.path.join(args.binnedTranscriptDir, g)))
-    make_coding_transcript_plots(binned_transcript_holder, plots_path, args.compGp, args.basicGp, args.attributePath)
+    make_coding_transcript_plots(binned_transcript_holder, args.outDir, args.compGp, args.basicGp, args.attributePath)
     biotype = "protein_coding"
-    # ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, args.genome_order, biotype)
-    ok_gene_by_biotype(binned_transcript_holder, plots_path, args.attributePath, gene_map, hard_coded_genome_order,
+    # ok_gene_by_biotype(binned_transcript_holder, args.outDir, args.attributePath, gene_map, args.genome_order, biotype)
+    ok_gene_by_biotype(binned_transcript_holder, args.outDir, args.attributePath, gene_map, hard_coded_genome_order,
                        biotype)
 
 
