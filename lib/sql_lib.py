@@ -35,20 +35,22 @@ def attach_database(con, path, name):
     con.execute("ATTACH DATABASE '{}' AS {}".format(path, name))
 
 
-def attach_databases(comp_ann_path, has_augustus=False):
+def attach_databases(comp_ann_path, mode):
     """
-    Attaches all of the databases. Expects comp_ann_path to be the path that comparativeAnnotator wrote to.
-    If has_augustus is True, expects this folder to have a augustus database.
+    Attaches all of the databases needed for this execution mode
     """
+    assert mode in ["reference", "augustus", "transMap"]
     classify_path = os.path.join(comp_ann_path, "classify.db")
-    attr_path = os.path.join(comp_ann_path, "attributes.db")
     details_path = os.path.join(comp_ann_path, "details.db")
-    assert all([os.path.exists(x) for x in [classify_path, attr_path, details_path]])
+    assert all([os.path.exists(x) for x in [classify_path, details_path]])
     con = sql.connect(classify_path)
     cur = con.cursor()
-    attach_database(con, attr_path, "attributes")
     attach_database(con, details_path, "details")
-    if has_augustus:
+    if mode in ["transMap", "augustus"]:
+        attr_path = os.path.join(comp_ann_path, "attributes.db")
+        assert os.path.exists(attr_path)
+        attach_database(con, attr_path, "attributes")
+    if mode == "augustus":
         aug_classify_path = os.path.join(comp_ann_path, "augustus_classify.db")
         aug_details_path = os.path.join(comp_ann_path, "augustus_details.db")
         aug_attributes_path = os.path.join(comp_ann_path, "augustus_attributes.db")
@@ -104,6 +106,8 @@ def collapse_details_dict(details_dict):
     """
     collapsed = {}
     for aln_id, rec in details_dict.iteritems():
+        if len(rec) == 0:  # to deal with the downsides of defaultdict
+            continue
         if isinstance(rec[0], list):  # hack to determine if this is a list of lists
             rec = "\n".join(["\t".join(map(str, x)) for x in rec])
         else:

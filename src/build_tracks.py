@@ -33,15 +33,18 @@ def database_wrapper(target, args, tmp_dir):
         for db in ["classify", "details"]:
             db_path = os.path.join(args.outDir, "{}.db".format(db))
             database(args.refGenome, db, db_path, tmp_dir)
-    else:
+    elif args.mode == "transMap":
         for db in ["classify", "details", "attributes"]:
             db_path = os.path.join(args.outDir, "{}.db".format(db))
             database(args.genome, db, db_path, tmp_dir)
+    else:
+        raise RuntimeError("Somehow your argparse object does not contain a valid mode.")
     target.setFollowOnTargetFn(build_tracks_wrapper, args=[args])
 
 
 def database(genome, db, db_path, tmp_dir):
     data_dict = {}
+    mkdir_p(os.path.dirname(db_path))
     data_path = os.path.join(tmp_dir, db)
     for col in os.listdir(data_path):
         p = os.path.join(data_path, col)
@@ -85,8 +88,7 @@ def make_big_bed(out_bed_path, sizes, out_big_bed_path):
 
 
 def build_classifier_tracks(target, query, query_name, genome, args):
-    has_augustus = True if args.mode == "augustus" else False
-    con, cur = sql_lib.attach_databases(args.outDir, has_augustus=has_augustus)
+    con, cur = sql_lib.attach_databases(args.outDir, mode=args.mode)
     bed_recs = cur.execute(query)
     out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, query_name, genome)
     with open(out_bed_path, "w") as outf:
@@ -120,8 +122,7 @@ def build_good_track(target, args):
     Builds a specific track of Good transcripts for the current mode.
     """
     colors = {"coding": "100,209,61", "noncoding": "209,61,115"}
-    has_augustus = True if args.mode == "augustus" else False
-    con, cur = sql_lib.attach_databases(args.outDir, has_augustus=has_augustus)
+    con, cur = sql_lib.attach_databases(args.outDir, args.mode)
     if args.mode == "augustus":
         query = etc.config.augustusEval(args.genome)
         good_ids = sql_lib.get_query_ids(cur, query)

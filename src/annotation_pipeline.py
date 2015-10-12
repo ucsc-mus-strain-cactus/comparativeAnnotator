@@ -4,8 +4,6 @@ This is the main driver script for comparativeAnnotator in transMap mode.
 
 import argparse
 import os
-import subprocess
-import cPickle as pickle
 
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
@@ -18,12 +16,10 @@ import src.classifiers
 import src.alignment_classifiers
 import src.augustus_classifiers
 import src.attributes
-import etc.config
 
 from src.build_tracks import database_wrapper
 
 __author__ = "Ian Fiddes"
-
 
 def parse_args():
     """
@@ -41,6 +37,7 @@ def parse_args():
         parser.add_argument('--refFasta', type=str, required=True)
         parser.add_argument('--sizes', required=True)
         parser.add_argument('--annotationGp', required=True)
+        Stack.addJobTreeOptions(parser)  # add jobTree options
     # transMap specific options
     for parser in [aug_parser, tm_parser]:
         parser.add_argument('--gencodeAttributes', required=True)
@@ -50,8 +47,8 @@ def parse_args():
         parser.add_argument('--fasta', required=True)
     # Augustus specific options
     aug_parser.add_argument('--augustusGp', required=True)
-    Stack.addJobTreeOptions(parent_parser)  # add jobTree options
     args = parent_parser.parse_args()
+    assert args.mode in ["transMap", "reference", "augustus"]
     return args
 
 
@@ -66,6 +63,14 @@ def run_tm_classifiers(args, target, tmp_dir):
     for classifier in tm_classifiers:
         target.addChildTarget(classifier(args.refFasta, args.annotationGp, args.refGenome, tmp_dir, args.genome,
                                          args.psl, args.fasta, args.targetGp))
+    attributes = classes_in_module(src.attributes)
+    for attribute in attributes:
+        target.addChildTarget(attribute(args.refFasta, args.annotationGp, args.refGenome, tmp_dir, args.genome,
+                                         args.psl, args.fasta, args.targetGp, args.gencodeAttributes))
+    # in transMap mode we run the alignment-free classifiers on the target genome
+    ref_classifiers = classes_in_module(src.classifiers)
+    for classifier in ref_classifiers:
+        target.addChildTarget(classifier(args.fasta, args.targetGp, args.genome, tmp_dir))
 
 
 def run_aug_classifiers(args, target, tmp_dir):
@@ -81,12 +86,14 @@ def build_analyses(target, args):
     Calls database_wrapper to load these into a sqlite3 database.
     """
     tmp_dir = target.getGlobalTempDir()
-    if args.mode in ["reference", "transMap", "augustus"]:
+    if args.mode == "reference":
         run_ref_classifiers(args, target, tmp_dir)
-    if args.mode in ["transMap, augustus"]:
+    elif args.mode == "transMap":
         run_tm_classifiers(args, target, tmp_dir)
-    if args.mode == "augustus":
+    elif args.mode == "augustus":
         run_aug_classifiers(args, target, tmp_dir)
+    else:
+        raise RuntimeError("Somehow your argparse object does not contain a valid mode.")
     # merge the resulting pickled files into sqlite databases and construct BED tracks
     target.setFollowOnTargetFn(database_wrapper, memory=8 * (1024 ** 3), args=[args, tmp_dir])
 

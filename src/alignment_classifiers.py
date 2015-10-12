@@ -35,26 +35,25 @@ class AlnExtendsOffContig(AbstractAlignmentClassifier):
         self.dump_results_to_disk()
 
 
-class AlnAbutsNs(AbstractAlignmentClassifier):
+class AlnAbutsUnknownBases(AbstractAlignmentClassifier):
     """
-    Do either terminal exons abut unknown bases? (Internal exons will be classified by SpliceJunctionContainsN)
+    Do either terminal exons abut unknown bases? (Internal exons will be classified by SpliceContainsUnknownBases)
     """
     @property
     def rgb(self):
         return self.colors["assembly"]
 
     def run(self):
+        self.get_fasta()
         for aln_id, t in self.transcript_iterator():
             if self.seq_dict[t.chromosome][t.start - 1] == "N":
                 self.classify_dict[aln_id] = 1
-                left_bed_rec = t.exon_intervals[0].getBed()
+                left_bed_rec = t.exon_intervals[0].get_bed(self.rgb, self.column)
                 self.details_dict[aln_id].append(left_bed_rec)
-            if self.seq_dict[t.chromosome][t.stop] == "N":
+            if len(t.exon_intervals) > 1 and self.seq_dict[t.chromosome][t.stop] == "N":
                 self.classify_dict[aln_id] = 1
-                right_bed_rec = t.exon_intervals[0].getBed()
-                # don't want to double count in cases of single exon transcripts
-                if right_bed_rec not in self.details_dict[aln_id]:
-                    self.details_dict[aln_id].append(right_bed_rec)
+                right_bed_rec = t.exon_intervals[-1].get_bed(self.rgb, self.column)
+                self.details_dict[aln_id].append(right_bed_rec)
             if aln_id not in self.classify_dict:
                 self.classify_dict[aln_id] = 0
         self.dump_results_to_disk()
@@ -87,7 +86,7 @@ class HasOriginalIntrons(AbstractAlignmentClassifier):
                 not_original_introns = target_introns - original_introns
                 for a_start, a_stop in not_original_introns:
                     intron = target_intron_mapping[(a_start, a_stop)]
-                    if comp_ann_lib.short_intron_size(intron) is False:
+                    if comp_ann_lib.short_intron(intron) is False:
                         self.details_dict[aln_id].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb,
                                                                                                self.column))
             else:
@@ -317,6 +316,7 @@ class Nonsynonymous(AbstractAlignmentClassifier):
         return self.colors["nonsynon"]
 
     def run(self, equality_test=lambda target, query: target != query):
+        self.get_fasta()
         for aln_id, aln, t, a in self.alignment_transcript_annotation_iterator():
             # do not include noncoding transcripts or lift-overs that contain less than short_cds_size
             if comp_ann_lib.short_cds(t) or comp_ann_lib.short_cds(a):

@@ -49,7 +49,7 @@ class BadFrame(AbstractClassifier):
             if comp_ann_lib.short_cds(a):
                 self.classify_dict[ens_id] = 0
                 continue
-            if a.get_cds_length() % 3 != 0:
+            if a.cds_size % 3 != 0:
                 bed_rec = seq_lib.chromosome_coordinate_to_bed(a, a.thick_start, a.thick_stop, self.rgb, self.column)
                 self.details_dict[ens_id].append(bed_rec)
                 self.classify_dict[ens_id] = 1
@@ -69,6 +69,7 @@ class BeginStart(AbstractClassifier):
         return self.colors["generic"]
 
     def run(self):
+        self.get_fasta()
         for ens_id, a in self.annotation_iterator():
             # do not include noncoding transcripts or lift-overs that contain less than short_cds_size
             if comp_ann_lib.short_cds(a):
@@ -92,6 +93,7 @@ class EndStop(AbstractClassifier):
         return self.colors["alignment"]
 
     def run(self):
+        self.get_fasta()
         stop_codons = {'TAA', 'TGA', 'TAG'}
         for ens_id, a in self.annotation_iterator():
             # do not include noncoding transcripts or lift-overs that contain less than short_cds_size
@@ -117,9 +119,11 @@ class CdsGap(AbstractClassifier):
         return self.colors["alignment"]
 
     def run(self, cds_filter_fn=comp_ann_lib.is_not_cds, mult3=False, skip_n=True):
+        self.get_fasta()
         for ens_id, a in self.annotation_iterator():
             for intron in a.intron_intervals:
-                if comp_ann_lib.analyze_intron_gap(a, intron, self.ref_seq_dict, cds_filter_fn, mult3):
+                is_gap = comp_ann_lib.analyze_intron_gap(a, intron, self.ref_seq_dict, cds_filter_fn, skip_n, mult3)
+                if is_gap is True:
                     bed_rec = seq_lib.interval_to_bed(a, intron, self.rgb, self.column)
                     self.details_dict[ens_id].append(bed_rec)
             if len(self.details_dict[ens_id]) > 0:
@@ -182,9 +186,11 @@ class CdsNonCanonSplice(AbstractClassifier):
         return self.colors["mutation"]
 
     def run(self, cds_filter_fn=comp_ann_lib.is_not_cds, splice_dict={"GT": "AG"}):
+        self.get_fasta()
         for ens_id, a in self.annotation_iterator():
             for intron in a.intron_intervals:
-                if comp_ann_lib.analyze_intron_gap(intron, a, self.ref_seq_dict, cds_filter_fn, splice_dict):
+                splice_is_good = comp_ann_lib.analyze_splice(intron, a, self.ref_seq_dict, cds_filter_fn, splice_dict)
+                if splice_is_good is True:
                     bed_rec = seq_lib.splice_intron_interval_to_bed(a, intron, self.rgb, self.column)
                     self.details_dict[ens_id].append(bed_rec)
             if len(self.details_dict[ens_id]) > 0:
@@ -230,7 +236,7 @@ class UtrUnknownSplice(CdsNonCanonSplice):
         CdsNonCanonSplice.run(self, cds_filter_fn, splice_dict)
 
 
-class SpliceContainsN(AbstractClassifier):
+class SpliceContainsUnknownBases(AbstractClassifier):
     """
     Do any of the splice junctions contain unknown bases?
     """
@@ -239,9 +245,10 @@ class SpliceContainsN(AbstractClassifier):
         return self.colors["assembly"]
 
     def run(self):
+        self.get_fasta()
         for ens_id, a in self.annotation_iterator():
             for intron in a.intron_intervals:
-                if comp_ann_lib.short_cds(intron) is False:
+                if comp_ann_lib.short_intron(intron) is False:
                     seq = intron.get_sequence(self.ref_seq_dict, strand=True)
                     donor, acceptor = seq[:2], seq[-2:]
                     if "N" in donor or "N" in acceptor:
@@ -267,6 +274,7 @@ class InFrameStop(AbstractClassifier):
         return self.colors["mutation"]
 
     def run(self):
+        self.get_fasta()
         for ens_id, a in self.annotation_iterator():
             cds = a.get_cds(self.ref_seq_dict)
             offset = seq_lib.find_offset(a.exon_frames, a.strand)
@@ -316,6 +324,7 @@ class UnknownBases(AbstractClassifier):
             yield bed_rec_fn(a, m.start() + 1, m.end() - 1, self.rgb, self.column)
 
     def run(self, cds=False):
+        self.get_fasta()
         if cds is True:
             bed_rec_fn = seq_lib.cds_coordinate_to_bed
         else:

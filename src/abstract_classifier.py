@@ -4,6 +4,8 @@ Base classifier classes used by all of the classifiers.
 import os
 import cPickle as pickle
 import itertools
+import copy_reg
+import types
 from collections import defaultdict
 
 from jobTree.scriptTree.target import Target
@@ -26,18 +28,22 @@ class AbstractClassifier(Target):
               'generic': '152,156,45'     # grey-yellow
               }
 
-    def __init__(self, ref_fasta_path, annotation_gp, ref_genome, tmp_dir):
+    def __init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir):
         # initialize the Target
         Target.__init__(self)
         self.ref_genome = ref_genome
-        self.ref_seq_dict = seq_lib.get_sequence_dict(ref_fasta_path)
+        self.ref_fasta = ref_fasta
         self.annotation_gp = annotation_gp
         self.tmp_dir = tmp_dir
         # these variables will be initialized once the jobs have begun to not pickle all of this stuff needlessly
         self.annotation_dict = None
+        self.ref_seq_dict = None
         # these dictionaries will be filled out by each classifier
         self.classify_dict = {}
         self.details_dict = defaultdict(list)
+
+    def get_fasta(self):
+        self.ref_seq_dict = seq_lib.get_sequence_dict(self.ref_fasta)
 
     def get_annotation_dict(self):
         self.annotation_dict = seq_lib.get_transcript_dict(self.annotation_gp)
@@ -86,11 +92,18 @@ class AbstractAlignmentClassifier(AbstractClassifier):
         self.genome = tgt_genome
         self.aln_psl = aln_psl
         self.tgt_gp = tgt_gp
-        self.seq_dict = seq_lib.get_sequence_dict(tgt_fasta)
+        self.tgt_fasta = tgt_fasta
         self.transcript_dict = None
         self.alignment_dict = None
+        self.seq_dict = None
+
+    def get_fasta(self):
+        self.seq_dict = seq_lib.get_sequence_dict(self.tgt_fasta)
+        self.ref_seq_dict = seq_lib.get_sequence_dict(self.ref_fasta)
 
     def get_alignment_dict(self):
+        if self.transcript_dict is None:
+            self.get_transcript_dict()
         self.alignment_dict = psl_lib.get_alignment_dict(self.aln_psl, filter=self.transcript_dict.viewkeys())
 
     def get_transcript_dict(self):
@@ -111,15 +124,13 @@ class AbstractAlignmentClassifier(AbstractClassifier):
         """
         if self.alignment_dict is None:
             self.get_alignment_dict()
-        for aln_id, aln in self.transcript_dict.iteritems():
+        for aln_id, aln in self.alignment_dict.iteritems():
             yield aln_id, aln
 
     def alignment_transcript_iterator(self):
         """
         Convenience function for iterating over both Transcript and PslRow objects at once
         """
-        if self.transcript_dict is None:
-            self.get_transcript_dict()
         for aln_id, aln in self.alignment_iterator():
             t = self.transcript_dict[aln_id]
             yield aln_id, aln, t

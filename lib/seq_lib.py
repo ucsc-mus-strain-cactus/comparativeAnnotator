@@ -1159,7 +1159,7 @@ def transcript_iterator(gp_file):
     """
     with open(gp_file) as inf:
         for tokens in tokenize_stream(inf):
-            t = Transcript(tokens)
+            t = GenePredTranscript(tokens)
             yield t.name, t
 
 

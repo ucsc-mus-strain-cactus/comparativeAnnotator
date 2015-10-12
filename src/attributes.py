@@ -170,7 +170,7 @@ class AlignmentIdentity(Attribute):
         self.dump_attribute_results_to_disk(results_dict)
 
 
-class PercentN(Attribute):
+class PercentUnknownBases(Attribute):
     """
     Calculates the percent of unknown bases in the alignment:
 
@@ -181,11 +181,12 @@ class PercentN(Attribute):
         self.dump_attribute_results_to_disk(results_dict)
 
 
-class PercentCodingN(Attribute):
+class PercentUnknownCodingBases(Attribute):
     """
     Calculates the % of coding bases that are Ns in the transcript
     """
     def run(self):
+        self.get_fasta()
         results_dict = {}
         for aln_id, t in self.transcript_iterator():
             cds = t.get_cds(self.seq_dict)

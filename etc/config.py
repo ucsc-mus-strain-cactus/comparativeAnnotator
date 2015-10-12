@@ -18,7 +18,7 @@ hard_coded_genome_order = ['C57B6NJ', 'NZOHlLtJ', '129S1', 'FVBNJ', 'NODShiLtJ',
 
 # these classifiers define Pass for single-genome analysis
 ref_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
-                   "StartOutOfFrame", "SpliceContainsN", "InFrameStop", "ShortCds"]
+                   "StartOutOfFrame", "SpliceContainsUnknownBases", "InFrameStop", "ShortCds"]
 
 # these classifiers define Pass/Good for coding transcripts
 tm_coding_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
@@ -33,8 +33,8 @@ aug_classifiers = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', '
                       'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries',
                       'AugustusNotSimilarInternalExonBoundaries']
 
-ref_pass = dict_to_named_tuple(ref_classifiers, "ref_pass")
-aug_pass = dict_to_named_tuple(aug_classifiers, "aug_pass")
+ref_pass = dict_to_named_tuple({"classifiers": ref_classifiers}, "ref_pass")
+aug_pass = dict_to_named_tuple({"classifiers": aug_classifiers}, "aug_pass")
 
 # these cutoffs determine whether a transcript is pass/good/fail in addition to the classifiers
 pass_cutoffs = {"coverage": 100.0, "percent_n": 1.0, "percent_coding_n": 0.2}
