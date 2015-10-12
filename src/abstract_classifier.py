@@ -4,6 +4,7 @@ Base classifier classes used by all of the classifiers.
 import os
 import cPickle as pickle
 import itertools
+from collections import defaultdict
 
 from jobTree.scriptTree.target import Target
 
@@ -17,68 +18,49 @@ __author__ = "Ian Fiddes"
 
 class AbstractClassifier(Target):
     colors = {'input': '219,220,222',     # grey
-               'mutation': '132,35,27',    # red-ish
-               'assembly': '167,206,226',  # light blue
-               'alignment': '35,125,191',  # blue
-               'synon': '163,116,87',      # light brown
-               'nonsynon': '181,216,139',  # avocado
-               'generic': '152,156,45'     # grey-yellow
+              'mutation': '132,35,27',    # red-ish
+              'assembly': '167,206,226',  # light blue
+              'alignment': '35,125,191',  # blue
+              'synon': '163,116,87',      # light brown
+              'nonsynon': '181,216,139',  # avocado
+              'generic': '152,156,45'     # grey-yellow
               }
 
-    def __init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes, target_gp, ref_genome,
-                 tmp_dir):
-        # sanity check
-        assert all([genome in x for x in [aln_psl, fasta, target_gp]])
+    def __init__(self, ref_fasta_path, annotation_gp, ref_genome, tmp_dir):
         # initialize the Target
         Target.__init__(self)
-        self.genome = genome
         self.ref_genome = ref_genome
-        self.alnPsl = aln_psl
-        self.fasta_path = fasta
-        self.ref_fasta_path = ref_fasta
-        self.gencode_attributes = gencode_attributes
-        self.target_gp = target_gp
+        self.ref_seq_dict = seq_lib.get_sequence_dict(ref_fasta_path)
         self.annotation_gp = annotation_gp
         self.tmp_dir = tmp_dir
-        # these variables will be initialized by individual classifiers as needed
-        self.transcripts = None
-        self.transcript_dict = None
-        self.ref_fasta = None
-        self.fasta = None
-        self.psls = None
-        self.alignment_dict = None
-        self.annotations = None
+        # these variables will be initialized once the jobs have begun to not pickle all of this stuff needlessly
         self.annotation_dict = None
-        self.attribute_dict = None
-
-    def get_transcript_dict(self):
-        self.transcripts = seq_lib.get_gene_pred_transcripts(self.target_gp)
-        self.transcript_dict = seq_lib.transcript_list_to_dict(self.transcripts)
-
-    def get_ref_fasta(self):
-        self.ref_fasta = seq_lib.get_sequence_dict(self.ref_fasta_path)
-
-    def get_fasta(self):
-        self.fasta = seq_lib.get_sequence_dict(self.fasta_path)
-
-    def get_alignment_dict(self):
-        self.psls = psl_lib.read_psl(self.alnPsl)
-        self.alignment_dict = psl_lib.get_psl_dict(self.psls)
+        # these dictionaries will be filled out by each classifier
+        self.classify_dict = {}
+        self.details_dict = defaultdict(list)
 
     def get_annotation_dict(self):
-        self.annotations = seq_lib.get_gene_pred_transcripts(self.annotation_gp)
-        self.annotation_dict = seq_lib.transcript_list_to_dict(self.annotations)
+        self.annotation_dict = seq_lib.get_transcript_dict(self.annotation_gp)
+
+    def annotation_iterator(self):
+        """
+        Convenience function for iterating over a dictionary of Transcript objects
+        """
+        if self.annotation_dict is None:
+            self.get_annotation_dict()
+        for ens_id, a in self.annotation_dict.iteritems():
+            yield ens_id, a
 
     @property
     def column(self):
         return self.__class__.__name__
 
-    def dump_results_to_disk(self, classify_dict, details_dict):
+    def dump_results_to_disk(self):
         """
         Dumps a pair of classify/details dicts to disk in the globalTempDir for later merging.
         """
-        details_dict = sql_lib.collapse_details_dict(details_dict)
-        for db, this_dict in itertools.izip(*[["details", "classify"], [details_dict, classify_dict]]):
+        details_dict = sql_lib.collapse_details_dict(self.details_dict)
+        for db, this_dict in itertools.izip(*[["details", "classify"], [details_dict, self.classify_dict]]):
             base_p = os.path.join(self.tmp_dir, db)
             mkdir_p(base_p)
             p = os.path.join(base_p, self.column)
@@ -86,30 +68,122 @@ class AbstractClassifier(Target):
                 pickle.dump(this_dict, outf)
 
 
-class AbstractAugustusClassifier(AbstractClassifier):
+class AbstractAlignmentClassifier(AbstractClassifier):
     """
-    Overwrites AbstractClassifier to add the extra genePred information and a way to load it.
+    Subclasses AbstractClassifier for alignment classifications
     """
-    def __init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes, target_gp, ref_genome,
-                 tmp_dir, augustus_gp):
-        AbstractClassifier.__init__(self, genome, aln_psl, fasta, ref_fasta, annotation_gp, gencode_attributes,
-                                    target_gp, ref_genome, tmp_dir)
-        assert self.genome in augustus_gp
+    colors = {'input': '219,220,222',     # grey
+              'mutation': '132,35,27',    # red-ish
+              'assembly': '167,206,226',  # light blue
+              'alignment': '35,125,191',  # blue
+              'synon': '163,116,87',      # light brown
+              'nonsynon': '181,216,139',  # avocado
+              'generic': '152,156,45'     # grey-yellow
+              }
+
+    def __init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir, tgt_genome, aln_psl, tgt_fasta, tgt_gp):
+        AbstractClassifier.__init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir)
+        self.genome = tgt_genome
+        self.aln_psl = aln_psl
+        self.tgt_gp = tgt_gp
+        self.seq_dict = seq_lib.get_sequence_dict(tgt_fasta)
+        self.transcript_dict = None
+        self.alignment_dict = None
+
+    def get_alignment_dict(self):
+        self.alignment_dict = psl_lib.get_alignment_dict(self.aln_psl, filter=self.transcript_dict.viewkeys())
+
+    def get_transcript_dict(self):
+        self.transcript_dict = seq_lib.get_transcript_dict(self.tgt_gp)
+
+    def transcript_iterator(self):
+        """
+        Convenience function for iterating over a dictionary of Transcript objects
+        """
+        if self.transcript_dict is None:
+            self.get_transcript_dict()
+        for aln_id, t in self.transcript_dict.iteritems():
+            yield aln_id, t
+
+    def alignment_iterator(self):
+        """
+        Convenience function for iterating over a dictionary of Transcript objects
+        """
+        if self.alignment_dict is None:
+            self.get_alignment_dict()
+        for aln_id, aln in self.transcript_dict.iteritems():
+            yield aln_id, aln
+
+    def alignment_transcript_iterator(self):
+        """
+        Convenience function for iterating over both Transcript and PslRow objects at once
+        """
+        if self.transcript_dict is None:
+            self.get_transcript_dict()
+        for aln_id, aln in self.alignment_iterator():
+            t = self.transcript_dict[aln_id]
+            yield aln_id, aln, t
+
+    def alignment_transcript_annotation_iterator(self):
+        """
+        Convenience function for iterating over alignment, ref transcript and tgt transcript
+        """
+        if self.annotation_dict is None:
+            self.get_annotation_dict()
+        for aln_id, aln, t in self.alignment_transcript_iterator():
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
+            yield aln_id, aln, t, a
+
+
+class AbstractAugustusClassifier(AbstractAlignmentClassifier):
+    """
+    Subclasses AbstractClassifier for Augustus classifications
+    """
+    def __init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir, tgt_genome, aln_psl, tgt_fasta, tgt_gp,
+                 augustus_gp):
+        AbstractAlignmentClassifier.__init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir, tgt_genome, aln_psl,
+                                             tgt_fasta, tgt_gp)
         self.augustus_gp = augustus_gp
-        self.augustus_transcripts = None
         self.augustus_transcript_dict = None
 
     def get_augustus_transcript_dict(self):
-        self.augustus_transcripts = seq_lib.get_gene_pred_transcripts(self.augustus_gp)
-        self.augustus_transcript_dict = seq_lib.transcript_list_to_dict(self.augustus_transcripts)
+        self.augustus_transcript_dict = seq_lib.get_transcript_dict(self.augustus_gp)
+
+    def augustus_transcript_iterator(self):
+        if self.augustus_transcript_dict is None:
+            self.get_augustus_transcript_dict()
+        for aug_id, aug_t in self.augustus_transcript_dict.iteritems():
+            yield aug_id, aug_t
+
+    def augustus_transcript_transmap_iterator(self):
+        if self.transcript_dict is None:
+            self.get_transcript_dict()
+        for aug_id, aug_t in self.augustus_transcript_iterator():
+            t = self.transcript_dict[psl_lib.remove_augustus_alignment_number(aug_id)]
+            yield aug_id, aug_t, t
 
 
-class Attribute(AbstractClassifier):
-    """Need to overwrite the dumpValueDict method for attributes"""
+class Attribute(AbstractAlignmentClassifier):
+    """
+    Subclasses AbstractClassifier to build the Attributes database
+    """
+    def __init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir, tgt_genome, aln_psl, tgt_fasta, tgt_gp,
+                 gencode_attributes):
+        AbstractAlignmentClassifier.__init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir, tgt_genome, aln_psl,
+                                             tgt_fasta, tgt_gp)
+        self.gencode_attributes = gencode_attributes
+        self.attribute_dict = None
+
     def get_attribute_dict(self):
         self.attribute_dict = seq_lib.get_transcript_attribute_dict(self.gencode_attributes)
 
-    def dump_attribute_results_to_disk(self, attribute_dict):
+    def attribute_iterator(self):
+        if self.attribute_dict is None:
+            self.get_attribute_dict()
+        for ens_id, data in self.attribute_dict.iteritems():
+            yield ens_id, data
+
+    def dump_attribute_results_to_disk(self, results_dict):
         """
         Dumps a attribute dict.
         """
@@ -118,4 +192,4 @@ class Attribute(AbstractClassifier):
         mkdir_p(base_p)
         p = os.path.join(base_p, self.column)
         with open(p, "wb") as outf:
-            pickle.dump(attribute_dict, outf)
+            pickle.dump(results_dict, outf)

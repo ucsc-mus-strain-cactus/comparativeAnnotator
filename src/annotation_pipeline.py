@@ -15,6 +15,7 @@ import lib.seq_lib as seq_lib
 from lib.general_lib import classes_in_module, mkdir_p
 
 import src.classifiers
+import src.alignment_classifiers
 import src.augustus_classifiers
 import src.attributes
 import etc.config
@@ -28,60 +29,71 @@ def parse_args():
     """
     Builds an argument parser for this run
     """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--refGenome', type=str, required=True)
-    parser.add_argument('--genome', required=True)
-    parser.add_argument('--annotationGp', required=True)
-    parser.add_argument('--psl', required=True)
-    parser.add_argument('--gp', required=True)
-    parser.add_argument('--fasta', required=True)
-    parser.add_argument('--refFasta', type=str, required=True)
-    parser.add_argument('--sizes', required=True)
-    parser.add_argument('--gencodeAttributes', required=True)
-    parser.add_argument('--outDir', type=str, required=True)
-    parser.add_argument('--augustus', action="store_true")
-    parser.add_argument('--augustusGp')
-    Stack.addJobTreeOptions(parser)  # add jobTree options
-    args = parser.parse_args()
-    if args.augustus and args.augustusGp is None:
-        raise RuntimeError("Error: augustus mode activated but no augustusGp provided.")
-    elif args.augustus is False and args.augustusGp is not None:
-        raise RuntimeError("Error: augustusGp provided but augustus flag not set.")
+    parent_parser = argparse.ArgumentParser()
+    subparsers = parent_parser.add_subparsers(title="Modes", description="Execution Modes", dest="mode")
+    tm_parser = subparsers.add_parser('transMap')
+    ref_parser = subparsers.add_parser('reference')
+    aug_parser = subparsers.add_parser('augustus')
+    # common arguments
+    for parser in [ref_parser, aug_parser, tm_parser]:
+        parser.add_argument('--outDir', type=str, required=True)
+        parser.add_argument('--refGenome', type=str, required=True)
+        parser.add_argument('--refFasta', type=str, required=True)
+        parser.add_argument('--sizes', required=True)
+        parser.add_argument('--annotationGp', required=True)
+    # transMap specific options
+    for parser in [aug_parser, tm_parser]:
+        parser.add_argument('--gencodeAttributes', required=True)
+        parser.add_argument('--genome', required=True)
+        parser.add_argument('--psl', required=True)
+        parser.add_argument('--targetGp', required=True)
+        parser.add_argument('--fasta', required=True)
+    # Augustus specific options
+    aug_parser.add_argument('--augustusGp', required=True)
+    Stack.addJobTreeOptions(parent_parser)  # add jobTree options
+    args = parent_parser.parse_args()
     return args
 
 
-def build_analyses(target, ref_genome, genome, annotation_gp, psl, gp, fasta, ref_fasta, sizes, gencode_attributes,
-                   out_dir, augustus, augustus_gp):
+def run_ref_classifiers(args, target, tmp_dir):
+    ref_classifiers = classes_in_module(src.classifiers)
+    for classifier in ref_classifiers:
+        target.addChildTarget(classifier(args.refFasta, args.annotationGp, args.refGenome, tmp_dir))
+
+
+def run_tm_classifiers(args, target, tmp_dir):
+    tm_classifiers = classes_in_module(src.alignment_classifiers)
+    for classifier in tm_classifiers:
+        target.addChildTarget(classifier(args.refFasta, args.annotationGp, args.refGenome, tmp_dir, args.genome,
+                                         args.psl, args.fasta, args.targetGp))
+
+
+def run_aug_classifiers(args, target, tmp_dir):
+    aug_classifiers = classes_in_module(src.augustus_classifiers)
+    for classifier in aug_classifiers:
+        target.addChildTarget(classifier(args.refFasta, args.annotationGp, args.refGenome, tmp_dir, args.genome,
+                                         args.psl, args.fasta, args.targetGp, args.augustusGp))
+
+
+def build_analyses(target, args):
     """
     Wrapper function that will call all classifiers. Each classifier will dump its results to disk as a pickled dict.
     Calls database_wrapper to load these into a sqlite3 database.
     """
     tmp_dir = target.getGlobalTempDir()
-    if augustus is True:
-        # find all user-defined classes in the categories of analyses
-        augustus_classifiers = classes_in_module(src.augustus_classifiers)
-        for classifier in augustus_classifiers:
-            target.addChildTarget(classifier(genome, psl, fasta, ref_fasta, annotation_gp, gencode_attributes, gp,
-                                             ref_genome, tmp_dir, augustus_gp))
-        target.setFollowOnTargetFn(database_wrapper, memory=8 * (1024 ** 3),
-                                   args=[out_dir, genome, sizes, augustus_gp, augustus, tmp_dir])
-    else:
-        # find all user-defined classes in the categories of analyses
-        classifiers = classes_in_module(src.classifiers) + classes_in_module(src.attributes)
-        for classifier in classifiers:
-            target.addChildTarget(classifier(genome, psl, fasta, ref_fasta, annotation_gp, gencode_attributes, gp,
-                                             ref_genome, tmp_dir))
-        # merge the resulting pickled files into sqlite databases and construct BED tracks
-        target.setFollowOnTargetFn(database_wrapper, memory=8 * (1024 ** 3),
-                                   args=[out_dir, genome, sizes, gp, augustus, tmp_dir])
+    if args.mode in ["reference", "transMap", "augustus"]:
+        run_ref_classifiers(args, target, tmp_dir)
+    if args.mode in ["transMap, augustus"]:
+        run_tm_classifiers(args, target, tmp_dir)
+    if args.mode == "augustus":
+        run_aug_classifiers(args, target, tmp_dir)
+    # merge the resulting pickled files into sqlite databases and construct BED tracks
+    target.setFollowOnTargetFn(database_wrapper, memory=8 * (1024 ** 3), args=[args, tmp_dir])
 
 
 def main():
     args = parse_args()
-    i = Stack(Target.makeTargetFn(build_analyses, memory=8 * (1024 ** 3),
-                                  args=[args.refGenome, args.genome, args.annotationGp, args.psl, args.gp, args.fasta, 
-                                        args.refFasta, args.sizes, args.gencodeAttributes, args.outDir, args.augustus,
-                                        args.augustusGp])).startJobTree(args)
+    i = Stack(Target.makeTargetFn(build_analyses, memory=8 * (1024 ** 3), args=[args])).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
 

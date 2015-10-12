@@ -3,7 +3,7 @@ from collections import Counter
 import lib.sql_lib as sql_lib
 from lib.general_lib import mkdir_p
 from plotting.plot_functions import *
-from etc.config import *
+import etc.config
 
 
 def parse_args():
@@ -25,7 +25,7 @@ coverage_bins = [0, 0.0001, 0.8, 0.95, 0.99999999, 1.0]
 
 def paralogy(cur, genome):
     """
-    Finds the number of paralogous alignments. This is defined as the number of gene IDs with more than one
+    Finds the number of paralogous alignments. This is defined as the number of transcript IDs with more than one
     alignment.
     """
     cmd = """SELECT TranscriptId FROM attributes.'{0}'""".format(genome)
@@ -37,7 +37,7 @@ def number_categorized(cur, genome, query_fn, biotype=None):
     Finds the alignment IDs categorized by a categorizing function. Can be restricted by biotype
     """
     query = query_fn(genome, details=False)
-    ok_ids = sql_lib.get_ok_ids(cur, query)
+    ok_ids = sql_lib.get_query_ids(cur, query)
     if biotype is not None:
         biotype_ids = sql_lib.get_biotype_ids(cur, genome, biotype)
         return ok_ids & biotype_ids
@@ -122,16 +122,21 @@ def cov_ident_wrapper(highest_cov_dict, genome_order, out_path, base_file_name, 
         metrics_plot(highest_cov_dict, bins, genome_order, out_path, file_name, biotype, gencode, filter_set, analysis)
 
 
-def num_ok(highest_cov_dict, cur, genome_order, out_path, base_file_name, biotype, gencode, filter_set):
-    file_name = "{}_numOK".format(base_file_name)
-    if biotype == 'protein_coding':
-        classifiers = tm_coding_classifiers
-    else:
-        classifiers = tm_noncoding_classifiers
+def num_good_pass(highest_cov_dict, cur, genome_order, out_path, base_file_name, biotype, gencode, filter_set):
+    file_name = "{}_numGoodPass".format(base_file_name)
+    coding = True if biotype == "protein_coding" else False
     results = []
     for genome in genome_order:
-        tm_ok = transmap_ok(cur, genome)
+        good_query = etc.config.transMapEval(genome, coding, good=True)
+        pass_query = etc.config.transMapEval(genome, coding, good=False)
         best_ids = set(zip(*highest_cov_dict[genome].itervalues())[0])
+        good_ids = {x for x in sql_lib.get_query_ids(cur, good_query) if strip_alignment_numbers(x) in filter_set
+                    and x in best_ids}
+        pass_ids = {x for x in sql_lib.get_query_ids(cur, pass_query) if strip_alignment_numbers(x) in filter_set
+                    and x in best_ids}
+        num_fail = len(filter_set) - len(best_ids)
+        num_pass = len(pass_ids - good_ids)
+        num_good = len(good_ids)
         raw = len({x for x in tm_ok if strip_alignment_numbers(x) in filter_set and x in best_ids})
         norm = raw / (0.01 * len(filter_set))
         results.append([genome, norm, raw])
@@ -162,7 +167,8 @@ def main():
             cat_plot_wrapper(cur, highest_cov_dict, genome_order, out_path, base_file_name, biotype, args.gencode, 
                              filter_set)
             paralogy_plot(cur, genome_order, out_path, base_file_name, biotype, args.gencode, filter_set)
-            num_ok(highest_cov_dict, cur, genome_order, out_path, base_file_name, biotype, args.gencode, filter_set)
+            num_good_pass(highest_cov_dict, cur, genome_order, out_path, base_file_name, biotype, args.gencode,
+                          filter_set)
 
 
 if __name__ == "__main__":

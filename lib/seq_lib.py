@@ -10,6 +10,7 @@ import string
 import copy
 import math
 from itertools import izip
+from lib.general_lib import tokenize_stream
 from pyfaidx import Fasta
 
 __author__ = "Ian Fiddes"
@@ -306,12 +307,6 @@ class Transcript(object):
                 # thickStop marks the end of the CDS
                 l += self.thick_stop - e.start
         self.cds_size = l
-
-    def get_cds_length(self):
-        return self.cds_size
-
-    def get_transcript_length(self):
-        return self.transcript_size
 
     def get_mrna(self, seq_dict):
         """
@@ -1151,61 +1146,21 @@ def get_sequence_dict(file_path):
     return Fasta(file_path, as_raw=True)
 
 
-def get_transcripts(bed_file):
+def get_transcript_dict(gp_file):
     """
-    Given a path to a standard BED return a list of Transcript objects
+    Convenience function for creating transcript dictionaries
     """
-    transcripts = []
-    bed_file = open(bed_file, 'r')
-    for t in transcript_iterator(bed_file, Transcript):
-        transcripts.append(t)
-    return transcripts
+    return {n: t for n, t in transcript_iterator(gp_file)}
 
 
-def get_gene_pred_transcripts(gp_file):
+def transcript_iterator(gp_file):
     """
     Given a path to a standard genePred file return a list of GenePredTranscript objects
     """
-    transcripts = []
-    gp_file = open(gp_file, 'r')
-    for t in transcript_iterator(gp_file, GenePredTranscript):
-        transcripts.append(t)
-    return transcripts
-
-
-def transcript_list_to_dict(transcripts):
-    """
-    Given a list af Transcript objects, attempt to transform them into a dict
-    of lists. key is transcript name, value is list of Transcript objects.
-    If no_duplicates is true, then the value will be a single Transcript object.
-    """
-    result = {}
-    for t in transcripts:
-        if t.name in result:
-            raise RuntimeError('transcriptListToDict: Discovered a duplicate transcript {} {}'.format(t.name,
-                                                                                                      t.chromosome))
-        else:
-            result[t.name] = t
-    return result
-
-
-def tokenize_stream(stream):
-    """
-    Iterator through a tab delimited file, returning lines as list of tokens
-    """
-    for line in stream:
-        if line != '':
-            tokens = line.rstrip().split("\t")
-            yield tokens
-
-
-def transcript_iterator(stream, transcript):
-    """
-    Iterates over the transcript detailed in the bed stream producing Transcript objects.
-    transcript is the type of transcript, defaults to Transcript
-    """
-    for tokens in tokenize_stream(stream):
-        yield transcript(tokens)
+    with open(gp_file) as inf:
+        for tokens in tokenize_stream(inf):
+            t = Transcript(tokens)
+            yield t.name, t
 
 
 def get_transcript_attribute_dict(attribute_file):

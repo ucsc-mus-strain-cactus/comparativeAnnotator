@@ -59,9 +59,10 @@ def attach_databases(comp_ann_path, has_augustus=False):
     return con, cur
 
 
-def get_ok_ids(cur, query):
+def get_query_ids(cur, query):
     """
-    Returns a set of aln_ids which are OK based on the definition of OK in config.py that made this query
+    Returns a set of aln_ids which are OK based on the definition of OK in config.py that made this query.
+    In other words, expects a query of the form SELECT AlignmentId FROM stuff
     """
     return {x[0] for x in cur.execute(query).fetchall()}
 

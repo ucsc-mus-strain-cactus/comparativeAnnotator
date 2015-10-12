@@ -3,7 +3,8 @@ import argparse
 import pandas as pd
 from plotting.plot_functions import *
 from plotting.coverage_identity_ok_plots import *
-from etc.config import *
+import src.classifiers
+import src.alignment_classifiers
 import lib.sql_lib as sql_lib
 from lib.general_lib import mkdir_p
 from jobTree.scriptTree.target import Target
@@ -48,7 +49,7 @@ def munge_data(d, filter_set, coding=False):
     normed_s.sort(ascending=False)
     s.sort(ascending=False)
     drop_low_sums(m, normed_s)
-    s = [[x, normed_s[x], y]  for x, y in s.iteritems()]
+    s = [[x, normed_s[x], y] for x, y in s.iteritems()]
     return m, s
 
 
@@ -66,23 +67,20 @@ def find_aln_id_set(cur, attr_path, ref_gp_path, genome, biotype, coding):
     return filter_set, len(biotype_set)
 
 
-def main_fn(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, biotype, base_out_path):
+def main_fn(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, base_out_path):
+    biotype = "protein_coding"
     base_clust_title = "Hierarchical_clustering_of_transMap_classifiers"
     base_barplot_title = ("Proportion of transcripts that fail transMap classifiers\ngenome: {}.    {:,} "
                           "({:0.2f}%) not OK transcripts \nGencode set: {}    Biotype: {}")
     out_path = os.path.join(base_out_path, biotype, "clustering", genome)
     con, cur = sql_lib.attach_databases(comp_ann_path)
-    if biotype == "protein_coding":
-        classifiers = tm_coding_classifiers
-        coding = True
-    else:
-        classifiers = tm_noncoding_classifiers
-        coding = False
+    classifiers = classes_in_module(src.classifiers) + classes_in_module(src.alignment_classifiers)
+    classifiers = [x.__name__ for x in classifiers]
     sql_data = load_data(con, genome, classifiers)
-    filter_set, num_biotype = find_aln_id_set(cur, attr_path, ref_gp_path, genome, biotype, coding)
+    filter_set, num_biotype = find_aln_id_set(cur, attr_path, ref_gp_path, genome, biotype, coding=True)
     if num_biotype > 25 and len(filter_set) > 10:
         percent_not_ok = round(100.0 * len(filter_set) / num_biotype, 2)
-        munged, stats = munge_data(sql_data, filter_set, coding=coding)
+        munged, stats = munge_data(sql_data, filter_set, coding=True)
         mkdir_p(out_path)
         barplot_title = base_barplot_title.format(genome, len(filter_set), percent_not_ok, gencode, biotype)
         out_barplot_file = os.path.join(out_path, "barplot_{}_{}".format(genome, biotype))
@@ -97,20 +95,12 @@ def main_fn(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, biot
                                                 percent_not_ok, gencode, biotype, out_cluster_file))
 
 
-def wrapper(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, biotypes, base_out_path):
-    for biotype in biotypes:
-        target.addChildTargetFn(main_fn, args=(comp_ann_path, attr_path, ref_gp_path, gencode, genome, biotype,
-                                               base_out_path))
-
-
 def main():
     parser = build_parser()
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
-    biotypes = ["protein_coding", "miRNA", "snoRNA", "snRNA", "lincRNA", "processed_pseudogenes",
-                "unprocessed_pseudogenes", "pseudogenes"]
-    i = Stack(Target.makeTargetFn(wrapper, args=[args.comparativeAnnotationDir, args.attributePath, args.annotationGp,
-                                                 args.gencode, args.genome, biotypes, args.outDir])).startJobTree(args)
+    i = Stack(Target.makeTargetFn(main_fn, args=[args.comparativeAnnotationDir, args.attributePath, args.annotationGp,
+                                                 args.gencode, args.genome, args.outDir])).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
 

@@ -4,7 +4,8 @@ This file configures the plotting and queries for the comparativeAnnotator pipel
 
 import src.classifiers
 import src.augustus_classifiers
-from lib.general_lib import classes_in_module
+import src.alignment_classifiers
+from lib.general_lib import classes_in_module, dict_to_named_tuple, merge_dicts
 
 __author__ = "Ian Fiddes"
 
@@ -15,21 +16,38 @@ __author__ = "Ian Fiddes"
 hard_coded_genome_order = ['C57B6NJ', 'NZOHlLtJ', '129S1', 'FVBNJ', 'NODShiLtJ', 'LPJ', 'AJ', 'AKRJ', 'BALBcJ', 'DBA2J',
                             'C3HHeJ', 'CBAJ', 'WSBEiJ', 'CASTEiJ', 'PWKPhJ', 'SPRETEiJ', 'CAROLIEiJ', 'PAHARIEiJ']
 
-# these classifiers define OK for coding transcripts
-tm_coding_classifiers = ["CodingInsertions", "CodingDeletions",
-                         "AlignmentPartialMap", "BadFrame", "BeginStart", "UnknownBases", "AlignmentAbutsUnknownBases",
-                         "CdsGap", "CdsMult3Gap", "UtrGap", "UnknownGap", "CdsUnknownSplice", "UtrUnknownSplice",
-                         "EndStop", "InFrameStop", "ShortCds", "StartOutOfFrame", "FrameShift",
-                         "AlignmentAbutsRight", "AlignmentAbutsLeft"]
+# these classifiers define Pass for single-genome analysis
+ref_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
+                   "StartOutOfFrame", "SpliceContainsN", "InFrameStop", "ShortCds"]
 
-# these classifiers define OK for non-coding transcripts
-tm_noncoding_classifiers = ["AlignmentPartialMap", "UtrUnknownSplice", "UtrGap", "UnknownGap", "UnknownBases",
-                            "AlignmentAbutsUnknownBases"]
+# these classifiers define Pass/Good for coding transcripts
+tm_coding_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
+                         "StartOutOfFrame", "InFrameStop", "ShortCds", "CodingInsertions", "CodingDeletions",
+                         "FrameShift", "HasOriginalStart", "HasOriginalStop", "HasOriginalIntrons"]
 
-# these classifiers define OK for Augustus transcripts
-aug_ok_classifiers = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand',
+# these classifiers define Pass/Good for non-coding transcripts
+noncoding_classifiers = ["UtrUnknownSplice"]
+
+# these classifiers define Pass for Augustus transcripts
+aug_classifiers = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand',
                       'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries',
                       'AugustusNotSimilarInternalExonBoundaries']
+
+ref_pass = dict_to_named_tuple(ref_classifiers, "ref_pass")
+aug_pass = dict_to_named_tuple(aug_classifiers, "aug_pass")
+
+# these cutoffs determine whether a transcript is pass/good/fail in addition to the classifiers
+pass_cutoffs = {"coverage": 100.0, "percent_n": 1.0, "percent_coding_n": 0.2}
+good_cutoffs = {"coverage": 95.0, "percent_n": 5.0, "percent_coding_n": 1.0}
+
+tm_pass = dict_to_named_tuple(merge_dicts([{"classifiers": tm_coding_classifiers}, pass_cutoffs]), "tm_pass")
+tm_good = dict_to_named_tuple(merge_dicts([{"classifiers": tm_coding_classifiers}, good_cutoffs]), "tm_good")
+
+noncoding_pass = dict_to_named_tuple(merge_dicts([{"classifiers": noncoding_classifiers}, pass_cutoffs]),
+                                     "noncoding_pass")
+noncoding_good = dict_to_named_tuple(merge_dicts([{"classifiers": noncoding_classifiers}, good_cutoffs]),
+                                     "noncoding_good")
+
 
 # used for the plots
 width = 9.0
@@ -41,9 +59,18 @@ paired_palette = ["#df65b0", "#dd1c77", "#980043", "#a1dab4", "#41b6c4", "#2c7fb
 palette = ["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#f0e442", "#56b4e9"]
 
 
+def refClassifiers(genome):
+    base_query = "SELECT {} FROM details.'{}'"
+    classifiers = classes_in_module(src.classifiers)
+    classifiers = ",".join([x.__name__ for x in classifiers])
+    query = base_query.format(classifiers, genome)
+    return query
+
+
 def allClassifiers(genome):
     base_query = "SELECT {} FROM details.'{}'"
-    classifiers = ",".join([x.__name__ for x in classes_in_module(src.classifiers)])
+    classifiers = classes_in_module(src.classifiers) + classes_in_module(src.alignment_classifiers)
+    classifiers = ",".join([x.__name__ for x in classifiers])
     query = base_query.format(classifiers, genome)
     return query
 
@@ -86,26 +113,42 @@ def alignmentErrors(genome, details=True):
     details_selection = ("SELECT details.'{0}'.BadFrame,details.'{0}'.CdsGap,details.'{0}'.CdsMult3Gap,"
                          "details.'{0}'.UtrGap,details.'{0}'.Paralogy,details.'{0}'.HasOriginalIntrons,"
                          "details.'{0}'.StartOutOfFrame ")
-    classify_selection = ("SELECT main.'{0}'.AlignmentId ")
+    classify_selection = "SELECT main.'{0}'.AlignmentId "
     added_query = details_selection + base_query if details else classify_selection + base_query
     query = added_query.format(genome)
     return query
 
 
-def transMapOk(genome, coding=True):
-    base_query = "SELECT AlignmentId FROM main.'{}' WHERE {}"
-    if coding:
-        equality = ["{} = 0".format(x) for x in tm_coding_classifiers]
+def transMapEval(genome, coding=True, good=False):
+    if coding is True:
+        requirements = tm_pass if good is False else tm_good
     else:
-        equality = ["{} = 0".format(x) for x in tm_noncoding_classifiers]
-    classifiers = " AND ".join(equality)
+        requirements = noncoding_pass if good is False else noncoding_good
+    base_query = "SELECT main.'{0}'.AlignmentId FROM main.'{0}' JOIN attributes.'{0}' USING (AlignmentId) WHERE {1}"
+    classifiers = ["main.'{}'.{} = 0".format(genome, x) for x in requirements.classifiers]
+    classifiers = " AND ".join(classifiers)
+    classifiers += " AND attributes.'{}'.AlignmentCoverage >= {}".format(genome, requirements.coverage)
+    classifiers += " AND attributes.'{}'.PercentN < {}".format(genome, requirements.percent_n)
+    if coding is True:
+        classifiers += " AND attributes.'{}'.PercentCodingN < {}".format(genome, requirements.percent_coding_n)
     query = base_query.format(genome, classifiers)
     return query
 
 
-def augustusOk(genome):
-    base_query = "SELECT AlignmentId FROM augustus.'{}' WHERE {}"
-    equality = ["{} = 0".format(x) for x in aug_ok_classifiers]
+def refEval(genome):
+    """
+    We only evaluate coding genes in the reference, otherwise we just don't have enough to say anything
+    """
+    base_query = "SELECT AlignmentId FROM main.'{0}' WHERE {1}"
+    classifiers = ["main.'{}'.{} = 0".format(genome, x) for x in ref_pass.classifiers]
+    classifiers = " AND ".join(classifiers)
+    query = base_query.format(genome, classifiers)
+    return query
+
+
+def augustusEval(genome):
+    base_query = "SELECT AlignmentId FROM augustus.'{0}' WHERE {1}"
+    equality = ["{} = 0".format(x) for x in aug_pass.classifiers]
     classifiers = " AND ".join(equality)
     query = base_query.format(genome, classifiers)
     return query

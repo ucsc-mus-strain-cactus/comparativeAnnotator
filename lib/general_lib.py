@@ -4,9 +4,10 @@ General purpose library of things.
 import os
 import gzip
 import operator
+import itertools
 import types
 import errno
-from collections import OrderedDict, Callable
+from collections import OrderedDict, Callable, namedtuple
 
 __author__ = "Ian Fiddes"
 
@@ -127,3 +128,24 @@ def combine_dicts(a, b, op=operator.add):
     http://stackoverflow.com/questions/11011756/is-there-any-pythonic-way-to-combine-two-dicts-adding-values-for-keys-that-appe
     """
     return dict(a.items() + b.items() + [(k, op(a[k], b[k])) for k in b.viewkeys() & a.viewkeys()])
+
+
+def tokenize_stream(stream):
+    """
+    Iterator through a tab delimited file, returning lines as list of tokens
+    """
+    for line in stream:
+        if line != '' and not line.startswith("#"):
+            tokens = line.rstrip().split("\t")
+            yield tokens
+
+
+def dict_to_named_tuple(d, name):
+    return namedtuple(name, d.keys())(**d)
+
+
+def merge_dicts(list_of_dicts):
+    """
+    This will merge a list of dicts. Any duplicate keys will end up with the last value seen.
+    """
+    return reduce(lambda a, d: a.update(d) or a, list_of_dicts, {})
