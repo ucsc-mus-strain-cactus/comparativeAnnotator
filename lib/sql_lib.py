@@ -42,7 +42,6 @@ def attach_databases(comp_ann_path, mode):
     assert mode in ["reference", "augustus", "transMap"]
     classify_path = os.path.join(comp_ann_path, "classify.db")
     details_path = os.path.join(comp_ann_path, "details.db")
-    assert all([os.path.exists(x) for x in [classify_path, details_path]])
     con = sql.connect(classify_path)
     cur = con.cursor()
     attach_database(con, details_path, "details")
@@ -54,7 +53,6 @@ def attach_databases(comp_ann_path, mode):
         aug_classify_path = os.path.join(comp_ann_path, "augustus_classify.db")
         aug_details_path = os.path.join(comp_ann_path, "augustus_details.db")
         aug_attributes_path = os.path.join(comp_ann_path, "augustus_attributes.db")
-        assert all([os.path.exists(x) for x in [aug_classify_path, aug_details_path, aug_attributes_path]])
         attach_database(con, aug_classify_path, "augustus")
         attach_database(con, aug_details_path, "augustus_details")
         attach_database(con, aug_attributes_path, "augustus_attributes")
