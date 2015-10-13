@@ -948,7 +948,7 @@ class ChromosomeInterval(object):
         Returns the sequence for this intron in transcript orientation (reverse complement as necessary)
         If strand is False, returns the + strand regardless of transcript orientation.
         """
-        if strand is False or if self.strand is True:
+        if strand is False or self.strand is True:
             return seq_dict[self.chromosome][self.start:self.stop].upper()
         if self.strand is False:
             return reverse_complement(seq_dict[self.chromosome][self.start:self.stop]).upper()
