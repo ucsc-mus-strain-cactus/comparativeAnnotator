@@ -861,7 +861,7 @@ class ChromosomeInterval(object):
         If two are returned, that means the two intervals do not overlap.
         Returns None if the intervals are not on the same strand and chromosome
         """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
+        if self.chromosome != other.chromosome:
             return None
         if self > other:
             other, self = self, other
@@ -877,7 +877,7 @@ class ChromosomeInterval(object):
         Returns a new ChromosomeInterval representing the merged interval of these two, regardless of overlap
         I.E. if one interval is [1, 10) and another is [20, 30) this will return [1, 30)
         """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
+        if self.chromosome != other.chromosome:
             return None
         if self > other:
             other, self = self, other
@@ -891,7 +891,7 @@ class ChromosomeInterval(object):
         """
         Returns True if this interval overlaps other (if they are on the same strand and chromosome)
         """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
+        if self.chromosome != other.chromosome:
             return False
         if self > other:
             other, self = self, other
@@ -901,7 +901,7 @@ class ChromosomeInterval(object):
         """
         Returns True if this interval is a subset of the other interval (if they are on the same strand and chromosome)
         """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
+        if self.chromosome != other.chromosome:
             return False
         return self.start >= other.start and self.stop <= other.stop
 
@@ -909,7 +909,7 @@ class ChromosomeInterval(object):
         """
         same a subset, but only if other is entirely encased in this interval.
         """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
+        if self.chromosome != other.chromosome:
             return False
         return self.start > other.start and self.stop < other.stop
 
@@ -917,7 +917,7 @@ class ChromosomeInterval(object):
         """
         Returns a integer representing the start distance between these intervals
         """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
+        if self.chromosome != other.chromosome:
             return None
         if self > other:
             other, self = self, other
@@ -930,7 +930,7 @@ class ChromosomeInterval(object):
         """
         Returns a pair of distances representing the symmetric distance between two intervals
         """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
+        if self.chromosome != other.chromosome:
             return None
         if self > other:
             other, self = self, other
@@ -948,9 +948,7 @@ class ChromosomeInterval(object):
         Returns the sequence for this intron in transcript orientation (reverse complement as necessary)
         If strand is False, returns the + strand regardless of transcript orientation.
         """
-        if strand is False:
-            return seq_dict[self.chromosome][self.start:self.stop].upper()
-        if self.strand is True:
+        if strand is False or if self.strand is True:
             return seq_dict[self.chromosome][self.start:self.stop].upper()
         if self.strand is False:
             return reverse_complement(seq_dict[self.chromosome][self.start:self.stop]).upper()

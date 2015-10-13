@@ -106,9 +106,9 @@ class AugustusNotSimilarInternalExonBoundaries(AbstractAugustusClassifier):
     def rgb(self):
         return self.colors["generic"]
 
-    def run(self, wiggle_room=30):
+    def run(self, short_intron_size=50, wiggle_room=30):
         for aug_aln_id, aug_t, t in self.augustus_transcript_transmap_iterator():
-            merged_t_intervals = seq_lib.gap_merge_intervals(t.exon_intervals, gap=comp_ann_lib.short_intron_size)
+            merged_t_intervals = seq_lib.gap_merge_intervals(t.exon_intervals, gap=short_intron_size)
             merged_t_intervals = merged_t_intervals[1:-1]
             aug_t_intervals = aug_t.exon_intervals[1:-1]
             for interval in merged_t_intervals:
@@ -157,6 +157,7 @@ class AugustusNotSameStartStop(AbstractAugustusClassifier):
     def run(self):
         for aug_aln_id, aug_t, t in self.augustus_transcript_transmap_iterator():
             if t.thick_start != aug_t.thick_start or t.thick_stop != aug_t.thick_stop:
+                s = aug_t.cds_size
                 bed_recs = [seq_lib.cds_coordinate_to_bed(aug_t, 0, 3, self.rgb, self.column),
                             seq_lib.cds_coordinate_to_bed(aug_t, s - 3, s, self.rgb, self.column)]
                 self.details_dict[aug_aln_id].extend(bed_recs)
