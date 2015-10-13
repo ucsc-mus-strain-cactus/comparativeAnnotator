@@ -130,12 +130,10 @@ def psl_iterator(psl_file):
             yield psl.q_name, psl
 
 
-def get_alignment_dict(psl_file, filter=None):
+def get_alignment_dict(psl_file):
     """
-    Convenience function for creating a dictionary of PslRow objects. Has whitelist functionality
+    Convenience function for creating a dictionary of PslRow objects.
     """
-    if filter is not None:
-        return {aln_id: aln for aln_id, aln in psl_iterator(psl_file) if aln_id in filter}
     return {aln_id: aln for aln_id, aln in psl_iterator(psl_file)}
 
 

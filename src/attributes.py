@@ -183,7 +183,7 @@ class PercentUnknownBases(Attribute):
 
 class PercentUnknownCodingBases(Attribute):
     """
-    Calculates the % of coding bases that are Ns in the transcript
+    Calculates the percent of coding bases that are Ns in the transcript
     """
     def run(self):
         self.get_fasta()

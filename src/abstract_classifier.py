@@ -102,9 +102,7 @@ class AbstractAlignmentClassifier(AbstractClassifier):
         self.ref_seq_dict = seq_lib.get_sequence_dict(self.ref_fasta)
 
     def get_alignment_dict(self):
-        if self.transcript_dict is None:
-            self.get_transcript_dict()
-        self.alignment_dict = psl_lib.get_alignment_dict(self.aln_psl, filter=self.transcript_dict.viewkeys())
+        self.alignment_dict = psl_lib.get_alignment_dict(self.aln_psl)
 
     def get_transcript_dict(self):
         self.transcript_dict = seq_lib.get_transcript_dict(self.tgt_gp)
@@ -131,6 +129,8 @@ class AbstractAlignmentClassifier(AbstractClassifier):
         """
         Convenience function for iterating over both Transcript and PslRow objects at once
         """
+        if self.transcript_dict is None:
+            self.get_transcript_dict()
         for aln_id, aln in self.alignment_iterator():
             t = self.transcript_dict[aln_id]
             yield aln_id, aln, t
