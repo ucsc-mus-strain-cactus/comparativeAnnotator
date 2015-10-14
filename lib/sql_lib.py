@@ -44,13 +44,12 @@ def attach_databases(comp_ann_path, mode):
     """
     assert mode in ["reference", "augustus", "transMap"]
     classify_path = os.path.join(comp_ann_path, "classify.db")
-    details_path = os.path.join(comp_ann_path, "details.db")
     con = sql.connect(classify_path)
     cur = con.cursor()
+    details_path = os.path.join(comp_ann_path, "details.db")
     attach_database(con, details_path, "details")
-    if mode in ["transMap", "augustus"]:
-        attr_path = os.path.join(comp_ann_path, "attributes.db")
-        attach_database(con, attr_path, "attributes")
+    attr_path = os.path.join(comp_ann_path, "attributes.db")
+    attach_database(con, attr_path, "attributes")
     if mode == "augustus":
         aug_classify_path = os.path.join(comp_ann_path, "augustus_classify.db")
         aug_details_path = os.path.join(comp_ann_path, "augustus_details.db")

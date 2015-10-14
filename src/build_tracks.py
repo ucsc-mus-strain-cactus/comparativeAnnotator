@@ -10,6 +10,7 @@ from jobTree.scriptTree.stack import Stack
 
 import lib.sql_lib as sql_lib
 import lib.seq_lib as seq_lib
+import lib.psl_lib as psl_lib
 from lib.general_lib import mkdir_p
 import etc.config
 
@@ -28,23 +29,23 @@ def database_wrapper(target, args, tmp_dir):
     if args.mode == "augustus":
         for db in ["classify", "details"]:
             db_path = os.path.join(args.outDir, "augustus_{}.db".format(db))
-            database(args.genome, db, db_path, tmp_dir)
+            database(args.genome, db, db_path, tmp_dir, args.mode)
     elif args.mode == "reference":
         for db in ["classify", "details"]:
             db_path = os.path.join(args.outDir, "{}.db".format(db))
-            database(args.refGenome, db, db_path, tmp_dir, ref=True)
+            database(args.refGenome, db, db_path, tmp_dir, args.mode)
         attr_db_path = os.path.join(args.outDir, "attributes.db")
         ref_attr_table(args.refGenome, attr_db_path, args.gencodeAttributes)
     elif args.mode == "transMap":
         for db in ["classify", "details", "attributes"]:
             db_path = os.path.join(args.outDir, "{}.db".format(db))
-            database(args.genome, db, db_path, tmp_dir)
+            database(args.genome, db, db_path, tmp_dir, args.mode)
     else:
         raise RuntimeError("Somehow your argparse object does not contain a valid mode.")
     target.setFollowOnTargetFn(build_tracks_wrapper, args=[args])
 
 
-def database(genome, db, db_path, tmp_dir, ref=False):
+def database(genome, db, db_path, tmp_dir, mode):
     data_dict = {}
     mkdir_p(os.path.dirname(db_path))
     data_path = os.path.join(tmp_dir, db)
@@ -52,7 +53,7 @@ def database(genome, db, db_path, tmp_dir, ref=False):
         p = os.path.join(data_path, col)
         with open(p) as p_h:
             data_dict[col] = pickle.load(p_h)
-    index_label = "AlignmentId" if ref else "TranscriptId"
+    index_label = "TranscriptId" if mode == "reference" else "AlignmentId"
     sql_lib.write_dict(data_dict, db_path, genome, index_label)
 
 
@@ -133,23 +134,24 @@ def build_good_track(target, args):
     if args.mode == "augustus":
         query = etc.config.augustusEval(args.genome)
         good_ids = sql_lib.get_query_ids(cur, query)
-        out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, "augustusOk", args.genome)
+        out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, "augustusGood", args.genome)
         gp_dict = seq_lib.get_transcript_dict(args.augustusGp)
-    elif args.mode == "reference":
+    elif args.mode == "reference":  # for reference, we are more interested in what is NOT Good
         query = etc.config.refEval(args.refGenome)
-        good_ids = sql_lib.get_query_ids(cur, query)
-        out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, "referenceOk", args.refGenome)
+        good_ids = biotype_map.viewkeys() - sql_lib.get_query_ids(cur, query)  # actually not good
+        out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, "referenceNotGood", args.refGenome)
         gp_dict = seq_lib.get_transcript_dict(args.annotationGp)
     elif args.mode == "transMap":
         good_ids = get_all_tm_good(cur, args.refGenome, args.genome)
-        out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, "transMapOk", args.genome)
+        out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, "transMapGood", args.genome)
         gp_dict = seq_lib.get_transcript_dict(args.targetGp)
     else:
         raise RuntimeError("Somehow your argparse object does not contain a valid mode.")
     with open(out_bed_path, "w") as outf:
         for aln_id, rec in gp_dict.iteritems():
             if aln_id in good_ids:
-                if biotype_map[aln_id] == "protein_coding":
+                tx_id = psl_lib.strip_alignment_numbers(aln_id)
+                if biotype_map[tx_id] == "protein_coding":
                     bed = rec.get_bed(rgb=colors["coding"])
                     outf.write("".join(["\t".join(map(str, bed)), "\n"]))
                 else:
