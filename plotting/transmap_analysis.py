@@ -61,9 +61,9 @@ def make_hist(vals, bins, reverse=False, roll=0):
     return norm, raw
 
 
-def paralogy_plot(cur, genome_order, out_path, base_file_name, biotype, biotype_ids, gencode):
+def paralogy_plot(cur, genome_order, out_path, biotype, biotype_ids, gencode):
     results = []
-    file_name = "{}_{}".format(base_file_name, "paralogy")
+    file_name = "{}_{}".format(gencode, "paralogy")
     for g in genome_order:
         p = paralogy(cur, g)
         p = [p.get(x, 0) for x in biotype_ids]
@@ -90,9 +90,9 @@ def categorized_plot(cur, highest_cov_dict, genome_order, out_path, file_name, b
     plot_lib.barplot(results, out_path, file_name, title_string, adjust_y=False)
 
 
-def cat_plot_wrapper(cur, highest_cov_dict, genome_order, out_path, base_file_name, biotype, gencode, biotype_ids):
+def cat_plot_wrapper(cur, highest_cov_dict, genome_order, out_path, biotype, gencode, biotype_ids):
     for query_fn in [etc.config.alignmentErrors, etc.config.assemblyErrors]:
-        file_name = "{}_{}".format(base_file_name, query_fn.__name__)
+        file_name = "{}_{}".format(gencode, query_fn.__name__)
         categorized_plot(cur, highest_cov_dict, genome_order, out_path, file_name, biotype, biotype_ids, gencode,
                          query_fn)
 
@@ -113,16 +113,15 @@ def metrics_plot(highest_cov_dict, bins, genome_order, out_path, file_name, biot
     plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
 
 
-def cov_ident_wrapper(highest_cov_dict, genome_order, out_path, base_file_name, biotype, gencode, biotype_ids):
+def cov_ident_wrapper(highest_cov_dict, genome_order, out_path,  biotype, gencode, biotype_ids):
     for analysis in ["coverage", "identity"]:
         bins = eval(analysis + "_bins")
-        file_name = "{}_{}".format(base_file_name, analysis)
+        file_name = "{}_{}".format(gencode, analysis)
         metrics_plot(highest_cov_dict, bins, genome_order, out_path, file_name, biotype, gencode, biotype_ids, analysis)
 
 
-def num_good_pass(highest_cov_dict, cur, genome_order, ref_genome, out_path, base_file_name, biotype, gencode,
-                  biotype_ids):
-    file_name = "{}_num_good_pass".format(base_file_name)
+def num_good_pass(highest_cov_dict, cur, genome_order, ref_genome, out_path, biotype, gencode, biotype_ids):
+    file_name = "{}_num_good_pass".format(gencode)
     results = []
     for g in genome_order:
         good_query = etc.config.transMapEval(ref_genome, g, biotype, good=True)
@@ -161,18 +160,15 @@ def main():
     genome_order = etc.config.hard_coded_genome_order
     # we will filter out chromosome Y transcripts for this project
     chr_y_ids = sql_lib.get_ids_by_chromosome(cur, args.refGenome, args.filterChroms)
-    base_file_name = args.gencode
     for biotype in sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=False):
         biotype_ids = sql_lib.filter_biotype_ids(cur, args.refGenome, biotype, chr_y_ids, mode="Transcript")
         if len(biotype_ids) > 100:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty
             out_path = os.path.join(args.outDir, biotype)
             mkdir_p(out_path)
-            cov_ident_wrapper(highest_cov_dict, genome_order, out_path, base_file_name, biotype, args.gencode,
-                              biotype_ids)
-            cat_plot_wrapper(cur, highest_cov_dict, genome_order, out_path, base_file_name, biotype, args.gencode,
-                             biotype_ids)
-            paralogy_plot(cur, genome_order, out_path, base_file_name, biotype, biotype_ids, args.gencode)
-            num_good_pass(highest_cov_dict, cur, genome_order, args.refGenome, out_path, base_file_name, biotype,
+            cov_ident_wrapper(highest_cov_dict, genome_order, out_path,biotype, args.gencode, biotype_ids)
+            cat_plot_wrapper(cur, highest_cov_dict, genome_order, out_path, biotype, args.gencode, biotype_ids)
+            paralogy_plot(cur, genome_order, out_path, biotype, biotype_ids, args.gencode)
+            num_good_pass(highest_cov_dict, cur, genome_order, args.refGenome, out_path, biotype,
                           args.gencode, biotype_ids)
 
 
