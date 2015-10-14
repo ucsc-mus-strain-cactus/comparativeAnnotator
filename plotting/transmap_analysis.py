@@ -126,12 +126,9 @@ def num_good_pass(highest_cov_dict, cur, genome_order, ref_genome, out_path, bio
     for g in genome_order:
         good_query = etc.config.transMapEval(ref_genome, g, biotype, good=True)
         pass_query = etc.config.transMapEval(ref_genome, g, biotype, good=False)
-        best_ids = {x for x in zip(*highest_cov_dict[g].itervalues())[0] if psl_lib.strip_alignment_numbers(x) in
-                    biotype_ids}
-        good_ids = {x for x in sql_lib.get_query_ids(cur, good_query) if psl_lib.strip_alignment_numbers(x) in
-                    biotype_ids and x in best_ids}
-        pass_ids = {x for x in sql_lib.get_query_ids(cur, pass_query) if psl_lib.strip_alignment_numbers(x) in
-                    biotype_ids and x in best_ids}
+        best_ids = set(zip(*highest_cov_dict[g].itervalues())[0])
+        good_ids = {x for x in sql_lib.get_query_ids(cur, good_query) if x in best_ids}
+        pass_ids = {x for x in sql_lib.get_query_ids(cur, pass_query) if x in best_ids}
         num_no_aln = len(biotype_ids) - len(best_ids)
         num_fail = len(best_ids) - len(good_ids)
         num_good = len(good_ids) - len(pass_ids)
@@ -159,7 +156,8 @@ def main():
     # genome_order = find_genome_order(highest_cov_dict, gencode_ids)
     genome_order = etc.config.hard_coded_genome_order
     # we will filter out chromosome Y transcripts for this project
-    chr_y_ids = sql_lib.get_ids_by_chromosome(cur, args.refGenome, args.filterChroms)
+    chr_y_ids = {psl_lib.strip_alignment_numbers(x) for x in sql_lib.get_ids_by_chromosome(cur, args.genome,
+                                                                                           args.filterChroms)}
     for biotype in sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=False):
         biotype_ids = sql_lib.filter_biotype_ids(cur, args.refGenome, biotype, chr_y_ids, mode="Transcript")
         if len(biotype_ids) > 100:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty

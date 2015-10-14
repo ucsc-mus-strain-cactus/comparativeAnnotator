@@ -1,5 +1,5 @@
 """
-Convenience library for interfacting with a sqlite database.
+Convenience library for interfacing with a sqlite database.
 """
 import os
 from collections import defaultdict
@@ -13,7 +13,6 @@ __author__ = "Ian Fiddes"
 
 class ExclusiveSqlConnection(object):
     """meant to be used with a with statement to ensure proper closure"""
-
     def __init__(self, path, timeout=600):
         self.path = path
         self.timeout = timeout
@@ -60,6 +59,15 @@ def attach_databases(comp_ann_path, mode):
     return con, cur
 
 
+def load_data(con, genome, columns, primary_key="AlignmentId"):
+    """
+    Use pandas to load a sql query into a dataframe.
+    """
+    columns = ",".join(columns)
+    query = "SELECT {},{} FROM main.'{}'".format(primary_key, columns, genome)
+    return pd.read_sql_query(query, con, index_col=primary_key)
+
+
 def get_query_ids(cur, query):
     """
     Returns a set of aln_ids which are OK based on the definition of OK in config.py that made this query.
@@ -78,7 +86,7 @@ def get_query_dict(cur, query):
 
 def get_non_unique_query_dict(cur, query):
     """
-    Same as get_query_dict, but has no guarnatee of uniqueness. Therefore, the returned data structure is a
+    Same as get_query_dict, but has no guarantee of uniqueness. Therefore, the returned data structure is a
     defaultdict(list)
     """
     d = defaultdict(list)
@@ -124,7 +132,7 @@ def get_all_biotypes(cur, ref_genome, gene_level=False):
 
 def get_ids_by_chromosome(cur, genome, chromosomes=("Y", "chrY")):
     """
-    Returns all transcript IDs in the attribute database whose source chromosome is in chromomsomes
+    Returns all AlignmentIds in the attribute database whose source chromosome is in chromomsomes
     """
     base_query = "SELECT AlignmentId FROM attributes.'{}' WHERE {}"
     filt = ["SourceChrom = '{}'".format(x) for x in chromosomes]

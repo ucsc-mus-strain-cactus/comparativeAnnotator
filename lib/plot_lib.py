@@ -64,7 +64,7 @@ def establish_axes(fig, width, height, border=True, has_legend=True):
     return ax
 
 
-def adjust_x_labels(ax, names, cutoff1=10, cutoff2=17, cutoff3=25):
+def adjust_x_labels(ax, names, cutoff1=12, cutoff2=18, cutoff3=26):
     """
     If your xaxis labels have a variable amount of text, this can adjust them individually
     """
