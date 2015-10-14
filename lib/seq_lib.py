@@ -9,6 +9,7 @@ Modified by Ian Fiddes
 import string
 import copy
 import math
+import re
 from itertools import izip
 from lib.general_lib import tokenize_stream
 from pyfaidx import Fasta
@@ -1279,3 +1280,22 @@ def chromosome_region_to_bed(t, start, stop, rgb, name):
     assert start is not None and stop is not None, (t.name, start, stop, name)
     assert stop >= start, (t.name, start, stop, name)
     return [chrom, start, stop, name + "/" + t.name, 0, strand, start, stop, rgb, 1, stop - start, 0]
+
+
+def get_gp_ids(gp):
+    """
+    Get all unique gene IDs from a genePred
+    """
+    return {x[0] for x in tokenize_stream(open(gp))}
+
+
+def gp_chrom_filter(gp, filter_chrom=re.compile("(Y)|(chrY)")):
+    """
+    Takes a genePred and lists all transcripts that match filter_chrom
+    """
+    f_h = open(gp)
+    ret = set()
+    for x in tokenize_stream(f_h):
+        if filter_chrom.match(x[1]):
+            ret.add(x[0])
+    return ret

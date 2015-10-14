@@ -26,97 +26,6 @@ from etc.config import *
 __author__ = "Ian Fiddes"
 
 
-def strip_alignment_numbers(aln_id):
-    """
-    Convenience function for stripping both Augustus and transMap alignment IDs from a aln_id
-    """
-    return remove_alignment_number(remove_augustus_alignment_number(aln_id))
-
-
-def get_all_biotypes(attr_path):
-    """
-    Returns all biotypes in the attribute database.
-    """
-    return {x.split()[4] for x in skip_header(attr_path)}
-
-
-def transmap_ok(cur, genome, coding=True):
-    """
-    Convenience function for using the transMapOk query in config.py to get OK ids
-    """
-    return sql_lib.get_ok_ids(cur, transMapOk(genome, coding=coding))
-
-
-def augustus_ok(cur, genome):
-    """
-    Convenience function for using the augustusOk query in config.py to get OK ids
-    """
-    return sql_lib.get_ok_ids(cur, augustusOk(genome))
-
-
-def get_all_ok(cur, genome):
-    """
-    Adapter function to return the combined sets of ok from augustus and transmap
-    Since Augustus is involved we assume that transMap is coding
-    """
-    return augustus_ok(cur, genome) | transmap_ok(cur, genome, coding=True)
-
-
-def highest_cov_aln(cur, genome):
-    """
-    Returns the set of alignment IDs that represent the best alignment for each source transcript (that mapped over)
-    Best is defined as highest %COV. Also reports the associated coverage value.
-    """
-    tm_stats = sql_lib.get_stats(cur, genome, category="transMap")
-    combined_covs = defaultdict(list)
-    for aln_id, ident, cov in tm_stats.itervalues():
-        tx_id = strip_alignment_numbers(aln_id)
-        combined_covs[tx_id].append([aln_id, ident, cov])
-    best_cov = {}
-    for tx_id, vals in combined_covs.iteritems():
-        best_cov[tx_id] = sorted(vals, key=lambda x: -x[2])[0]
-    return best_cov
-
-
-def get_all_ids(attr_path, biotype=None, filter_set=set(), id_type="Transcript"):
-    """
-    returns the set of ensembl IDs in the entire Gencode database pulled from the attribute
-    """
-    assert id_type in ["Transcript", "Gene"]
-    if id_type == "Transcript":
-        if biotype is None:
-            return {x.split()[3] for x in skip_header(attr_path) if x not in filter_set}
-        else:
-            return {x.split()[3] for x in skip_header(attr_path) if x.split()[4] == biotype if x not in filter_set}
-    else:
-        if biotype is None:
-            return {x.split()[0] for x in skip_header(attr_path) if x not in filter_set}
-        else:
-            return {x.split()[0] for x in skip_header(attr_path) if x.split()[4] == biotype if x not in filter_set}
-
-
-def get_gp_ids(gp):
-    """
-    Get all unique gene IDs from a genePred
-    """
-    return {x.rstrip().split("\t")[0] for x in open(gp)}
-
-
-def gp_chrom_filter(gp, filter_chrom=re.compile("(Y)|(chrY)")):
-    """
-    Takes a genePred and lists all transcripts that match filter_chrom
-    """
-    return {x.rstrip().split("\t")[0] for x in open(gp) if filter_chrom.match(x.rstrip().split("\t")[1])}
-
-
-def load_gps(gp_paths):
-    """
-    Get a dictionary mapping all gene IDs from a genePred into its entire record. If the gene IDs are not unique
-    this function will not work like you want it to.
-    """
-    return {l.split()[0]: l for p in gp_paths for l in open(p)}
-
-
 def get_reverse_name_map(cur, genome, blacklist=set(), whitelist=set(), has_augustus=False):
     """
     creates a dictionary mapping each Gencode ID to all IDs produced by Augustus and transMap
@@ -152,6 +61,13 @@ def get_gene_biotype_map(attr_path):
     Returns a dictionary mapping all gene IDs to their respective biotypes
     """
     return {x.split()[0]: x.split()[2] for x in skip_header(attr_path)}
+
+
+def get_transcript_biotype_map(attr_path):
+    """
+    Returns a dictionary mapping all transcript IDs to their respective biotypes
+    """
+    return {x.split()[3]: x.split()[4] for x in skip_header(attr_path)}
 
 
 def get_gene_map(attr_path):

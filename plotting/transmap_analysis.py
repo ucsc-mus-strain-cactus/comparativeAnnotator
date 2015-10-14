@@ -1,6 +1,8 @@
 import argparse
 from collections import Counter
+import numpy as np
 import lib.sql_lib as sql_lib
+import lib.seq_lib as seq_lib
 from lib.general_lib import mkdir_p
 from plotting.plot_functions import *
 import etc.config
@@ -9,11 +11,10 @@ import etc.config
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--genomes", type=str, nargs="+", required=True, help="genomes in this comparison")
+    parser.add_argument("--refGenome", type=str, required=True, help="reference genome")
     parser.add_argument("--outDir", required=True, help="output directory")
     parser.add_argument("--comparativeAnnotationDir", required=True, help="directory containing databases")
-    parser.add_argument("--annotationGp", type=str, required=True, help="annotation genePred")
     parser.add_argument("--gencode", type=str, required=True, help="current gencode set being analyzed")
-    parser.add_argument("--attributePath", type=str, required=True, help="attribute tsv file")
     return parser.parse_args()
 
 
@@ -32,18 +33,6 @@ def paralogy(cur, genome):
     return Counter([x[0] for x in cur.execute(cmd).fetchall()])
 
 
-def number_categorized(cur, genome, query_fn, biotype=None):
-    """
-    Finds the alignment IDs categorized by a categorizing function. Can be restricted by biotype
-    """
-    query = query_fn(genome, details=False)
-    ok_ids = sql_lib.get_query_ids(cur, query)
-    if biotype is not None:
-        biotype_ids = sql_lib.get_biotype_ids(cur, genome, biotype)
-        return ok_ids & biotype_ids
-    return ok_ids
-
-
 def find_genome_order(highest_cov_dict, filter_set):
     """
     Finds the genome order that will be used by all plots. This is deprecated in favor of using a hard coded order
@@ -57,25 +46,29 @@ def find_genome_order(highest_cov_dict, filter_set):
     return zip(*order)[0]
 
 
-def make_hist(vals, bins, total, g, reverse=False):
+def make_hist(vals, bins, total, reverse=False, roll=True):
     raw = np.histogram(vals, bins)[0]
     if reverse is True:
         raw = raw[::-1]
+    if roll is True:
+        raw = np.roll(raw, 1)
     norm = raw / (0.01 * total)
-    return g, norm, raw
+    return norm, raw
 
 
-def paralogy_plot(cur, genome_order, out_path, base_file_name, biotype, gencode, filter_set):
+def paralogy_plot(cur, genome_order, ref_genome, out_path, base_file_name, biotype, gencode):
     results = []
     file_name = "{}_{}".format(base_file_name, "paralogy")
+    biotype_ids = sql_lib.get_biotype_ids(cur, ref_genome, biotype)
     for g in genome_order:
         p = paralogy(cur, g)
-        p = [p.get(x, 0) for x in filter_set]
-        g, norm, raw = make_hist(p, paralogy_bins, len(filter_set), g)
+        p = [p.get(x, 0) for x in biotype_ids]
+        norm, raw = make_hist(p, paralogy_bins, len(biotype_ids), reverse=False, roll=True)
         results.append([g, norm])
-    title_string = "Proportion of {:,} {} transcripts in {}\nthat have multiple alignments".format(len(filter_set), 
+    title_string = "Proportion of {:,} {} transcripts in {}\nthat have multiple alignments".format(len(biotype_ids), 
                                                                                                    biotype, gencode)
-    legend_labels = ["= {}".format(x) for x in paralogy_bins[:-2]] + [u"\u2265 {}".format(paralogy_bins[-2])] 
+    legend_labels = ["= {}".format(x) for x in paralogy_bins[1:-2]] + [u"\u2265 {}".format(paralogy_bins[-2])] + \
+                     ["= {}".format(paralogy_bins[0])] 
     stacked_barplot(results, legend_labels, out_path, file_name, title_string)
 
 
@@ -93,7 +86,7 @@ def categorized_plot(cur, highest_cov_dict, genome_order, out_path, file_name, b
 
 
 def cat_plot_wrapper(cur, highest_cov_dict, genome_order, out_path, base_file_name, biotype, gencode, filter_set):
-    for query_fn in [alignmentErrors, assemblyErrors]:
+    for query_fn in [etc.config.alignmentErrors, etc.config.assemblyErrors]:
         file_name = "{}_{}".format(base_file_name, query_fn.__name__)
         categorized_plot(cur, highest_cov_dict, genome_order, out_path, file_name, biotype, gencode, filter_set,
                          query_fn)
@@ -145,17 +138,23 @@ def num_good_pass(highest_cov_dict, cur, genome_order, out_path, base_file_name,
     barplot(results, out_path, file_name, title_string, adjust_y=False)
 
 
+def get_highest_cov_alns(cur, genomes):
+    """
+    Dictionary mapping each genome to a dictionary reporting each highest coverage alignment and its metrics
+    """
+    return {genome: sql_lib.highest_cov_aln(cur, genome) for genome in genomes}
+
+
 def main():
     args = parse_args()
     con, cur = sql_lib.attach_databases(args.comparativeAnnotationDir)
-    highest_cov_dict = {}
-    for genome in args.genomes:
-        highest_cov_dict[genome] = highest_cov_aln(cur, genome)
-    gencode_ids = get_gp_ids(args.annotationGp)
-    chr_y_ids = gp_chrom_filter(args.annotationGp)
+    highest_cov_dict = get_highest_cov_alns(cur, args.genomes)
+    # we need all IDs for this Gencode set to have a consistent denominator
+    gencode_ids = seq_lib.get_gp_ids(args.annotationGp)
     # genome_order = find_genome_order(highest_cov_dict, gencode_ids)
     genome_order = hard_coded_genome_order
     for biotype in get_all_biotypes(args.attributePath):
+        chr_y_ids = sql_lib.get_ids_by_chromosome(cur)
         biotype_ids = get_all_ids(args.attributePath, biotype=biotype)
         filter_set = (biotype_ids & gencode_ids) - chr_y_ids
         if len(filter_set) > 200:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty

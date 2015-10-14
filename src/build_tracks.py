@@ -4,6 +4,7 @@ Script to build the databases and tracks from comparativeAnnotator results
 import os
 import subprocess
 import cPickle as pickle
+import pandas as pd
 
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
@@ -32,7 +33,9 @@ def database_wrapper(target, args, tmp_dir):
     elif args.mode == "reference":
         for db in ["classify", "details"]:
             db_path = os.path.join(args.outDir, "{}.db".format(db))
-            database(args.refGenome, db, db_path, tmp_dir)
+            database(args.refGenome, db, db_path, tmp_dir, ref=True)
+        attr_db_path = os.path.join(args.outDir, "attributes.db")
+        ref_attr_table(args.refGenome, attr_db_path, args.gencodeAttributes)
     elif args.mode == "transMap":
         for db in ["classify", "details", "attributes"]:
             db_path = os.path.join(args.outDir, "{}.db".format(db))
@@ -42,7 +45,7 @@ def database_wrapper(target, args, tmp_dir):
     target.setFollowOnTargetFn(build_tracks_wrapper, args=[args])
 
 
-def database(genome, db, db_path, tmp_dir):
+def database(genome, db, db_path, tmp_dir, ref=False):
     data_dict = {}
     mkdir_p(os.path.dirname(db_path))
     data_path = os.path.join(tmp_dir, db)
@@ -50,7 +53,16 @@ def database(genome, db, db_path, tmp_dir):
         p = os.path.join(data_path, col)
         with open(p) as p_h:
             data_dict[col] = pickle.load(p_h)
-    sql_lib.write_dict(data_dict, db_path, genome)
+    index_label = "AlignmentId" if ref else "TranscriptId"
+    sql_lib.write_dict(data_dict, db_path, genome, index_label)
+
+
+def ref_attr_table(ref_genome, db_path, attr_file):
+    """
+    This function is used to add an extra table in reference mode holding all of the basic attributes.
+    Basically directly dumping the tsv into sqlite3.
+    """
+    sql_lib.write_csv(attr_file, db_path, ref_genome, index_col=3, sep="\t", index_label="TranscriptId")
 
 
 def build_tracks_wrapper(target, args):
@@ -101,10 +113,11 @@ def build_classifier_tracks(target, query, query_name, genome, args):
 
 def get_all_tm_good(cur, genome):
     """
-    transMap OK varies depending on if the transcript is coding or noncoding. We will build a set of OK for both.
-    This is a hacky way to solve the problem I found in build_ok_track() - that we need two OK queries for transMap.
+    transMap Good varies depending on if the transcript is coding or noncoding. We will build a set of IDs for both.
     """
-    coding_query = etc.config.transMapEval(genome, coding=True, good=True)
+    biotypes = sql_lib.get_all_biotypes(cur, genome, gene_level=False)
+    coding_query = etc.config.transMapEval(genome, biotype="protein_coding", good=True)
+    coding_good = 
     non_coding_query = etc.config.transMapEval(genome, coding=False, good=True)
     coding_good_ids = sql_lib.get_query_ids(cur, coding_query)
     non_coding_good_ids = sql_lib.get_query_ids(cur, non_coding_query)
@@ -137,7 +150,7 @@ def build_good_track(target, args):
         non_coding_ok, coding_ok = get_all_tm_good(cur, args.genome)
         good_ids = non_coding_ok & coding_ok
         out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, "transMapOk", args.genome)
-        gp_dict = seq_lib.get_transcript_dict(args.gp)
+        gp_dict = seq_lib.get_transcript_dict(args.targetGp)
     with open(out_bed_path, "w") as outf:
         for aln_id, rec in gp_dict.iteritems():
             if aln_id in good_ids:

@@ -37,7 +37,7 @@ def drop_low_sums(m, s, cutoff=2.0):
             m.drop(c, inplace=True, axis=1)
 
 
-def munge_data(d, filter_set, coding=False):
+def munge_data(d, filter_set):
     """
     Used to munge input data. Can pre-cluster if you want.
     """
@@ -80,7 +80,7 @@ def main_fn(target, comp_ann_path, attr_path, ref_gp_path, gencode, genome, base
     filter_set, num_biotype = find_aln_id_set(cur, attr_path, ref_gp_path, genome, biotype, coding=True)
     if num_biotype > 25 and len(filter_set) > 10:
         percent_not_ok = round(100.0 * len(filter_set) / num_biotype, 2)
-        munged, stats = munge_data(sql_data, filter_set, coding=True)
+        munged, stats = munge_data(sql_data, filter_set)
         mkdir_p(out_path)
         barplot_title = base_barplot_title.format(genome, len(filter_set), percent_not_ok, gencode, biotype)
         out_barplot_file = os.path.join(out_path, "barplot_{}_{}".format(genome, biotype))

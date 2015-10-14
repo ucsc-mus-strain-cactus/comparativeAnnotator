@@ -145,8 +145,6 @@ class CodingDeletions(AbstractAlignmentClassifier):
 
     query:   AATTATAAGCATGGA
     target:  AATTAT--GCATGGA
-
-    Doesn't need a check for existing in the reference because that is impossible.
     """
     @property
     def rgb(self):
@@ -158,7 +156,7 @@ class CodingDeletions(AbstractAlignmentClassifier):
             if comp_ann_lib.short_cds(t) or comp_ann_lib.short_cds(a):
                 self.classify_dict[aln_id] = 0
                 continue
-            for start, stop, size in comp_ann_lib.deletion_iterator(a, aln, mult3):
+            for start, stop, size in comp_ann_lib.deletion_iterator(t, aln, mult3):
                 if start >= t.thick_start and stop < t.thick_stop:
                     bed_rec = seq_lib.chromosome_region_to_bed(t, start, stop, self.rgb, self.column)
                     self.details_dict[aln_id].append(bed_rec)
@@ -234,8 +232,6 @@ class AlignmentPartialMap(AbstractAlignmentClassifier):
     a.q_size != a.q_end - a.q_start
 
     If so, reports the entire transcript
-
-    Doesn't need a check for pre-existing because that is impossible.
     """
     @property
     def rgb(self):

@@ -14,24 +14,30 @@ __author__ = "Ian Fiddes"
 
 # this genetic distance is from Joel. There are functions to derive it, but this makes it consistent across plots.
 hard_coded_genome_order = ['C57B6NJ', 'NZOHlLtJ', '129S1', 'FVBNJ', 'NODShiLtJ', 'LPJ', 'AJ', 'AKRJ', 'BALBcJ', 'DBA2J',
-                            'C3HHeJ', 'CBAJ', 'WSBEiJ', 'CASTEiJ', 'PWKPhJ', 'SPRETEiJ', 'CAROLIEiJ', 'PAHARIEiJ']
+                           'C3HHeJ', 'CBAJ', 'WSBEiJ', 'CASTEiJ', 'PWKPhJ', 'SPRETEiJ', 'CAROLIEiJ', 'PAHARIEiJ']
 
 # these classifiers define Pass for single-genome analysis
 ref_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
                    "StartOutOfFrame", "SpliceContainsUnknownBases", "InFrameStop", "ShortCds"]
 
-# these classifiers define Pass/Good for coding transcripts
-tm_coding_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
-                         "StartOutOfFrame", "InFrameStop", "ShortCds", "CodingInsertions", "CodingDeletions",
-                         "FrameShift", "HasOriginalStart", "HasOriginalStop", "HasOriginalIntrons"]
+# these classifiers define Pass for coding transcripts
+tm_pass_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
+                       "StartOutOfFrame", "InFrameStop", "ShortCds", "CodingInsertions", "CodingDeletions",
+                       "FrameShift", "HasOriginalStart", "HasOriginalStop", "HasOriginalIntrons"]
+
+# these classifiers define Good for coding transcripts
+# the difference: Can have an incomplete CDS, but that incomplete CDS should remain in frame. UtrUnknownSplice is also
+# allowed.
+tm_good_classifiers = ["CdsUnknownSplice", "FrameShift", "CodingInsertions", "CodingDeletions", "HasOriginalIntrons"]
 
 # these classifiers define Pass/Good for non-coding transcripts
-noncoding_classifiers = ["UtrUnknownSplice"]
+noncoding_pass_classifiers = ["UtrUnknownSplice"]
+noncoding_good_classifiers = ["UtrUnknownSplice", "UtrGap"]
 
 # these classifiers define Pass for Augustus transcripts
 aug_classifiers = ['AugustusParalogy', 'AugustusExonGain', 'AugustusExonLoss', 'AugustusNotSameStrand',
-                      'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries',
-                      'AugustusNotSimilarInternalExonBoundaries']
+                   'AugustusNotSameStartStop', 'AugustusNotSimilarTerminalExonBoundaries',
+                   'AugustusNotSimilarInternalExonBoundaries']
 
 ref_pass = dict_to_named_tuple({"classifiers": ref_classifiers}, "ref_pass")
 aug_pass = dict_to_named_tuple({"classifiers": aug_classifiers}, "aug_pass")
@@ -40,12 +46,17 @@ aug_pass = dict_to_named_tuple({"classifiers": aug_classifiers}, "aug_pass")
 pass_cutoffs = {"coverage": 100.0, "percent_n": 1.0, "percent_coding_n": 0.2}
 good_cutoffs = {"coverage": 95.0, "percent_n": 5.0, "percent_coding_n": 1.0}
 
-tm_pass = dict_to_named_tuple(merge_dicts([{"classifiers": tm_coding_classifiers}, pass_cutoffs]), "tm_pass")
-tm_good = dict_to_named_tuple(merge_dicts([{"classifiers": tm_coding_classifiers}, good_cutoffs]), "tm_good")
+# we use the ref classifiers to not unfairly impinge problematic source transcripts
+ref_classifiers = {"ref_classifiers": ref_classifiers}
 
-noncoding_pass = dict_to_named_tuple(merge_dicts([{"classifiers": noncoding_classifiers}, pass_cutoffs]),
+tm_pass = dict_to_named_tuple(merge_dicts([{"classifiers": tm_pass_classifiers}, pass_cutoffs, ref_classifiers]),
+                              "tm_pass")
+tm_good = dict_to_named_tuple(merge_dicts([{"classifiers": tm_good_classifiers}, good_cutoffs, ref_classifiers]),
+                              "tm_good")
+
+noncoding_pass = dict_to_named_tuple(merge_dicts([{"classifiers": noncoding_pass_classifiers}, pass_cutoffs]),
                                      "noncoding_pass")
-noncoding_good = dict_to_named_tuple(merge_dicts([{"classifiers": noncoding_classifiers}, good_cutoffs]),
+noncoding_good = dict_to_named_tuple(merge_dicts([{"classifiers": noncoding_good_classifiers}, good_cutoffs]),
                                      "noncoding_good")
 
 
@@ -95,11 +106,10 @@ def potentiallyInterestingBiology(genome):
 def assemblyErrors(genome, details=True):
     base_query = ("FROM details.'{0}' JOIN main.'{0}' USING "
                   "('AlignmentId') WHERE main.'{0}'.AlignmentPartialMap = 1 OR main.'{0}'.UnknownBases = 1 OR "
-                  "main.'{0}'.UnknownGap = 1 OR main.'{0}'.ShortCds = 1 OR main.'{0}'.AlignmentAbutsUnknownBases = 1 "
-                  "OR main.'{0}'.AlignmentAbutsRight = 1 OR main.'{0}'.AlignmentAbutsLeft = 1")
+                  "main.'{0}'.UnknownGap = 1 OR main.'{0}'.ShortCds = 1 OR main.'{0}'.AlnAbutsUnknownBases = 1 "
+                  "OR main.'{0}'.AlnExtendsOffContig = 1")
     details_selection = ("SELECT details.'{0}'.AlignmentPartialMap,details.'{0}'.UnknownBases,details.'{0}'.UnknownGap,"
-                  "details.'{0}'.ShortCds,details.'{0}'.AlignmentAbutsUnknownBases,details.'{0}'.AlignmentAbutsRight,"
-                  "details.'{0}'.AlignmentAbutsLeft ")
+                         "details.'{0}'.ShortCds,details.'{0}'.AlnAbutsUnknownBases,details.'{0}'.AlnExtendsOffContig")
     classify_selection = ("SELECT main.'{0}'.AlignmentId ")
     added_query = details_selection + base_query if details else classify_selection + base_query
     query = added_query.format(genome)
@@ -119,28 +129,36 @@ def alignmentErrors(genome, details=True):
     return query
 
 
-def transMapEval(genome, coding=True, good=False):
-    if coding is True:
+def transMapEval(ref_genome, genome, biotype, good=False):
+    if biotype == "protein_coding":
         requirements = tm_pass if good is False else tm_good
     else:
         requirements = noncoding_pass if good is False else noncoding_good
-    base_query = "SELECT main.'{0}'.AlignmentId FROM main.'{0}' JOIN attributes.'{0}' USING (AlignmentId) WHERE {1}"
-    classifiers = ["main.'{}'.{} = 0".format(genome, x) for x in requirements.classifiers]
+    base_query = ("SELECT AlignmentId FROM attributes.'{ref_genome}' JOIN main.'{ref_genome}' USING (TranscriptId) "
+                  "JOIN attributes.'{genome}' USING (TranscriptId) JOIN main.'{genome}' USING "
+                  "(AlignmentId) WHERE {classifiers}")
+    classifiers = []
+    for c in requirements.classifiers:
+        if c in requirements.ref_classifiers:
+            l = "NOT (main.'{ref_genome}'.{classifier} = 0 AND main.'{genome}'.{classifier} = 1)"
+            l = l.format(ref_genome=ref_genome, classifier=c, genome=genome)
+        else:
+            l = "main.'{}'.{} = 0".format(genome, c)
+        classifiers.append(l)
     classifiers = " AND ".join(classifiers)
     classifiers += " AND attributes.'{}'.AlignmentCoverage >= {}".format(genome, requirements.coverage)
-    classifiers += " AND attributes.'{}'.PercentN < {}".format(genome, requirements.percent_n)
-    if coding is True:
-        classifiers += " AND attributes.'{}'.PercentCodingN < {}".format(genome, requirements.percent_coding_n)
-    query = base_query.format(genome, classifiers)
+    classifiers += " AND attributes.'{}'.PercentUnknownBases < {}".format(genome, requirements.percent_n)
+    if biotype == "protein_coding":
+        classifiers += " AND attributes.'{}'.PercentUnknownCodingBases < {}".format(genome, 
+                                                                                    requirements.percent_coding_n)
+    classifiers += " AND attributes.'{}'.TranscriptType = '{}'".format(genome, biotype)
+    query = base_query.format(genome=genome, ref_genome=ref_genome, classifiers=classifiers)
     return query
 
 
 def refEval(genome):
-    """
-    We only evaluate coding genes in the reference, otherwise we just don't have enough to say anything
-    """
-    base_query = "SELECT AlignmentId FROM main.'{0}' WHERE {1}"
-    classifiers = ["main.'{}'.{} = 0".format(genome, x) for x in ref_pass.classifiers]
+    base_query = "SELECT TranscriptId FROM main.'{0}' WHERE {1}"
+    classifiers = ["{} = 0".format(x) for x in ref_pass.classifiers]
     classifiers = " AND ".join(classifiers)
     query = base_query.format(genome, classifiers)
     return query

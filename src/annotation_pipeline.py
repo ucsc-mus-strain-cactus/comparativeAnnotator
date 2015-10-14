@@ -37,10 +37,10 @@ def parse_args():
         parser.add_argument('--refFasta', type=str, required=True)
         parser.add_argument('--sizes', required=True)
         parser.add_argument('--annotationGp', required=True)
+        parser.add_argument('--gencodeAttributes', required=True)
         Stack.addJobTreeOptions(parser)  # add jobTree options
     # transMap specific options
     for parser in [aug_parser, tm_parser]:
-        parser.add_argument('--gencodeAttributes', required=True)
         parser.add_argument('--genome', required=True)
         parser.add_argument('--psl', required=True)
         parser.add_argument('--targetGp', required=True)
