@@ -2,7 +2,9 @@
 Convenience library for interfacting with a sqlite database.
 """
 import os
-import re
+from collections import defaultdict
+import lib.psl_lib as psl_lib
+import lib.general_lib as general_lib
 import sqlite3 as sql
 import pandas as pd
 
@@ -64,7 +66,7 @@ def get_query_ids(cur, query):
     Returns a set of aln_ids which are OK based on the definition of OK in config.py that made this query.
     In other words, expects a query of the form SELECT AlignmentId FROM stuff
     """
-    return {x[0] for x in cur.execute(query).fetchall()}
+    return {x[0] for x in cur.execute(query)}
 
 
 def get_query_dict(cur, query):
@@ -72,7 +74,18 @@ def get_query_dict(cur, query):
     Returns a set of aln_ids which are OK based on the definition of OK in config.py that made this query.
     In other words, expects a query of the form SELECT AlignmentId,<other stuff> FROM stuff
     """
-    return {x[0]: x[1:] for x in cur.execute(query).fetchall()}
+    return {x[0]: x[1] if len(x) == 2 else x[1:] for x in cur.execute(query)}
+
+
+def get_non_unique_query_dict(cur, query):
+    """
+    Same as get_query_dict, but has no guarnatee of uniqueness. Therefore, the returned data structure is a
+    defaultdict(list)
+    """
+    d = defaultdict(list)
+    for r in cur.execute(query):
+        d[r[0]].append(r[1:])
+    return general_lib.flatten_defaultdict_list(d)
 
 
 def get_biotype_aln_ids(cur, genome, biotype, mode="Transcript"):
@@ -101,6 +114,58 @@ def filter_biotype_ids(cur, genome, biotype, filter_set, mode="Transcript"):
     return ids - filter_set
 
 
+def get_all_biotypes(cur, ref_genome, gene_level=False):
+    """
+    Returns all biotypes in the attribute database.
+    """
+    r = "Gene" if gene_level else "Transcript"
+    query = "SELECT {}Type FROM attributes.'{}'".format(r, ref_genome)
+    return get_query_ids(cur, query)
+
+
+def get_ids_by_chromosome(cur, genome, chromosomes=("Y", "chrY")):
+    """
+    Returns all transcript IDs in the attribute database whose source chromosome is in chromomsomes
+    """
+    base_query = "SELECT AlignmentId FROM attributes.'{}' WHERE {}"
+    filt = ["SourceChrom = '{}'".format(x) for x in chromosomes]
+    filt = " OR ".join(filt)
+    query = base_query.format(genome, filt)
+    return get_query_ids(cur, query)
+
+
+def get_transcript_gene_map(cur, ref_genome):
+    """
+    Returns a dictionary mapping transcript IDs to gene IDs
+    """
+    query = "SELECT transcriptId,geneId FROM attributes.'{}'".format(ref_genome)
+    return get_query_dict(cur, query)
+
+
+def get_gene_transcript_map(cur, ref_genome):
+    """
+    Returns a dictionary mapping all gene IDs to their respective transcripts
+    """
+    query = "SELECT geneId,transcriptId FROM attributes.'{}'".format(ref_genome)
+    return get_non_unique_query_dict(cur, query)
+
+
+def get_gene_biotype_map(cur, ref_genome):
+    """
+    Returns a dictionary mapping all gene IDs to their respective biotypes
+    """
+    query = "SELECT geneId,geneType FROM attributes.'{}'".format(ref_genome)
+    return get_query_dict(cur, query)
+
+
+def get_transcript_biotype_map(cur, ref_genome):
+    """
+    Returns a dictionary mapping all transcript IDs to their respective biotypes
+    """
+    query = "SELECT transcriptId,transcriptType FROM attributes.'{}'".format(ref_genome)
+    return get_query_dict(cur, query)
+
+
 def get_stats(cur, genome, mode="transMap"):
     """
     Returns a dictionary mapping each aln_id to [aln_id, %ID, %COV]
@@ -124,7 +189,7 @@ def write_dict(data_dict, database_path, table, index_label="AlignmentId"):
 
 def write_csv(csv_path, database_path, table, sep=",", index_col=0, header=0, index_label="AlignmentId"):
     """
-    Writes a csv/tsv file to a sqlite database. Assumes that this table has a header 
+    Writes a csv/tsv file to a sqlite database. Assumes that this table has a header
     """
     df = pd.read_table(csv_path, sep=sep, index_col=index_col, header=header)
     df = df.sort_index()
@@ -150,15 +215,6 @@ def collapse_details_dict(details_dict):
     return collapsed
 
 
-def get_all_biotypes(cur, ref_genome, gene_level=False):
-    """
-    Returns all biotypes in the attribute database.
-    """
-    r = "Gene" if gene_level else "Transcript"
-    query = "SELECT {}Type FROM attributes.'{}'".format(r, ref_genome)
-    return get_query_ids(cur, query)
-
-
 def run_transmap_eval(cur, genome, biotype, trans_map_eval, good=True):
     """
     Convenience wrapper for getting all Good/Pass transcripts for transMap
@@ -172,7 +228,7 @@ def highest_cov_aln(cur, genome):
     Returns the set of alignment IDs that represent the best alignment for each source transcript (that mapped over)
     Best is defined as highest %COV. Also reports the associated coverage value.
     """
-    tm_stats = get_stats(cur, genome, category="transMap")
+    tm_stats = get_stats(cur, genome, mode="transMap")
     combined_covs = defaultdict(list)
     for aln_id, (ident, cov) in tm_stats.iteritems():
         tx_id = psl_lib.strip_alignment_numbers(aln_id)
@@ -181,14 +237,3 @@ def highest_cov_aln(cur, genome):
     for tx_id, vals in combined_covs.iteritems():
         best_cov[tx_id] = sorted(vals, key=lambda x: -x[2])[0]
     return best_cov
-
-
-def get_ids_by_chromosome(cur, genome, chromosomes=["Y", "chrY"]):
-    """
-    Returns all transcript IDs in the attribute database whose source chromosome is in chromomsomes
-    """
-    base_query = "SELECT AlignmentId FROM attributes.'{}' WHERE {}"
-    filt = ["SourceChrom = '{}'".format(x) for x in chromosomes]
-    filt = " OR ".join(filt)
-    query = base_query.format(genome, filt)
-    return get_query_ids(cur, query)

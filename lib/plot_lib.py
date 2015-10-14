@@ -4,7 +4,6 @@ This file contains convenience functions for plotting.
 import os
 import itertools
 import math
-import re
 import numpy as np
 from collections import defaultdict, OrderedDict
 
@@ -16,94 +15,15 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import matplotlib.pylab as pylab
 import matplotlib.backends.backend_pdf as plt_back
-
-from lib.psl_lib import remove_alignment_number, remove_augustus_alignment_number
-from lib.general_lib import skip_header
-import lib.sql_lib as sql_lib
-
 from etc.config import *
 
 __author__ = "Ian Fiddes"
 
 
-def get_reverse_name_map(cur, genome, blacklist=set(), whitelist=set(), has_augustus=False):
-    """
-    creates a dictionary mapping each Gencode ID to all IDs produced by Augustus and transMap
-    """
-    if len(whitelist) > 0:  # if we have a whitelist, we filter out all blacklist items to make a new whitelist
-        whitelist = whitelist - blacklist
-    reverse_name_map = defaultdict(list)
-    base_cmd = "SELECT {0}.'{1}'.'AlignmentId' FROM {0}.'{1}'"
-    aug_cmd = base_cmd.format("augustus", genome)
-    tm_cmd = base_cmd.format("main", genome)
-    if has_augustus:
-        aug_r = cur.execute(aug_cmd).fetchall()
-    else:
-        aug_r = []
-    tm_r = cur.execute(tm_cmd).fetchall()
-    for aln_id in itertools.chain(aug_r, tm_r):
-        aln_id = aln_id[0]
-        ens_id = strip_alignment_numbers(aln_id)
-        if (len(whitelist) != 0 and ens_id in whitelist) and ens_id not in blacklist:
-            reverse_name_map[ens_id].append(aln_id)
-    return reverse_name_map
-
-
-def transcript_list_to_gene(gene_map, ens_ids):
-    """
-    Given a set of transcript IDs, returns the matching set of gene IDs
-    """
-    return {gene_map[strip_alignment_numbers(x)] for x in ens_ids}
-
-
-def get_gene_biotype_map(attr_path):
-    """
-    Returns a dictionary mapping all gene IDs to their respective biotypes
-    """
-    return {x.split()[0]: x.split()[2] for x in skip_header(attr_path)}
-
-
-def get_transcript_biotype_map(attr_path):
-    """
-    Returns a dictionary mapping all transcript IDs to their respective biotypes
-    """
-    return {x.split()[3]: x.split()[4] for x in skip_header(attr_path)}
-
-
-def get_gene_map(attr_path):
-    """
-    Returns a dictionary mapping all transcript IDs to their respective gene IDs
-    """
-    return {x.split()[3]: x.split()[0] for x in skip_header(attr_path)}
-
-
-def get_aln_stats(cur, genome, cat="transMap"):
-    """
-    Pulls the alignment metrics from the attributes database
-    """
-    assert cat in ["transMap", "augustus"]
-    if cat == "transMap":
-        db = "attributes"
-    else:
-        db = "augustus_attributes"
-    cmd = "SELECT AlignmentId, AlignmentIdentity, AlignmentCoverage FROM {}.'{}'".format(genome, db)
-    result = cur.execute(cmd).fetchall()
-    return {x[0]: x for x in result}
-
-
-def make_counts_frequency(counts):
-    """
-    Convenience function that takes a dict and turns the values into a proportion of the total.
-    Returns a list of lists [[name, percent]]. Should probably be a OrderedDict unless you like nonsensical plots.
-    """
-    normed = OrderedDict()
-    tot = sum(counts.values())
-    for key, val in counts.iteritems():
-        normed[key] = 100.0 * val / tot
-    return [[x, y, counts[x]] for x, y in normed.iteritems()]
-
-
 def init_image(out_folder, comparison_name, width, height):
+    """
+    Sets up a PDF object.
+    """
     pdf = plt_back.PdfPages(os.path.join(out_folder, comparison_name + ".pdf"))
     # width by height in inches
     fig = plt.figure(figsize=(width, height), dpi=300, facecolor='w')
@@ -112,7 +32,7 @@ def init_image(out_folder, comparison_name, width, height):
 
 def establish_axes(fig, width, height, border=True, has_legend=True):
     """
-    Sets up axes. No idea how this works, Dent's code.
+    Sets up custom axes. The extra space given is adjusted by border and has_legend.
     """
     ax_left = 1.1 / width
     if border is True:
@@ -191,13 +111,13 @@ def barplot(results, out_path, file_name, title_string, color="#0072b2", border=
     bars = ax.bar(range(len(names)), values, bar_width, color=color)
     if add_labels is True:
         for i, rect in enumerate(bars):
-                ax.text(rect.get_x() + bar_width / 2.0, 0.0 + rect.get_height(), raw_values[i], ha='center',
-                        va='bottom', size=6)
+            v = "{:,}".format(raw_values[i])
+            ax.text(rect.get_x() + bar_width / 2.0, 0.0 + rect.get_height(), v, ha='center', va='bottom', size=6)
     if max(len(x) for x in names) > 15:
         adjust_x_labels(ax, names)
     fig.savefig(pdf, format='pdf')
-    pdf.close()
     plt.close()
+    pdf.close()
 
 
 def stacked_barplot(results, legend_labels, out_path, file_name, title_string, color_palette=palette, border=True):
@@ -215,8 +135,8 @@ def stacked_barplot(results, legend_labels, out_path, file_name, title_string, c
                            color=color_palette[i % len(color_palette)],
                            linewidth=0.0, alpha=1.0))
         cumulative += d
-    fig.legend([x[0] for x in bars[::-1]], legend_labels[::-1], bbox_to_anchor=(1,0.8), fontsize=11,
+    fig.legend([x[0] for x in bars[::-1]], legend_labels[::-1], bbox_to_anchor=(1, 0.8), fontsize=11,
                frameon=True, title="Category")
     fig.savefig(pdf, format='pdf')
-    pdf.close()
     plt.close()
+    pdf.close()

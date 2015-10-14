@@ -4,7 +4,6 @@ Script to build the databases and tracks from comparativeAnnotator results
 import os
 import subprocess
 import cPickle as pickle
-import pandas as pd
 
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
@@ -111,23 +110,17 @@ def build_classifier_tracks(target, query, query_name, genome, args):
     make_big_bed(out_bed_path, args.sizes, out_big_bed_path)
 
 
-def get_all_tm_good(cur, genome):
+def get_all_tm_good(cur, ref_genome, genome):
     """
     transMap Good varies depending on if the transcript is coding or noncoding. We will build a set of IDs for both.
     """
     biotypes = sql_lib.get_all_biotypes(cur, genome, gene_level=False)
-    coding_query = etc.config.transMapEval(genome, biotype="protein_coding", good=True)
-    coding_good = 
-    non_coding_query = etc.config.transMapEval(genome, coding=False, good=True)
-    coding_good_ids = sql_lib.get_query_ids(cur, coding_query)
-    non_coding_good_ids = sql_lib.get_query_ids(cur, non_coding_query)
-    coding_id_query = "SELECT AlignmentId FROM attributes.'{}' WHERE TranscriptType == 'protein_coding'".format(genome)
-    coding_gencode_ids = {x[0] for x in cur.execute(coding_id_query).fetchall()}
-    coding_ok = coding_gencode_ids & coding_good_ids
-    non_coding_id_query = "SELECT AlignmentId FROM attributes.'{}' WHERE TranscriptType != 'protein_coding'".format(genome)
-    non_coding_gencode_ids = {x[0] for x in cur.execute(non_coding_id_query).fetchall()}
-    non_coding_ok = non_coding_gencode_ids & non_coding_good_ids
-    return non_coding_ok, coding_ok
+    all_ids = set()
+    for biotype in biotypes:
+        query = etc.config.transMapEval(ref_genome, genome, biotype=biotype, good=False)
+        query_ids = sql_lib.get_query_ids(cur, query)
+        all_ids |= query_ids
+    return all_ids
 
 
 def build_good_track(target, args):
@@ -136,6 +129,7 @@ def build_good_track(target, args):
     """
     colors = {"coding": "100,209,61", "noncoding": "209,61,115"}
     con, cur = sql_lib.attach_databases(args.outDir, args.mode)
+    biotype_map = sql_lib.get_transcript_biotype_map(cur, args.refGenome)
     if args.mode == "augustus":
         query = etc.config.augustusEval(args.genome)
         good_ids = sql_lib.get_query_ids(cur, query)
@@ -146,18 +140,19 @@ def build_good_track(target, args):
         good_ids = sql_lib.get_query_ids(cur, query)
         out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, "referenceOk", args.refGenome)
         gp_dict = seq_lib.get_transcript_dict(args.annotationGp)
-    else:
-        non_coding_ok, coding_ok = get_all_tm_good(cur, args.genome)
-        good_ids = non_coding_ok & coding_ok
+    elif args.mode == "transMap":
+        good_ids = get_all_tm_good(cur, args.refGenome, args.genome)
         out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, "transMapOk", args.genome)
         gp_dict = seq_lib.get_transcript_dict(args.targetGp)
+    else:
+        raise RuntimeError("Somehow your argparse object does not contain a valid mode.")
     with open(out_bed_path, "w") as outf:
         for aln_id, rec in gp_dict.iteritems():
             if aln_id in good_ids:
-                if args.mode == "transMap" and aln_id in non_coding_ok:
-                    bed = rec.get_bed(rgb=colors["noncoding"])
-                    outf.write("".join(["\t".join(map(str, bed)), "\n"])) 
-                else:
+                if biotype_map[aln_id] == "protein_coding":
                     bed = rec.get_bed(rgb=colors["coding"])
+                    outf.write("".join(["\t".join(map(str, bed)), "\n"]))
+                else:
+                    bed = rec.get_bed(rgb=colors["noncoding"])
                     outf.write("".join(["\t".join(map(str, bed)), "\n"]))
     make_big_bed(out_bed_path, args.sizes, out_big_bed_path)
