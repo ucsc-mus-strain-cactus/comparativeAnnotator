@@ -2,10 +2,7 @@
 This file configures the plotting and queries for the comparativeAnnotator pipeline.
 """
 
-import src.classifiers
-import src.augustus_classifiers
-import src.alignment_classifiers
-from lib.general_lib import classes_in_module, dict_to_named_tuple, merge_dicts
+from lib.general_lib import dict_to_named_tuple, merge_dicts
 
 __author__ = "Ian Fiddes"
 
@@ -71,26 +68,37 @@ paired_palette = ["#df65b0", "#dd1c77", "#980043", "#a1dab4", "#41b6c4", "#2c7fb
 palette = ["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#f0e442", "#56b4e9"]
 
 
+# list of classifiers in modules. I used to be able to import these, but now that leads to a circular import.
+# too lazy to fix this at this point. TODO
+
+ref_classifiers = ['EndStop', 'BadFrame', 'CdsGap', 'UtrNonCanonSplice', 'CdsMult3Gap', 'BeginStart', 
+'SpliceContainsUnknownBases', 'UnknownGap', 'UnknownBases', 'CdsUnknownSplice', 'UtrUnknownSplice', 'UnknownCdsBases', 
+'UtrGap', 'StartOutOfFrame', 'CdsNonCanonSplice', 'InFrameStop', 'ShortCds']
+
+all_classifiers = ref_classifiers + ['AlnExtendsOffContig', 'CodingMult3Deletions', 'Paralogy', 'HasOriginalIntrons',
+                                     'AlnAbutsUnknownBases', 'CodingInsertions', 'AlignmentPartialMap', 'Synonymous', 
+                                     'FrameShift', 'HasOriginalStop', 'CodingMult3Insertions', 'CodingDeletions', 
+                                     'Nonsynonymous', 'HasOriginalStart']
+
+aug_classifiers = ['AugustusParalogy', 'AugustusNotSameStartStop', 'AugustusExonGain', 'AugustusNotSameStrand', 
+                   'AugustusNotSimilarTerminalExonBoundaries', 'AugustusExonLoss', 
+                   'AugustusNotSimilarInternalExonBoundaries']
+
+
 def refClassifiers(genome):
     base_query = "SELECT {} FROM details.'{}'"
-    classifiers = classes_in_module(src.classifiers)
-    classifiers = ",".join([x.__name__ for x in classifiers])
-    query = base_query.format(classifiers, genome)
+    query = base_query.format(ref_classifiers, genome)
     return query
 
 
 def allClassifiers(genome):
     base_query = "SELECT {} FROM details.'{}'"
-    classifiers = classes_in_module(src.classifiers) + classes_in_module(src.alignment_classifiers)
-    classifiers = ",".join([x.__name__ for x in classifiers])
-    query = base_query.format(classifiers, genome)
+    query = base_query.format(all_classifiers, genome)
     return query
 
 
 def allAugustusClassifiers(genome):
-    base_query = "SELECT {} FROM augustus_details.'{}'"
-    classifiers = ",".join([x.__name__ for x in classes_in_module(src.augustus_classifiers)])
-    query = base_query.format(classifiers, genome)
+    query = base_query.format(aug_classifiers, genome)
     return query
 
 

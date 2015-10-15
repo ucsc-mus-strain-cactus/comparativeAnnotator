@@ -44,9 +44,8 @@ def munge_data(d, filter_set):
     m = m.fillna(0)
     m = m.astype(bool)
     s = m.sum(axis=0)
-    normed_s = s / (0.01 * len(m))
-    normed_s.sort(ascending=False)
     s.sort(ascending=False)
+    normed_s = s / (0.01 * len(m))
     drop_low_sums(m, normed_s)
     s = [[x, normed_s[x], y] for x, y in s.iteritems()]
     return m, s
