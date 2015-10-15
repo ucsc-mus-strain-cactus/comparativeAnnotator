@@ -219,7 +219,7 @@ def main():
     biotypes = sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=True)
     gps = load_gps([args.tmGp, args.augGp])  # load all Augustus and transMap transcripts into one big dict
     consensus_base_path = os.path.join(args.outDir, "gene_sets", args.genome)
-    stats = merge_stats(cur, genome)
+    stats = merge_stats(cur, args.genome)
     for biotype in biotypes:
         consensus = consensus_by_biotype(cur, args.refGenome, args.genome, biotype, transcript_gene_map, stats)
         if len(consensus) > 0:  # some biotypes we may have nothing
