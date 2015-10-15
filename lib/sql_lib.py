@@ -176,22 +176,16 @@ def get_transcript_biotype_map(cur, ref_genome):
 
 def get_stats(cur, genome, mode="transMap"):
     """
-    Returns a dictionary mapping each aln_id to [aln_id, %ID, %COV]
+    Returns a dictionary mapping each aln_id to [aln_id, %ID, %COV].
+    We replace all NULL values with zero to make things easier in consensus finding.
     """
     if mode == "transMap":
-        query = "SELECT AlignmentId,AlignmentIdentity,AlignmentCoverage FROM attributes.'{}'".format(genome)
+        query = ("SELECT AlignmentId,IFNULL(AlignmentCoverage, 0),IFNULL(AlignmentIdentity, 0) "
+                 "FROM attributes.'{}'").format(genome)
     else:
-        query = "SELECT AlignmentId,AlignmentIdentity,AlignmentCoverage FROM augustus_attributes.'{}'".format(genome)
+        query = ("SELECT AlignmentId,IFNULL(AlignmentCoverage, 0),IFNULL(AlignmentIdentity, 0) "
+                 "FROM augustus_attributes.'{}'").format(genome)
     return get_query_dict(cur, query)
-
-
-def get_filtered_biotype_ids(cur, ref_genome, biotype, filter_chroms):
-    """
-    Gets all IDs of a biotype filtered by filter_chroms. A wrapper for get_ids_by_chromosome and filter_biotype_ids
-    """
-    chr_y_ids = get_ids_by_chromosome(cur, ref_genome, filter_chroms)
-    biotype_ids = filter_biotype_ids(cur, ref_genome, biotype, chr_y_ids, mode="Transcript")
-    return biotype_ids
 
 
 def get_fail_good_pass_ids(cur, ref_genome, genome, biotype):
@@ -208,12 +202,6 @@ def get_fail_good_pass_ids(cur, ref_genome, genome, biotype):
     fail_ids = all_ids - good_ids
     good_specific_ids = good_ids - pass_ids
     return fail_ids, good_specific_ids, pass_ids
-
-
-def get_fail_good_biotype_ids(cur, ref_genome, genome, filter_chroms, biotype):
-    biotype_ids = get_filtered_biotype_ids(cur, ref_genome, biotype, filter_chroms)
-    fail_ids, good_specific_ids, pass_ids = get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
-    return fail_ids, good_specific_ids, biotype_ids
 
 
 def write_dict(data_dict, database_path, table, index_label="AlignmentId"):

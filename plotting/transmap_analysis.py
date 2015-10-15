@@ -160,7 +160,7 @@ def main():
                                                                                            args.filterChroms)}
     for biotype in sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=False):
         biotype_ids = sql_lib.filter_biotype_ids(cur, args.refGenome, biotype, chr_y_ids, mode="Transcript")
-        if len(biotype_ids) > 100:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty
+        if len(biotype_ids) > 50:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty
             out_path = os.path.join(args.outDir, biotype)
             mkdir_p(out_path)
             cov_ident_wrapper(highest_cov_dict, genome_order, out_path,biotype, args.gencode, biotype_ids)

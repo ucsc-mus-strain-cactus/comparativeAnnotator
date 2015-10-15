@@ -16,8 +16,8 @@ def coverage(p_list):
     mi = sum(x.mismatches for x in p_list)
     rep = sum(x.repmatches for x in p_list)
     # ident/cov can end up slightly above 1 due to adding floats
-    cov = format_ratio(m + mi + rep, p_list[0].q_size)
-    return min(cov, 1.0)
+    cov = 100 * format_ratio(m + mi + rep, p_list[0].q_size)
+    return min(cov, 100.0)
 
 
 def identity(p_list):
@@ -26,8 +26,8 @@ def identity(p_list):
     rep = sum(x.repmatches for x in p_list)
     ins = sum(x.q_num_insert for x in p_list)
     # ident/cov can end up slightly above 1 due to adding floats
-    ident = format_ratio(m + rep, m + rep + mi + ins)
-    return min(ident, 1.0)
+    ident = 100 * format_ratio(m + rep, m + rep + mi + ins)
+    return min(ident, 100.0)
 
 
 def chunker(seq, size):
