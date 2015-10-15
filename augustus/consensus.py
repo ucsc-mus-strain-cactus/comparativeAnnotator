@@ -1,14 +1,14 @@
 import argparse
 import re
 import os
-import itertools
 from collections import defaultdict
-from plotting.plot_functions import get_all_biotypes, get_gene_map, get_gene_biotype_map, get_transcript_biotype_map, \
-                                    gp_chrom_filter, get_all_ids, get_reverse_name_map
-import cPickle as pickle
 import lib.sql_lib as sql_lib
 import lib.psl_lib as psl_lib
 from lib.general_lib import mkdir_p, merge_dicts
+import etc.config
+
+
+__author__ = "Ian Fiddes"
 
 
 def parse_args():
@@ -17,11 +17,9 @@ def parse_args():
     parser.add_argument("--compAnnPath", required=True)
     parser.add_argument("--outDir", required=True)
     parser.add_argument("--binnedTranscriptPath", required=True)
-    parser.add_argument("--attributePath", required=True)
     parser.add_argument("--augGp", required=True)
     parser.add_argument("--tmGp", required=True)
-    parser.add_argument("--compGp", required=True)
-    parser.add_argument("--basicGp", required=True)
+    parser.add_argument("--filterChroms", nargs="+", default=["Y", "chrY"], help="chromosomes to ignore")
     return parser.parse_args()
 
 
@@ -43,18 +41,44 @@ def find_best_aln(stats, sig_fig=4):
     return {name for name, aln_id, aln_cov in s if round(aln_id, sig_fig) == best_ident}
 
 
-def get_good_pass(cur, genome, biotype):
-    good_query = etc.config.transMapEval(genome, biotype, good=True)
-    pass_query = etc.config.transMapEval(genome, biotype, good=False)
-    best_ids = set(zip(*highest_cov_dict[genome].itervalues())[0])
-    good_ids = {x for x in sql_lib.get_query_ids(cur, good_query) if strip_alignment_numbers(x) in filter_set
-                and x in best_ids}
-    pass_ids = {x for x in sql_lib.get_query_ids(cur, pass_query) if strip_alignment_numbers(x) in filter_set
-                    and x in best_ids}
+def build_data_dict(id_names, id_list, transcript_gene_map):
+    data_dict = defaultdict(dict)
+    for ids, n in zip(*[id_list, id_names]):
+        for aln_id in ids:
+            ens_id = psl_lib.strip_alignment_numbers(aln_id)
+            gene_id = transcript_gene_map[ens_id]
+            if ens_id not in data_dict[gene_id]:
+                data_dict[gene_id][ens_id] = defaultdict(list)
+            data_dict[gene_id][ens_id][n].append(aln_id)
+    return data_dict
+
+
+def consensus(data_dict, stats, discard_cov_cutoff=0.2, augustus=True):
+    for gene, transcript in data_dict.iteritems():
+        fail_ids =
+
+
+
+def by_coding_biotype(cur, ref_genome, genome, filter_chroms, biotype, transcript_gene_map):
+    fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
+    biotype_ids = sql_lib.get_filtered_biotype_ids(cur, ref_genome, biotype, filter_chroms)
+    aug_query = etc.config.augustusEval(genome)
+    aug_ids = sql_lib.get_query_ids(cur, aug_query)
+    stats = merge_stats(cur, genome)
+    id_names = ["fail_ids", "good_specific_ids", "pass_ids", "aug_ids"]
+    id_list = [fail_ids, good_specific_ids, pass_ids, aug_ids]
+    data_dict = build_data_dict(id_names, id_list, transcript_gene_map)
+
+
+
+def by_noncoding_biotype(cur, ref_genome, genome, filter_chroms):
+    fail_ids, good_specific_ids, biotype_ids = sql_lib.get_fail_good_biotype_ids(cur, ref_genome, genome, filter_chroms)
+
 
 def main():
     args = parse_args()
     con, cur = sql_lib.attach_databases(args.compAnnPath, mode="augustus")
+    transcript_gene_map = sql_lib.get_transcript_gene_map(cur, args.refGenome)
     biotypes = get_all_biotypes(args.attributePath)
     gene_map = get_gene_map(args.attributePath)  # maps each transcript to its parent gene
     gene_biotype_map = get_gene_biotype_map(args.attributePath)  # maps each gene to its biotype

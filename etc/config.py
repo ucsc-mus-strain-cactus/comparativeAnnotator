@@ -18,7 +18,7 @@ hard_coded_genome_order = ['C57B6NJ', 'NZOHlLtJ', '129S1', 'FVBNJ', 'NODShiLtJ',
 
 # these classifiers define Pass for single-genome analysis
 ref_coding_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
-                             "StartOutOfFrame", "SpliceContainsUnknownBases", "InFrameStop", "ShortCds"]
+                          "StartOutOfFrame", "SpliceContainsUnknownBases", "InFrameStop", "ShortCds"]
 
 # these classifiers define Pass for coding transcripts
 tm_pass_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",

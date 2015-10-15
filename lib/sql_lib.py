@@ -2,11 +2,12 @@
 Convenience library for interfacing with a sqlite database.
 """
 import os
-from collections import defaultdict
 import lib.psl_lib as psl_lib
 import lib.general_lib as general_lib
+from collections import defaultdict
 import sqlite3 as sql
 import pandas as pd
+import etc.config
 
 __author__ = "Ian Fiddes"
 
@@ -182,6 +183,37 @@ def get_stats(cur, genome, mode="transMap"):
     else:
         query = "SELECT AlignmentId,AlignmentIdentity,AlignmentCoverage FROM augustus_attributes.'{}'".format(genome)
     return get_query_dict(cur, query)
+
+
+def get_filtered_biotype_ids(cur, ref_genome, biotype, filter_chroms):
+    """
+    Gets all IDs of a biotype filtered by filter_chroms. A wrapper for get_ids_by_chromosome and filter_biotype_ids
+    """
+    chr_y_ids = get_ids_by_chromosome(cur, ref_genome, filter_chroms)
+    biotype_ids = filter_biotype_ids(cur, ref_genome, biotype, chr_y_ids, mode="Transcript")
+    return biotype_ids
+
+
+def get_fail_good_pass_ids(cur, ref_genome, genome, biotype):
+    """
+    Returns the IDs categorized as fail, good_specific, pass
+    """
+    good_query = etc.config.transMapEval(ref_genome, genome, biotype, good=True)
+    pass_query = etc.config.transMapEval(ref_genome, genome, biotype, good=False)
+    best_covs = highest_cov_aln(cur, genome)
+    best_ids = set(zip(*best_covs.itervalues())[0])
+    good_ids = {x for x in get_query_ids(cur, good_query) if x in best_ids}
+    pass_ids = {x for x in get_query_ids(cur, pass_query) if x in best_ids}
+    all_ids = {x for x in get_biotype_aln_ids(cur, genome, biotype) if x in best_ids}
+    fail_ids = all_ids - good_ids
+    good_specific_ids = good_ids - pass_ids
+    return fail_ids, good_specific_ids, pass_ids
+
+
+def get_fail_good_biotype_ids(cur, ref_genome, genome, filter_chroms, biotype):
+    biotype_ids = get_filtered_biotype_ids(cur, ref_genome, biotype, filter_chroms)
+    fail_ids, good_specific_ids, pass_ids = get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
+    return fail_ids, good_specific_ids, biotype_ids
 
 
 def write_dict(data_dict, database_path, table, index_label="AlignmentId"):

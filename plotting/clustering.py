@@ -52,28 +52,13 @@ def munge_data(d, filter_set):
     return m, s
 
 
-def find_ids(cur, ref_genome, genome, filter_chroms):
-    chr_y_ids = sql_lib.get_ids_by_chromosome(cur, ref_genome, filter_chroms)
-    biotype_ids = sql_lib.filter_biotype_ids(cur, ref_genome, biotype, chr_y_ids, mode="Transcript")
-    good_query = etc.config.transMapEval(ref_genome, genome, biotype, good=True)
-    pass_query = etc.config.transMapEval(ref_genome, genome, biotype, good=False)
-    best_covs = sql_lib.highest_cov_aln(cur, genome)
-    best_ids = set(zip(*best_covs.itervalues())[0])
-    good_ids = {x for x in sql_lib.get_query_ids(cur, good_query) if x in best_ids}
-    pass_ids = {x for x in sql_lib.get_query_ids(cur, pass_query) if x in best_ids}
-    all_ids = sql_lib.get_biotype_aln_ids(cur, genome, biotype)
-    fail_ids = all_ids - good_ids
-    good_specific_ids = good_ids - pass_ids
-    return fail_ids, good_specific_ids, biotype_ids
-
-
 def main_fn(target, comp_ann_path, gencode, genome, ref_genome, base_out_path, filter_chroms):
     clust_title = "Hierarchical_clustering_of_transMap_classifiers"
     base_barplot_title = ("Classifiers failed by transcripts in the category {} in transMap analysis\n"
                           "Genome: {}.  Gencode set: {}.  {:,} ({:0.2f}%) of transcripts")
     out_path = os.path.join(base_out_path, "clustering", genome)
     con, cur = sql_lib.attach_databases(comp_ann_path, mode="transMap")
-    fail_ids, good_specific_ids, biotype_ids = find_ids(cur, ref_genome, genome, filter_chroms)
+    fail_ids, good_specific_ids, biotype_ids = sql_lib.get_fail_good_biotype_ids(cur, ref_genome, genome, filter_chroms)
     sql_data = sql_lib.load_data(con, genome, etc.config.tm_pass_classifiers)
     for mode, ids in zip(*[["Fail", "Good/NotPass"], [fail_ids, good_specific_ids]]):
         out_barplot_file = os.path.join(out_path, "barplot_{}_{}".format(genome, biotype))
