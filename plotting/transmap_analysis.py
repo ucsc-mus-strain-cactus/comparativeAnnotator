@@ -35,19 +35,6 @@ def paralogy(cur, genome):
     return Counter([x[0] for x in cur.execute(cmd)])
 
 
-def find_genome_order(highest_cov_dict, biotype_ids):
-    """
-    Finds the genome order that will be used by all plots. This is deprecated in favor of using a hard coded order
-    provided by Joel.
-    """
-    num_cov = {}
-    for g, covs in highest_cov_dict.iteritems():
-        num_cov[g] = 1.0 * len({tx_id for tx_id in covs.iterkeys() if tx_id in biotype_ids})
-        num_cov[g] /= len(biotype_ids)
-    order = sorted(num_cov.iteritems(), key=lambda x: -x[1])
-    return zip(*order)[0]
-
-
 def make_hist(vals, bins, reverse=False, roll=0):
     """
     Makes a histogram out of a value vector given a list of bins. Returns this normalized off the total number.
@@ -153,7 +140,7 @@ def main():
     args = parse_args()
     con, cur = sql_lib.attach_databases(args.comparativeAnnotationDir)
     highest_cov_dict = get_highest_cov_alns(cur, args.genomes)
-    # genome_order = find_genome_order(highest_cov_dict, gencode_ids)
+    # genome_order = plot_lib.find_genome_order(highest_cov_dict, gencode_ids)
     genome_order = etc.config.hard_coded_genome_order
     # we will filter out chromosome Y transcripts for this project
     chr_y_ids = {psl_lib.strip_alignment_numbers(x) for x in sql_lib.get_ids_by_chromosome(cur, args.genome,

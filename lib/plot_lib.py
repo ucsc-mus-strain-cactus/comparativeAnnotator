@@ -5,7 +5,6 @@ import os
 import itertools
 import math
 import numpy as np
-from collections import defaultdict, OrderedDict
 
 import matplotlib
 matplotlib.use('Agg')
@@ -18,6 +17,19 @@ import matplotlib.backends.backend_pdf as plt_back
 from etc.config import *
 
 __author__ = "Ian Fiddes"
+
+
+def find_genome_order(highest_cov_dict, biotype_ids):
+    """
+    Finds the genome order that will be used by all plots. This is deprecated in favor of using a hard coded order
+    provided by Joel.
+    """
+    num_cov = {}
+    for g, covs in highest_cov_dict.iteritems():
+        num_cov[g] = 1.0 * len({tx_id for tx_id in covs.iterkeys() if tx_id in biotype_ids})
+        num_cov[g] /= len(biotype_ids)
+    order = sorted(num_cov.iteritems(), key=lambda x: -x[1])
+    return zip(*order)[0]
 
 
 def init_image(out_folder, comparison_name, width, height):
@@ -100,7 +112,8 @@ def base_barplot(max_y_value, names, out_path, file_name, title_string, border=T
 def barplot(results, out_path, file_name, title_string, color="#0072b2", border=True, add_labels=True, adjust_y=True):
     """
     Boilerplate code that will produce a unstacked barplot. Expects results to be a list of lists in the form
-    [[name1, value1], [name2, value2]]. The values should be normalized between 0 and 100.
+    [[name1, normalized_value1, value1], [name2, normalized_value2, value2]]. Normalized between 0 and 100.
+    Assumes that all bars have the same denominator, and so are normalizable.
     """
     names, values, raw_values = zip(*results)
     if adjust_y is True:
@@ -122,12 +135,52 @@ def barplot(results, out_path, file_name, title_string, color="#0072b2", border=
 
 def stacked_barplot(results, legend_labels, out_path, file_name, title_string, color_palette=palette, border=True):
     """
-    Boilerplate code that will produce a unstacked barplot. Expects results to be a list of lists of lists in the form
-    [[name1, value1], [name2, value2]]. The values should be normalized between 0 and 100. Should be in the same
-    order as legend_labels or your legend will be wrong.
+    Boilerplate code that will produce a stacked barplot. Expects results to be a list of lists of lists in the form
+    [[name1, [value1a, value1b]], [name2, [value2a, value2b]]. The values should be normalized between 0 and 100.
+    Should be in the same order as legend_labels or your legend will be wrong.
+    Assumes that all bars have the same denominator, and so are normalizable.
     """
     names, values = zip(*results)
     ax, fig, pdf = base_barplot(100.0, names, out_path, file_name, title_string, border=border, has_legend=True)
+    bars = []
+    cumulative = np.zeros(len(values))
+    for i, d in enumerate(np.asarray(values).transpose()):
+        bars.append(ax.bar(range(len(values)), d, bar_width, bottom=cumulative,
+                           color=color_palette[i % len(color_palette)],
+                           linewidth=0.0, alpha=1.0))
+        cumulative += d
+    fig.legend([x[0] for x in bars[::-1]], legend_labels[::-1], bbox_to_anchor=(1, 0.8), fontsize=11,
+               frameon=True, title="Category")
+    fig.savefig(pdf, format='pdf')
+    plt.close()
+    pdf.close()
+
+
+def base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, breaks=1000, border=True,
+                         has_legend=True):
+    fig, pdf = init_image(out_path, file_name, width, height)
+    ax = establish_axes(fig, width, height, border, has_legend)
+    plt.text(0.5, 1.08, title_string, horizontalalignment='center', fontsize=12, transform=ax.transAxes)
+    ax.set_ylabel("Number of transcripts")
+    ax.set_ylim([0, max_y_value])
+    plt.tick_params(axis='y', labelsize=9)
+    plt.tick_params(axis='x', labelsize=9)
+    ax.yaxis.set_ticks(np.arange(0.0, int(max_y_value + 1), breaks))
+    ax.xaxis.set_ticks(np.arange(0, len(names)) + bar_width / 2.0)
+    ax.xaxis.set_ticklabels(names, rotation=60)
+    return ax, fig, pdf
+
+
+def stacked_unequal_barplot(results, legend_labels, out_path, file_name, title_string, color_palette=palette,
+                            breaks=1000, border=True):
+    """
+    Boilerplate code that will produce a stacked barplot. Expects results to be a list of lists of lists in the form
+    [[name1, [value1a, value1b]], [name2, [value2a, value2b]].
+    Should be in the same order as legend_labels or your legend will be wrong.
+    """
+    names, values = zip(*results)
+    max_y_value = math.ceil(1.0 * max(sum(x) for x in values) / breaks) * breaks
+    ax, fig, pdf = base_barplot(max_y_value, names, out_path, file_name, title_string, border=border, has_legend=True)
     bars = []
     cumulative = np.zeros(len(values))
     for i, d in enumerate(np.asarray(values).transpose()):

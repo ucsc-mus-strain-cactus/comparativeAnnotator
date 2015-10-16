@@ -1,5 +1,12 @@
+"""
+Produces a consensus between Augustus and transMap. This only really applies to protein_coding transcripts,
+but this code will still pick the best transMap alignment for other biotypes. Produces a genePred for each biotype
+in the analysis. Also dumps a file for the protein_coding transcripts to args.workDir so that plots can be generated
+to analyze all genomes.
+"""
 import argparse
 import os
+import cPickle as pickle
 from collections import defaultdict, OrderedDict
 import lib.sql_lib as sql_lib
 import lib.psl_lib as psl_lib
@@ -16,6 +23,7 @@ def parse_args():
     parser.add_argument("--refGenome", required=True)
     parser.add_argument("--compAnnPath", required=True)
     parser.add_argument("--outDir", required=True)
+    parser.add_argument("--workDir", required=True)
     parser.add_argument("--augGp", required=True)
     parser.add_argument("--tmGp", required=True)
     return parser.parse_args()
@@ -78,19 +86,19 @@ def find_best_alns(stats, ids):
 def evaluate_ids(fail_ids, good_specific_ids, pass_ids, aug_ids, stats):
     """
     For a given ensembl ID, we have augustus/transMap ids in 4 categories. Based on the hierarchy Pass>Good>Fail,
-    return the best transcript in the highest category with a transMap transcript. 
+    return the best transcript in the highest category with a transMap transcript.
     """
     if len(pass_ids) > 0:
         best_alns = find_best_alns(stats, pass_ids + aug_ids)
-        return best_alns, "pass"
+        return best_alns, "Pass"
     elif len(good_specific_ids) > 0:
         best_alns = find_best_alns(stats, good_specific_ids + aug_ids)
-        return best_alns, "good"
+        return best_alns, "Good"
     elif len(fail_ids) > 0:
         best_alns = find_best_alns(stats, fail_ids + aug_ids)
-        return best_alns, "fail"
+        return best_alns, "Fail"
     else:
-        return None, "no_good_aln"
+        return None, "NoTM"
 
 
 def is_tie(best_alns):
@@ -141,17 +149,83 @@ def find_best_for_gene(bins, stats, cov_cutoff=80.0, ident_cutoff=80.0):
         return None
 
 
+def evaluate_transcript(best_id, category, tie):
+    if category is "NoTM":
+        return category
+    elif tie is True:
+        c = "Tie"
+    elif psl_lib.aln_id_is_augustus(best_id):
+        c = "Aug"
+    elif psl_lib.aln_id_is_transmap(best_id):
+        c = "TM"
+    else:
+        assert False, "ID was not TM/Aug"
+    s = "".join([category, c])
+    return s
+
+
+def evaluate_gene(categories):
+    if "Pass" in categories:
+        return "Pass"
+    elif "Good" in categories:
+        return "Good"
+    elif "Fail" in categories:
+        return "Fail"
+    elif "NoTM" in categories:
+        return "NoTM"
+    else:
+        assert False, "Should not be able to get here."
+
+
+def evaluate_best_for_gene(tx_ids):
+    if tx_ids is None:
+        return "NoTx"
+    elif is_tie(tx_ids):
+        return "Tie"
+    elif psl_lib.aln_id_is_augustus(tx_ids[0]):
+        return "Augustus"
+    elif psl_lib.aln_id_is_transmap(tx_ids[0]):
+        return "transMap"
+    else:
+        assert False, "ID was not TM/Aug"
+
+
+def evaluate_coding_consensus(binned_transcripts, stats):
+    """
+    Evaluates the coding consensus for plots. Reproduces a lot of code from find_consensus()
+    TODO: split out duplicated code.
+    """
+    transcript_evaluation = OrderedDict((x, 0) for x in ["PassTM", "PassAug", "PassTie", "GoodTM", "GoodAug", "GoodTie",
+                                                         "FailTM", "FailAug", "FailTie", "NoTM"])
+    gene_evaluation = OrderedDict((x, 0) for x in ["Pass", "Good", "Fail", "NoTM"])
+    gene_fail_evaluation = OrderedDict((x, 0) for x in ["transMap", "Augustus", "Te", "NoTx"])
+    for gene_id in binned_transcripts:
+        categories = set()
+        for ens_id in binned_transcripts[gene_id]:
+            best_id, category, tie = binned_transcripts[gene_id][ens_id]
+            categories.add(category)
+            s = evaluate_transcript(best_id, category, tie)
+            transcript_evaluation[s] += 1
+        s = evaluate_gene(categories)
+        gene_evaluation[s] += 1
+        if s == "Fail":
+            best_for_gene = find_best_for_gene(binned_transcripts[gene_id], stats)
+            s = evaluate_best_for_gene(best_for_gene)
+            gene_fail_evaluation[s] += 1
+    return {"transcript": transcript_evaluation, "gene": gene_evaluation, "gene_fail": gene_fail_evaluation}
+
+
 def find_consensus(binned_transcripts, stats):
     """
-    Takes the binned transcripts and picks a consensus. This works like this:
-    For each gene, evalaute the transcripts. If the best alignment falls 
+    Takes the binned transcripts and picks a consensus. Also produces an evaluation dict for this biotype that
+    will be dumped to disk to load and produces pan-genome plots.
     """
     consensus = []
     for gene_id in binned_transcripts:
         gene_in_consensus = False
         for ens_id in binned_transcripts[gene_id]:
-            best_id, category, is_tie = binned_transcripts[gene_id][ens_id]
-            if category in ["pass", "good"]:
+            best_id, category, tie = binned_transcripts[gene_id][ens_id]
+            if category in ["Pass", "Good"]:
                 consensus.append(best_id)
                 gene_in_consensus = True
         if gene_in_consensus is False:
@@ -175,13 +249,13 @@ def consensus_by_biotype(cur, ref_genome, genome, biotype, transcript_gene_map, 
     data_dict = build_data_dict(id_names, id_list, transcript_gene_map)
     binned_transcripts = find_best_transcripts(data_dict, stats)
     consensus = find_consensus(binned_transcripts, stats)
-    return consensus
+    return binned_transcripts, consensus
 
 
 def fix_gene_pred(gp, transcript_gene_map):
     """
     These genePreds have a few problems. First, the alignment numbers must be removed. Second, we want to fix
-    the name2 field to be the gene name. Third, we want to set the unique ID field. Finally, we want to sort the whole 
+    the name2 field to be the gene name. Third, we want to set the unique ID field. Finally, we want to sort the whole
     thing by genomic coordinates.
     """
     gp = sorted([x.split("\t") for x in gp], key=lambda x: [x[1], x[3]])
@@ -212,13 +286,18 @@ def main():
     transcript_gene_map = sql_lib.get_transcript_gene_map(cur, args.refGenome)
     biotypes = sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=True)
     gps = load_gps([args.tmGp, args.augGp])  # load all Augustus and transMap transcripts into one big dict
-    consensus_base_path = os.path.join(args.outDir, "gene_sets", args.genome)
+    consensus_base_path = os.path.join(args.outDir, args.genome)
     stats = merge_stats(cur, args.genome)
     for biotype in biotypes:
-        consensus = consensus_by_biotype(cur, args.refGenome, args.genome, biotype, transcript_gene_map, stats)
+        binned_transcripts, consensus = consensus_by_biotype(cur, args.refGenome, args.genome, biotype,
+                                                             transcript_gene_map, stats)
         if len(consensus) > 0:  # some biotypes we may have nothing
             write_gps(consensus, gps, consensus_base_path, biotype, transcript_gene_map)
-
+        if biotype == "protein_coding":
+            p = os.path.join(args.workDir, args.genome)
+            gene_transcript_evals = evaluate_coding_consensus(binned_transcripts, stats)
+            with open(p, "w") as outf:
+                pickle.dump(gene_transcript_evals, outf)
 
 
 if __name__ == "__main__":

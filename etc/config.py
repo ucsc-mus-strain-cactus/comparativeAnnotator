@@ -63,25 +63,32 @@ width = 9.0
 height = 6.0
 bar_width = 0.45
 # paired_palette has two parallel color spectrums and black as the outgroup color
-paired_palette = ["#df65b0", "#dd1c77", "#980043", "#a1dab4", "#41b6c4", "#2c7fb8", "#252525"]
+paired_palette = ["#df65b0", "#dd1c77", "#980043",
+                  "#a1dab4", "#41b6c4", "#2c7fb8",
+                  "#252525"]
+# triple palette is the same concept as paired, but with 3 groups
+triple_palette = ["#df65b0", "#dd1c77", "#980043",
+                  "#65DF94", "#1CDD82", "#009855",
+                  "#a1dab4", "#41b6c4", "#2c7fb8",
+                  "#252525"]
 # palette is the seaborn colorbind palette
 palette = ["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#f0e442", "#56b4e9"]
 
 
-# list of classifiers in modules. I used to be able to import these, but now that leads to a circular import.
-# too lazy to fix this at this point. TODO
+# list of classifiers in modules. TODO: I used to be able to import these, but now that leads to a circular import.
+# too lazy to fix this at this point.
 
-ref_classifiers = ['EndStop', 'BadFrame', 'CdsGap', 'UtrNonCanonSplice', 'CdsMult3Gap', 'BeginStart', 
-'SpliceContainsUnknownBases', 'UnknownGap', 'UnknownBases', 'CdsUnknownSplice', 'UtrUnknownSplice', 'UnknownCdsBases', 
-'UtrGap', 'StartOutOfFrame', 'CdsNonCanonSplice', 'InFrameStop', 'ShortCds']
+ref_classifiers = ['EndStop', 'BadFrame', 'CdsGap', 'UtrNonCanonSplice', 'CdsMult3Gap', 'BeginStart',
+                   'SpliceContainsUnknownBases', 'UnknownGap', 'UnknownBases', 'CdsUnknownSplice', 'UtrUnknownSplice',
+                   'UnknownCdsBases', 'UtrGap', 'StartOutOfFrame', 'CdsNonCanonSplice', 'InFrameStop', 'ShortCds']
 
 all_classifiers = ref_classifiers + ['AlnExtendsOffContig', 'CodingMult3Deletions', 'Paralogy', 'HasOriginalIntrons',
-                                     'AlnAbutsUnknownBases', 'CodingInsertions', 'AlignmentPartialMap', 'Synonymous', 
-                                     'FrameShift', 'HasOriginalStop', 'CodingMult3Insertions', 'CodingDeletions', 
+                                     'AlnAbutsUnknownBases', 'CodingInsertions', 'AlignmentPartialMap', 'Synonymous',
+                                     'FrameShift', 'HasOriginalStop', 'CodingMult3Insertions', 'CodingDeletions',
                                      'Nonsynonymous', 'HasOriginalStart']
 
-aug_classifiers = ['AugustusParalogy', 'AugustusNotSameStartStop', 'AugustusExonGain', 'AugustusNotSameStrand', 
-                   'AugustusNotSimilarTerminalExonBoundaries', 'AugustusExonLoss', 
+aug_classifiers = ['AugustusParalogy', 'AugustusNotSameStartStop', 'AugustusExonGain', 'AugustusNotSameStrand',
+                   'AugustusNotSimilarTerminalExonBoundaries', 'AugustusExonLoss',
                    'AugustusNotSimilarInternalExonBoundaries']
 
 
@@ -98,6 +105,7 @@ def allClassifiers(genome):
 
 
 def allAugustusClassifiers(genome):
+    base_query = "SELECT {} FROM augustus_details.'{}'"
     query = base_query.format(aug_classifiers, genome)
     return query
 
