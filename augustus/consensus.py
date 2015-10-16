@@ -1,7 +1,6 @@
 import argparse
-import re
 import os
-from collections import defaultdict, OrderedDict, Counter
+from collections import defaultdict, OrderedDict
 import lib.sql_lib as sql_lib
 import lib.psl_lib as psl_lib
 from lib.general_lib import mkdir_p, merge_dicts
@@ -165,8 +164,6 @@ def find_consensus(binned_transcripts, stats):
 
 def consensus_by_biotype(cur, ref_genome, genome, biotype, transcript_gene_map, stats):
     fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
-    chr_y_ids = {psl_lib.strip_alignment_numbers(x) for x in sql_lib.get_ids_by_chromosome(cur, genome)}
-    biotype_ids = sql_lib.get_biotype_ids(cur, ref_genome, biotype)
     # hacky way to avoid duplicating code in consensus finding - we will always have an aug_id set, it just may be empty
     if biotype == "protein_coding":
         aug_query = etc.config.augustusEval(genome)
@@ -202,10 +199,7 @@ def fix_gene_pred(gp, transcript_gene_map):
 def write_gps(consensus, gps, consensus_base_path, biotype, transcript_gene_map):
     p = os.path.join(consensus_base_path, biotype + ".consensus_gene_set.gp")
     mkdir_p(os.path.dirname(p))
-    try:
-        gp_recs = [gps[aln_id] for aln_id in consensus]
-    except:
-        assert False, (consensus, biotype)
+    gp_recs = [gps[aln_id] for aln_id in consensus]
     fixed_gp_recs = fix_gene_pred(gp_recs, transcript_gene_map)
     with open(p, "w") as outf:
         for rec in fixed_gp_recs:
