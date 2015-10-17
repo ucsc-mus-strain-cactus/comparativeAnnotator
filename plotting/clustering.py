@@ -56,24 +56,26 @@ def main_fn(target, comp_ann_path, gencode, genome, ref_genome, base_out_path, f
     base_barplot_title = ("Classifiers failed by transcripts in the category {} in transMap analysis\n"
                           "Genome: {}.  Gencode set: {}.  {:,} ({:0.2f}%) of transcripts")
     out_path = os.path.join(base_out_path, "clustering", genome)
+    mkdir_p(out_path)
     con, cur = sql_lib.attach_databases(comp_ann_path, mode="transMap")
     fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
     chr_y_ids = sql_lib.get_ids_by_chromosome(cur, genome, filter_chroms)
     biotype_ids = sql_lib.get_biotype_ids(cur, ref_genome, biotype) - chr_y_ids  # remove chrY ids
     sql_data = sql_lib.load_data(con, genome, etc.config.tm_pass_classifiers)
     for mode, ids in zip(*[["Fail", "Good/NotPass"], [fail_ids, good_specific_ids]]):
-        out_barplot_file = os.path.join(out_path, "barplot_{}_{}".format(genome, biotype))
+        mode_underscore = mode.replace("/", "_")
+        out_barplot_file = os.path.join(out_path, "barplot_{}_{}_{}".format(genome, biotype, mode_underscore))
         percentage_of_set = 100.0 * len(ids) / len(biotype_ids)
         barplot_title = base_barplot_title.format(mode, genome, gencode, len(ids), percentage_of_set)
         munged, stats = munge_data(sql_data, ids)
         plot_lib.barplot(stats, out_path, out_barplot_file, barplot_title)
         data_path = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString())
         munged.to_csv(data_path)
-        out_cluster_file = os.path.join(out_path, "clustering_{}_{}".format(genome, biotype))
+        out_cluster_file = os.path.join(out_path, "clustering_{}_{}_{}".format(genome, biotype, mode_underscore))
         target.addChildTargetFn(r_wrapper, args=[data_path, clust_title, out_cluster_file])
 
 
-def r_wrapper(data_path, clust_title, out_cluster_file):
+def r_wrapper(target, data_path, clust_title, out_cluster_file):
     base_cmd = ("export R_HOME=/cluster/home/ifiddes/lib64/R && /cluster/home/ifiddes/bin/Rscript {}/plotting/cluster.R"
                 " {} {} {}")
     cmd = base_cmd.format(os.getcwd(), data_path, clust_title, out_cluster_file)
