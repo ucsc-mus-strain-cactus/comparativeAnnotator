@@ -94,19 +94,19 @@ aug_classifiers = ['AugustusParalogy', 'AugustusNotSameStartStop', 'AugustusExon
 
 def refClassifiers(genome):
     base_query = "SELECT {} FROM details.'{}'"
-    query = base_query.format(ref_classifiers, genome)
+    query = base_query.format(",".join(ref_classifiers), genome)
     return query
 
 
 def allClassifiers(genome):
     base_query = "SELECT {} FROM details.'{}'"
-    query = base_query.format(all_classifiers, genome)
+    query = base_query.format(",".join(all_classifiers), genome)
     return query
 
 
 def allAugustusClassifiers(genome):
     base_query = "SELECT {} FROM augustus_details.'{}'"
-    query = base_query.format(aug_classifiers, genome)
+    query = base_query.format(",".join(aug_classifiers), genome)
     return query
 
 
@@ -120,21 +120,22 @@ def potentiallyInterestingBiology(genome):
     return query
 
 
-def assemblyErrors(genome, biotype, details=True):
+def assemblyErrors(genome, biotype=None, details=True):
     base_query = ("FROM attributes.'{0}' JOIN details.'{0}' USING ('AlignmentId') JOIN main.'{0}' USING "
                   "('AlignmentId') WHERE main.'{0}'.AlignmentPartialMap = 1 OR main.'{0}'.UnknownBases = 1 OR "
                   "main.'{0}'.UnknownGap = 1 OR main.'{0}'.ShortCds = 1 OR main.'{0}'.AlnAbutsUnknownBases = 1 "
                   "OR main.'{0}'.AlnExtendsOffContig = 1")
     details_selection = ("SELECT details.'{0}'.AlignmentPartialMap,details.'{0}'.UnknownBases,details.'{0}'.UnknownGap,"
-                         "details.'{0}'.ShortCds,details.'{0}'.AlnAbutsUnknownBases,details.'{0}'.AlnExtendsOffContig")
+                         "details.'{0}'.ShortCds,details.'{0}'.AlnAbutsUnknownBases,details.'{0}'.AlnExtendsOffContig ")
     classify_selection = "SELECT main.'{0}'.AlignmentId "
     added_query = details_selection + base_query if details else classify_selection + base_query
     query = added_query.format(genome)
-    query += " AND attributes.'{}'.TranscriptType = '{}'".format(genome, biotype)
+    if biotype is not None:
+      query += " AND attributes.'{}'.TranscriptType = '{}'".format(genome, biotype)
     return query
 
 
-def alignmentErrors(genome, biotype, details=True):
+def alignmentErrors(genome, biotype=None, details=True):
     base_query = ("FROM attributes.'{0}' JOIN details.'{0}' USING ('AlignmentId') JOIN main.'{0}' USING "
                   "('AlignmentId') WHERE main.'{0}'.BadFrame = 1 OR "
                   "main.'{0}'.CdsGap = 1 OR main.'{0}'.CdsMult3Gap = 1 OR main.'{0}'.UtrGap = 1 OR "
@@ -145,7 +146,8 @@ def alignmentErrors(genome, biotype, details=True):
     classify_selection = "SELECT main.'{0}'.AlignmentId "
     added_query = details_selection + base_query if details else classify_selection + base_query
     query = added_query.format(genome)
-    query += " AND attributes.'{}'.TranscriptType = '{}'".format(genome, biotype)
+    if biotype is not None:
+      query += " AND attributes.'{}'.TranscriptType = '{}'".format(genome, biotype)
     return query
 
 

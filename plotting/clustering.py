@@ -57,7 +57,7 @@ def main_fn(target, comp_ann_path, gencode, genome, ref_genome, base_out_path, f
                           "Genome: {}.  Gencode set: {}.  {:,} ({:0.2f}%) of transcripts")
     out_path = os.path.join(base_out_path, "clustering", genome)
     con, cur = sql_lib.attach_databases(comp_ann_path, mode="transMap")
-    fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, filter_chroms)
+    fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
     chr_y_ids = sql_lib.get_ids_by_chromosome(cur, genome, filter_chroms)
     biotype_ids = sql_lib.get_biotype_ids(cur, ref_genome, biotype) - chr_y_ids  # remove chrY ids
     sql_data = sql_lib.load_data(con, genome, etc.config.tm_pass_classifiers)
