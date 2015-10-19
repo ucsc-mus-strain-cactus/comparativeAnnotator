@@ -138,19 +138,22 @@ def get_highest_cov_alns(cur, genomes):
 
 def main():
     args = parse_args()
-    con, cur = sql_lib.attach_databases(args.comparativeAnnotationDir)
+    con, cur = sql_lib.attach_databases(args.comparativeAnnotationDir, mode="transMap")
     highest_cov_dict = get_highest_cov_alns(cur, args.genomes)
     # genome_order = plot_lib.find_genome_order(highest_cov_dict, gencode_ids)
     genome_order = etc.config.hard_coded_genome_order
     # we will filter out chromosome Y transcripts for this project
-    chr_y_ids = {psl_lib.strip_alignment_numbers(x) for x in sql_lib.get_ids_by_chromosome(cur, args.genome,
-                                                                                           args.filterChroms)}
+    # TODO: fix this hack
+    chr_y_ids = set()
+    for g in args.genomes:
+        q = {psl_lib.strip_alignment_numbers(x) for x in sql_lib.get_ids_by_chromosome(cur, g, args.filterChroms)}
+        chr_y_ids |= q
     for biotype in sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=False):
         biotype_ids = sql_lib.filter_biotype_ids(cur, args.refGenome, biotype, chr_y_ids, mode="Transcript")
         if len(biotype_ids) > 50:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty
             out_path = os.path.join(args.outDir, biotype)
             mkdir_p(out_path)
-            cov_ident_wrapper(highest_cov_dict, genome_order, out_path,biotype, args.gencode, biotype_ids)
+            cov_ident_wrapper(highest_cov_dict, genome_order, out_path, biotype, args.gencode, biotype_ids)
             cat_plot_wrapper(cur, highest_cov_dict, genome_order, out_path, biotype, args.gencode, biotype_ids)
             paralogy_plot(cur, genome_order, out_path, biotype, biotype_ids, args.gencode)
             num_good_pass(highest_cov_dict, cur, genome_order, args.refGenome, out_path, biotype,

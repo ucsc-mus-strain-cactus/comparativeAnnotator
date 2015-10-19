@@ -295,6 +295,7 @@ def main():
             write_gps(consensus, gps, consensus_base_path, biotype, transcript_gene_map)
         if biotype == "protein_coding":
             p = os.path.join(args.workDir, args.genome)
+            mkdir_p(os.path.dirname(p))
             gene_transcript_evals = evaluate_coding_consensus(binned_transcripts, stats)
             with open(p, "w") as outf:
                 pickle.dump(gene_transcript_evals, outf)
