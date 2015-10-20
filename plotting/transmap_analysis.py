@@ -13,6 +13,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--genomes", type=str, nargs="+", required=True, help="genomes in this comparison")
     parser.add_argument("--refGenome", type=str, required=True, help="reference genome")
+    parser.add_argument("--refGp", type=str, required=True, help="reference genePred")
     parser.add_argument("--outDir", required=True, help="output directory")
     parser.add_argument("--comparativeAnnotationDir", required=True, help="directory containing databases")
     parser.add_argument("--gencode", type=str, required=True, help="current gencode set being analyzed")
@@ -54,7 +55,8 @@ def paralogy_plot(cur, genome_order, out_path, biotype, biotype_ids, gencode):
     for g in genome_order:
         p = paralogy(cur, g)
         p = [p.get(x, 0) for x in biotype_ids]
-        norm, raw = make_hist(p, paralogy_bins, reverse=False, roll=1)
+        # we roll the list backwards one to put 0 on top
+        norm, raw = make_hist(p, paralogy_bins, reverse=False, roll=-1)
         results.append([g, norm])
     title_string = "Proportion of {:,} {} transcripts in {}\nthat have multiple alignments"
     title_string = title_string.format(len(biotype_ids), biotype, gencode)
@@ -113,7 +115,8 @@ def num_good_pass(highest_cov_dict, cur, genome_order, ref_genome, out_path, bio
     for g in genome_order:
         good_query = etc.config.transMapEval(ref_genome, g, biotype, good=True)
         pass_query = etc.config.transMapEval(ref_genome, g, biotype, good=False)
-        best_ids = set(zip(*highest_cov_dict[g].itervalues())[0])
+        best_ids = {x for x in zip(*highest_cov_dict[g].itervalues())[0] if psl_lib.strip_alignment_numbers(x) in 
+                    biotype_ids}
         good_ids = {x for x in sql_lib.get_query_ids(cur, good_query) if x in best_ids}
         pass_ids = {x for x in sql_lib.get_query_ids(cur, pass_query) if x in best_ids}
         num_no_aln = len(biotype_ids) - len(best_ids)
@@ -125,7 +128,7 @@ def num_good_pass(highest_cov_dict, cur, genome_order, ref_genome, out_path, bio
         results.append([g, norm])
     title_string = "Proportion of {:,} {} transcripts in biotype {}\ncategorized as Pass/Good/Fail"
     title_string = title_string.format(len(biotype_ids), biotype, gencode)
-    legend_labels = ["NoAln", "Fail", "Good", "Pass"]
+    legend_labels = ["Pass", "Good", "Fail", "NoAln"]
     plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
 
 
@@ -143,11 +146,7 @@ def main():
     # genome_order = plot_lib.find_genome_order(highest_cov_dict, gencode_ids)
     genome_order = etc.config.hard_coded_genome_order
     # we will filter out chromosome Y transcripts for this project
-    # TODO: fix this hack
-    chr_y_ids = set()
-    for g in args.genomes:
-        q = {psl_lib.strip_alignment_numbers(x) for x in sql_lib.get_ids_by_chromosome(cur, g, args.filterChroms)}
-        chr_y_ids |= q
+    chr_y_ids= {x.split()[0] for x in open(args.refGp) if x.split()[1] in args.filterChroms}
     for biotype in sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=False):
         biotype_ids = sql_lib.filter_biotype_ids(cur, args.refGenome, biotype, chr_y_ids, mode="Transcript")
         if len(biotype_ids) > 50:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty

@@ -63,14 +63,10 @@ width = 9.0
 height = 6.0
 bar_width = 0.45
 # paired_palette has two parallel color spectrums and black as the outgroup color
-paired_palette = ["#df65b0", "#dd1c77", "#980043",
-                  "#a1dab4", "#41b6c4", "#2c7fb8",
-                  "#252525"]
-# triple palette is the same concept as paired, but with 3 groups
-triple_palette = ["#df65b0", "#dd1c77", "#980043",
-                  "#65DF94", "#1CDD82", "#009855",
-                  "#a1dab4", "#41b6c4", "#2c7fb8",
-                  "#252525"]
+paired_palette = ["#df65b0", "#dd1c77", "#980043",  # reds
+                  "#a1dab4", "#41b6c4", "#2c7fb8",  # blues
+                  "#252525", "#B24000"]  # brown and black
+
 # palette is the seaborn colorbind palette
 palette = ["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#f0e442", "#56b4e9"]
 
@@ -131,7 +127,8 @@ def assemblyErrors(genome, biotype=None, details=True):
     added_query = details_selection + base_query if details else classify_selection + base_query
     query = added_query.format(genome)
     if biotype is not None:
-      query += " AND attributes.'{}'.TranscriptType = '{}'".format(genome, biotype)
+      query += " AND attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'".format(genome, 
+                                                                                                           biotype)
     return query
 
 
@@ -147,7 +144,8 @@ def alignmentErrors(genome, biotype=None, details=True):
     added_query = details_selection + base_query if details else classify_selection + base_query
     query = added_query.format(genome)
     if biotype is not None:
-      query += " AND attributes.'{}'.TranscriptType = '{}'".format(genome, biotype)
+      query += " AND attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'".format(genome, 
+                                                                                                           biotype)
     return query
 
 
@@ -173,7 +171,8 @@ def transMapEval(ref_genome, genome, biotype, good=False):
     if biotype == "protein_coding":
         classifiers += " AND attributes.'{}'.PercentUnknownCodingBases < {}".format(genome,
                                                                                     requirements.percent_coding_n)
-    classifiers += " AND attributes.'{}'.TranscriptType = '{}'".format(genome, biotype)
+    classifiers += " AND attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'".format(genome, 
+                                                                                                               biotype)
     query = base_query.format(genome=genome, ref_genome=ref_genome, classifiers=classifiers)
     return query
 

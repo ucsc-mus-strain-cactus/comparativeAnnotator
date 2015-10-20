@@ -96,30 +96,24 @@ def get_non_unique_query_dict(cur, query):
     return general_lib.flatten_defaultdict_list(d)
 
 
-def get_biotype_aln_ids(cur, genome, biotype, mode="Transcript"):
+def get_biotype_aln_ids(cur, genome, biotype):
     """
-    Returns a set of aln_ids which are members of the biotype. Category should be Transcript or Gene
+    Returns a set of aln_ids which are members of the biotype.
     """
-    assert mode in ["Transcript", "Gene"]
-    query = "SELECT AlignmentId FROM attributes.'{}' WHERE {}Type='{}'".format(genome, mode, biotype)
+    query = "SELECT AlignmentId FROM attributes.'{0}' WHERE TranscriptType = '{1}' AND GeneType = '{1}'"
+    query = query.format(genome, biotype)
     return get_query_ids(cur, query)
 
 
 def get_biotype_ids(cur, genome, biotype, mode="Transcript"):
     """
-    Returns a set of aln_ids which are members of the biotype. Category should be Transcript or Gene
+    Returns a set of transcript_ids which are members of the biotype. Category should be Transcript or Gene.
+    In gene mode returns the gene_id instead of transcript_id.
     """
     assert mode in ["Transcript", "Gene"]
-    query = "SELECT TranscriptId FROM attributes.'{}' WHERE {}Type='{}'".format(genome, mode, biotype)
+    query = "SELECT {0}Id FROM attributes.'{1}' WHERE TranscriptType = '{2}' AND GeneType = '{2}'"
+    query = query.format(mode, genome, biotype)
     return get_query_ids(cur, query)
-
-
-def filter_biotype_ids(cur, genome, biotype, filter_set, mode="Transcript"):
-    """
-    Runs get_biotype_ids() filtering the resulting set based on the blacklist filter_set
-    """
-    ids = get_biotype_ids(cur, genome, biotype, mode)
-    return ids - filter_set
 
 
 def get_all_biotypes(cur, ref_genome, gene_level=False):
@@ -142,19 +136,27 @@ def get_ids_by_chromosome(cur, genome, chromosomes=("Y", "chrY")):
     return get_query_ids(cur, query)
 
 
-def get_transcript_gene_map(cur, ref_genome):
+def get_transcript_gene_map(cur, ref_genome, biotype=None):
     """
     Returns a dictionary mapping transcript IDs to gene IDs
     """
-    query = "SELECT transcriptId,geneId FROM attributes.'{}'".format(ref_genome)
+    if biotype is None:
+        query = "SELECT transcriptId,geneId FROM attributes.'{0}'"
+    else:
+        query = "SELECT transcriptId,geneId FROM attributes.'{0}' WHERE transcriptType = '{1}' AND geneType = '{1}'"
+    query = query.format(ref_genome, biotype)
     return get_query_dict(cur, query)
 
 
-def get_gene_transcript_map(cur, ref_genome):
+def get_gene_transcript_map(cur, ref_genome, biotype=None):
     """
     Returns a dictionary mapping all gene IDs to their respective transcripts
     """
-    query = "SELECT geneId,transcriptId FROM attributes.'{}'".format(ref_genome)
+    if biotype is None:
+        query = "SELECT geneId,transcriptId FROM attributes.'{0}'"
+    else:
+        query = "SELECT geneId,transcriptId FROM attributes.'{0}' WHERE transcriptType = '{1}' AND geneType = '{1}'"
+    query = query.format(ref_genome, biotype)
     return get_non_unique_query_dict(cur, query)
 
 

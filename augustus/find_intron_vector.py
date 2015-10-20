@@ -21,7 +21,7 @@ def build_intron_vector(a, t, aln):
     for intron in t.intron_intervals:
         a_start = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.start - 1)) + 1
         a_stop = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.stop))
-        if (a.start, a.stop) not in original_introns:
+        if (a_start, a_stop) not in original_introns:
             result.append(0)
         else:
             result.append(1)

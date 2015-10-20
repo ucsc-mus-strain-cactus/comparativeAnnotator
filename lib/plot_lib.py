@@ -156,12 +156,12 @@ def stacked_barplot(results, legend_labels, out_path, file_name, title_string, c
     pdf.close()
 
 
-def base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, breaks=1000, border=True,
+def base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks=1000, border=True,
                          has_legend=True):
     fig, pdf = init_image(out_path, file_name, width, height)
     ax = establish_axes(fig, width, height, border, has_legend)
     plt.text(0.5, 1.08, title_string, horizontalalignment='center', fontsize=12, transform=ax.transAxes)
-    ax.set_ylabel("Number of transcripts")
+    ax.set_ylabel(ylabel)
     ax.set_ylim([0, max_y_value])
     plt.tick_params(axis='y', labelsize=9)
     plt.tick_params(axis='x', labelsize=9)
@@ -172,7 +172,7 @@ def base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, 
 
 
 def stacked_unequal_barplot(results, legend_labels, out_path, file_name, title_string, color_palette=palette,
-                            breaks=1000, border=True):
+                            breaks=1000, border=True, ylabel="Number of transcripts"):
     """
     Boilerplate code that will produce a stacked barplot. Expects results to be a list of lists of lists in the form
     [[name1, [value1a, value1b]], [name2, [value2a, value2b]].
@@ -180,7 +180,8 @@ def stacked_unequal_barplot(results, legend_labels, out_path, file_name, title_s
     """
     names, values = zip(*results)
     max_y_value = math.ceil(1.0 * max(sum(x) for x in values) / breaks) * breaks
-    ax, fig, pdf = base_barplot(max_y_value, names, out_path, file_name, title_string, border=border, has_legend=True)
+    ax, fig, pdf = base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, border=border, 
+                                        has_legend=True)
     bars = []
     cumulative = np.zeros(len(values))
     for i, d in enumerate(np.asarray(values).transpose()):

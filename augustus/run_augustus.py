@@ -110,7 +110,7 @@ def write_augustus(r, name_map, out_path):
                 continue
             if "AUGUSTUS" in x:
                 x = x.split("\t")
-                if x[2] in ["exon", "CDS", "start_codon", "stop_codon"]:
+                if x[2] in ["exon", "CDS", "start_codon", "stop_codon", "tts", "tss"]:
                     t = x[-1].split()
                     n = t[-3].split('"')[1]
                     t[-1] = t[-3] = '"{}";'.format(name_map[n])
@@ -165,7 +165,7 @@ def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_t
 
 def cat(target, output_gtf, unsorted_tmp_file, out_file_tree):
     """
-    Concatenates all of the results into one big genePred, and sorts it by chromosome/pos
+    Concatenates all of the results into one big GTF, and sorts it by chromosome/pos
     """
     catFiles(out_file_tree.listFiles(), unsorted_tmp_file)
     system("sort -k1,1 -k4,4n {} > {}".format(unsorted_tmp_file, output_gtf))

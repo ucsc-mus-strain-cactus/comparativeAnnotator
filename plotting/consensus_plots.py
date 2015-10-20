@@ -33,17 +33,19 @@ def load_evaluations(work_dir):
         p = os.path.join(work_dir, genome)
         with open(p) as inf:
             r = pickle.load(inf)
-            tx_evals[genome] = r["transcript"]
-            gene_evals[genome] = r["gene"]
-            gene_fail_evals = r["gene_fail"]
+        tx_evals[genome] = r["transcript"]
+        gene_evals[genome] = r["gene"]
+        gene_fail_evals[genome] = r["gene_fail"]
     return tx_evals, gene_evals, gene_fail_evals
 
 
-def munge_data(data_dict):
+def munge_data(data_dict, norm=False):
     df = pd.DataFrame.from_dict(data_dict)
     categories = data_dict.itervalues().next().keys()
     # hack to reindex rows. from_dict honors only the first layer of ordered dicts
     df = df.reindex(categories)
+    if norm is True:
+            df = 100 * df.div(df.sum(axis=0), axis=1)
     return [[x[0], x[1].tolist()] for x in df.iteritems()], categories
 
 
@@ -54,20 +56,21 @@ def find_total(data_dict):
 
 
 def transcript_gene_plot(evals, out_path, gencode, mode):
-    results, categories = munge_data(evals)
+    results, categories = munge_data(evals, norm=True)
     total = find_total(evals)
-    base_title = "Breakdown of {:,} Protein-Coding {} Categorized By Consensus Finding\nFrom Annotation Set {}"
+    base_title = "Breakdown of {:,} protein-coding {} categorized by consensus finding\nfrom annotation set {}"
     title = base_title.format(total, mode, gencode)
     out_name = "{}_{}_coding_consensus".format(gencode, mode)
-    plot_lib.stacked_barplot(results, categories, out_path, out_name, title, color_palette=etc.config.triple_palette)
+    palette = etc.config.palette if mode == "Gene" else etc.config.paired_palette
+    plot_lib.stacked_barplot(results, categories, out_path, out_name, title, color_palette=palette)
 
 
 def gene_fail_plot(gene_fail_evals, out_path, gencode):
     results, categories = munge_data(gene_fail_evals)
-    base_title = "Breakdown of genes that failed consensus finding\nFrom Annotation Set {}"
+    base_title = "Breakdown of genes that failed consensus finding\nfrom annotation set {}"
     title = base_title.format(gencode)
     out_name = "{}_{}_coding_consensus".format(gencode, "GeneFail")
-    plot_lib.stacked_unequal_barplot(results, categories, out_path, out_name, title)
+    plot_lib.stacked_unequal_barplot(results, categories, out_path, out_name, title, ylabel="Number of genes")
 
 
 def main():
