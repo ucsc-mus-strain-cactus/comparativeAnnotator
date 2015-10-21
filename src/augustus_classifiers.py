@@ -146,7 +146,7 @@ class AugustusNotSimilarTerminalExonBoundaries(AbstractAugustusClassifier):
         self.dump_results_to_disk()
 
 
-class AugustusNotSameStartStop(AbstractAugustusClassifier):
+class AugustusNotSameStart(AbstractAugustusClassifier):
     """
     Does the augustus transcript NOT have the exact same start bases as the transMap transcript?
     """
@@ -156,11 +156,30 @@ class AugustusNotSameStartStop(AbstractAugustusClassifier):
 
     def run(self):
         for aug_aln_id, aug_t, t in self.augustus_transcript_transmap_iterator():
-            if t.thick_start != aug_t.thick_start or t.thick_stop != aug_t.thick_stop:
+            if t.thick_start != aug_t.thick_start:
                 s = aug_t.cds_size
-                bed_recs = [seq_lib.cds_coordinate_to_bed(aug_t, 0, 3, self.rgb, self.column),
-                            seq_lib.cds_coordinate_to_bed(aug_t, s - 3, s, self.rgb, self.column)]
-                self.details_dict[aug_aln_id].extend(bed_recs)
+                bed_rec = seq_lib.cds_coordinate_to_bed(aug_t, 0, 3, self.rgb, self.column)
+                self.details_dict[aug_aln_id].append(bed_rec)
+                self.classify_dict[aug_aln_id] = 1
+            else:
+                self.classify_dict[aug_aln_id] = 0
+        self.dump_results_to_disk()
+
+
+class AugustusNotSameStop(AbstractAugustusClassifier):
+    """
+    Does the augustus transcript NOT have the exact same stop bases as the transMap transcript?
+    """
+    @property
+    def rgb(self):
+        return self.colors["generic"]
+
+    def run(self):
+        for aug_aln_id, aug_t, t in self.augustus_transcript_transmap_iterator():
+            if t.thick_stop != aug_t.thick_stop:
+                s = aug_t.cds_size
+                bed_rec = seq_lib.cds_coordinate_to_bed(aug_t, s - 3, s, self.rgb, self.column)
+                self.details_dict[aug_aln_id].append(bed_rec)
                 self.classify_dict[aug_aln_id] = 1
             else:
                 self.classify_dict[aug_aln_id] = 0

@@ -185,7 +185,7 @@ def get_stats(cur, genome, mode="transMap"):
         query = ("SELECT AlignmentId,IFNULL(AlignmentCoverage, 0),IFNULL(AlignmentIdentity, 0) "
                  "FROM attributes.'{}'").format(genome)
     else:
-        query = ("SELECT AlignmentId,IFNULL(AlignmentCoverage, 0),IFNULL(AlignmentIdentity, 0) "
+        query = ("SELECT AugustusAlignmentId,IFNULL(AlignmentCoverage, 0),IFNULL(AlignmentIdentity, 0) "
                  "FROM augustus_attributes.'{}'").format(genome)
     return get_query_dict(cur, query)
 

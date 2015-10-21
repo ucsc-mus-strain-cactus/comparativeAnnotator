@@ -146,7 +146,7 @@ def main():
     # genome_order = plot_lib.find_genome_order(highest_cov_dict, gencode_ids)
     genome_order = etc.config.hard_coded_genome_order
     # we will filter out chromosome Y transcripts for this project
-    chr_y_ids= {x.split()[0] for x in open(args.refGp) if x.split()[1] in args.filterChroms}
+    chr_y_ids = {x.split()[0] for x in open(args.refGp) if x.split()[1] in args.filterChroms}
     for biotype in sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=False):
         biotype_ids = sql_lib.filter_biotype_ids(cur, args.refGenome, biotype, chr_y_ids, mode="Transcript")
         if len(biotype_ids) > 50:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty

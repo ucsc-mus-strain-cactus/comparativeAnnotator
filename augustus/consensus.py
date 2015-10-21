@@ -46,15 +46,6 @@ def merge_stats(cur, genome):
     return merge_dicts([tm_stats, aug_stats])
 
 
-def find_best_aln(stats, sig_fig=4):
-    """
-    Takes a list of stats for transcripts and finds all transcripts which have the highest percent identity
-    """
-    s = sorted(stats, key=lambda x: -x[1])
-    best_ident = round(s[0][1], sig_fig)
-    return {name for name, aln_id, aln_cov in s if round(aln_id, sig_fig) == best_ident}
-
-
 def build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map):
     """
     Builds a dictionary mapping gene_id -> transcript_ids -> aln_ids in id_names bins (as an OrderedDict)
@@ -75,15 +66,16 @@ def build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
 
 def find_best_alns(stats, ids):
     """
-    Takes the list of transcript Ids and finds the best alignment(s)
+    Takes the list of transcript Ids and finds the best alignment(s) by percent identity
+    We sort by ID after transMap to favor Augustus transcripts going to the consensus set in the case of ties
     """
     s = []
     for aln_id in ids:
-        ident, cov = stats[aln_id]
-        s.append([aln_id, ident, cov])
-    s = sorted(s, key=lambda x: -x[1])
-    best_val = round(s[0][1], 6)
-    return [x[0] for x in s if round(x[1], 6) == best_val]
+        cov, ident = stats[aln_id]
+        s.append([aln_id, cov, ident])
+    s = sorted(s, key=lambda x: (x[2], x[0]), reverse=True)  # highest ID, then highest name
+    best_val = round(s[0][2], 6)
+    return [x[0] for x in s if round(x[2], 6) == best_val]
 
 
 def evaluate_ids(fail_ids, good_specific_ids, pass_ids, aug_ids, stats):
@@ -153,7 +145,7 @@ def find_best_for_gene(bins, stats, cov_cutoff=80.0, ident_cutoff=80.0):
 
 
 def evaluate_transcript(best_id, category, tie):
-    if category is "NoTransMap" or category is "Fail":
+    if category is "NoTransMap":
         return category
     elif tie is True:
         c = "Tie"
@@ -190,7 +182,7 @@ def evaluate_coding_consensus(binned_transcripts, stats):
     TODO: split out duplicated code.
     """
     transcript_evaluation = OrderedDict((x, 0) for x in ["PassTM", "PassAug", "PassTie", "GoodTM", "GoodAug", "GoodTie",
-                                                         "Fail", "NoTransMap"])
+                                                         "FailTM", "FailAug", "FailTie", "NoTransMap"])
     gene_evaluation = OrderedDict((x, 0) for x in ["Pass", "Good", "Fail", "NoTransMap"])
     gene_fail_evaluation = OrderedDict((x, 0) for x in ["Fail", "NoTransMap"])
     for gene_id in binned_transcripts:
@@ -271,7 +263,7 @@ def write_gps(consensus, gps, consensus_base_path, biotype, transcript_gene_map)
     fixed_gp_recs = fix_gene_pred(gp_recs, transcript_gene_map)
     with open(p, "w") as outf:
         for rec in fixed_gp_recs:
-            outf.write(rec + "\n")
+            outf.write(rec)
 
 
 def main():

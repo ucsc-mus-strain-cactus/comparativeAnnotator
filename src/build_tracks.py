@@ -4,6 +4,7 @@ Script to build the databases and tracks from comparativeAnnotator results
 import os
 import subprocess
 import cPickle as pickle
+import pandas as pd
 
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
@@ -35,7 +36,7 @@ def database_wrapper(target, args, tmp_dir):
             db_path = os.path.join(args.outDir, "{}.db".format(db))
             database(args.refGenome, db, db_path, tmp_dir, args.mode)
         attr_db_path = os.path.join(args.outDir, "attributes.db")
-        ref_attr_table(args.refGenome, attr_db_path, args.gencodeAttributes)
+        ref_attr_table(args.refGenome, attr_db_path, args.gencodeAttributes, args.annotationGp)
     elif args.mode == "transMap":
         for db in ["classify", "details", "attributes"]:
             db_path = os.path.join(args.outDir, "{}.db".format(db))
@@ -57,12 +58,18 @@ def database(genome, db, db_path, tmp_dir, mode):
     sql_lib.write_dict(data_dict, db_path, genome, index_label)
 
 
-def ref_attr_table(ref_genome, db_path, attr_file):
+def ref_attr_table(ref_genome, db_path, attr_file, ref_gp):
     """
     This function is used to add an extra table in reference mode holding all of the basic attributes.
-    Basically directly dumping the tsv into sqlite3.
+    Basically directly dumping the tsv into sqlite3 with the addition of a refChrom column.
     """
-    sql_lib.write_csv(attr_file, db_path, ref_genome, index_col=3, sep="\t", index_label="TranscriptId")
+    df = pd.read_table(attr_file, sep="\t", index_col=3, header=0)
+    ref_dict = seq_lib.get_transcript_dict(ref_gp)
+    chromosome_dict = {"refChrom": {x: y.chromosome for x, y in ref_dict.iteritems()}}
+    chromosome_df = pd.DataFrame.from_dict(chromosome_dict)
+    df2 = pd.merge(df, chromosome_df, left_index=True, right_index=True)
+    with sql_lib.ExclusiveSqlConnection(db_path) as con:
+        df2.to_sql(ref_genome, con, if_exists="replace", index_label="TranscriptId")
 
 
 def build_tracks_wrapper(target, args):
