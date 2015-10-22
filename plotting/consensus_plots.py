@@ -45,13 +45,13 @@ def munge_data(data_dict, norm=False):
     # hack to reindex rows. from_dict honors only the first layer of ordered dicts
     df = df.reindex(categories)
     if norm is True:
-            df = 100 * df.div(df.sum(axis=0), axis=1)
+        df = 100 * df.div(df.sum(axis=0), axis=1)
     return [[x[0], x[1].tolist()] for x in df.iteritems()], categories
 
 
 def find_total(data_dict):
     totals = {sum(x.values()) for x in data_dict.itervalues()}
-    assert len(totals) == 1, "unequal number of items between genomes with equal flag set"
+    assert len(totals) == 1, "unequal number of items between genomes"
     return totals.pop()
 
 
@@ -61,7 +61,7 @@ def transcript_gene_plot(evals, out_path, gencode, mode):
     base_title = "Breakdown of {:,} protein-coding {} categorized by consensus finding\nfrom annotation set {}"
     title = base_title.format(total, mode, gencode)
     out_name = "{}_{}_coding_consensus".format(gencode, mode)
-    palette = etc.config.palette if mode == "Gene" else etc.config.paired_palette
+    palette = etc.config.palette if mode == "Gene" else etc.config.triple_palette
     plot_lib.stacked_barplot(results, categories, out_path, out_name, title, color_palette=palette)
 
 

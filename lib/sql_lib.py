@@ -105,14 +105,18 @@ def get_biotype_aln_ids(cur, genome, biotype):
     return get_query_ids(cur, query)
 
 
-def get_biotype_ids(cur, genome, biotype, mode="Transcript"):
+def get_biotype_ids(cur, ref_genome, biotype, mode="Transcript", filter_chroms=None):
     """
     Returns a set of transcript_ids which are members of the biotype. Category should be Transcript or Gene.
     In gene mode returns the gene_id instead of transcript_id.
     """
     assert mode in ["Transcript", "Gene"]
-    query = "SELECT {0}Id FROM attributes.'{1}' WHERE TranscriptType = '{2}' AND GeneType = '{2}'"
-    query = query.format(mode, genome, biotype)
+    query = ("SELECT {0}Id FROM main.'{1}' JOIN attributes.'{1}' USING (TranscriptId) WHERE "
+             "TranscriptType = '{2}' AND GeneType = '{2}'")
+    if filter_chroms is not None:
+        for filter_chrom in filter_chroms:
+            query += " AND refChrom != '{}'".format(filter_chrom)
+    query = query.format(mode, ref_genome, biotype)
     return get_query_ids(cur, query)
 
 
@@ -136,7 +140,7 @@ def get_ids_by_chromosome(cur, genome, chromosomes=("Y", "chrY")):
     return get_query_ids(cur, query)
 
 
-def get_transcript_gene_map(cur, ref_genome, biotype=None):
+def get_transcript_gene_map(cur, ref_genome, biotype=None, filter_chroms=None):
     """
     Returns a dictionary mapping transcript IDs to gene IDs
     """
@@ -144,11 +148,14 @@ def get_transcript_gene_map(cur, ref_genome, biotype=None):
         query = "SELECT transcriptId,geneId FROM attributes.'{0}'"
     else:
         query = "SELECT transcriptId,geneId FROM attributes.'{0}' WHERE transcriptType = '{1}' AND geneType = '{1}'"
+    if filter_chroms is not None:
+        for filter_chrom in filter_chroms:
+            query += " AND refChrom != '{}'".format(filter_chrom)
     query = query.format(ref_genome, biotype)
     return get_query_dict(cur, query)
 
 
-def get_gene_transcript_map(cur, ref_genome, biotype=None):
+def get_gene_transcript_map(cur, ref_genome, biotype=None, filter_chroms=None):
     """
     Returns a dictionary mapping all gene IDs to their respective transcripts
     """
@@ -156,6 +163,9 @@ def get_gene_transcript_map(cur, ref_genome, biotype=None):
         query = "SELECT geneId,transcriptId FROM attributes.'{0}'"
     else:
         query = "SELECT geneId,transcriptId FROM attributes.'{0}' WHERE transcriptType = '{1}' AND geneType = '{1}'"
+    if filter_chroms is not None:
+        for filter_chrom in filter_chroms:
+            query += " AND refChrom != '{}'".format(filter_chrom)
     query = query.format(ref_genome, biotype)
     return get_non_unique_query_dict(cur, query)
 

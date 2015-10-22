@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument("--workDir", required=True)
     parser.add_argument("--augGp", required=True)
     parser.add_argument("--tmGp", required=True)
+    parser.add_argument("--filterChroms", nargs="+", default=["Y", "chrY"], help="chromosomes to ignore")
     return parser.parse_args()
 
 
@@ -270,7 +271,8 @@ def main():
     args = parse_args()
     con, cur = sql_lib.attach_databases(args.compAnnPath, mode="augustus")
     biotypes = sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=True)
-    transcript_gene_map = sql_lib.get_transcript_gene_map(cur, args.refGenome, biotype=None)
+    transcript_gene_map = sql_lib.get_transcript_gene_map(cur, args.refGenome, biotype=None, 
+                                                          filter_chroms=args.filterChroms)
     gps = load_gps([args.tmGp, args.augGp])  # load all Augustus and transMap transcripts into one big dict
     consensus_base_path = os.path.join(args.outDir, args.genome)
     stats = merge_stats(cur, args.genome)

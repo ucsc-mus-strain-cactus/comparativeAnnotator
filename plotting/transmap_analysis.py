@@ -13,7 +13,6 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--genomes", type=str, nargs="+", required=True, help="genomes in this comparison")
     parser.add_argument("--refGenome", type=str, required=True, help="reference genome")
-    parser.add_argument("--refGp", type=str, required=True, help="reference genePred")
     parser.add_argument("--outDir", required=True, help="output directory")
     parser.add_argument("--comparativeAnnotationDir", required=True, help="directory containing databases")
     parser.add_argument("--gencode", type=str, required=True, help="current gencode set being analyzed")
@@ -145,10 +144,8 @@ def main():
     highest_cov_dict = get_highest_cov_alns(cur, args.genomes)
     # genome_order = plot_lib.find_genome_order(highest_cov_dict, gencode_ids)
     genome_order = etc.config.hard_coded_genome_order
-    # we will filter out chromosome Y transcripts for this project
-    chr_y_ids = {x.split()[0] for x in open(args.refGp) if x.split()[1] in args.filterChroms}
     for biotype in sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=False):
-        biotype_ids = sql_lib.filter_biotype_ids(cur, args.refGenome, biotype, chr_y_ids, mode="Transcript")
+        biotype_ids = sql_lib.get_biotype_ids(cur, ref_genome, biotype, filter_chroms=args.filterChroms)
         if len(biotype_ids) > 50:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty
             out_path = os.path.join(args.outDir, biotype)
             mkdir_p(out_path)

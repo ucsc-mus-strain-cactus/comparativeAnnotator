@@ -7,6 +7,11 @@ __author__ = "Ian Fiddes"
 
 
 # Below are global variables shared by plotting scripts
+
+# this genetic distance is from Joel. There are functions to derive it, but this makes it consistent across plots.
+hard_coded_genome_order = ['C57B6NJ', 'NZOHlLtJ', '129S1', 'FVBNJ', 'NODShiLtJ', 'LPJ', 'AJ', 'AKRJ', 'BALBcJ', 'DBA2J',
+                            'C3HHeJ', 'CBAJ', 'WSBEiJ', 'CASTEiJ', 'PWKPhJ', 'SPRETEiJ', 'CAROLIEiJ', 'PAHARIEiJ']
+
 width = 9.0
 height = 6.0
 bar_width = 0.45
@@ -14,6 +19,12 @@ bar_width = 0.45
 paired_palette = ["#df65b0", "#dd1c77", "#980043",  # reds
                   "#a1dab4", "#41b6c4", "#2c7fb8",  # blues
                   "#252525", "#B24000"]  # brown and black
+
+# triple palette is the same as paired palette but with 3 colors
+triple_palette = ["#df65b0", "#dd1c77", "#980043",
+                  "#65DF94", "#1CDD82", "#009855",
+                  "#a1dab4", "#41b6c4", "#2c7fb8",
+                  "#252525"]
 
 # palette is the seaborn colorbind palette
 palette = ["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#f0e442", "#56b4e9"]
@@ -31,10 +42,30 @@ all_classifiers = ref_classifiers + ['AlnExtendsOffContig', 'CodingMult3Deletion
                                      'FrameShift', 'HasOriginalStop', 'CodingMult3Insertions', 'CodingDeletions',
                                      'Nonsynonymous', 'HasOriginalStart']
 
+# these classifiers define Pass for Augustus transcripts
 aug_classifiers = ['AugustusParalogy', 'AugustusNotSameStart', 'AugustusNotSameStop',
                     'AugustusExonGain', 'AugustusNotSameStrand',
                    'AugustusNotSimilarTerminalExonBoundaries', 'AugustusExonLoss',
                    'AugustusNotSimilarInternalExonBoundaries']
+
+
+# these classifiers define Pass for single-genome analysis
+ref_coding_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
+                          "StartOutOfFrame", "SpliceContainsUnknownBases", "InFrameStop", "ShortCds"]
+
+# these classifiers define Pass for coding transcripts
+tm_pass_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
+                       "StartOutOfFrame", "InFrameStop", "ShortCds", "CodingInsertions", "CodingDeletions",
+                       "FrameShift", "HasOriginalStart", "HasOriginalStop", "HasOriginalIntrons"]
+
+# these classifiers define Good for coding transcripts
+# the difference: Can have an incomplete CDS, but that incomplete CDS should remain in frame. UtrUnknownSplice is also
+# allowed.
+tm_good_classifiers = ["CdsUnknownSplice", "FrameShift", "CodingInsertions", "CodingDeletions", "HasOriginalIntrons"]
+
+# these classifiers define Pass/Good for non-coding transcripts
+noncoding_pass_classifiers = ref_noncoding_classifiers = ["UtrUnknownSplice"]
+noncoding_good_classifiers = ["UtrUnknownSplice", "UtrGap"]
 
 
 def refClassifiers(genome):
@@ -65,6 +96,7 @@ def potentiallyInterestingBiology(genome):
              "AND main.'{0}'.CodingDeletions = 0 AND main.'{0}'.FrameShift = 0 AND "
              "main.'{0}'.HasOriginalStart = 0 AND main.'{0}'.HasOriginalStop = 0 AND "
              "main.'{0}'.HasOriginalIntrons = 0 ")
+    query = query.format(genome)
     return query
 
 
