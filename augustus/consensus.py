@@ -58,9 +58,11 @@ def build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
     for ids, n in zip(*[id_list, id_names]):
         for aln_id in ids:
             ens_id = psl_lib.strip_alignment_numbers(aln_id)
+            if ens_id not in transcript_gene_map:
+                # Augustus was fed chrY transcripts
+                continue
             gene_id = transcript_gene_map[ens_id]
             if gene_id in data_dict and ens_id in data_dict[gene_id]:
-                # we shouldn't have to have this, but Augustus was fed some incorrect transcripts
                 data_dict[gene_id][ens_id][n].append(aln_id)
     return data_dict
 
@@ -277,7 +279,8 @@ def main():
     consensus_base_path = os.path.join(args.outDir, args.genome)
     stats = merge_stats(cur, args.genome)
     for biotype in biotypes:
-        gene_transcript_map = sql_lib.get_gene_transcript_map(cur, args.refGenome, biotype=biotype)
+        gene_transcript_map = sql_lib.get_gene_transcript_map(cur, args.refGenome, biotype=biotype, 
+                                                              filter_chroms=args.filterChroms)
         binned_transcripts, consensus = consensus_by_biotype(cur, args.refGenome, args.genome, biotype,
                                                              transcript_gene_map, gene_transcript_map, stats)
         if len(consensus) > 0:  # some biotypes we may have nothing
