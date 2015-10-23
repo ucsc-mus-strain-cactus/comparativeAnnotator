@@ -7,6 +7,7 @@ Modified by Ian Fiddes
 
 from collections import Counter
 import re
+from lib.general_lib import format_ratio, tokenize_stream
 
 __author__ = "Ian Fiddes"
 
@@ -19,31 +20,30 @@ class PslRow(object):
                  't_base_insert', 'strand', 'q_name', 'q_size', 'q_start', 'q_end', 't_name', 't_size', 't_start',
                  't_end', 'block_count', 'block_sizes', 'q_starts', 't_starts')
 
-    def __init__(self, line):
-        data = line.split()
-        assert(len(data) == 21)
-        self.matches = int(data[0])
-        self.mismatches = int(data[1])
-        self.repmatches = int(data[2])
-        self.n_count = int(data[3])
-        self.q_num_insert = int(data[4])
-        self.q_base_insert = int(data[5])
-        self.t_num_insert = int(data[6])
-        self.t_base_insert = int(data[7])
-        self.strand = data[8]
-        self.q_name = data[9]
-        self.q_size = int(data[10])
-        self.q_start = int(data[11])
-        self.q_end = int(data[12])
-        self.t_name = data[13]
-        self.t_size = int(data[14])
-        self.t_start = int(data[15])
-        self.t_end = int(data[16])
-        self.block_count = int(data[17])
+    def __init__(self, data_tokens):
+        assert(len(data_tokens) == 21)
+        self.matches = int(data_tokens[0])
+        self.mismatches = int(data_tokens[1])
+        self.repmatches = int(data_tokens[2])
+        self.n_count = int(data_tokens[3])
+        self.q_num_insert = int(data_tokens[4])
+        self.q_base_insert = int(data_tokens[5])
+        self.t_num_insert = int(data_tokens[6])
+        self.t_base_insert = int(data_tokens[7])
+        self.strand = data_tokens[8]
+        self.q_name = data_tokens[9]
+        self.q_size = int(data_tokens[10])
+        self.q_start = int(data_tokens[11])
+        self.q_end = int(data_tokens[12])
+        self.t_name = data_tokens[13]
+        self.t_size = int(data_tokens[14])
+        self.t_start = int(data_tokens[15])
+        self.t_end = int(data_tokens[16])
+        self.block_count = int(data_tokens[17])
         # lists of ints
-        self.block_sizes = [int(x) for x in data[18].split(',') if x]
-        self.q_starts = [int(x) for x in data[19].split(',') if x]
-        self.t_starts = [int(x) for x in data[20].split(',') if x]
+        self.block_sizes = [int(x) for x in data_tokens[18].split(',') if x]
+        self.q_starts = [int(x) for x in data_tokens[19].split(',') if x]
+        self.t_starts = [int(x) for x in data_tokens[20].split(',') if x]
 
     def hash_key(self):
         """ return a string to use as dict key.
@@ -96,6 +96,19 @@ class PslRow(object):
             return self.t_starts[i] + offset
         return None
 
+    @property
+    def coverage(self):
+        return 100 * format_ratio(self.matches + self.mismatches + self.repmatches, self.q_size)
+
+    @property
+    def identity(self):
+        return 100 * format_ratio(self.matches + self.repmatches,
+                                  self.matches + self.repmatches + self.mismatches + self.q_num_insert)
+
+    @property
+    def percent_n(self):
+        return 100 * format_ratio(self.n_count, self.q_size)
+
     def psl_string(self):
         """ return SELF as a psl formatted line.
         """
@@ -107,48 +120,26 @@ class PslRow(object):
                           ','.join([str(b) for b in self.t_starts])])
 
 
-def read_psl(infile, uniqify=False):
-    """ read a PSL file and return a list of PslRow objects
+def psl_iterator(psl_file):
     """
-    psls = []
-    with open(infile, 'r') as f:
-        for psl in psl_iterator(f, uniqify):
-            psls.append(psl)
-    return psls
-
-
-def psl_iterator(infile, uniqify=False):
-    """ Iterator to loop over psls returning PslRow objects.
-    If uniqify is set, will add a number to each name starting with -1"""
-    names = Counter()
-    while True:
-        line = infile.readline().strip()
-        if line == '':
-            return
-        r = PslRow(line)
-        if uniqify is False:
-            yield r
-        else:
-            names[remove_alignment_number(r.q_name)] += 1
-            yield uniqify_psl_row(r, names[r.q_name])
-
-
-def get_psl_dict(alignments):
+    Iterates over PSL file generating PslRow objects returning the name and the object itself
     """
-    turns an alignment list from readPsl to a dict keyed on alignmentID.
+    with open(psl_file) as inf:
+        for tokens in tokenize_stream(inf):
+            psl = PslRow(tokens)
+            yield psl.q_name, psl
+
+
+def get_alignment_dict(psl_file):
     """
-    alignments_dict = {}
-    for a in alignments:
-        if a.q_name in alignments_dict:
-                raise RuntimeError("getPslDict found duplicate transcript {} when noDuplicates"
-                                   " was set".format(a.q_name))
-        else:
-            alignments_dict[a.q_name] = a
-    return alignments_dict
+    Convenience function for creating a dictionary of PslRow objects.
+    """
+    return {aln_id: aln for aln_id, aln in psl_iterator(psl_file)}
 
 
 def remove_alignment_number(s, aln_re=re.compile("-[0-9]+$")):
-    """ If the name of the transcript ends with -d as in
+    """
+    If the name of the transcript ends with -d as in
     ENSMUST00000169901.2-1, return ENSMUST00000169901.2
     """
     return aln_re.split(s)[0]
@@ -163,8 +154,22 @@ def remove_augustus_alignment_number(s, aug_re=re.compile("^((augI[0-9]+-[0-9]+)
     return aug_re.split(s)[-1]
 
 
-def uniqify_psl_row(row, val):
-    """ Uniqifies the name of <row> by adding -<val> to it
+def strip_alignment_numbers(aln_id):
     """
-    row.qName = "-".join([row.q_name, str(val)])
-    return row
+    Convenience function for stripping both Augustus and transMap alignment IDs from a aln_id
+    """
+    return remove_alignment_number(remove_augustus_alignment_number(aln_id))
+
+
+def aln_id_is_augustus(aln_id):
+    """
+    Uses remove_augustus_alignment_number to determine if this transcript is an Augustus transcript
+    """
+    return True if remove_augustus_alignment_number(aln_id) != aln_id else False
+
+
+def aln_id_is_transmap(aln_id):
+    """
+    Uses remove_augustus_alignment_number to determine if this transcript is an Augustus transcript
+    """
+    return True if remove_alignment_number(aln_id) != aln_id else False

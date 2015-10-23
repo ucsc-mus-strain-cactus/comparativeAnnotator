@@ -4,6 +4,7 @@ import pandas as pd
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from lib.psl_lib import PslRow, remove_augustus_alignment_number, remove_alignment_number
+from lib.general_lib import tokenize_stream
 from sonLib.bioio import fastaWrite, popenCatch, TempFileTree, catFiles
 from pyfaidx import Fasta
 from lib.general_lib import format_ratio
@@ -15,8 +16,8 @@ def coverage(p_list):
     mi = sum(x.mismatches for x in p_list)
     rep = sum(x.repmatches for x in p_list)
     # ident/cov can end up slightly above 1 due to adding floats
-    cov = format_ratio(m + mi + rep, p_list[0].q_size)
-    return min(cov, 1.0)
+    cov = 100 * format_ratio(m + mi + rep, p_list[0].q_size)
+    return min(cov, 100.0)
 
 
 def identity(p_list):
@@ -25,8 +26,8 @@ def identity(p_list):
     rep = sum(x.repmatches for x in p_list)
     ins = sum(x.q_num_insert for x in p_list)
     # ident/cov can end up slightly above 1 due to adding floats
-    ident = format_ratio(m + rep, m + rep + mi + ins)
-    return min(ident, 1.0)
+    ident = 100 * format_ratio(m + rep, m + rep + mi + ins)
+    return min(ident, 100.0)
 
 
 def chunker(seq, size):
@@ -49,12 +50,11 @@ def align(target, target_fasta, chunk, ref_fasta, file_tree):
         r = popenCatch("blat {} {} -out=psl -noHead /dev/stdout".format(tmp_gencode, tmp_aug))
         r = r.split("\n")[:-3]
         if len(r) == 0:
-            results.append([aug_aln_id, "0", "0"])
+            results.append([aug_aln_id, aln_id, "0", "0"])
         else:
-            p_list = [PslRow(x) for x in r]
-            results.append(map(str, [aug_aln_id, identity(p_list), coverage(p_list)]))
+            p_list = [PslRow(x) for x in tokenize_stream(r)]
+            results.append(map(str, [aug_aln_id, aln_id, identity(p_list), coverage(p_list)]))
     with open(file_tree.getTempFile(), "w") as outf:
-        outf.write("AlignmentId,AlignmentIdentity,AlignmentCoverage\n")
         for x in results:
             outf.write("".join([",".join(x), "\n"]))
 
@@ -74,12 +74,13 @@ def cat(target, genome, file_tree, out_dir):
 
 
 def load_db(target, genome, tmp_file, out_dir):
-    df = pd.read_csv(tmp_file, index_col=0, header=0)
+    df = pd.read_csv(tmp_file, index_col=0, names=["AugustusAlignmentId", "AlignmentId", "AlignmentIdentity", 
+                                                   "AlignmentCoverage"])
     df = df.convert_objects(convert_numeric=True)  # have to convert to float because pandas lacks a good dtype function
     df = df.sort_index()
     database_path = os.path.join(out_dir, "augustus_attributes.db")
     with ExclusiveSqlConnection(database_path) as con:
-        df.to_sql(genome, con, if_exists="replace", index_label="AlignmentId")
+        df.to_sql(genome, con, if_exists="replace", index_label="AugustusAlignmentId")
 
 
 def main():

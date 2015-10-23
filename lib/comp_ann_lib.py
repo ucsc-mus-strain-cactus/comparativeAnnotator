@@ -1,18 +1,74 @@
 """
-This file contains helper functions for comparativeAnnotator. These functions revolve around analyzing indels,
-frameshifts and codons.
+This file contains helper functions for comparativeAnnotator.
 """
+import lib.seq_lib as seq_lib
+
 
 __author__ = "Ian Fiddes"
 
+short_intron_size = 30
+short_cds_size = 75
 
-def insertion_iterator(a, t, aln, mult3=None):
+
+def short_cds(t):
+    """
+    Many classifiers do not apply to CDS below a cutoff size.
+    """
+    return True if t.cds_size <= short_cds_size else False
+
+
+def short_intron(intron):
+    """
+    Many classifiers rely on analyzing introns either above or below a cutoff size
+    """
+    return True if len(intron) <= short_intron_size else False
+
+
+def is_cds(intron, t):
+    return not (intron.start >= t.thick_start and intron.stop < t.thick_stop)
+
+
+def is_not_cds(intron, t):
+    return intron.start >= t.thick_start and intron.stop < t.thick_stop
+
+
+def analyze_intron_gap(t, intron, seq_dict, cds_fn, skip_n, mult3):
+    if skip_n is True and "N" in intron.get_sequence(seq_dict):
+        return False
+    elif skip_n is False and "N" not in intron.get_sequence(seq_dict):
+        return False
+    elif cds_fn(intron, t) is True:
+        return False
+    elif mult3 is True and len(intron) % 3 != 0:
+        return False
+    elif mult3 is False and len(intron) % 3 == 0:
+        return False
+    elif short_intron(intron):
+        return True
+    else:
+        return False
+
+
+def analyze_splice(intron, t, seq_dict, cds_fn, splice_sites):
+    if short_intron(intron) is True:
+        return False
+    seq = intron.get_sequence(seq_dict, strand=True)
+    donor, acceptor = seq[:2], seq[-2:]
+    if cds_fn(intron, t) is True:
+        return False
+    elif "N" in donor or "N" in acceptor:
+        return False
+    elif donor not in splice_sites or splice_sites[donor] != acceptor:
+        return True
+
+
+def insertion_iterator(a, aln, mult3=None):
     """
     Target insertion:
     query:   AATTAT--GCATGGA
     target:  AATTATAAGCATGGA
 
-    Analyze a given annotation transcript, transcript and alignment for insertions.
+    Analyze a given annotation transcript and alignment for target insertions.
 
     mult3 controls whether only multiple of 3 or only not multiple of 3 are reported. Set to None to report all.
     """
@@ -42,15 +98,15 @@ def insertion_iterator(a, t, aln, mult3=None):
         prev_target_i = target_i
 
 
-def deletion_iterator(a, t, aln, mult3=None):
+def deletion_iterator(t, aln, mult3=None):
     """
     Target deletion:
     query:   AATTATAAGCATGGA
     target:  AATTAT--GCATGGA
 
-    Analyze a given annotation transcript, transcript and alignment for deletions.
+    Analyze a given transcript and alignment for target deletions.
 
-    mult3 controls whether only multiple of 3 or only not multiple of 3 are reported.
+    mult3 controls whether only multiple of 3 or only not multiple of 3 are reported. Set to None to report all.
     """
     prev_query_i = None
     for target_i in xrange(len(t)):
@@ -76,12 +132,22 @@ def deletion_iterator(a, t, aln, mult3=None):
         prev_query_i = query_i
 
 
+def start_out_of_frame(t):
+    """
+    Determines if a start is out of frame by making use of the exonFrames field in a genePred.
+    """
+    # can't use this classifier on BED records due to missing information
+    assert isinstance(t, seq_lib.GenePredTranscript)
+    t_frames = [x for x in t.exon_frames if x != -1]
+    return True if t.strand is True and t_frames[0] != 0 or t.strand is False and t_frames[-1] != 0 else False
+
+
 def frame_shift_iterator(a, t, aln):
     """
     Yields frameshift-causing mutations. These are defined as non mult3 indels within CDS.
     """
-    deletions = list(deletion_iterator(a, t, aln, mult3=False))
-    insertions = list(insertion_iterator(a, t, aln, mult3=False))
+    deletions = list(deletion_iterator(t, aln, mult3=False))
+    insertions = list(insertion_iterator(a, aln, mult3=False))
     # need to fix case where indel immediately precedes indel by merging overlapping ranges and combining spans
     merged = []
     for higher in sorted(deletions + insertions):
@@ -108,7 +174,7 @@ def codon_pair_iterator(a, t, aln, target_seq_dict, query_seq_dict):
     Inputs:
     Transcript objects representing the annotation (query) transcript and the target transcript.
     PslRow object that represents the alignment between the transcript objects.
-    SeqDicts/TwoBitFileObjs that contain the genomic sequence for these two transcripts
+    pyfaidx Fasta objects that contain the genomic sequence for these two transcripts
 
     Order is (target_cds_pos, target, query)
     """
@@ -119,7 +185,7 @@ def codon_pair_iterator(a, t, aln, target_seq_dict, query_seq_dict):
         a_offset = a_frames[0]
     else:
         a_offset = 3 - a_frames[-1]
-    for i in xrange(a_offset, a.get_cds_length(), 3):
+    for i in xrange(a_offset, a.cds_size, 3):
         target_cds_positions = [t.chromosome_coordinate_to_cds(
                                 aln.query_coordinate_to_target(
                                 a.cds_coordinate_to_transcript(j)))
@@ -132,26 +198,3 @@ def codon_pair_iterator(a, t, aln, target_seq_dict, query_seq_dict):
         target_codon = target_cds[target_cds_positions[0]:target_cds_positions[0] + 3]
         query_codon = query_cds[i:i + 3]
         yield target_cds_positions[0], target_codon, query_codon
-
-
-def compare_intron_to_reference(intron, a, aln, compare_dict, ref_dict):
-    """
-    For use with the splicing classifiers. Given an index of an intron in t that has a problem,
-    determines if this intron exists in the reference. Then, determines if this reference splice
-    also has the problem defined by compare_dict. Returns True if the reference also has a splicing problem.
-
-    TODO: I don't understand why I am effectively adding 2 below, once before and once after. a_start cannot ever have
-    been None because this would raise a TypeError. I am scared to change this without a test...
-    """
-    a_start = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.start - 1)) + 1
-    a_stop = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.stop))
-    if a_start is None or a_stop is None:
-        return False
-    a_start += 1
-    for a_intron in a.intron_intervals:
-        if a_intron.start == a_start and a_intron.stop == a_stop:
-            ref_seq = a_intron.get_sequence(ref_dict, strand=True)
-            donor, acceptor = ref_seq[:2], ref_seq[-2:]
-            if donor not in compare_dict or compare_dict[donor] != acceptor:
-                return True
-    return False

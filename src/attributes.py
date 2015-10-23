@@ -10,8 +10,7 @@ class TranscriptId(Attribute):
     Creates a column representing the transcript Id
     """
     def run(self):
-        self.get_alignment_dict()
-        results_dict = {aln_id: psl_lib.remove_alignment_number(aln_id) for aln_id in self.alignment_dict}
+        results_dict = {aln_id: psl_lib.remove_alignment_number(aln_id) for aln_id, t in self.transcript_iterator()}
         self.dump_attribute_results_to_disk(results_dict)
 
 
@@ -21,9 +20,8 @@ class GeneId(Attribute):
     """
     def run(self):
         self.get_attribute_dict()
-        self.get_alignment_dict()
-        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].gene_id for aln_id in
-                        self.alignment_dict}
+        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].gene_id for aln_id, t in
+                        self.transcript_iterator()}
         self.dump_attribute_results_to_disk(results_dict)
 
 
@@ -33,9 +31,8 @@ class GeneName(Attribute):
     """
     def run(self):
         self.get_attribute_dict()
-        self.get_alignment_dict()
-        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].gene_name for aln_id in
-                        self.alignment_dict}
+        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].gene_name for aln_id, t in
+                        self.transcript_iterator()}
         self.dump_attribute_results_to_disk(results_dict)
 
 
@@ -45,9 +42,8 @@ class GeneType(Attribute):
     """
     def run(self):
         self.get_attribute_dict()
-        self.get_alignment_dict()
-        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].gene_type for aln_id in
-                        self.alignment_dict}
+        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].gene_type for aln_id, t in
+                        self.transcript_iterator()}
         self.dump_attribute_results_to_disk(results_dict)
 
 
@@ -57,9 +53,8 @@ class TranscriptType(Attribute):
     """
     def run(self):
         self.get_attribute_dict()
-        self.get_alignment_dict()
-        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].transcript_type for aln_id
-                        in self.alignment_dict}
+        results_dict = {aln_id: self.attribute_dict[psl_lib.remove_alignment_number(aln_id)].transcript_type for
+                        aln_id, t in self.transcript_iterator()}
         self.dump_attribute_results_to_disk(results_dict)
 
 
@@ -69,9 +64,8 @@ class SourceChrom(Attribute):
     """
     def run(self):
         self.get_annotation_dict()
-        self.get_alignment_dict()
-        results_dict = {aln_id: self.annotation_dict[psl_lib.remove_alignment_number(aln_id)].chromosome for aln_id in
-                        self.alignment_dict}
+        results_dict = {aln_id: self.annotation_dict[psl_lib.remove_alignment_number(aln_id)].chromosome for
+                        aln_id, t in self.transcript_iterator()}
         self.dump_attribute_results_to_disk(results_dict)
 
 
@@ -82,9 +76,8 @@ class SourceStart(Attribute):
     """
     def run(self):
         self.get_annotation_dict()
-        self.get_alignment_dict()
-        results_dict = {aln_id: self.annotation_dict[psl_lib.remove_alignment_number(aln_id)].start for aln_id in
-                        self.alignment_dict}
+        results_dict = {aln_id: self.annotation_dict[psl_lib.remove_alignment_number(aln_id)].start for aln_id, t in
+                        self.transcript_iterator()}
         self.dump_attribute_results_to_disk(results_dict)
 
 
@@ -95,9 +88,8 @@ class SourceStop(Attribute):
     """
     def run(self):
         self.get_annotation_dict()
-        self.get_alignment_dict()
-        results_dict = {aln_id: self.annotation_dict[psl_lib.remove_alignment_number(aln_id)].stop for aln_id in
-                        self.alignment_dict}
+        results_dict = {aln_id: self.annotation_dict[psl_lib.remove_alignment_number(aln_id)].stop for aln_id, t in
+                        self.transcript_iterator()}
         self.dump_attribute_results_to_disk(results_dict)
 
 
@@ -107,10 +99,9 @@ class SourceStrand(Attribute):
     """
     def run(self):
         self.get_annotation_dict()
-        self.get_alignment_dict()
         results_dict = {aln_id: seq_lib.convert_strand(
                         self.annotation_dict[psl_lib.remove_alignment_number(aln_id)].strand)
-                        for aln_id in self.alignment_dict}
+                        for aln_id, t in self.transcript_iterator()}
         self.dump_attribute_results_to_disk(results_dict)
 
 
@@ -119,8 +110,7 @@ class DestChrom(Attribute):
     Creates a column representing the dest chromosome
     """
     def run(self):
-        self.get_transcript_dict()
-        results_dict = {aln_id: self.transcript_dict[aln_id].chromosome for aln_id in self.transcript_dict}
+        results_dict = {aln_id: self.transcript_dict[aln_id].chromosome for aln_id, t in self.transcript_iterator()}
         self.dump_attribute_results_to_disk(results_dict)
 
 
@@ -130,8 +120,7 @@ class DestStart(Attribute):
     (+) strand value, so always smaller than destEnd.
     """
     def run(self):
-        self.get_transcript_dict()
-        results_dict = {aln_id: self.transcript_dict[aln_id].start for aln_id in self.transcript_dict}
+        results_dict = {aln_id: self.transcript_dict[aln_id].start for aln_id, t in self.transcript_iterator()}
         self.dump_attribute_results_to_disk(results_dict)
 
 
@@ -141,8 +130,7 @@ class DestStop(Attribute):
     (+) strand value, so always larger tha destStart
     """
     def run(self):
-        self.get_transcript_dict()
-        results_dict = {aln_id: self.transcript_dict[aln_id].stop for aln_id in self.transcript_dict}
+        results_dict = {aln_id: self.transcript_dict[aln_id].stop for aln_id, t in self.transcript_iterator()}
         self.dump_attribute_results_to_disk(results_dict)
 
 
@@ -151,9 +139,8 @@ class DestStrand(Attribute):
     Creates a column representing the dest genomic strand.
     """
     def run(self):
-        self.get_transcript_dict()
-        results_dict = {aln_id: seq_lib.convert_strand(self.transcript_dict[aln_id].strand) for aln_id in
-                        self.transcript_dict}
+        results_dict = {aln_id: seq_lib.convert_strand(self.transcript_dict[aln_id].strand) for aln_id, t in
+                        self.transcript_iterator()}
         self.dump_attribute_results_to_disk(results_dict)
 
 
@@ -161,15 +148,12 @@ class AlignmentCoverage(Attribute):
     """
     Calculates alignment coverage:
 
-    (matches + mismatches + repeat matches) / qSize
+    (matches + mismatches + repeat matches) / q_size
 
     Reports the value as a REAL between 0 and 1
     """
     def run(self):
-        self.get_alignment_dict()
-        results_dict = {}
-        for aln_id, aln in self.alignment_dict.iteritems():
-            results_dict[aln_id] = format_ratio(aln.matches + aln.mismatches + aln.repmatches, aln.q_size)
+        results_dict = {aln_id: aln.coverage for aln_id, aln in self.alignment_iterator()}
         self.dump_attribute_results_to_disk(results_dict)
 
 
@@ -182,9 +166,30 @@ class AlignmentIdentity(Attribute):
     Reports the value as a REAL between 0 and 1
     """
     def run(self):
-        self.get_alignment_dict()
+        results_dict = {aln_id: aln.identity for aln_id, aln in self.alignment_iterator()}
+        self.dump_attribute_results_to_disk(results_dict)
+
+
+class PercentUnknownBases(Attribute):
+    """
+    Calculates the percent of unknown bases in the alignment:
+
+    n_count / q_size
+    """
+    def run(self):
+        results_dict = {aln_id: aln.percent_n for aln_id, aln in self.alignment_iterator()}
+        self.dump_attribute_results_to_disk(results_dict)
+
+
+class PercentUnknownCodingBases(Attribute):
+    """
+    Calculates the percent of coding bases that are Ns in the transcript
+    """
+    def run(self):
+        self.get_fasta()
         results_dict = {}
-        for aln_id, aln in self.alignment_dict.iteritems():
-            results_dict[aln_id] = format_ratio(aln.matches + aln.repmatches,
-                                                aln.matches + aln.repmatches + aln.mismatches + aln.q_num_insert)
+        for aln_id, t in self.transcript_iterator():
+            cds = t.get_cds(self.seq_dict)
+            v = 100 * format_ratio(cds.count("N"), len(cds))
+            results_dict[aln_id] = v
         self.dump_attribute_results_to_disk(results_dict)

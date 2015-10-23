@@ -9,7 +9,9 @@ Modified by Ian Fiddes
 import string
 import copy
 import math
+import re
 from itertools import izip
+from lib.general_lib import tokenize_stream
 from pyfaidx import Fasta
 
 __author__ = "Ian Fiddes"
@@ -306,12 +308,6 @@ class Transcript(object):
                 # thickStop marks the end of the CDS
                 l += self.thick_stop - e.start
         self.cds_size = l
-
-    def get_cds_length(self):
-        return self.cds_size
-
-    def get_transcript_length(self):
-        return self.transcript_size
 
     def get_mrna(self, seq_dict):
         """
@@ -866,7 +862,7 @@ class ChromosomeInterval(object):
         If two are returned, that means the two intervals do not overlap.
         Returns None if the intervals are not on the same strand and chromosome
         """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
+        if self.chromosome != other.chromosome:
             return None
         if self > other:
             other, self = self, other
@@ -882,7 +878,7 @@ class ChromosomeInterval(object):
         Returns a new ChromosomeInterval representing the merged interval of these two, regardless of overlap
         I.E. if one interval is [1, 10) and another is [20, 30) this will return [1, 30)
         """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
+        if self.chromosome != other.chromosome:
             return None
         if self > other:
             other, self = self, other
@@ -896,7 +892,7 @@ class ChromosomeInterval(object):
         """
         Returns True if this interval overlaps other (if they are on the same strand and chromosome)
         """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
+        if self.chromosome != other.chromosome:
             return False
         if self > other:
             other, self = self, other
@@ -906,7 +902,7 @@ class ChromosomeInterval(object):
         """
         Returns True if this interval is a subset of the other interval (if they are on the same strand and chromosome)
         """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
+        if self.chromosome != other.chromosome:
             return False
         return self.start >= other.start and self.stop <= other.stop
 
@@ -914,7 +910,7 @@ class ChromosomeInterval(object):
         """
         same a subset, but only if other is entirely encased in this interval.
         """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
+        if self.chromosome != other.chromosome:
             return False
         return self.start > other.start and self.stop < other.stop
 
@@ -922,7 +918,7 @@ class ChromosomeInterval(object):
         """
         Returns a integer representing the start distance between these intervals
         """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
+        if self.chromosome != other.chromosome:
             return None
         if self > other:
             other, self = self, other
@@ -935,7 +931,7 @@ class ChromosomeInterval(object):
         """
         Returns a pair of distances representing the symmetric distance between two intervals
         """
-        if self.strand != other.strand or self.chromosome != other.chromosome:
+        if self.chromosome != other.chromosome:
             return None
         if self > other:
             other, self = self, other
@@ -953,9 +949,7 @@ class ChromosomeInterval(object):
         Returns the sequence for this intron in transcript orientation (reverse complement as necessary)
         If strand is False, returns the + strand regardless of transcript orientation.
         """
-        if strand is False:
-            return seq_dict[self.chromosome][self.start:self.stop].upper()
-        if self.strand is True:
+        if strand is False or self.strand is True:
             return seq_dict[self.chromosome][self.start:self.stop].upper()
         if self.strand is False:
             return reverse_complement(seq_dict[self.chromosome][self.start:self.stop]).upper()
@@ -1151,61 +1145,21 @@ def get_sequence_dict(file_path):
     return Fasta(file_path, as_raw=True)
 
 
-def get_transcripts(bed_file):
+def get_transcript_dict(gp_file):
     """
-    Given a path to a standard BED return a list of Transcript objects
+    Convenience function for creating transcript dictionaries
     """
-    transcripts = []
-    bed_file = open(bed_file, 'r')
-    for t in transcript_iterator(bed_file, Transcript):
-        transcripts.append(t)
-    return transcripts
+    return {n: t for n, t in transcript_iterator(gp_file)}
 
 
-def get_gene_pred_transcripts(gp_file):
+def transcript_iterator(gp_file):
     """
     Given a path to a standard genePred file return a list of GenePredTranscript objects
     """
-    transcripts = []
-    gp_file = open(gp_file, 'r')
-    for t in transcript_iterator(gp_file, GenePredTranscript):
-        transcripts.append(t)
-    return transcripts
-
-
-def transcript_list_to_dict(transcripts):
-    """
-    Given a list af Transcript objects, attempt to transform them into a dict
-    of lists. key is transcript name, value is list of Transcript objects.
-    If no_duplicates is true, then the value will be a single Transcript object.
-    """
-    result = {}
-    for t in transcripts:
-        if t.name in result:
-            raise RuntimeError('transcriptListToDict: Discovered a duplicate transcript {} {}'.format(t.name,
-                                                                                                      t.chromosome))
-        else:
-            result[t.name] = t
-    return result
-
-
-def tokenize_stream(stream):
-    """
-    Iterator through a tab delimited file, returning lines as list of tokens
-    """
-    for line in stream:
-        if line != '':
-            tokens = line.rstrip().split("\t")
-            yield tokens
-
-
-def transcript_iterator(stream, transcript):
-    """
-    Iterates over the transcript detailed in the bed stream producing Transcript objects.
-    transcript is the type of transcript, defaults to Transcript
-    """
-    for tokens in tokenize_stream(stream):
-        yield transcript(tokens)
+    with open(gp_file) as inf:
+        for tokens in tokenize_stream(inf):
+            t = GenePredTranscript(tokens)
+            yield t.name, t
 
 
 def get_transcript_attribute_dict(attribute_file):
@@ -1326,3 +1280,22 @@ def chromosome_region_to_bed(t, start, stop, rgb, name):
     assert start is not None and stop is not None, (t.name, start, stop, name)
     assert stop >= start, (t.name, start, stop, name)
     return [chrom, start, stop, name + "/" + t.name, 0, strand, start, stop, rgb, 1, stop - start, 0]
+
+
+def get_gp_ids(gp):
+    """
+    Get all unique gene IDs from a genePred
+    """
+    return {x[0] for x in tokenize_stream(open(gp))}
+
+
+def gp_chrom_filter(gp, filter_chrom=re.compile("(Y)|(chrY)")):
+    """
+    Takes a genePred and lists all transcripts that match filter_chrom
+    """
+    f_h = open(gp)
+    ret = set()
+    for x in tokenize_stream(f_h):
+        if filter_chrom.match(x[1]):
+            ret.add(x[0])
+    return ret
