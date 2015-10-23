@@ -9,10 +9,7 @@ __author__ = "Ian Fiddes"
 # Below are global variables shared by plotting scripts
 
 # this genetic distance is from Joel. There are functions to derive it, but this makes it consistent across plots.
-#hard_coded_genome_order = ['C57B6NJ', 'NZOHlLtJ', '129S1', 'FVBNJ', 'NODShiLtJ', 'LPJ', 'AJ', 'AKRJ', 'BALBcJ', 'DBA2J',
-#                            'C3HHeJ', 'CBAJ', 'WSBEiJ', 'CASTEiJ', 'PWKPhJ', 'SPRETEiJ', 'CAROLIEiJ', 'PAHARIEiJ']
-
-hard_coded_genome_order = ["C57B6NJ", "CAROLIEiJ"]
+hard_coded_genome_order = ['gorilla', 'chimp', 'orang', 'squirrel_monkey']
 
 width = 9.0
 height = 6.0
@@ -120,14 +117,14 @@ def assemblyErrors(genome, biotype=None, details=True):
 
 
 def alignmentErrors(genome, biotype=None, details=True):
-    query = (" FROM attributes.'{0}' JOIN details.'{0}' USING ('AlignmentId') JOIN main.'{0}' USING "
-             "('AlignmentId') WHERE main.'{0}'.BadFrame = 1 OR main.'{0}'.CdsGap = 1 OR "
-             "main.'{0}'.CdsMult3Gap = 1 OR main.'{0}'.UtrGap = 1 OR main.'{0}'.Paralogy = 1 OR "
-             "main.'{0}'.HasOriginalIntrons = 1 OR main.'{0}'.StartOutOfFrame = 1")
+    query = (" FROM attributes.'C57B6NJ' JOIN details.'C57B6NJ' USING ('AlignmentId') JOIN main.'C57B6NJ' USING "
+             "('AlignmentId') WHERE main.'C57B6NJ'.BadFrame = 1 OR main.'C57B6NJ'.CdsGap = 1 OR "
+             "main.'C57B6NJ'.CdsMult3Gap = 1 OR main.'C57B6NJ'.UtrGap = 1 OR main.'C57B6NJ'.Paralogy = 1 OR "
+             "main.'C57B6NJ'.HasOriginalIntrons = 1 OR main.'C57B6NJ'.StartOutOfFrame = 1")
     if details is True:
-        query = ("SELECT details.'{0}'.BadFrame,details.'{0}'.CdsGap,details.'{0}'.CdsMult3Gap,"
-                 "details.'{0}'.UtrGap,details.'{0}'.Paralogy,details.'{0}'.HasOriginalIntrons,"
-                 "details.'{0}'.StartOutOfFrame") + query
+        query = ("SELECT details.'C57B6NJ'.BadFrame,details.'C57B6NJ'.CdsGap,details.'C57B6NJ'.CdsMult3Gap,"
+                 "details.'C57B6NJ'.UtrGap,details.'C57B6NJ'.Paralogy,details.'C57B6NJ'.HasOriginalIntrons,"
+                 "details.'C57B6NJ'.StartOutOfFrame") + query
     else:
         query = "SELECT main.'{0}'.AlignmentId " + query
     if biotype is not None:
