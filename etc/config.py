@@ -9,7 +9,7 @@ __author__ = "Ian Fiddes"
 # Below are global variables shared by plotting scripts
 
 # this genetic distance is from Joel. There are functions to derive it, but this makes it consistent across plots.
-hard_coded_genome_order = ['gorilla', 'chimp', 'orang', 'squirrel_monkey']
+hard_coded_genome_order = ['gorilla', 'chimp', 'orang']
 
 width = 9.0
 height = 6.0
@@ -20,9 +20,9 @@ paired_palette = ["#df65b0", "#dd1c77", "#980043",  # reds
                   "#252525", "#B24000"]  # brown and black
 
 # triple palette is the same as paired palette but with 3 colors
-triple_palette = ["#df65b0", "#dd1c77", "#980043",
-                  "#65DF94", "#1CDD82", "#009855",
-                  "#a1dab4", "#41b6c4", "#2c7fb8",
+triple_palette = ['#374a69', '#415e8c', '#4c72b0',  # blues
+                  '#73383a', '#9b4346', '#c44e52',  # reds
+                  '#3b6545', '#488656', '#55a868',  # greens
                   "#252525"]
 
 # palette is the seaborn colorbind palette
@@ -117,14 +117,14 @@ def assemblyErrors(genome, biotype=None, details=True):
 
 
 def alignmentErrors(genome, biotype=None, details=True):
-    query = (" FROM attributes.'C57B6NJ' JOIN details.'C57B6NJ' USING ('AlignmentId') JOIN main.'C57B6NJ' USING "
-             "('AlignmentId') WHERE main.'C57B6NJ'.BadFrame = 1 OR main.'C57B6NJ'.CdsGap = 1 OR "
-             "main.'C57B6NJ'.CdsMult3Gap = 1 OR main.'C57B6NJ'.UtrGap = 1 OR main.'C57B6NJ'.Paralogy = 1 OR "
-             "main.'C57B6NJ'.HasOriginalIntrons = 1 OR main.'C57B6NJ'.StartOutOfFrame = 1")
+    query = (" FROM attributes.'{0}' JOIN details.'{0}' USING ('AlignmentId') JOIN main.'{0}' USING "
+             "('AlignmentId') WHERE main.'{0}'.BadFrame = 1 OR main.'{0}'.CdsGap = 1 OR "
+             "main.'{0}'.CdsMult3Gap = 1 OR main.'{0}'.UtrGap = 1 OR main.'{0}'.Paralogy = 1 OR "
+             "main.'{0}'.HasOriginalIntrons = 1 OR main.'{0}'.StartOutOfFrame = 1")
     if details is True:
-        query = ("SELECT details.'C57B6NJ'.BadFrame,details.'C57B6NJ'.CdsGap,details.'C57B6NJ'.CdsMult3Gap,"
-                 "details.'C57B6NJ'.UtrGap,details.'C57B6NJ'.Paralogy,details.'C57B6NJ'.HasOriginalIntrons,"
-                 "details.'C57B6NJ'.StartOutOfFrame") + query
+        query = ("SELECT details.'{0}'.BadFrame,details.'{0}'.CdsGap,details.'{0}'.CdsMult3Gap,"
+                 "details.'{0}'.UtrGap,details.'{0}'.Paralogy,details.'{0}'.HasOriginalIntrons,"
+                 "details.'{0}'.StartOutOfFrame") + query
     else:
         query = "SELECT main.'{0}'.AlignmentId " + query
     if biotype is not None:
@@ -137,38 +137,38 @@ def alignmentErrors(genome, biotype=None, details=True):
 
 def transMapEval(ref_genome, genome, biotype, good=False):
     if biotype == "protein_coding" and good is False:
-        query = ("SELECT AlignmentId FROM attributes.'C57B6J' JOIN main.'C57B6J' USING (TranscriptId) JOIN "
+        query = ("SELECT AlignmentId FROM attributes.'{0}' JOIN main.'{0}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
-                 "(main.'C57B6J'.BadFrame = 0 AND main.'{0}'.BadFrame = 1) AND NOT (main.'C57B6J'.BeginStart = 0 "
-                  "AND main.'{0}'.BeginStart = 1) AND NOT (main.'C57B6J'.EndStop = 0 AND main.'{0}'.EndStop = 1) "
-                  "AND NOT (main.'C57B6J'.CdsGap = 0 AND main.'{0}'.CdsGap = 1) AND NOT (main.'C57B6J'.CdsUnknownSplice"
-                  " = 0 AND main.'{0}'.CdsUnknownSplice = 1) AND NOT (main.'C57B6J'.UtrUnknownSplice = 0 AND "
-                  "main.'{0}'.UtrUnknownSplice = 1) AND NOT (main.'C57B6J'.StartOutOfFrame = 0 AND "
-                  "main.'{0}'.StartOutOfFrame = 1) AND NOT (main.'C57B6J'.InFrameStop = 0 AND "
-                  "main.'{0}'.InFrameStop = 1) AND NOT (main.'C57B6J'.ShortCds = 0 AND main.'{0}'.ShortCds = 1) AND "
+                 "(main.'{0}'.BadFrame = 0 AND main.'{0}'.BadFrame = 1) AND NOT (main.'{0}'.BeginStart = 0 "
+                  "AND main.'{0}'.BeginStart = 1) AND NOT (main.'{0}'.EndStop = 0 AND main.'{0}'.EndStop = 1) "
+                  "AND NOT (main.'{0}'.CdsGap = 0 AND main.'{0}'.CdsGap = 1) AND NOT (main.'{0}'.CdsUnknownSplice"
+                  " = 0 AND main.'{0}'.CdsUnknownSplice = 1) AND NOT (main.'{0}'.UtrUnknownSplice = 0 AND "
+                  "main.'{0}'.UtrUnknownSplice = 1) AND NOT (main.'{0}'.StartOutOfFrame = 0 AND "
+                  "main.'{0}'.StartOutOfFrame = 1) AND NOT (main.'{0}'.InFrameStop = 0 AND "
+                  "main.'{0}'.InFrameStop = 1) AND NOT (main.'{0}'.ShortCds = 0 AND main.'{0}'.ShortCds = 1) AND "
                   "main.'{0}'.CodingInsertions = 0 AND main.'{0}'.CodingDeletions = 0 AND main.'{0}'.FrameShift = 0 "
                   "AND main.'{0}'.HasOriginalStart = 0 AND main.'{0}'.HasOriginalStop = 0 AND "
                   "main.'{0}'.HasOriginalIntrons = 0 AND attributes.'{0}'.AlignmentCoverage >= 100.0 AND "
                   "attributes.'{0}'.PercentUnknownBases < 1.0 AND attributes.'{0}'.PercentUnknownCodingBases < 0.2 "
                   "AND attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
     elif biotype == "protein_coding" and good is True:
-        query = ("SELECT AlignmentId FROM attributes.'C57B6J' JOIN main.'C57B6J' USING (TranscriptId) JOIN "
+        query = ("SELECT AlignmentId FROM attributes.'{0}' JOIN main.'{0}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
-                 "(main.'C57B6J'.CdsUnknownSplice = 0 AND main.'{0}'.CdsUnknownSplice = 1) AND "
+                 "(main.'{0}'.CdsUnknownSplice = 0 AND main.'{0}'.CdsUnknownSplice = 1) AND "
                  "main.'{0}'.FrameShift = 0 AND main.'{0}'.CodingInsertions = 0 AND main.'{0}'.CodingDeletions = 0 "
                  "AND main.'{0}'.HasOriginalIntrons = 0 AND attributes.'{0}'.AlignmentCoverage >= 95.0 AND "
                  "attributes.'{0}'.PercentUnknownBases < 5.0 AND attributes.'{0}'.PercentUnknownCodingBases < 1.0 AND"
                  " attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
     elif good is False:
-        query = ("SELECT AlignmentId FROM attributes.'C57B6J' JOIN main.'C57B6J' USING (TranscriptId) JOIN "
+        query = ("SELECT AlignmentId FROM attributes.'{0}' JOIN main.'{0}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
-                 "(main.'C57B6J'.UtrUnknownSplice = 0 AND main.'{0}'.UtrUnknownSplice = 1) AND "
+                 "(main.'{0}'.UtrUnknownSplice = 0 AND main.'{0}'.UtrUnknownSplice = 1) AND "
                  "attributes.'{0}'.AlignmentCoverage >= 100.0 AND attributes.'{0}'.PercentUnknownBases < 1.0 AND "
                  "attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
     else:
-        query = ("SELECT AlignmentId FROM attributes.'C57B6J' JOIN main.'C57B6J' USING (TranscriptId) JOIN "
+        query = ("SELECT AlignmentId FROM attributes.'{0}' JOIN main.'{0}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
-                 "(main.'C57B6J'.UtrUnknownSplice = 0 AND main.'{0}'.UtrUnknownSplice = 1) AND "
+                 "(main.'{0}'.UtrUnknownSplice = 0 AND main.'{0}'.UtrUnknownSplice = 1) AND "
                  "main.'{0}'.UtrGap = 0 AND attributes.'{0}'.AlignmentCoverage >= 95.0 AND "
                  "attributes.'{0}'.PercentUnknownBases < 5.0 AND attributes.'{0}'.TranscriptType = '{1}' AND "
                  "attributes.'{0}'.GeneType = '{1}'")
