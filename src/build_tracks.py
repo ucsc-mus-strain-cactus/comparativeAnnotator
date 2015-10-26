@@ -135,33 +135,36 @@ def build_good_track(target, args):
     """
     Builds a specific track of Good transcripts for the current mode.
     """
-    colors = {"coding": "100,209,61", "noncoding": "209,61,115"}
+    colors = {"coding": "59,101,69", "noncoding": "98,124,191", "not_good": "152,0,67"}
     con, cur = sql_lib.attach_databases(args.outDir, args.mode)
     biotype_map = sql_lib.get_transcript_biotype_map(cur, args.refGenome)
     if args.mode == "augustus":
         query = etc.config.augustusEval(args.genome)
         good_ids = sql_lib.get_query_ids(cur, query)
-        out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, "augustusGood", args.genome)
+        out_good_bed_path, out_good_big_bed_path = get_bed_paths(args.outDir, "augustus", args.genome)
         gp_dict = seq_lib.get_transcript_dict(args.augustusGp)
     elif args.mode == "reference":  # for reference, we are more interested in what is NOT Good
         query = etc.config.refEval(args.refGenome)
         good_ids = biotype_map.viewkeys() - sql_lib.get_query_ids(cur, query)  # actually not good
-        out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, "referenceNotGood", args.refGenome)
+        out_good_bed_path, out_good_big_bed_path = get_bed_paths(args.outDir, "reference", args.refGenome)
         gp_dict = seq_lib.get_transcript_dict(args.annotationGp)
     elif args.mode == "transMap":
         good_ids = get_all_tm_good(cur, args.refGenome, args.genome)
-        out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, "transMapGood", args.genome)
+        out_good_bed_path, out_good_big_bed_path = get_bed_paths(args.outDir, "transMap", args.genome)
         gp_dict = seq_lib.get_transcript_dict(args.targetGp)
     else:
         raise RuntimeError("Somehow your argparse object does not contain a valid mode.")
-    with open(out_bed_path, "w") as outf:
+    with open(out_good_bed_path, "w") as outf:
         for aln_id, rec in gp_dict.iteritems():
+            tx_id = psl_lib.strip_alignment_numbers(aln_id)
             if aln_id in good_ids:
-                tx_id = psl_lib.strip_alignment_numbers(aln_id)
                 if biotype_map[tx_id] == "protein_coding":
                     bed = rec.get_bed(rgb=colors["coding"])
                     outf.write("".join(["\t".join(map(str, bed)), "\n"]))
                 else:
                     bed = rec.get_bed(rgb=colors["noncoding"])
                     outf.write("".join(["\t".join(map(str, bed)), "\n"]))
-    make_big_bed(out_bed_path, args.sizes, out_big_bed_path)
+            else:
+                bed = rec.get_bed(rgb=colors["not_good"])
+                outf.write("".join(["\t".join(map(str, bed)), "\n"]))
+    make_big_bed(out_good_bed_path, args.sizes, out_good_big_bed_path)
