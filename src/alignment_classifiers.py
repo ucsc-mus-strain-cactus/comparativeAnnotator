@@ -72,15 +72,18 @@ class HasOriginalIntrons(AbstractAlignmentClassifier):
 
     def run(self):
         for aln_id, aln, t, a in self.alignment_transcript_annotation_iterator():
-            original_introns = {(x.start, x.stop) for x in a.intron_intervals}
+            original_introns = {frozenset((x.start, x.stop)) for x in a.intron_intervals}
             target_introns = set()
             target_intron_mapping = {}
             for intron in t.intron_intervals:
-                a_start = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.start - 1)) + 1
-                a_stop = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.stop))
-                target_introns.add((a_start, a_stop))
-                target_intron_mapping[(a_start, a_stop)] = intron
-            missing_introns = original_introns - target_introns
+                if t.strand is False:
+                    a_start = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.start - 1))
+                    a_stop = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.stop)) + 1
+                else:
+                    a_start = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.start - 1)) + 1
+                    a_stop = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.stop))  
+                target_introns.add(frozenset((a_start, a_stop)))
+                target_intron_mapping[frozenset((a_start, a_stop))] = intron
             if len(missing_introns) != 0:
                 self.classify_dict[aln_id] = 1
                 not_original_introns = target_introns - original_introns
