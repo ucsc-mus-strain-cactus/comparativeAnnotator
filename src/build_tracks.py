@@ -84,10 +84,8 @@ def build_tracks_wrapper(target, args):
         genome = args.genome
     else:
         raise RuntimeError("Somehow your argparse object does not contain a valid mode.")
-    for f in classifier_tracks:
-        query = f(genome)
-        query_name = f.__name__
-        target.addChildTargetFn(build_classifier_tracks, args=[query, query_name, genome, args])
+    for query_fn in classifier_tracks:
+        target.addChildTargetFn(build_classifier_tracks, args=[query_fn, genome, args])
     target.addChildTargetFn(build_good_track, args=[args])
 
 
@@ -106,7 +104,9 @@ def make_big_bed(out_bed_path, sizes, out_big_bed_path):
     subprocess.call(["bedToBigBed", "-extraIndex=name", out_bed_path, sizes, out_big_bed_path])
 
 
-def build_classifier_tracks(target, query, query_name, genome, args):
+def build_classifier_tracks(target, query_fn, genome, args):
+    query = query_fn(genome)
+    query_name = query_fn.__name__
     con, cur = sql_lib.attach_databases(args.outDir, mode=args.mode)
     bed_recs = cur.execute(query)
     out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, query_name, genome)

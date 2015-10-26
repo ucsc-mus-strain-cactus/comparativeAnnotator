@@ -27,13 +27,13 @@ def build_parser():
     return parser
 
 
-def drop_low_sums(m, s, cutoff=2.0):
+def drop_low_sums(s, cutoff=2.0):
     """
     Drops any classifiers with below cutoff classifications. Cutoff is a percentage of total.
     """
     for c, v in s.iteritems():
         if v < cutoff:
-            m.drop(c, inplace=True, axis=1)
+            s.drop(c, inplace=True)
 
 
 def munge_data(d, filter_set):
@@ -41,13 +41,11 @@ def munge_data(d, filter_set):
     Used to munge input data.
     """
     m = d.ix[filter_set]
-    m = m.fillna(0)
-    m = m.astype(bool)
     s = m.sum(axis=0)
     s.sort(ascending=False)
     normed_s = s / (0.01 * len(m))
-    drop_low_sums(m, normed_s)
-    s = [[x, normed_s[x], y] for x, y in s.iteritems()]
+    drop_low_sums(normed_s)
+    s = [[x, normed_s[x], y] for x, y in s.iteritems() if x in normed_s]
     return m, s
 
 
@@ -60,7 +58,7 @@ def main_fn(target, comp_ann_path, gencode, genome, ref_genome, base_out_path, f
     con, cur = sql_lib.attach_databases(comp_ann_path, mode="transMap")
     fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
     biotype_ids = sql_lib.get_biotype_ids(cur, ref_genome, biotype, filter_chroms=filter_chroms)
-    sql_data = sql_lib.load_data(con, genome, etc.config.tm_pass_classifiers)
+    sql_data = sql_lib.load_data(con, genome, etc.config.clustering_classifiers)
     for mode, ids in zip(*[["Fail", "Good/NotPass"], [fail_ids, good_specific_ids]]):
         mode_underscore = mode.replace("/", "_")
         out_barplot_file = os.path.join(out_path, "barplot_{}_{}_{}".format(genome, biotype, mode_underscore))

@@ -5,6 +5,7 @@ This program takes a series of BAM files and converts them to a Augustus hints d
 import sys
 import os
 import pysam
+import argparse
 from lib.general_lib import format_ratio
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
@@ -44,10 +45,10 @@ def merge_bam_to_wig(target, file_tree, wig_path, db_path, genome, genome_fasta)
     system(cmd)
     exon_gff_path = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString(10))
     intron_gff_path = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString(10))
-    target.addChildTargetFn(wig_2_hints, memory=8 * 1024 ** 3, cpus=2,
+    target.addChildTargetFn(wig_2_hints, memory=8 * 1024 ** 3, cpu=2,
                             args=[wig_path, exon_gff_path])
     target.addChildTargetFn(bam_2_hints_wrapper, args=[bam_files, intron_gff_path])
-    target.addFollowOnTargetFn(cat_hints, args=[exon_gff_path, intron_gff_path, db_path, genome, genome_fasta])
+    target.setFollowOnTargetFn(cat_hints, args=[exon_gff_path, intron_gff_path, db_path, genome, genome_fasta])
 
 
 def wig_2_hints(target, wig_path, exon_gff_path):
@@ -61,10 +62,10 @@ def wig_2_hints(target, wig_path, exon_gff_path):
 def bam_2_hints_wrapper(target, bam_files, intron_gff_path):
     intron_hints_tree = TempFileTree(target.getGlobalTempDir())
     for f in bam_files:
-        target.addChildTargetFn(bam_2_hints, memory=8 * 1024 ** 3, cpus=1, 
+        target.addChildTargetFn(bam_2_hints, memory=8 * 1024 ** 3, cpu=1, 
                                 args=[f, intron_hints_tree])
     
-    target.addFollowOnTargetFn(cat_bam_2_hints, memory=8 * 1024 ** 3, cpus=4,
+    target.setFollowOnTargetFn(cat_bam_2_hints, memory=8 * 1024 ** 3, cpu=4,
                                 args=[intron_hints_tree, intron_gff_path])
 
 
@@ -82,7 +83,7 @@ def cat_bam_2_hints(target, intron_hints_tree, intron_gff_path):
 def cat_hints(target, exon_gff_path, intron_gff_path, db_path, genome, genome_fasta):
     hints_file = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString(10))
     system("cat {} {} > {}".format(exon_gff_path, intron_gff_path, hints_file))
-    target.addFollowOnTargetFn(load_db, args=[hints_file, db_path, genome, genome_fasta])
+    target.setFollowOnTargetFn(load_db, args=[hints_file, db_path, genome, genome_fasta])
 
 
 def load_db(taret, hints_file, db_path, genome, genome_fasta):
@@ -96,12 +97,11 @@ def load_db(taret, hints_file, db_path, genome, genome_fasta):
 def filter_wrapper(target, bam_paths, db_path, genome, genome_fasta):
     file_tree = TempFileTree(target.getGlobalTempDir())
     for p in bam_paths:
-        target.addChildTargetFn(filter_bam, memory=8 * 1024 ** 3, cpus=2,
+        target.addChildTargetFn(filter_bam, memory=8 * 1024 ** 3, cpu=2,
                                 args=[p, file_tree])
     wig_path = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString(10))
-    target.addFollowOnTargetFn(merge_bam_to_wig, memory=8 * 1024 ** 3, cpus=2,
-                               args=[bam_paths, file_tree, wig_path, db_path, genome, genome_fasta])
-
+    target.setFollowOnTargetFn(merge_bam_to_wig, memory=8 * 1024 ** 3, cpu=2,
+                               args=[file_tree, wig_path, db_path, genome, genome_fasta])
 
 def main():
     parser = argparse.ArgumentParser()
@@ -111,7 +111,8 @@ def main():
     parser.add_argument("--bamFiles", nargs="+", required=True)
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
-    i = Stack(Target.makeTargetFn(filter_wrapper, args=[args.bamFiles, args.database, args.genome, args.fasta])
+    s = Stack(Target.makeTargetFn(filter_wrapper, args=[args.bamFiles, args.database, args.genome, args.fasta]))
+    i = s.startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
 
