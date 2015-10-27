@@ -30,7 +30,7 @@ hints_db_query = '''select source,typename,start,end,score,strand,frame,priority
              AND seqnr IN (SELECT seqnr FROM seqnames WHERE speciesid IN (SELECT speciesid FROM speciesnames WHERE speciesname="{genome}") AND seqname="{chrom}")
              AND start >= {start} AND end <= {stop} AND typeid=type'''
 
-augustus_base_cmd = ("{fasta} --predictionStart=-{start} --predictionEnd=-{start} --extrinsicCfgFile={cfg} "
+augustus_base_cmd = ("augustus {fasta} --predictionStart=-{start} --predictionEnd=-{start} --extrinsicCfgFile={cfg} "
                      "--hintsfile={hints} --UTR=on --alternatives-from-evidence=0 --species=human "
                      "--allow_hinted_splicesites=atac --protein=0 --/augustus/verbosity=1 --softmasking=1 "
                      "--outfile=/dev/stdout")
@@ -116,7 +116,7 @@ def write_augustus(r, name_map, out_path):
                     outf.write("\t".join(map(str, x)) + "\n")
 
 
-def run_augustus(hint_f, seq_f, name, start, stop, cfg_version, cfg_path, out_file_tree, augustus_cmd):
+def run_augustus(hint_f, seq_f, name, start, stop, cfg_version, cfg_path, out_file_tree):
     """
     Runs Augustus for each cfg/gp_string pair.
     """
@@ -136,7 +136,7 @@ def run_augustus(hint_f, seq_f, name, start, stop, cfg_version, cfg_path, out_fi
         write_augustus(r, name_map, out_path)
 
 
-def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_tree, hints_db, augustus_cmd):
+def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_tree, hints_db):
     """
     Runs Augustus on one individual genePred string. Augustus is ran with each cfg file in cfgs
     """
@@ -154,7 +154,7 @@ def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_t
         seq = fasta[chrom][start:stop]
         hint_f, seq_f = write_hint_fasta(hint, seq, chrom, target.getGlobalTempDir())
         for cfg_version, cfg_path in cfgs.iteritems():
-            run_augustus(hint_f, seq_f, gp.name, start, stop, cfg_version, cfg_path, out_file_tree, augustus_cmd)
+            run_augustus(hint_f, seq_f, gp.name, start, stop, cfg_version, cfg_path, out_file_tree)
         # delete the seq and hint file. This makes the final tree cleanup not take so long.
         os.remove(hint_f)
         os.remove(seq_f)
@@ -168,7 +168,7 @@ def cat(target, output_gtf, unsorted_tmp_file, out_file_tree):
     system("sort -k1,1 -k4,4n {} > {}".format(unsorted_tmp_file, output_gtf))
 
 
-def wrapper(target, input_gp, output_gtf, genome, sizes_path, fasta_path, hints_db, augustus_cmd):
+def wrapper(target, input_gp, output_gtf, genome, sizes_path, fasta_path, hints_db):
     """
     Produces one jobTree target per genePred entry.
     """
@@ -178,7 +178,7 @@ def wrapper(target, input_gp, output_gtf, genome, sizes_path, fasta_path, hints_
     unsorted_tmp_file = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString(10))
     for line in open(input_gp):
         target.addChildTargetFn(transmap_2_aug, memory=8 * (1024 ** 3), 
-                                args=[line, genome, sizes_path, fasta_path, out_file_tree, hints_db, augustus_cmd])
+                                args=[line, genome, sizes_path, fasta_path, out_file_tree, hints_db])
     target.setFollowOnTargetFn(cat, args=[output_gtf, unsorted_tmp_file, out_file_tree])
 
 
@@ -190,14 +190,11 @@ def main():
     parser.add_argument("--chromSizes", required=True)
     parser.add_argument("--fasta", required=True)
     parser.add_argument("--hintsDb", required=True)
-    parser.add_argument("--augustusBinary", required=True)
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
-    augustus_cmd = " ".join([args.augustusBinary, augustus_base_cmd])
-    s = Stack(Target.makeTargetFn(wrapper, memory=8 * (1024 ** 3), 
-                                  args=[args.inputGp, args.outputGtf, args.genome, args.chromSizes, args.fasta, 
-                                        args.hintsDb, augustus_cmd]))
-    i = s.startJobTree(args)
+    i = Stack(Target.makeTargetFn(wrapper, memory=8 * (1024 ** 3), 
+                                  args=[args.inputGp, args.outputGtf, args.genome,
+                                        args.chromSizes, args.fasta, args.hintsDb])).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
 
