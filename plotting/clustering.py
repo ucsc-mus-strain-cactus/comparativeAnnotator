@@ -27,13 +27,14 @@ def build_parser():
     return parser
 
 
-def drop_low_sums(s, cutoff=2.0):
+def drop_low_sums(s, m, cutoff=1.0):
     """
     Drops any classifiers with below cutoff classifications. Cutoff is a percentage of total.
     """
     for c, v in s.iteritems():
         if v < cutoff:
             s.drop(c, inplace=True)
+            m.drop(c, axis=1, inplace=True)
 
 
 def munge_data(d, filter_set):
@@ -44,7 +45,7 @@ def munge_data(d, filter_set):
     s = m.sum(axis=0)
     s.sort(ascending=False)
     normed_s = s / (0.01 * len(m))
-    drop_low_sums(normed_s)
+    drop_low_sums(normed_s, m)
     s = [[x, normed_s[x], y] for x, y in s.iteritems() if x in normed_s]
     return m, s
 
