@@ -2,7 +2,6 @@
 Convenience library for interfacing with a sqlite database.
 """
 import os
-import sys
 import lib.psl_lib as psl_lib
 import lib.general_lib as general_lib
 from collections import defaultdict
@@ -39,13 +38,13 @@ def attach_database(con, path, name):
     con.execute("ATTACH DATABASE '{}' AS {}".format(path, name))
 
 
-def attach_databases(comp_ann_path, mode):
+def attach_databases(comp_ann_path, mode, timeout=600):
     """
     Attaches all of the databases needed for this execution mode.
     """
     assert mode in ["reference", "augustus", "transMap"]
     classify_path = os.path.join(comp_ann_path, "classify.db")
-    con = sql.connect(classify_path)
+    con = sql.connect(classify_path, timeout=timeout)
     cur = con.cursor()
     details_path = os.path.join(comp_ann_path, "details.db")
     attach_database(con, details_path, "details")
@@ -75,10 +74,7 @@ def get_query_ids(cur, query):
     Returns a set of aln_ids which are OK based on the definition of OK in config.py that made this query.
     In other words, expects a query of the form SELECT AlignmentId FROM stuff
     """
-    try:
-        return {x[0] for x in cur.execute(query)}
-    except sql.OperationalError, exc:
-        raise RuntimeError("query failed: {}.\nOriginal error message: {}".format(query, exc))
+    return {x[0] for x in cur.execute(query)}
 
 
 def get_query_dict(cur, query):
@@ -86,10 +82,7 @@ def get_query_dict(cur, query):
     Returns a set of aln_ids which are OK based on the definition of OK in config.py that made this query.
     In other words, expects a query of the form SELECT AlignmentId,<other stuff> FROM stuff
     """
-    try:
-        return {x[0]: x[1] if len(x) == 2 else x[1:] for x in cur.execute(query)}
-    except sql.OperationalError, exc:
-        raise RuntimeError("query failed: {}.\nOriginal error message: {}".format(query, exc))
+    return {x[0]: x[1] if len(x) == 2 else x[1:] for x in cur.execute(query)}
 
 
 def get_non_unique_query_dict(cur, query):
@@ -98,11 +91,8 @@ def get_non_unique_query_dict(cur, query):
     defaultdict(list)
     """
     d = defaultdict(list)
-    try:
-        for r in cur.execute(query):
-            d[r[0]].append(r[1:])
-    except sql.OperationalError, exc:
-        raise RuntimeError("query failed: {}.\nOriginal error message: {}".format(query, exc))
+    for r in cur.execute(query):
+        d[r[0]].append(r[1:])
     return general_lib.flatten_defaultdict_list(d)
 
 
@@ -159,12 +149,8 @@ def get_transcript_gene_map(cur, ref_genome, biotype=None, filter_chroms=None):
     else:
         query = "SELECT transcriptId,geneId FROM attributes.'{0}' WHERE transcriptType = '{1}' AND geneType = '{1}'"
     if filter_chroms is not None:
-        add = "AND".join([" refChrom != '{}' ".format(filter_chrom) for filter_chrom in filter_chroms])
-        if biotype is None:
-            query += " WHERE "
-        else:
-            query += " AND "
-        query += add
+        for filter_chrom in filter_chroms:
+            query += " AND refChrom != '{}'".format(filter_chrom)
     query = query.format(ref_genome, biotype)
     return get_query_dict(cur, query)
 
@@ -178,12 +164,8 @@ def get_gene_transcript_map(cur, ref_genome, biotype=None, filter_chroms=None):
     else:
         query = "SELECT geneId,transcriptId FROM attributes.'{0}' WHERE transcriptType = '{1}' AND geneType = '{1}'"
     if filter_chroms is not None:
-        add = "AND".join([" refChrom != '{}' ".format(filter_chrom) for filter_chrom in filter_chroms])
-        if biotype is None:
-            query += " WHERE "
-        else:
-            query += " AND "
-        query += add
+        for filter_chrom in filter_chroms:
+            query += " AND refChrom != '{}'".format(filter_chrom)
     query = query.format(ref_genome, biotype)
     return get_non_unique_query_dict(cur, query)
 

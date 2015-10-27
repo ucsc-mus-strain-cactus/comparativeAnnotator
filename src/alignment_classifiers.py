@@ -84,11 +84,12 @@ class HasOriginalIntrons(AbstractAlignmentClassifier):
                     a_stop = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.stop))  
                 target_introns.add(frozenset((a_start, a_stop)))
                 target_intron_mapping[frozenset((a_start, a_stop))] = intron
+            missing_introns = original_introns - target_introns
             if len(missing_introns) != 0:
                 self.classify_dict[aln_id] = 1
                 not_original_introns = target_introns - original_introns
-                for a_start, a_stop in not_original_introns:
-                    intron = target_intron_mapping[(a_start, a_stop)]
+                for x in not_original_introns:
+                    intron = target_intron_mapping[x]
                     if comp_ann_lib.short_intron(intron) is False:
                         self.details_dict[aln_id].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb,
                                                                                                self.column))

@@ -22,7 +22,7 @@ __author__ = "Ian Fiddes"
 def find_genome_order(highest_cov_dict, biotype_ids):
     """
     Finds the genome order that will be used by all plots. This is deprecated in favor of using a hard coded order
-    provided by Joel.
+    based on the pipeline config file.
     """
     num_cov = {}
     for g, covs in highest_cov_dict.iteritems():

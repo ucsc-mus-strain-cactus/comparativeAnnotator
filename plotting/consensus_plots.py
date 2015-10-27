@@ -25,11 +25,11 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_evaluations(work_dir):
+def load_evaluations(work_dir, genomes):
     tx_evals = OrderedDict()
     gene_evals = OrderedDict()
     gene_fail_evals = OrderedDict()
-    for genome in etc.config.hard_coded_genome_order:
+    for genome in genomes:
         p = os.path.join(work_dir, genome)
         with open(p) as inf:
             r = pickle.load(inf)
@@ -76,7 +76,7 @@ def gene_fail_plot(gene_fail_evals, out_path, gencode):
 def main():
     args = parse_args()
     mkdir_p(args.outDir)
-    tx_evals, gene_evals, gene_fail_evals = load_evaluations(args.workDir)
+    tx_evals, gene_evals, gene_fail_evals = load_evaluations(args.workDir, args.genomes)
     for evals, mode in zip(*[[tx_evals, gene_evals], ["Transcript", "Gene"]]):
         transcript_gene_plot(evals, args.outDir, args.gencode, mode)
     gene_fail_plot(gene_fail_evals, args.outDir, args.gencode)

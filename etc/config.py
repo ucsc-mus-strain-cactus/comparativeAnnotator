@@ -8,12 +8,10 @@ __author__ = "Ian Fiddes"
 
 # Below are global variables shared by plotting scripts
 
-# this genetic distance is from Joel. There are functions to derive it, but this makes it consistent across plots.
-hard_coded_genome_order = ['gorilla', 'chimp']
-
 width = 9.0
 height = 6.0
 bar_width = 0.45
+
 # paired_palette has two parallel color spectrums and black as the outgroup color
 paired_palette = ["#df65b0", "#dd1c77", "#980043",  # reds
                   "#a1dab4", "#41b6c4", "#2c7fb8",  # blues

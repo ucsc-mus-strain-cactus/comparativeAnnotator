@@ -48,10 +48,10 @@ def make_hist(vals, bins, reverse=False, roll=0):
     return norm, raw
 
 
-def paralogy_plot(cur, genome_order, out_path, biotype, biotype_ids, gencode):
+def paralogy_plot(cur, args.genomes, out_path, biotype, biotype_ids, gencode):
     results = []
     file_name = "{}_{}".format(gencode, "paralogy")
-    for g in genome_order:
+    for g in args.genomes:
         p = paralogy(cur, g)
         p = [p.get(x, 0) for x in biotype_ids]
         # we roll the list backwards one to put 0 on top
@@ -64,9 +64,9 @@ def paralogy_plot(cur, genome_order, out_path, biotype, biotype_ids, gencode):
     plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
 
 
-def categorized_plot(cur, highest_cov_dict, genome_order, out_path, file_name, biotype, biotype_ids, gencode, query_fn):
+def categorized_plot(cur, highest_cov_dict, args.genomes, out_path, file_name, biotype, biotype_ids, gencode, query_fn):
     results = []
-    for g in genome_order:
+    for g in args.genomes:
         best_ids = set(zip(*highest_cov_dict[g].itervalues())[0])
         query = query_fn(g, biotype, details=False)
         categorized_ids = sql_lib.get_query_ids(cur, query)
@@ -78,16 +78,16 @@ def categorized_plot(cur, highest_cov_dict, genome_order, out_path, file_name, b
     plot_lib.barplot(results, out_path, file_name, title_string, adjust_y=False)
 
 
-def cat_plot_wrapper(cur, highest_cov_dict, genome_order, out_path, biotype, gencode, biotype_ids):
+def cat_plot_wrapper(cur, highest_cov_dict, args.genomes, out_path, biotype, gencode, biotype_ids):
     for query_fn in [etc.config.alignmentErrors, etc.config.assemblyErrors]:
         file_name = "{}_{}".format(gencode, query_fn.__name__)
-        categorized_plot(cur, highest_cov_dict, genome_order, out_path, file_name, biotype, biotype_ids, gencode,
+        categorized_plot(cur, highest_cov_dict, args.genomes, out_path, file_name, biotype, biotype_ids, gencode,
                          query_fn)
 
 
-def metrics_plot(highest_cov_dict, bins, genome_order, out_path, file_name, biotype, gencode, biotype_ids, analysis):
+def metrics_plot(highest_cov_dict, bins, args.genomes, out_path, file_name, biotype, gencode, biotype_ids, analysis):
     results = []
-    for g in genome_order:
+    for g in args.genomes:
         covs = highest_cov_dict[g]
         vals = [eval(analysis) for tx_id, (aln_id, identity, coverage) in covs.iteritems() if tx_id in biotype_ids]
         vals.extend([0] * (len(biotype_ids) - len(vals)))  # add all of the unmapped transcripts
@@ -101,17 +101,17 @@ def metrics_plot(highest_cov_dict, bins, genome_order, out_path, file_name, biot
     plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
 
 
-def cov_ident_wrapper(highest_cov_dict, genome_order, out_path,  biotype, gencode, biotype_ids):
+def cov_ident_wrapper(highest_cov_dict, args.genomes, out_path,  biotype, gencode, biotype_ids):
     for analysis in ["coverage", "identity"]:
         bins = eval(analysis + "_bins")
         file_name = "{}_{}".format(gencode, analysis)
-        metrics_plot(highest_cov_dict, bins, genome_order, out_path, file_name, biotype, gencode, biotype_ids, analysis)
+        metrics_plot(highest_cov_dict, bins, args.genomes, out_path, file_name, biotype, gencode, biotype_ids, analysis)
 
 
-def num_good_pass(highest_cov_dict, cur, genome_order, ref_genome, out_path, biotype, gencode, biotype_ids):
+def num_good_pass(highest_cov_dict, cur, args.genomes, ref_genome, out_path, biotype, gencode, biotype_ids):
     file_name = "{}_num_good_pass".format(gencode)
     results = []
-    for g in genome_order:
+    for g in args.genomes:
         good_query = etc.config.transMapEval(ref_genome, g, biotype, good=True)
         pass_query = etc.config.transMapEval(ref_genome, g, biotype, good=False)
         best_ids = {x for x in zip(*highest_cov_dict[g].itervalues())[0] if psl_lib.strip_alignment_numbers(x) in 
@@ -131,29 +131,6 @@ def num_good_pass(highest_cov_dict, cur, genome_order, ref_genome, out_path, bio
     plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
 
 
-def num_good_pass_gene_level(highest_cov_dict, cur, genome_order, ref_genome, out_path, biotype, gencode, biotype_ids):
-    file_name = "{}_num_good_pass_gene_level".format(gencode)
-    results = []
-    for genome in genome_order:
-        fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
-        transcript_gene_map = sql_lib.get_transcript_gene_map(cur, ref_genome, biotype)
-        pass_genes = {transcript_gene_map[psl_lib.strip_alignment_numbers(x)] for x in pass_ids}
-        good_specific_genes = {transcript_gene_map[psl_lib.strip_alignment_numbers(x)] for x in good_specific_ids}
-        fail_genes = {transcript_gene_map[psl_lib.strip_alignment_numbers(x)] for x in fail_ids}
-        num_genes = len(set(transcript_gene_map.values()))
-        num_pass_genes = len(pass_genes)
-        num_good_genes = len(good_specific_genes - pass_genes)
-        num_fail_genes = len(fail_genes - (good_specific_genes | pass_genes))
-        num_no_aln = num_genes - (num_pass_genes + num_good_genes + num_fail_genes)
-        raw = np.array([num_pass_genes, num_good_genes, num_fail_genes, num_no_aln])
-        norm = raw / (0.01 * num_genes)
-        results.append([genome, norm])
-    title_string = "Proportion of {:,} {} genes in biotype {}\nwith at least one transcript categorized as Pass/Good/Fail"
-    title_string = title_string.format(num_genes, biotype, gencode)
-    legend_labels = ["Pass", "Good", "Fail", "NoAln"]
-    plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
-
-
 def get_highest_cov_alns(cur, genomes):
     """
     Dictionary mapping each genome to a dictionary reporting each highest coverage alignment and its metrics
@@ -165,20 +142,17 @@ def main():
     args = parse_args()
     con, cur = sql_lib.attach_databases(args.comparativeAnnotationDir, mode="transMap")
     highest_cov_dict = get_highest_cov_alns(cur, args.genomes)
-    # genome_order = plot_lib.find_genome_order(highest_cov_dict, gencode_ids)
-    genome_order = etc.config.hard_coded_genome_order
     for biotype in sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=False):
         biotype_ids = sql_lib.get_biotype_ids(cur, args.refGenome, biotype, filter_chroms=args.filterChroms)
-        if len(biotype_ids) > 25:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty
+        if len(biotype_ids) > 50:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty
             out_path = os.path.join(args.outDir, biotype)
             mkdir_p(out_path)
-            cov_ident_wrapper(highest_cov_dict, genome_order, out_path, biotype, args.gencode, biotype_ids)
-            cat_plot_wrapper(cur, highest_cov_dict, genome_order, out_path, biotype, args.gencode, biotype_ids)
-            paralogy_plot(cur, genome_order, out_path, biotype, biotype_ids, args.gencode)
-            num_good_pass(highest_cov_dict, cur, genome_order, args.refGenome, out_path, biotype,
+            cov_ident_wrapper(highest_cov_dict, args.genomes, out_path, biotype, args.gencode, biotype_ids)
+            cat_plot_wrapper(cur, highest_cov_dict, args.genomes, out_path, biotype, args.gencode, biotype_ids)
+            paralogy_plot(cur, args.genomes, out_path, biotype, biotype_ids, args.gencode)
+            num_good_pass(highest_cov_dict, cur, args.genomes, args.refGenome, out_path, biotype,
                           args.gencode, biotype_ids)
-            num_good_pass_gene_level(highest_cov_dict, cur, genome_order, args.refGenome, out_path, biotype,
-                                     args.gencode, biotype_ids)
+
 
 if __name__ == "__main__":
     main()

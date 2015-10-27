@@ -107,16 +107,16 @@ def bam_2_hints(target, bam_file, intron_hints_tree, chroms):
 
 
 def cat_bam_2_hints(target, intron_hints_tree, intron_gff_path):
-    combined_path = get_tmp(target, global_dir=True, name="combined_bam_hints")
-    combined = catFiles(intron_hints_tree.listFiles(), combined_path)
+    combined_bam_hints = get_tmp(target, global_dir=True, name="combined_bam_hints")
+    combined = catFiles(intron_hints_tree.listFiles(), combined_bam_hints)
     cmd = "cat {} | sort -n -k4,4 | sort -s -n -k5,5 | sort -s -n -k3,3 | sort -s -k1,1 | join_mult_hints.pl > {}"
-    cmd = cmd.format(combined_path, intron_gff_path)
+    cmd = cmd.format(combined_bam_hints, intron_gff_path)
     system(cmd)
     assert os.path.getsize(intron_gff_path) > 10000, cmd
 
 
 def cat_hints(target, exon_gff_path, intron_gff_path, db_path, genome, genome_fasta):
-    combined_path = get_tmp(target, global_dir=True, name="hints_file")
+    hints_file = get_tmp(target, global_dir=True, name="hints_file")
     system("cat {} {} > {}".format(exon_gff_path, intron_gff_path, hints_file))
     target.setFollowOnTargetFn(load_db, args=[hints_file, db_path, genome, genome_fasta])
 
@@ -143,11 +143,16 @@ def main():
     parser.add_argument("--genome", required=True)
     parser.add_argument("--database", required=True)
     parser.add_argument("--fasta", required=True)
-    parser.add_argument("--bamFiles", nargs="+", required=True)
+    bamfiles = parser.add_mutually_exclusive_group(required=True)
+    bamfiles.add_argument("--bamFiles", nargs="+", help="bamfiles being used", dest="bams")
+    bamfiles.add_argument("--bamFofn", help="File containing list of bamfiles", 
+                          dest="bams")
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
+    if not isinstance(args.bams, list):
+        args.bams = [x.rstrip() for x in open(args.bams)]
     s = Stack(Target.makeTargetFn(filter_wrapper, memory=8 * 1024 ** 3,
-                                  args=[args.bamFiles, args.database, args.genome, args.fasta]))
+                                  args=[args.bams, args.database, args.genome, args.fasta]))
     i = s.startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
