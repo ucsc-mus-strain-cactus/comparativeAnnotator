@@ -9,7 +9,7 @@ from lib.general_lib import mkdir_p
 import etc.config
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
-from sonLib.bioio import getRandomAlphaNumericString
+from sonLib.bioio import getRandomAlphaNumericString, system
 
 
 # we only do this on protein_coding transcripts
@@ -49,6 +49,13 @@ def munge_data(d, filter_set):
     return m, s
 
 
+def r_wrapper(target, data_path, clust_title, out_cluster_file):
+    base_cmd = ("export R_HOME=/cluster/home/ifiddes/lib64/R && /cluster/home/ifiddes/bin/Rscript {}/plotting/cluster.R"
+                " {} {} {}")
+    cmd = base_cmd.format(os.getcwd(), data_path, clust_title, out_cluster_file)
+    system(cmd)
+
+
 def main_fn(target, comp_ann_path, gencode, genome, ref_genome, base_out_path, filter_chroms):
     clust_title = "Hierarchical_clustering_of_transMap_classifiers"
     base_barplot_title = ("Classifiers failed by transcripts in the category {} in transMap analysis\n"
@@ -72,19 +79,35 @@ def main_fn(target, comp_ann_path, gencode, genome, ref_genome, base_out_path, f
         target.addChildTargetFn(r_wrapper, args=[data_path, clust_title, out_cluster_file])
 
 
-def r_wrapper(target, data_path, clust_title, out_cluster_file):
-    base_cmd = ("export R_HOME=/cluster/home/ifiddes/lib64/R && /cluster/home/ifiddes/bin/Rscript {}/plotting/cluster.R"
-                " {} {} {}")
-    cmd = base_cmd.format(os.getcwd(), data_path, clust_title, out_cluster_file)
-    subprocess.call(cmd, shell=True)
+def main_ref_fn(target, comp_ann_path, gencode, ref_genome, base_out_path, filter_chroms):
+    clust_title = "Hierarchical_clustering_of_transcript_classifiers"
+    base_barplot_title = ("Classifiers failed by transcripts in the reference set {}\n")
+    out_path = os.path.join(base_out_path, "clustering", ref_genome)
+    mkdir_p(out_path)
+    con, cur = sql_lib.attach_databases(comp_ann_path, mode="reference")
+    biotype_ids = sql_lib.get_biotype_ids(cur, ref_genome, biotype, filter_chroms=filter_chroms)
+    sql_data = sql_lib.load_data(con, ref_genome, etc.config.ref_classifiers, primary_key="TranscriptId")
+    out_barplot_file = os.path.join(out_path, "reference_barplot_{}".format(gencode))
+    barplot_title = base_barplot_title.format(gencode)
+    munged, stats = munge_data(sql_data, biotype_ids)
+    plot_lib.barplot(stats, out_path, out_barplot_file, barplot_title)
+    data_path = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString())
+    munged.to_csv(data_path)
+    out_cluster_file = os.path.join(out_path, "reference_clustering_{}".format(gencode))
+    target.addChildTargetFn(r_wrapper, args=[data_path, clust_title, out_cluster_file])
 
 
 def main():
     parser = build_parser()
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
-    i = Stack(Target.makeTargetFn(main_fn, args=[args.comparativeAnnotationDir, args.gencode, args.genome,
-                                                 args.refGenome, args.outDir, args.filterChroms])).startJobTree(args)
+    if args.genome != args.refGenome:
+        s = Stack(Target.makeTargetFn(main_fn, args=[args.comparativeAnnotationDir, args.gencode, args.genome,
+                                                     args.refGenome, args.outDir, args.filterChroms]))
+    else:
+        s = Stack(Target.makeTargetFn(main_ref_fn, args=[args.comparativeAnnotationDir, args.gencode, args.genome,
+                                                         args.outDir, args.filterChroms]))
+    i = s.startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
 
