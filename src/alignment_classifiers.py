@@ -72,27 +72,16 @@ class HasOriginalIntrons(AbstractAlignmentClassifier):
 
     def run(self):
         for aln_id, aln, t, a in self.alignment_transcript_annotation_iterator():
-            original_introns = {frozenset((x.start, x.stop)) for x in a.intron_intervals}
-            target_introns = set()
-            target_intron_mapping = {}
-            for intron in t.intron_intervals:
-                if t.strand is False:
-                    a_start = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.start - 1))
-                    a_stop = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.stop)) + 1
-                else:
-                    a_start = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.start - 1)) + 1
-                    a_stop = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.stop))  
-                target_introns.add(frozenset((a_start, a_stop)))
-                target_intron_mapping[frozenset((a_start, a_stop))] = intron
-            missing_introns = original_introns - target_introns
-            if len(missing_introns) != 0:
+            original_splice = {x.stop for x in a.exons[:-1]}
+            offset = aln.target_coordinate_to_query(t.transcript_coordinate_to_chromosome(0))
+            bad_splice_recs = []
+            for exon, intron in itertools.izip(*[t.exons[:-1], t.intron_intervals]):
+                target_splice = exon.stop + offset
+                if target_splice not in original_splice and comp_ann_lib.short_intron(intron) is False:
+                    bad_splice_recs.append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb, self.column))
+            if len(bad_splice_recs) > 0:
                 self.classify_dict[aln_id] = 1
-                not_original_introns = target_introns - original_introns
-                for x in not_original_introns:
-                    intron = target_intron_mapping[x]
-                    if comp_ann_lib.short_intron(intron) is False:
-                        self.details_dict[aln_id].append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb,
-                                                                                               self.column))
+                self.details_dict[aln_id].extend(bad_splice_recs)
             else:
                 self.classify_dict[aln_id] = 0
         self.dump_results_to_disk()

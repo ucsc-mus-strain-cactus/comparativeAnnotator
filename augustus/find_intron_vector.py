@@ -1,6 +1,7 @@
 import sys
 import os
 import argparse
+import itertools
 import lib.seq_lib as seq_lib
 import lib.psl_lib as psl_lib
 
@@ -16,12 +17,12 @@ def parse_args():
 
 
 def build_intron_vector(a, t, aln):
-    original_introns = {(x.start, x.stop) for x in a.intron_intervals}
     result = []
-    for intron in t.intron_intervals:
-        a_start = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.start - 1)) + 1
-        a_stop = a.transcript_coordinate_to_chromosome(aln.target_coordinate_to_query(intron.stop))
-        if (a_start, a_stop) not in original_introns:
+    original_splice = {x.stop for x in a.exons[:-1]}
+    offset = aln.target_coordinate_to_query(t.transcript_coordinate_to_chromosome(0))
+    for exon in t.exons[:-1]:
+        target_splice = exon.stop + offset
+        if target_splice not in original_splice:
             result.append(0)
         else:
             result.append(1)
