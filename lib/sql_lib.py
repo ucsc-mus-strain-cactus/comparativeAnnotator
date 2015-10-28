@@ -14,7 +14,7 @@ __author__ = "Ian Fiddes"
 
 class ExclusiveSqlConnection(object):
     """meant to be used with a with statement to ensure proper closure"""
-    def __init__(self, path, timeout=1200):
+    def __init__(self, path, timeout=600):
         self.path = path
         self.timeout = timeout
 
@@ -38,7 +38,7 @@ def attach_database(con, path, name):
     con.execute("ATTACH DATABASE '{}' AS {}".format(path, name))
 
 
-def attach_databases(comp_ann_path, mode, timeout=1200):
+def attach_databases(comp_ann_path, mode, timeout=600):
     """
     Attaches all of the databases needed for this execution mode.
     """
