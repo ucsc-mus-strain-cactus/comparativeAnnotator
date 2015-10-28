@@ -326,7 +326,7 @@ class Transcript(object):
             mrna = "".join(s)
         else:
             mrna = reverse_complement("".join(s))
-        self.mrna = mrna.upper()
+        self.mrna = mrna
         return mrna
 
     def get_sequence(self, seq_dict):
@@ -334,7 +334,7 @@ class Transcript(object):
         Returns the entire chromosome sequence for this transcript, (+) strand orientation.
         """
         sequence = seq_dict[self.chromosome]
-        return sequence[self.start:self.stop].upper()
+        return sequence[self.start:self.stop]
 
     def get_cds(self, seq_dict):
         """
@@ -365,10 +365,10 @@ class Transcript(object):
                 # thickStop marks the end of the CDS
                 s.append(sequence[e.start:self.thick_stop])
         if not self.strand:
-            cds = reverse_complement("".join(s)).upper()
+            cds = reverse_complement("".join(s))
         else:
             cds = "".join(s)
-        self.cds = cds.upper()
+        self.cds = cds
         return cds
 
     def get_transcript_coordinate_cds_start(self):
@@ -950,9 +950,9 @@ class ChromosomeInterval(object):
         If strand is False, returns the + strand regardless of transcript orientation.
         """
         if strand is False or self.strand is True:
-            return seq_dict[self.chromosome][self.start:self.stop].upper()
+            return seq_dict[self.chromosome][self.start:self.stop]
         if self.strand is False:
-            return reverse_complement(seq_dict[self.chromosome][self.start:self.stop]).upper()
+            return reverse_complement(seq_dict[self.chromosome][self.start:self.stop])
         assert False
 
     def __repr__(self):
@@ -1080,7 +1080,7 @@ def codon_to_amino_acid(c):
     assert len(c) == 3
     if c is None:
         return None
-    c = c.upper()
+    c = c
     if c in _codon_table:
         return _codon_table[c]
     return '?'
@@ -1142,7 +1142,7 @@ def get_sequence_dict(file_path):
     """
     Returns a dictionary of fasta records.
     """
-    return Fasta(file_path, as_raw=True)
+    return Fasta(file_path, as_raw=True, one_based_attributes=False, sequence_always_upper=True)
 
 
 def get_transcript_dict(gp_file):
