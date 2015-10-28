@@ -30,7 +30,7 @@ hints_db_query = '''select source,typename,start,end,score,strand,frame,priority
              AND seqnr IN (SELECT seqnr FROM seqnames WHERE speciesid IN (SELECT speciesid FROM speciesnames WHERE speciesname="{genome}") AND seqname="{chrom}")
              AND start >= {start} AND end <= {stop} AND typeid=type'''
 
-augustus_base_cmd = ("augustus {fasta} --predictionStart=-{start} --predictionEnd=-{start} --extrinsicCfgFile={cfg} "
+augustus_cmd = ("augustus {fasta} --predictionStart=-{start} --predictionEnd=-{start} --extrinsicCfgFile={cfg} "
                      "--hintsfile={hints} --UTR=on --alternatives-from-evidence=0 --species=human "
                      "--allow_hinted_splicesites=atac --protein=0 --/augustus/verbosity=1 --softmasking=1 "
                      "--outfile=/dev/stdout")
