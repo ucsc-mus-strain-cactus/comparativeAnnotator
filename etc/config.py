@@ -152,8 +152,8 @@ def transMapEval(ref_genome, genome, biotype, good=False):
                   "main.'{0}'.InFrameStop = 1) AND NOT (main.'{2}'.ShortCds = 0 AND main.'{0}'.ShortCds = 1) AND "
                   "main.'{0}'.CodingInsertions = 0 AND main.'{0}'.CodingDeletions = 0 AND main.'{0}'.FrameShift = 0 "
                   "AND main.'{0}'.HasOriginalStart = 0 AND main.'{0}'.HasOriginalStop = 0 AND "
-                  "main.'{0}'.HasOriginalIntrons = 0 AND attributes.'{0}'.AlignmentCoverage >= 100.0 AND "
-                  "attributes.'{0}'.PercentUnknownBases < 1.0 AND attributes.'{0}'.PercentUnknownCodingBases < 0.2 "
+                  "main.'{0}'.HasOriginalIntrons = 0 AND attributes.'{0}'.AlignmentCoverage = 100.0 AND "
+                  "attributes.'{0}'.PercentUnknownBases <= 1.0 AND attributes.'{0}'.PercentUnknownCodingBases <= 0.2 "
                   "AND attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
     elif biotype == "protein_coding" and good is True:
         query = ("SELECT AlignmentId FROM attributes.'{2}' JOIN main.'{2}' USING (TranscriptId) JOIN "
@@ -161,20 +161,20 @@ def transMapEval(ref_genome, genome, biotype, good=False):
                  "(main.'{2}'.CdsUnknownSplice = 0 AND main.'{0}'.CdsUnknownSplice = 1) AND "
                  "main.'{0}'.FrameShift = 0 AND main.'{0}'.CodingInsertions = 0 AND main.'{0}'.CodingDeletions = 0 "
                  "AND main.'{0}'.HasOriginalIntrons = 0 AND attributes.'{0}'.AlignmentCoverage >= 95.0 AND "
-                 "attributes.'{0}'.PercentUnknownBases < 5.0 AND attributes.'{0}'.PercentUnknownCodingBases < 1.0 AND"
+                 "attributes.'{0}'.PercentUnknownBases <= 5.0 AND attributes.'{0}'.PercentUnknownCodingBases <= 1.0 AND"
                  " attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
     elif good is False:
         query = ("SELECT AlignmentId FROM attributes.'{2}' JOIN main.'{2}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
                  "(main.'{2}'.UtrUnknownSplice = 0 AND main.'{0}'.UtrUnknownSplice = 1) AND "
-                 "attributes.'{0}'.AlignmentCoverage >= 100.0 AND attributes.'{0}'.PercentUnknownBases < 1.0 AND "
+                 "attributes.'{0}'.AlignmentCoverage = 100.0 AND attributes.'{0}'.PercentUnknownBases <= 1.0 AND "
                  "attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
     else:
         query = ("SELECT AlignmentId FROM attributes.'{2}' JOIN main.'{2}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
                  "(main.'{2}'.UtrUnknownSplice = 0 AND main.'{0}'.UtrUnknownSplice = 1) AND "
                  "main.'{0}'.UtrGap = 0 AND attributes.'{0}'.AlignmentCoverage >= 95.0 AND "
-                 "attributes.'{0}'.PercentUnknownBases < 5.0 AND attributes.'{0}'.TranscriptType = '{1}' AND "
+                 "attributes.'{0}'.PercentUnknownBases <= 5.0 AND attributes.'{0}'.TranscriptType = '{1}' AND "
                  "attributes.'{0}'.GeneType = '{1}'")
     query = query.format(genome, biotype, ref_genome)
     return query
@@ -189,12 +189,12 @@ def refEval(genome):
 
 
 def augustusEval(genome):
-    query = ("SELECT augustus.'{0}'.AlignmentId FROM augustus.'{0}' JOIN augustus_attributes.'{0}' ON "
-             "augustus.'{0}'.AlignmentId = augustus_attributes.'{0}'.AugustusAlignmentId JOIN main.'{0}' ON "
-             "augustus_attributes.'{0}'.AlignmentId = main.'{0}'.AlignmentId WHERE (AugustusNotSameStart = 0 OR "
+    query = ("SELECT augustus.'{0}'.AlignmentId FROM augustus.'{0}' JOIN main.'{0}' ON main.'{0}'.AlignmentId = "
+             "augustus.'{0}'.AlignmentId WHERE (AugustusNotSameStart = 0 OR "
              "(HasOriginalStart = 1 OR StartOutOfFrame = 1)) AND (AugustusNotSameStop = 0 OR HasOriginalStop = 1) AND "
-             "AND (AugustusExonGain = 0 OR (HasOriginalStart = 1 OR HasOriginalStop = 1)) AND "
-             "AugustusNotSimilarTerminalExonBoundaries = 0 OR AND AugustusNotSimilarInternalExonBoundaries = 0 AND"
+             "(AugustusExonGain = 0 OR (HasOriginalStart = 1 OR HasOriginalStop = 1)) AND "
+             "(AugustusNotSimilarTerminalExonBoundaries = 0 OR (HasOriginalStart = 1 OR HasOriginalStop = 1 OR "
+             "StartOutOfFrame = 1)) AND AugustusNotSimilarInternalExonBoundaries = 0 AND "
              "AugustusNotSameStrand = 0 AND AugustusExonLoss = 0 AND AugustusParalogy = 0")
     query = query.format(genome)
     return query

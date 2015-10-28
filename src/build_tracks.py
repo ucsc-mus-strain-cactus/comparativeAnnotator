@@ -54,7 +54,15 @@ def database(genome, db, db_path, tmp_dir, mode):
         p = os.path.join(data_path, col)
         with open(p) as p_h:
             data_dict[col] = pickle.load(p_h)
-    index_label = "TranscriptId" if mode == "reference" else "AlignmentId"
+    if mode == "reference":
+        index_label = "TranscriptId"
+    elif mode == "transMap":
+        index_label = "AlignmentId"
+    else:
+        index_label = "AugustusAlignmentId"
+        # Hack to add transMap alignment ID column to Augustus databases.
+        aug_ids = data_dict.itervalues().next().viewkeys()
+        data_dict["AlignmentId"] = {x: psl_lib.remove_augustus_alignment_number(x) for x in aug_ids}
     sql_lib.write_dict(data_dict, db_path, genome, index_label)
 
 
