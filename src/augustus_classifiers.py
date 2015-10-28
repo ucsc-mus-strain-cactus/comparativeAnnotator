@@ -38,8 +38,9 @@ class AugustusParalogy(AbstractAugustusClassifier):
         self.get_augustus_transcript_dict()
         counts = Counter("-".join(r.split(aug_aln_id)) for aug_aln_id in self.augustus_transcript_dict)
         for aug_aln_id, aug_t in self.augustus_transcript_iterator():
-            if counts[psl_lib.remove_augustus_alignment_number(aug_aln_id)] > 1:
-                n = self.column + "_{}_Copies".format(counts[psl_lib.remove_augustus_alignment_number(aug_aln_id)] - 1)
+            aug_base_id = "-".join(r.split(aug_aln_id))
+            if counts[aug_base_id] > 1:
+                n = self.column + "_{}_Copies".format(counts[aug_base_id] - 1)
                 bed_rec = seq_lib.transcript_to_bed(aug_t, self.rgb, n)
                 self.details_dict[aug_aln_id].append(bed_rec)
                 self.classify_dict[aug_aln_id] = 1
