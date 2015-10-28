@@ -2,7 +2,8 @@ import os
 import lib.sql_lib as sql_lib
 import lib.seq_lib as seq_lib
 import lib.psl_lib as psl_lib
-
+import lib.comp_ann_lib as comp_ann_lib
+import itertools
 
 gp = "/hive/groups/recon/projs/gorilla_eichler/pipeline_data/comparative/susie_3_1/transMap/2015-10-06/transMap/gorilla/transMapGencodeBasicV23.gp"
 ref_gp = "/hive/groups/recon/projs/gorilla_eichler/pipeline_data/comparative/susie_3_1/transMap/2015-10-06/data/wgEncodeGencodeBasicV23.gp"
