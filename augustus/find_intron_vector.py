@@ -16,17 +16,28 @@ def parse_args():
     return parser.parse_args()
 
 
+            offset = aln.target_coordinate_to_query(t.transcript_coordinate_to_chromosome(0))
+            target_splices = {x.stop - offset for x in t.exons[:-1]}
+            query_splices = {x.stop for x in a.exons[:-1]}
+            not_original_splices = target_splices - query_splices
+            bad_splice_recs = []
+            for exon, intron in itertools.izip(*[t.exons[:-1], t.intron_intervals]):
+                target_splice = exon.stop + offset
+                if target_splice in not_original_splices and comp_ann_lib.short_intron(intron) is False:
+                    bad_splice_recs.append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb, self.column))
+
 def build_intron_vector(a, t, aln):
     result = []
-    original_splice = {x.stop for x in a.exons[:-1]}
     offset = aln.target_coordinate_to_query(t.transcript_coordinate_to_chromosome(0))
+    target_splices = {x.stop - offset for x in t.exons[:-1]}
+    query_splices = {x.stop for x in a.exons[:-1]}
+    not_original_splices = target_splices - query_splices
     for exon in t.exons[:-1]:
         target_splice = exon.stop + offset
-        if target_splice not in original_splice:
+        if target_splice in not_original_splices:
             result.append(0)
         else:
             result.append(1)
-    return result
 
 
 def main():
