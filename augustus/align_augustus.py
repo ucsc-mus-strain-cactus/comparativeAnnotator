@@ -15,8 +15,8 @@ def coverage(p_list):
     m = sum(x.matches for x in p_list)
     mi = sum(x.mismatches for x in p_list)
     rep = sum(x.repmatches for x in p_list)
-    # ident/cov can end up slightly above 1 due to adding floats
     cov = 100 * format_ratio(m + mi + rep, p_list[0].q_size)
+    # coverage can end up well above 100% if Augustus adds bases
     return min(cov, 100.0)
 
 
@@ -25,9 +25,9 @@ def identity(p_list):
     mi = sum(x.mismatches for x in p_list)
     rep = sum(x.repmatches for x in p_list)
     ins = sum(x.q_num_insert for x in p_list)
-    # ident/cov can end up slightly above 1 due to adding floats
     ident = 100 * format_ratio(m + rep, m + rep + mi + ins)
-    return min(ident, 100.0)
+    assert ident <= 100
+    return ident
 
 
 def chunker(seq, size):
