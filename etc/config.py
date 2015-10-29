@@ -189,8 +189,8 @@ def refEval(genome):
 
 
 def augustusEval(genome):
-    query = ("SELECT augustus.'{0}'.AlignmentId FROM augustus.'{0}' JOIN main.'{0}' ON main.'{0}'.AlignmentId = "
-             "augustus.'{0}'.AlignmentId WHERE (AugustusNotSameStart = 0 OR "
+    query = ("SELECT augustus.'{0}'.AugustusAlignmentId FROM augustus.'{0}' JOIN main.'{0}' ON main.'{0}'.AlignmentId "
+             "= augustus.'{0}'.AlignmentId WHERE (AugustusNotSameStart = 0 OR "
              "(HasOriginalStart = 1 OR StartOutOfFrame = 1)) AND (AugustusNotSameStop = 0 OR HasOriginalStop = 1) AND "
              "(AugustusExonGain = 0 OR (HasOriginalStart = 1 OR HasOriginalStop = 1)) AND "
              "(AugustusNotSimilarTerminalExonBoundaries = 0 OR (HasOriginalStart = 1 OR HasOriginalStop = 1 OR "

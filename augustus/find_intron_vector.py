@@ -15,7 +15,7 @@ def parse_args():
     parser.add_argument("--outPath", required=True, help="File name for output")
     return parser.parse_args()
 
-
+"""
 def build_intron_vector(a, t, aln):
     result = []
     offset = aln.target_coordinate_to_query(t.transcript_coordinate_to_chromosome(0))
@@ -29,6 +29,14 @@ def build_intron_vector(a, t, aln):
         else:
             result.append(1)
     return result
+"""
+def build_intron_vector(a, t, aln):
+    result = []
+    for intron in t.intron_intervals:
+        if len(intron) <= 30:
+            result.append(0)
+        else:
+            result.append(1)
 
 
 def main():

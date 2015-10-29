@@ -67,18 +67,27 @@ def build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
     return data_dict
 
 
-def find_best_alns(stats, ids):
+def find_best_alns(stats, ids, cov_cutoff=95.0):
     """
-    Takes the list of transcript Ids and finds the best alignment(s) by percent identity
-    We sort by ID after transMap to favor Augustus transcripts going to the consensus set in the case of ties
+    Takes the list of transcript Ids and finds the best alignment(s) by highest percent identity and coverage
+    We sort by ID to favor Augustus transcripts going to the consensus set in the case of ties
     """
     s = []
     for aln_id in ids:
         cov, ident = stats[aln_id]
+        # round to avoid floating point issues when finding ties
+        cov = round(cov, 3)
+        ident = round(ident, 3)
         s.append([aln_id, cov, ident])
-    s = sorted(s, key=lambda x: (x[2], x[0]), reverse=True)  # highest ID, then highest name
-    best_val = round(s[0][2], 6)
-    return [x[0] for x in s if round(x[2], 6) == best_val]
+    s = sorted(s, key=lambda x:[0], reverse=True)
+    # first we see if any transcripts pass cov_cutoff, if so we pick them based on best identity
+    best_ident = sorted(s, key=lambda x: x[2], reverse=True)[0][2]
+    best_overall = [x[0] for x in s if x[1] >= cov_cutoff and x[2] >= best_ident]
+    if len(best_overall) > 0:
+        return best_overall
+    # if we failed that, then we pick based on best_ident regardless of coverage
+    best_overall = [x[0] for x in s if x[2] >= best_ident]
+    return best_overall
 
 
 def evaluate_ids(fail_ids, good_specific_ids, pass_ids, aug_ids, stats):

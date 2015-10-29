@@ -61,7 +61,7 @@ def transcript_gene_plot(evals, out_path, gencode, mode):
     base_title = "Breakdown of {:,} protein-coding {} categorized by consensus finding\nfrom annotation set {}"
     title = base_title.format(total, mode, gencode)
     out_name = "{}_{}_coding_consensus".format(gencode, mode)
-    palette = etc.config.palette if mode == "Gene" else etc.config.triple_palette
+    palette = etc.config.palette if mode == "genes" else etc.config.triple_palette
     plot_lib.stacked_barplot(results, categories, out_path, out_name, title, color_palette=palette)
 
 
@@ -77,7 +77,7 @@ def main():
     args = parse_args()
     mkdir_p(args.outDir)
     tx_evals, gene_evals, gene_fail_evals = load_evaluations(args.workDir, args.genomes)
-    for evals, mode in zip(*[[tx_evals, gene_evals], ["Transcript", "Gene"]]):
+    for evals, mode in zip(*[[tx_evals, gene_evals], ["transcripts", "genes"]]):
         transcript_gene_plot(evals, args.outDir, args.gencode, mode)
     gene_fail_plot(gene_fail_evals, args.outDir, args.gencode)
 
