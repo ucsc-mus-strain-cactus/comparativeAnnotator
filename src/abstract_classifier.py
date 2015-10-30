@@ -87,14 +87,16 @@ class AbstractAlignmentClassifier(AbstractClassifier):
               'generic': '152,156,45'     # grey-yellow
               }
 
-    def __init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir, tgt_genome, aln_psl, tgt_fasta, tgt_gp):
+    def __init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir, tgt_genome, aln_psl, ref_psl, tgt_fasta, tgt_gp):
         AbstractClassifier.__init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir)
         self.genome = tgt_genome
         self.aln_psl = aln_psl
+        self.ref_psl = ref_psl
         self.tgt_gp = tgt_gp
         self.tgt_fasta = tgt_fasta
         self.transcript_dict = None
         self.alignment_dict = None
+        self.ref_alignment_dict = None
         self.seq_dict = None
 
     def get_fasta(self):
@@ -106,6 +108,9 @@ class AbstractAlignmentClassifier(AbstractClassifier):
 
     def get_transcript_dict(self):
         self.transcript_dict = seq_lib.get_transcript_dict(self.tgt_gp)
+
+    def get_ref_alignment_dict(self):
+        self.ref_alignment_dict = psl_lib.get_alignment_dict(self.ref_psl)
 
     def transcript_iterator(self):
         """
@@ -135,6 +140,16 @@ class AbstractAlignmentClassifier(AbstractClassifier):
             t = self.transcript_dict[aln_id]
             yield aln_id, aln, t
 
+    def alignment_refalignment_transcript_iterator(self):
+        """
+        Convenience function for iterating over alignment, ref alignment and transcript
+        """
+        if self.ref_alignment_dict is None:
+            self.get_ref_alignment_dict()
+        for aln_id, aln, t in self.alignment_transcript_iterator():
+            ref_aln = self.ref_alignment_dict[psl_lib.remove_alignment_number(aln_id)]
+            yield aln_id, aln, ref_aln, t
+
     def alignment_transcript_annotation_iterator(self):
         """
         Convenience function for iterating over alignment, ref transcript and tgt transcript
@@ -150,10 +165,10 @@ class AbstractAugustusClassifier(AbstractAlignmentClassifier):
     """
     Subclasses AbstractClassifier for Augustus classifications
     """
-    def __init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir, tgt_genome, aln_psl, tgt_fasta, tgt_gp,
+    def __init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir, tgt_genome, aln_psl, ref_psl, tgt_fasta, tgt_gp,
                  augustus_gp):
         AbstractAlignmentClassifier.__init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir, tgt_genome, aln_psl,
-                                             tgt_fasta, tgt_gp)
+                                             ref_psl, tgt_fasta, tgt_gp)
         self.augustus_gp = augustus_gp
         self.augustus_transcript_dict = None
 
@@ -178,10 +193,10 @@ class Attribute(AbstractAlignmentClassifier):
     """
     Subclasses AbstractClassifier to build the Attributes database
     """
-    def __init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir, tgt_genome, aln_psl, tgt_fasta, tgt_gp,
+    def __init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir, tgt_genome, aln_psl, ref_psl, tgt_fasta, tgt_gp,
                  gencode_attributes):
         AbstractAlignmentClassifier.__init__(self, ref_fasta, annotation_gp, ref_genome, tmp_dir, tgt_genome, aln_psl,
-                                             tgt_fasta, tgt_gp)
+                                             ref_psl, tgt_fasta, tgt_gp)
         self.gencode_attributes = gencode_attributes
         self.attribute_dict = None
 

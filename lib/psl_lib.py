@@ -112,12 +112,12 @@ class PslRow(object):
     def psl_string(self):
         """ return SELF as a psl formatted line.
         """
-        return "\t".join([self.matches, self.mismatches, self.repmatches, self.n_count, self.q_num_insert,
-                          self.q_base_insert, self.t_num_insert, self.t_base_insert, self.strand, self.q_name,
-                          self.q_start, self.q_end, self.t_name, self.t_size, self.t_start, self.t_end,
-                          self.block_count, ','.join([str(b) for b in self.block_sizes]),
-                          ','.join([str(b) for b in self.q_starts]),
-                          ','.join([str(b) for b in self.t_starts])])
+        return "\t".join(map(str, [self.matches, self.mismatches, self.repmatches, self.n_count, self.q_num_insert,
+                                   self.q_base_insert, self.t_num_insert, self.t_base_insert, self.strand, self.q_name,
+                                   self.q_start, self.q_end, self.t_name, self.t_size, self.t_start, self.t_end,
+                                   self.block_count, ','.join([str(b) for b in self.block_sizes]),
+                                   ','.join([str(b) for b in self.q_starts]),
+                                   ','.join([str(b) for b in self.t_starts])]))
 
 
 def psl_iterator(psl_file):

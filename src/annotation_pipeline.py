@@ -43,6 +43,7 @@ def parse_args():
     for parser in [aug_parser, tm_parser]:
         parser.add_argument('--genome', required=True)
         parser.add_argument('--psl', required=True)
+        parser.add_argument('--refPsl', required=True)
         parser.add_argument('--targetGp', required=True)
         parser.add_argument('--fasta', required=True)
     # Augustus specific options
@@ -62,11 +63,11 @@ def run_tm_classifiers(args, target, tmp_dir):
     tm_classifiers = classes_in_module(src.alignment_classifiers)
     for classifier in tm_classifiers:
         target.addChildTarget(classifier(args.refFasta, args.annotationGp, args.refGenome, tmp_dir, args.genome,
-                                         args.psl, args.fasta, args.targetGp))
+                                         args.psl, args.refPsl, args.fasta, args.targetGp))
     attributes = classes_in_module(src.attributes)
     for attribute in attributes:
         target.addChildTarget(attribute(args.refFasta, args.annotationGp, args.refGenome, tmp_dir, args.genome,
-                                         args.psl, args.fasta, args.targetGp, args.gencodeAttributes))
+                                         args.psl, args.refPsl, args.fasta, args.targetGp, args.gencodeAttributes))
     # in transMap mode we run the alignment-free classifiers on the target genome
     ref_classifiers = classes_in_module(src.classifiers)
     for classifier in ref_classifiers:
@@ -77,7 +78,7 @@ def run_aug_classifiers(args, target, tmp_dir):
     aug_classifiers = classes_in_module(src.augustus_classifiers)
     for classifier in aug_classifiers:
         target.addChildTarget(classifier(args.refFasta, args.annotationGp, args.refGenome, tmp_dir, args.genome,
-                                         args.psl, args.fasta, args.targetGp, args.augustusGp))
+                                         args.psl, args.refPsl, args.fasta, args.targetGp, args.augustusGp))
 
 
 def build_analyses(target, args):

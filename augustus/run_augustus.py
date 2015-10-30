@@ -35,7 +35,7 @@ augustus_cmd = ("augustus {fasta} --predictionStart=-{start} --predictionEnd=-{s
                 "--allow_hinted_splicesites=atac --protein=0 --/augustus/verbosity=1 --softmasking=1 "
                 "--outfile=/dev/stdout")
 
-cfgs = {1: "etc/extrinsic.ETM1.cfg", 2: "etc/extrinsic.ETM2.cfg"}
+cfgs = {1: "etc/extrinsic.ETM1.cfg"}#, 2: "etc/extrinsic.ETM2.cfg"}
 
 
 def attach_database(path):
