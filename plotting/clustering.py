@@ -42,7 +42,8 @@ def munge_data(d, filter_set):
     Used to munge input data.
     """
     m = d.ix[filter_set]
-    s = m.sum(axis=0)
+    s = m.astype(bool)
+    s = s.sum(axis=0)
     s.sort(ascending=False)
     normed_s = s / (0.01 * len(m))
     drop_low_sums(normed_s, m)

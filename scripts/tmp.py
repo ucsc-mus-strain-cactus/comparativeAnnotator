@@ -65,43 +65,56 @@ system("genePredFmt /hive/users/ifiddes/example_intron_problems/{0}.gp > /hive/u
 
 
 
-def is_fuzzy_intron(intron, aln, ref_starts, offset=5):
-    q_gap_start = aln.target_coordinate_to_query(intron.start - 1)
-    q_gap_end = aln.target_coordinate_to_query(intron.stop)
-    return query_contains_intron(q_gap_start - offset, q_gap_end + offset, ref_starts)
-
-
-def query_contains_intron(q_gap_start, q_gap_end, ref_starts):
-    r = [q_gap_start <= ref_gap <= q_gap_end for ref_gap in ref_starts]
-    return True if any(r) else False
-
-
-def psl_rc(aln):
-    aln = copy.deepcopy(aln)
-    q_starts = [aln.q_size - (aln.q_starts[i] + aln.block_sizes[i]) for i in xrange(len(aln.q_starts) - 1, -1, -1)]
-    t_starts = [aln.t_size - (aln.t_starts[i] + aln.block_sizes[i]) for i in xrange(len(aln.t_starts) - 1, -1, -1)]
-    aln.q_starts = q_starts
-    aln.t_starts = t_starts
-    aln.strand = "+-" if aln.strand == "-" else "-+"
-    aln.block_sizes = aln.block_sizes[::-1]
-    return aln
-
-
-[e.start + aln.q_starts[0] for e in t.exons[1:]]
-
-
-aln = aln_dict[aln_id]
-t = tx_dict[aln_id]
-a = ref_dict[psl_lib.strip_alignment_numbers(aln_id)]
-ref_aln = ref_aln_dict[psl_lib.strip_alignment_numbers(aln_id)]
-
+from collections import defaultdict
+classify_dict = {}
+details_dict = defaultdict(list)
 
 for aln_id, aln in aln_dict.iteritems():
     t = tx_dict[aln_id]
-    ref_aln = ref_aln_dict[psl_lib.strip_alignment_numbers(aln_id)]
-    if ref_aln.strand == "-":
-        ref_starts = [ref_aln.q_size - (ref_aln.q_starts[i] + ref_aln.block_sizes[i]) for i in
-                      xrange(len(ref_aln.q_starts) - 1, -1, -1)]
-    else:
-        ref_starts = ref_aln.q_starts
-    r = [is_fuzzy_intron(intron, aln, ref_starts, 5) for intron in t.intron_intervals]
+    a = ref_dict[psl_lib.strip_alignment_numbers(aln_id)]
+    aln_starts_ends = get_adjusted_starts_ends(t, aln)
+    count = 0
+    for ref_exon in a.exons[1:]:
+        r = [aln_start - fuzz_distance <= ref_exon.start <= aln_end + fuzz_distance for aln_start, aln_end in
+             aln_starts_ends]
+        if not any(r):
+            count += 1
+    classify_dict[aln_id] = count
+
+
+num_introns = {aln_id: len(tx_dict[aln_id].intron_intervals) for aln_id in tx_dict}
+ref_introns = {aln_id: len(ref_dict[psl_lib.strip_alignment_numbers(aln_id)].intron_intervals) for aln_id in tx_dict}
+num_short_introns = {aln_id: len([x for x in t.intron_intervals if comp_ann_lib.short_intron(x)]) for aln_id, t in tx_dict.iteritems()}
+
+import pandas as pd
+
+df = pd.DataFrame.from_dict({"# Missing Original Introns": classify_dict, "# qStarts": num_introns, "# Original Introns": ref_introns, "# Short Introns": num_short_introns})
+
+df2 = df[df['# Original Introns'] != 0]
+df3 = df2[df2['# Missing Original Introns'] != 0]
+
+
+import cPickle as pickle
+with open("df_test.pickle", "w") as outf:
+    pickle.dump(df3, outf)
+
+df = pickle.load(open("df_test.pickle"))
+df2 = df[df['# Original Introns'] <= 100]
+g = sns.pairplot(df2)
+g = g.map_offdiag(sns.kdeplot, cmap="Blues_d", n_levels=75)
+g.savefig("pairplot_100.png")
+
+
+df3 = df[df['# Original Introns'] <= 20]
+g = sns.pairplot(df3)
+g = g.map_offdiag(sns.kdeplot, cmap="Blues_d", n_levels=50)
+g.savefig("pairplot_20.png")
+
+
+df4 = df2[df2['# Original Introns'] > 5]
+g = sns.pairplot(df4)
+g = g.map_offdiag(sns.kdeplot, cmap="Blues_d", n_levels=50)
+g.savefig("pairplot_100max_5min.png")
+
+
+

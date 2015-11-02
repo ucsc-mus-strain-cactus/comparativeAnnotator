@@ -72,8 +72,8 @@ class HasOriginalIntrons(AbstractAlignmentClassifier):
     def rgb(self):
         return self.colors["alignment"]
 
-    def run(self, fuzz_distance=5`):
-        for aln_id, aln, ref_aln, t in self.alignment_refalignment_transcript_iterator():
+    def run(self, fuzz_distance=5):
+        for aln_id, aln, ref_aln, t, a in self.alignment_refalignment_transcript_annotation_iterator():
             ref_starts = comp_ann_lib.fix_ref_q_starts(ref_aln)
             for intron in t.intron_intervals:
                 if comp_ann_lib.is_fuzzy_intron(intron, aln, ref_starts, fuzz_distance) is False:

@@ -105,8 +105,8 @@ def potentiallyInterestingBiology(genome):
 
 def assemblyErrors(genome, biotype=None, details=True):
     query = (" FROM attributes.'{0}' JOIN details.'{0}' USING ('AlignmentId') JOIN main.'{0}' USING ('AlignmentId') "
-             "WHERE main.'{0}'.AlignmentPartialMap > 0 OR main.'{0}'.UnknownBases > 0 OR main.'{0}'.UnknownGap > 0 "
-             "OR main.'{0}'.ShortCds > 0 OR main.'{0}'.AlnAbutsUnknownBases > 0 OR main.'{0}'.AlnExtendsOffContig = 1")
+             "WHERE main.'{0}'.AlignmentPartialMap = 1 OR main.'{0}'.UnknownBases > 0 OR main.'{0}'.UnknownGap > 0 "
+             "OR main.'{0}'.ShortCds = 1 OR main.'{0}'.AlnAbutsUnknownBases = 1 OR main.'{0}'.AlnExtendsOffContig = 1")
     if details is True:
         query = ("SELECT details.'{0}'.AlignmentPartialMap,details.'{0}'.UnknownBases,details.'{0}'.UnknownGap,details."
                  "'{0}'.ShortCds,details.'{0}'.AlnAbutsUnknownBases,details.'{0}'.AlnExtendsOffContig ") + query
@@ -122,7 +122,7 @@ def assemblyErrors(genome, biotype=None, details=True):
 
 def alignmentErrors(genome, biotype=None, details=True):
     query = (" FROM attributes.'{0}' JOIN details.'{0}' USING ('AlignmentId') JOIN main.'{0}' USING "
-             "('AlignmentId') WHERE main.'{0}'.BadFrame > 0 OR main.'{0}'.CdsGap > 0 OR "
+             "('AlignmentId') WHERE main.'{0}'.BadFrame = 1 OR main.'{0}'.CdsGap > 0 OR "
              "main.'{0}'.CdsMult3Gap > 0 OR main.'{0}'.UtrGap > 0 OR main.'{0}'.Paralogy > 0 OR "
              "main.'{0}'.HasOriginalIntrons > 0 OR main.'{0}'.StartOutOfFrame = 1")
     if details is True:
@@ -143,13 +143,13 @@ def transMapEval(ref_genome, genome, biotype, good=False):
     if biotype == "protein_coding" and good is False:
         query = ("SELECT AlignmentId FROM attributes.'{2}' JOIN main.'{2}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
-                 "(main.'{2}'.BadFrame = 0 AND main.'{0}'.BadFrame > 0) AND NOT (main.'{2}'.BeginStart = 0 "
-                  "AND main.'{0}'.BeginStart > 0) AND NOT (main.'{2}'.EndStop = 0 AND main.'{0}'.EndStop > 0) "
-                  "AND NOT (main.'{2}'.CdsGap = 0 AND main.'{0}'.CdsGap > 0) AND NOT (main.'{2}'.CdsUnknownSplice"
+                 "(main.'{2}'.BadFrame = 0 AND main.'{0}'.BadFrame = 1) AND NOT (main.'{2}'.BeginStart = 0 "
+                  "AND main.'{0}'.BeginStart = 1) AND NOT (main.'{2}'.EndStop = 0 AND main.'{0}'.EndStop = 1) "
+                  "AND NOT (main.'{2}'.CdsGap = 0 AND main.'{0}'.CdsGap = 1) AND NOT (main.'{2}'.CdsUnknownSplice"
                   " = 0 AND main.'{0}'.CdsUnknownSplice > 0) AND NOT (main.'{2}'.UtrUnknownSplice = 0 AND "
                   "main.'{0}'.UtrUnknownSplice > 0) AND NOT (main.'{2}'.StartOutOfFrame = 0 AND "
-                  "main.'{0}'.StartOutOfFrame > 0) AND NOT (main.'{2}'.InFrameStop = 0 AND "
-                  "main.'{0}'.InFrameStop > 0) AND NOT (main.'{2}'.ShortCds = 0 AND main.'{0}'.ShortCds > 0) AND "
+                  "main.'{0}'.StartOutOfFrame = 1) AND NOT (main.'{2}'.InFrameStop = 0 AND "
+                  "main.'{0}'.InFrameStop = 1) AND NOT (main.'{2}'.ShortCds = 0 AND main.'{0}'.ShortCds = 1) AND "
                   "main.'{0}'.CodingInsertions = 0 AND main.'{0}'.CodingDeletions = 0 AND main.'{0}'.FrameShift = 0 "
                   "AND main.'{0}'.HasOriginalStart = 0 AND main.'{0}'.HasOriginalStop = 0 AND "
                   "main.'{0}'.HasOriginalIntrons = 0 AND attributes.'{0}'.AlignmentCoverage = 100.0 AND "
@@ -191,10 +191,10 @@ def refEval(genome):
 def augustusEval(genome):
     query = ("SELECT augustus.'{0}'.AugustusAlignmentId FROM augustus.'{0}' JOIN main.'{0}' ON main.'{0}'.AlignmentId "
              "= augustus.'{0}'.AlignmentId WHERE (AugustusNotSameStart = 0 OR "
-             "(HasOriginalStart > 0 OR StartOutOfFrame > 0)) AND (AugustusNotSameStop = 0 OR HasOriginalStop > 0) AND "
-             "(AugustusExonGain = 0 OR (HasOriginalStart > 0 OR HasOriginalStop > 0)) AND "
-             "(AugustusNotSimilarTerminalExonBoundaries = 0 OR (HasOriginalStart > 0 OR HasOriginalStop > 0 OR "
-             "StartOutOfFrame > 0)) AND AugustusNotSimilarInternalExonBoundaries = 0 AND "
+             "(HasOriginalStart = 1 OR StartOutOfFrame = 1)) AND (AugustusNotSameStop = 0 OR HasOriginalStop = 1) AND "
+             "(AugustusExonGain = 0 OR (HasOriginalStart = 1 OR HasOriginalStop = 1)) AND "
+             "(AugustusNotSimilarTerminalExonBoundaries = 0 OR (HasOriginalStart = 1 OR HasOriginalStop = 1 OR "
+             "StartOutOfFrame = 1)) AND AugustusNotSimilarInternalExonBoundaries = 0 AND "
              "AugustusNotSameStrand = 0 AND AugustusExonLoss = 0 AND AugustusParalogy = 0")
     query = query.format(genome)
     return query

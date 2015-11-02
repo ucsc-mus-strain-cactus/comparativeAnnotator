@@ -160,6 +160,13 @@ class AbstractAlignmentClassifier(AbstractClassifier):
             a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
             yield aln_id, aln, t, a
 
+    def alignment_refalignment_transcript_annotation_iterator(self):
+        if self.annotation_dict is None:
+            self.get_annotation_dict()
+        for aln_id, aln, ref_aln, t in self.alignment_refalignment_transcript_iterator():
+            a = self.annotation_dict[psl_lib.remove_alignment_number(aln_id)]
+            yield aln_id, aln, ref_aln, t, a
+
 
 class AbstractAugustusClassifier(AbstractAlignmentClassifier):
     """

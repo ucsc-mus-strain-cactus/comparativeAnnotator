@@ -14,7 +14,7 @@ def parse_args():
     parser.add_argument("--refPsl", required=True, help="reference fake PSL")
     parser.add_argument("--gp", required=True)
     parser.add_argument("--outPath", required=True, help="File name for output")
-    parser.add_argument("--fuzz_distance", default=5, help="how much fuzz_distance do we allow?")
+    parser.add_argument("--fuzz_distance", default=5, help="how much fuzz_distance do we allow? [default=%default]")
     return parser.parse_args()
 
 
