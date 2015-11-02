@@ -65,27 +65,29 @@ class HasOriginalIntrons(AbstractAlignmentClassifier):
     original introns.
 
     Reports a BED for each intron that is above the minimum intron size and is not a original intron.
+
+    Classify table reports the number of missing original introns
     """
     @property
     def rgb(self):
         return self.colors["alignment"]
 
-    def run(self):
+    def run(self, fuzz_distance=5`):
         for aln_id, aln, ref_aln, t in self.alignment_refalignment_transcript_iterator():
-            not_original_introns = []
-            for pos, intron in zip(*[aln.q_starts[1:], t.intron_intervals]):
-                if comp_ann_lib.short_intron(intron):
-                    continue
-                else:
-                    r = [pos - 5 <= ref_pos <= pos + 5 for ref_pos in ref_aln.q_starts]
-                    if any(r) is False:
-                        not_original_introns.append(seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb, 
-                                                                                          self.column))
-            if len(not_original_introns) > 0:
-                self.details_dict[aln_id].extend(not_original_introns)
-                self.classify_dict[aln_id] = 1
-            else:
-                self.classify_dict[aln_id] = 0
+            ref_starts = comp_ann_lib.fix_ref_q_starts(ref_aln)
+            for intron in t.intron_intervals:
+                if comp_ann_lib.is_fuzzy_intron(intron, aln, ref_starts, fuzz_distance) is False:
+                    if comp_ann_lib.short_intron(intron) is False:
+                        bed_rec = seq_lib.splice_intron_interval_to_bed(t, intron, self.rgb, self.column)
+                        self.details_dict[aln_id].append(bed_rec)
+            aln_starts_ends = comp_ann_lib.get_adjusted_starts_ends(t, aln)
+            count = 0
+            for ref_exon in a.exons[1:]:
+                r = [aln_start - fuzz_distance <= ref_exon.start <= aln_end + fuzz_distance for aln_start, aln_end in
+                     aln_starts_ends]
+                if not any(r):
+                    count += 1
+            self.classify_dict[aln_id] = count
         self.dump_results_to_disk()
 
 
@@ -116,10 +118,7 @@ class CodingInsertions(AbstractAlignmentClassifier):
                 if start >= t.thick_start and stop < t.thick_stop:
                     bed_rec = seq_lib.chromosome_region_to_bed(t, start, stop, self.rgb, self.column)
                     self.details_dict[aln_id].append(bed_rec)
-            if len(self.details_dict[aln_id]) > 0:
-                self.classify_dict[aln_id] = 1
-            else:
-                self.classify_dict[aln_id] = 0
+            self.classify_dict[aln_id] = len(self.details_dict[aln_id])
         self.dump_results_to_disk()
 
 
@@ -155,10 +154,7 @@ class CodingDeletions(AbstractAlignmentClassifier):
                 if start >= t.thick_start and stop < t.thick_stop:
                     bed_rec = seq_lib.chromosome_region_to_bed(t, start, stop, self.rgb, self.column)
                     self.details_dict[aln_id].append(bed_rec)
-            if len(self.details_dict[aln_id]) > 0:
-                self.classify_dict[aln_id] = 1
-            else:
-                self.classify_dict[aln_id] = 0
+            self.classify_dict[aln_id] = len(self.details_dict[aln_id])
         self.dump_results_to_disk()
 
 
@@ -216,7 +212,7 @@ class FrameShift(AbstractAlignmentClassifier):
             for start, stop in itertools.izip(windowed_starts, windowed_stops):
                 bed_rec = seq_lib.chromosome_coordinate_to_bed(t, start, stop, self.rgb, self.column)
                 self.details_dict[aln_id].append(bed_rec)
-            self.classify_dict[aln_id] = 1
+            self.classify_dict[aln_id] = len(self.details_dict[aln_id])
         self.dump_results_to_disk()
 
 
@@ -320,10 +316,7 @@ class Nonsynonymous(AbstractAlignmentClassifier):
                 if target_codon != query_codon and equality_test(target_aa, query_aa) is True:
                     bed_rec = seq_lib.cds_coordinate_to_bed(t, i, i + 3, self.rgb, self.column)
                     self.details_dict[aln_id].append(bed_rec)
-            if len(self.details_dict[aln_id]) > 0:
-                self.classify_dict[aln_id] = 1
-            else:
-                self.classify_dict[aln_id] = 0
+            self.classify_dict[aln_id] = len(self.details_dict[aln_id])
         self.dump_results_to_disk()
 
 
@@ -351,11 +344,10 @@ class Paralogy(AbstractAlignmentClassifier):
     def run(self):
         counts = Counter(psl_lib.remove_alignment_number(aln_id) for aln_id, aln in self.alignment_iterator())
         for aln_id, t in self.transcript_iterator():
-            if counts[psl_lib.remove_alignment_number(aln_id)] > 1:
-                name = self.column + "_{}_Copies".format(counts[psl_lib.remove_alignment_number(aln_id)] - 1)
+            count = counts[psl_lib.remove_alignment_number(aln_id)] - 1
+            if count > 0:
+                name = self.column + "_{}_Copies".format(count)
                 bed_rec = seq_lib.transcript_to_bed(t, self.rgb, name)
                 self.details_dict[aln_id].append(bed_rec)
-                self.classify_dict[aln_id] = 1
-            else:
-                self.classify_dict[aln_id] = 0
+            self.classify_dict[aln_id] = count
         self.dump_results_to_disk()

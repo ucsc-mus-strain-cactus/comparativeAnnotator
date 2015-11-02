@@ -198,3 +198,28 @@ def codon_pair_iterator(a, t, aln, target_seq_dict, query_seq_dict):
         target_codon = target_cds[target_cds_positions[0]:target_cds_positions[0] + 3]
         query_codon = query_cds[i:i + 3]
         yield target_cds_positions[0], target_codon, query_codon
+
+
+def get_adjusted_starts_ends(t, aln):
+    return [[aln.target_coordinate_to_query(intron.start - 1), aln.target_coordinate_to_query(intron.stop)]
+            for intron in t.intron_intervals]
+
+
+def is_fuzzy_intron(intron, aln, ref_starts, fuzz_distance=5):
+    q_gap_start = aln.target_coordinate_to_query(intron.start - 1)
+    q_gap_end = aln.target_coordinate_to_query(intron.stop)
+    return query_contains_intron(q_gap_start - fuzz_distance, q_gap_end + fuzz_distance, ref_starts)
+
+
+def query_contains_intron(q_gap_start, q_gap_end, ref_starts):
+    r = [q_gap_start <= ref_gap <= q_gap_end for ref_gap in ref_starts]
+    return True if any(r) else False
+
+
+def fix_ref_q_starts(ref_aln):
+    if ref_aln.strand == "-":
+        ref_starts = [ref_aln.q_size - (ref_aln.q_starts[i] + ref_aln.block_sizes[i]) for i in 
+                      xrange(len(ref_aln.q_starts))]
+    else:
+        ref_starts = ref_aln.q_starts
+    return ref_starts

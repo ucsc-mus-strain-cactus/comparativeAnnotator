@@ -193,3 +193,12 @@ class PercentUnknownCodingBases(Attribute):
             v = 100 * format_ratio(cds.count("N"), len(cds))
             results_dict[aln_id] = v
         self.dump_attribute_results_to_disk(results_dict)
+
+
+class NumberIntrons(Attribute):
+    """
+    Reports the number of introns for this alignment
+    """
+    def run(self):
+        results_dict = {aln_id: len(t.intron_intervals) for aln_id, t in self.transcript_iterator()}
+        self.dump_attribute_results_to_disk(results_dict)

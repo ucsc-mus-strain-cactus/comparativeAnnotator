@@ -15,7 +15,7 @@ target_fasta = "/hive/groups/recon/projs/gorilla_eichler/pipeline_data/assemblie
 
 tx_dict = seq_lib.get_transcript_dict(gp)
 ref_dict = seq_lib.get_transcript_dict(ref_gp)
-aug_dict = seq_lib.get_transcript_dict(aug_gp)
+#aug_dict = seq_lib.get_transcript_dict(aug_gp)
 aln_dict = psl_lib.get_alignment_dict(aln_psl)
 ref_aln_dict = psl_lib.get_alignment_dict(ref_psl)
 
@@ -25,6 +25,8 @@ aln_id = 'ENST00000340001.8-1'
 aln = aln_dict[aln_id]
 t = tx_dict[aln_id]
 a = ref_dict[aln_id[:-2]]
+ref_aln = ref_aln_dict[aln_id[:-2]]
+
 
 
 gp = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509/transMap/2015-10-06/transMap/C57B6NJ/transMapGencodeCompVM7.gp"
@@ -50,92 +52,56 @@ t = tx_dict[aln_id]
 a = ref_dict[aln_id[:-2]]
 ref_aln = ref_aln_dict[aln_id[:-2]]
 
-result = []
-offset = aln.target_coordinate_to_query(t.transcript_coordinate_to_chromosome(0))
-target_splices = {x.stop - offset for x in t.exons[:-1]}
-query_splices = {x.stop for x in a.exons[:-1]}
-not_original_splices = target_splices - query_splices
-for exon in t.exons[:-1]:
-    target_splice = exon.stop + offset
-    if target_splice in not_original_splices:
-        result.append(0)
-    else:
-        result.append(1)
 
 
-sorted(target_splices)
-sorted(query_splices)
+cmd = "grep {0} /hive/groups/recon/projs/gorilla_eichler/pipeline_data/comparative/susie_3_1/transMap/2015-10-06/transMap/gorilla/*Comp*psl > /hive/users/ifiddes/example_intron_problems/{0}.psl"
+system(cmd.format(aln_id))
+cmd2 = "grep {0} /hive/groups/recon/projs/gorilla_eichler/pipeline_data/comparative/susie_3_1/transMap/2015-10-06/data/*Comp*psl > /hive/users/ifiddes/example_intron_problems/{0}.psl"
+system(cmd2.format(psl_lib.strip_alignment_numbers(aln_id)))
+system("pslFmt {0}.psl > {0}.psl.txt".format("/hive/users/ifiddes/example_intron_problems/{}".format(aln_id)))
+system("pslFmt {0}.psl > {0}.psl.txt".format("/hive/users/ifiddes/example_intron_problems/{}".format(psl_lib.strip_alignment_numbers(aln_id))))
+system("grep {0} /hive/groups/recon/projs/gorilla_eichler/pipeline_data/comparative/susie_3_1/transMap/2015-10-06/transMap/gorilla/*Comp*gp > /hive/users/ifiddes/example_intron_problems/{0}.gp".format(aln_id))
+system("genePredFmt /hive/users/ifiddes/example_intron_problems/{0}.gp > /hive/users/ifiddes/example_intron_problems/{0}.gp.txt".format(aln_id))
 
 
 
-from lib.psl_lib import *
-from lib.seq_lib import *
-target_fasta = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/assemblies/1509/C57B6NJ.fa"
-ref_fasta = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/assemblies/1509/C57B6J.fa"
-ref_aln = PslRow(open("test_psl/ENSMUST00000020843.11.reference.psl").next().split())
-aln = PslRow(open("test_psl/ENSMUST00000020843.11.C57B6NJ.psl").next().split())
-t = GenePredTranscript(open("test_psl/ENSMUST00000020843.11.gp").next().rstrip().split("\t"))
-a = GenePredTranscript(open("test_psl/ref_ENSMUST00000020843.11.gp").next().rstrip().split("\t"))
-seq_dict = get_sequence_dict(target_fasta)
-ref_dict = get_sequence_dict(ref_fasta)
-
-from lib.comp_ann_lib import *
+def is_fuzzy_intron(intron, aln, ref_starts, offset=5):
+    q_gap_start = aln.target_coordinate_to_query(intron.start - 1)
+    q_gap_end = aln.target_coordinate_to_query(intron.stop)
+    return query_contains_intron(q_gap_start - offset, q_gap_end + offset, ref_starts)
 
 
-for ref_start, aln_start in zip(*[ref_aln.q_starts[1:], aln.q_starts[1:]]):
-    if ref_start != aln_start:
-        print ref_start, aln_start
+def query_contains_intron(q_gap_start, q_gap_end, ref_starts):
+    r = [q_gap_start <= ref_gap <= q_gap_end for ref_gap in ref_starts]
+    return True if any(r) else False
 
 
-results = {}
+def psl_rc(aln):
+    aln = copy.deepcopy(aln)
+    q_starts = [aln.q_size - (aln.q_starts[i] + aln.block_sizes[i]) for i in xrange(len(aln.q_starts) - 1, -1, -1)]
+    t_starts = [aln.t_size - (aln.t_starts[i] + aln.block_sizes[i]) for i in xrange(len(aln.t_starts) - 1, -1, -1)]
+    aln.q_starts = q_starts
+    aln.t_starts = t_starts
+    aln.strand = "+-" if aln.strand == "-" else "-+"
+    aln.block_sizes = aln.block_sizes[::-1]
+    return aln
+
+
+[e.start + aln.q_starts[0] for e in t.exons[1:]]
+
+
+aln = aln_dict[aln_id]
+t = tx_dict[aln_id]
+a = ref_dict[psl_lib.strip_alignment_numbers(aln_id)]
+ref_aln = ref_aln_dict[psl_lib.strip_alignment_numbers(aln_id)]
+
+
 for aln_id, aln in aln_dict.iteritems():
     t = tx_dict[aln_id]
-    not_original = []
     ref_aln = ref_aln_dict[psl_lib.strip_alignment_numbers(aln_id)]
-    ref_starts = set(ref_aln.q_starts)
-    aln_starts = set(aln.q_starts)
-    missing_introns = ref_starts - aln_starts
-    offset = aln.target_coordinate_to_query(t.transcript_coordinate_to_chromosome(0))
-    for ref_start, aln_start, intron in zip(*[ref_aln.q_starts[1:], aln.q_starts[1:], t.intron_intervals]):
-        if ref_start != aln_start:
-            not_original.append(intron)
-    if len(not_original) > 0:
-        results[aln_id] = not_original
-
-
-from collections import defaultdict
-ian_results = defaultdict(list)
-for aln_id, aln in aln_dict.iteritems():
-    t = tx_dict[aln_id]
-    a = ref_dict[psl_lib.strip_alignment_numbers(aln_id)]
-    offset = aln.target_coordinate_to_query(t.transcript_coordinate_to_chromosome(0))
-    target_splices = {x.stop - offset for x in t.exons[:-1]}
-    query_splices = {x.stop for x in a.exons[:-1]}
-    not_original_splices = target_splices - query_splices
-    bad_splice_recs = []
-    for exon, intron in itertools.izip(*[t.exons[:-1], t.intron_intervals]):
-        target_splice = exon.stop + offset
-        if target_splice in not_original_splices:
-            ian_results[aln_id].append(target_splice)
-
-
-
-ref_aln = PslRow(open("test_psl/ENSMUST00000079041.5.reference.psl").next().split())
-aln = PslRow(open("test_psl/ENSMUST00000079041.5.C57B6NJ.psl").next().split())
-
-
-
-
-ref_aln = PslRow(open("test_psl/ENSMUST00000183461.6.reference.psl").next().split())
-aln = PslRow(open("test_psl/ENSMUST00000183461.6.C57B6NJ.psl").next().split())
-
-ian_results = defaultdict(list)
-for aln_id, aln in aln_dict.iteritems():
-    t = tx_dict[aln_id]
-    a = ref_dict[psl_lib.strip_alignment_numbers(aln_id)]
-
-
-from intervaltree import Interval, IntervalTree
-ref_tree = IntervalTree(Interval(x - 5, x + 5) for x in ref_aln.q_starts)
-target_tree = IntervalTree(Interval(x - 5, x + 5) for x in aln.q_starts)
-
+    if ref_aln.strand == "-":
+        ref_starts = [ref_aln.q_size - (ref_aln.q_starts[i] + ref_aln.block_sizes[i]) for i in
+                      xrange(len(ref_aln.q_starts) - 1, -1, -1)]
+    else:
+        ref_starts = ref_aln.q_starts
+    r = [is_fuzzy_intron(intron, aln, ref_starts, 5) for intron in t.intron_intervals]

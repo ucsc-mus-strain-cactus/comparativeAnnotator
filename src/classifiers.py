@@ -126,10 +126,7 @@ class CdsGap(AbstractClassifier):
                 if is_gap is True:
                     bed_rec = seq_lib.interval_to_bed(a, intron, self.rgb, self.column)
                     self.details_dict[ens_id].append(bed_rec)
-            if len(self.details_dict[ens_id]) > 0:
-                self.classify_dict[ens_id] = 1
-            else:
-                self.classify_dict[ens_id] = 0
+            self.classify_dict[aln_id] = len(self.details_dict[aln_id])
         self.dump_results_to_disk()
 
 
@@ -193,10 +190,7 @@ class CdsNonCanonSplice(AbstractClassifier):
                 if splice_is_good is True:
                     bed_rec = seq_lib.splice_intron_interval_to_bed(a, intron, self.rgb, self.column)
                     self.details_dict[ens_id].append(bed_rec)
-            if len(self.details_dict[ens_id]) > 0:
-                self.classify_dict[ens_id] = 1
-            else:
-                self.classify_dict[ens_id] = 0
+            self.classify_dict[aln_id] = len(self.details_dict[aln_id])
         self.dump_results_to_disk()
 
 
@@ -254,10 +248,7 @@ class SpliceContainsUnknownBases(AbstractClassifier):
                     if "N" in donor or "N" in acceptor:
                         bed_rec = seq_lib.splice_intron_interval_to_bed(a, intron, self.rgb, self.column)
                         self.details_dict[ens_id].append(bed_rec)
-            if len(self.details_dict[ens_id]) > 0:
-                self.classify_dict[ens_id] = 1
-            else:
-                self.classify_dict[ens_id] = 0
+            self.classify_dict[aln_id] = len(self.details_dict[aln_id])
         self.dump_results_to_disk()
 
 
@@ -283,10 +274,7 @@ class InFrameStop(AbstractClassifier):
                 if amino_acid == "*":
                     bed_rec = seq_lib.cds_coordinate_to_bed(a, i, i + 3, self.rgb, self.column)
                     self.details_dict[ens_id].append(bed_rec)
-            if len(self.details_dict[ens_id]) > 0:
-                self.classify_dict[ens_id] = 1
-            else:
-                self.classify_dict[ens_id] = 0
+            self.classify_dict[aln_id] = len(self.details_dict[aln_id])
         self.dump_results_to_disk()
 
 
@@ -336,10 +324,7 @@ class UnknownBases(AbstractClassifier):
                 s = a.get_mrna(self.ref_seq_dict)
             for bed_rec in self.make_bed_recs(a, s, bed_rec_fn):
                 self.details_dict[ens_id].append(bed_rec)
-            if len(self.details_dict[ens_id]) > 0:
-                self.classify_dict[ens_id] = 1
-            else:
-                self.classify_dict[ens_id] = 0
+            self.classify_dict[aln_id] = len(self.details_dict[aln_id])
         self.dump_results_to_disk()
 
 

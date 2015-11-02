@@ -114,10 +114,27 @@ class PslRow(object):
         """
         return "\t".join(map(str, [self.matches, self.mismatches, self.repmatches, self.n_count, self.q_num_insert,
                                    self.q_base_insert, self.t_num_insert, self.t_base_insert, self.strand, self.q_name,
-                                   self.q_start, self.q_end, self.t_name, self.t_size, self.t_start, self.t_end,
-                                   self.block_count, ','.join([str(b) for b in self.block_sizes]),
+                                   self.q_size, self.q_start, self.q_end, self.t_name, self.t_size, self.t_start, 
+                                   self.t_end, self.block_count, ','.join([str(b) for b in self.block_sizes]),
                                    ','.join([str(b) for b in self.q_starts]),
                                    ','.join([str(b) for b in self.t_starts])]))
+
+    def reverse_complement(self):
+        """
+        Reverse complements this PSL. This makes the target strand explicit.
+        TODO: once you do this, coordinate conversions no longer work.
+        TODO: make this aware of explicit target strand
+        """
+        q_starts = [self.q_end - (self.q_starts[i] + self.block_sizes[i]) for i in 
+                    xrange(len(self.q_starts) - 1, -1, -1)]
+        t_starts = [self.t_end - (self.t_starts[i] + self.block_sizes[i]) for i in 
+                    xrange(len(self.t_starts) - 1, -1, -1)]
+        self.q_starts = q_starts
+        self.t_starts = t_starts
+        #self.strand = "+-" if self.strand == "-" else "-+"
+        # not implementing explicit target strand yet
+        self.strand = "-" if self.strand == "+" else "+"
+        self.block_sizes = self.block_sizes[::-1]
 
 
 def psl_iterator(psl_file):
