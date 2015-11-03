@@ -37,10 +37,11 @@ def drop_low_sums(s, m, cutoff=1.0):
             m.drop(c, axis=1, inplace=True)
 
 
-def munge_data(d, filter_set):
+def munge_data(d, num_original_introns, filter_set):
     """
     Used to munge input data.
     """
+    d["HasOriginalIntrons"] = d["HasOriginalIntrons"] >= 0.5 * num_original_introns["NumberIntrons"] - 0.5
     m = d.ix[filter_set]
     s = m.astype(bool)
     s = s.sum(axis=0)
@@ -52,6 +53,7 @@ def munge_data(d, filter_set):
 
 
 def r_wrapper(target, data_path, clust_title, out_cluster_file):
+    # TODO: why do I need to do this in order for R to work on the cluster?
     base_cmd = ("export R_HOME=/cluster/home/ifiddes/lib64/R && /cluster/home/ifiddes/bin/Rscript {}/plotting/cluster.R"
                 " {} {} {}")
     cmd = base_cmd.format(os.getcwd(), data_path, clust_title, out_cluster_file)
@@ -68,12 +70,13 @@ def main_fn(target, comp_ann_path, gencode, genome, ref_genome, base_out_path, f
     fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
     biotype_ids = sql_lib.get_biotype_ids(cur, ref_genome, biotype, filter_chroms=filter_chroms)
     sql_data = sql_lib.load_data(con, genome, etc.config.clustering_classifiers)
+    num_original_introns = sql_lib.load_data(con, genome, ["NumberIntrons"], table="attributes")
     for mode, ids in zip(*[["Fail", "Good/NotPass"], [fail_ids, good_specific_ids]]):
         mode_underscore = mode.replace("/", "_")
         out_barplot_file = os.path.join(out_path, "barplot_{}_{}_{}".format(genome, biotype, mode_underscore))
         percentage_of_set = 100.0 * len(ids) / len(biotype_ids)
         barplot_title = base_barplot_title.format(mode, genome, gencode, len(ids), percentage_of_set)
-        munged, stats = munge_data(sql_data, ids)
+        munged, stats = munge_data(sql_data, num_original_introns, ids)
         plot_lib.barplot(stats, out_path, out_barplot_file, barplot_title)
         data_path = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString())
         munged.to_csv(data_path)

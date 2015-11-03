@@ -79,6 +79,11 @@ def run_aug_classifiers(args, target, tmp_dir):
     for classifier in aug_classifiers:
         target.addChildTarget(classifier(args.refFasta, args.annotationGp, args.refGenome, tmp_dir, args.genome,
                                          args.psl, args.refPsl, args.fasta, args.targetGp, args.augustusGp))
+    # in Augustus mode we run the alignment-free classifiers on augustus transcripts
+    ref_classifiers = classes_in_module(src.classifiers)
+    for classifier in ref_classifiers:
+        target.addChildTarget(classifier(args.fasta, args.augustusGp, args.genome, tmp_dir))
+
 
 
 def build_analyses(target, args):

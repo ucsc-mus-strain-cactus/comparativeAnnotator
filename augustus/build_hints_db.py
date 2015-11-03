@@ -145,11 +145,12 @@ def main():
     parser.add_argument("--fasta", required=True)
     bamfiles = parser.add_mutually_exclusive_group(required=True)
     bamfiles.add_argument("--bamFiles", nargs="+", help="bamfiles being used", dest="bams")
-    bamfiles.add_argument("--bamFofn", help="File containing list of bamfiles", 
-                          dest="bams")
+    bamfiles.add_argument("--bamFofn", help="File containing list of bamfiles", dest="bams")
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
     if not isinstance(args.bams, list):
+        if not os.path.exists(args.bams):
+            raise RuntimeError("ERROR: bamFofn does not exist.")
         args.bams = [x.rstrip() for x in open(args.bams)]
     s = Stack(Target.makeTargetFn(filter_wrapper, memory=8 * 1024 ** 3,
                                   args=[args.bams, args.database, args.genome, args.fasta]))

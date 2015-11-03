@@ -61,12 +61,12 @@ def attach_databases(comp_ann_path, mode, timeout=1200):
     return con, cur
 
 
-def load_data(con, genome, columns, primary_key="AlignmentId"):
+def load_data(con, genome, columns, primary_key="AlignmentId", table="main"):
     """
     Use pandas to load a sql query into a dataframe.
     """
     columns = ",".join(columns)
-    query = "SELECT {},{} FROM main.'{}'".format(primary_key, columns, genome)
+    query = "SELECT {},{} FROM {}.'{}'".format(primary_key, columns, table, genome)
     return pd.read_sql_query(query, con, index_col=primary_key)
 
 
@@ -294,3 +294,10 @@ def highest_cov_aln(cur, genome):
     for tx_id, vals in combined_covs.iteritems():
         best_cov[tx_id] = sorted(vals, key=lambda x: -x[2])[0]
     return best_cov
+
+
+def get_highest_cov_alns(cur, genomes):
+    """
+    Dictionary mapping each genome to a dictionary reporting each highest coverage alignment and its metrics
+    """
+    return {genome: highest_cov_aln(cur, genome) for genome in genomes}

@@ -154,17 +154,10 @@ def num_good_pass_gene_level(highest_cov_dict, cur, genome_order, ref_genome, ou
     plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
 
 
-def get_highest_cov_alns(cur, genomes):
-    """
-    Dictionary mapping each genome to a dictionary reporting each highest coverage alignment and its metrics
-    """
-    return {genome: sql_lib.highest_cov_aln(cur, genome) for genome in genomes}
-
-
 def main():
     args = parse_args()
     con, cur = sql_lib.attach_databases(args.comparativeAnnotationDir, mode="transMap")
-    highest_cov_dict = get_highest_cov_alns(cur, args.genomes)
+    highest_cov_dict = sql_lib.get_highest_cov_alns(cur, args.genomes)
     for biotype in sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=False):
         biotype_ids = sql_lib.get_biotype_ids(cur, args.refGenome, biotype, filter_chroms=args.filterChroms)
         if len(biotype_ids) > 50:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty

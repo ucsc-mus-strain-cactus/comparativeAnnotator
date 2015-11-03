@@ -171,3 +171,49 @@ results = [["intronBits", norm]]
 title_string = "Fewest number of transcripts produced by Augustus for a given gene"
 legend_labels = ["= {}".format(x) for x in paralogy_bins[:-2]] + [u"\u2265 {}".format(paralogy_bins[-2])]
 plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
+
+
+# filter augustus so we don't have to re-run
+save_gp = {}
+for gp_string in open("/hive/groups/recon/projs/gorilla_eichler/pipeline_data/comparative/susie_3_1/augustus/tmr_no_intron_vector/gorilla.output.gp"):
+    gp = gp_string.rstrip().split("\t")
+    gp = seq_lib.GenePredTranscript(gp)
+    tm_gp = tx_dict[psl_lib.remove_augustus_alignment_number(gp.name)]
+    if not (gp.start < tm_gp.start or gp.stop > tm_gp.stop):
+        save_gp[gp.name] = gp
+
+
+counts = Counter("-".join(r.split(aug_aln_id)) for aug_aln_id in save_gp if psl_lib.remove_augustus_alignment_number(aug_aln_id) in highest_cov_ids)
+
+
+save_gp_intron_bits = {}
+
+for gp_string in open("/hive/groups/recon/projs/gorilla_eichler/pipeline_data/comparative/susie_3_1/augustus/tmr/gorilla.output.gp"):
+    gp = gp_string.rstrip().split("\t")
+    gp = seq_lib.GenePredTranscript(gp)
+    tm_gp = tx_dict[psl_lib.remove_augustus_alignment_number(gp.name)]
+    if not (gp.start < tm_gp.start or gp.stop > tm_gp.stop):
+        save_gp_intron_bits[gp.name] = gp
+
+
+bits_counts = Counter("-".join(r.split(aug_aln_id)) for aug_aln_id in save_gp if psl_lib.remove_augustus_alignment_number(aug_aln_id) in highest_cov_ids)
+
+
+file_name = "paralogy_best_aln_filtered"
+out_path = "./"
+paralogy_bins = [0, 1, 2, 3, float('inf')]
+results = []
+for x, y in zip(*[["ShortGaps", "IntronBits"], [counts, bits_counts]]):
+    norm, raw = make_hist(y.values(), paralogy_bins, reverse=False, roll=-1)
+    results.append([x, norm])
+title_string = "AugustusParalogy on best transMaps\noverlap filtered"
+legend_labels = ["= {}".format(x) for x in paralogy_bins[1:-2]] + [u"\u2265 {}".format(paralogy_bins[-2])] + \
+                    ["= {}".format(paralogy_bins[0])]
+plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
+
+with open("/hive/groups/recon/projs/gorilla_eichler/pipeline_data/comparative/susie_3_1/augustus/tmr/gorilla_output_unfiltered.gp") as inf:
+    with open("/hive/groups/recon/projs/gorilla_eichler/pipeline_data/comparative/susie_3_1/augustus/tmr/gorilla.output.gp", "w") as outf:
+        for x in inf:
+            x = x.rstrip().split("\t")
+            if x[0] in save_gp_intron_bits:
+                outf.write("\t".join(x) + "\n")

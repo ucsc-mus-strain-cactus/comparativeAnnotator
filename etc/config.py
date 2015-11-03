@@ -92,21 +92,22 @@ def allAugustusClassifiers(genome):
 def potentiallyInterestingBiology(genome):
     query = ("SELECT details.'{0}'.InFrameStop,details.'{0}'.CodingMult3Insertions,details.'{0}'."
              "CodingMult3Deletions,details.'{0}'.Nonsynonymous,details.'{0}'.FrameShift FROM details.'{0}' "
-             "JOIN main.'{0}' USING ('AlignmentId') WHERE main.'{0}'.BadFrame = 0 AND main.'{0}'.BeginStart"
-             " = 0 AND main.'{0}'.EndStop = 0 AND main.'{0}'.CdsGap = 0 AND main.'{0}'.CdsUnknownSplice = 0"
-             " AND main.'{0}'.UtrUnknownSplice = 0 AND main.'{0}'.StartOutOfFrame = 0 AND "
+             "JOIN main.'{0}' USING ('AlignmentId') JOIN attributes.'{0}' USING ('AlignmentId') "
+             "WHERE main.'{0}'.BadFrame = 0 AND main.'{0}'.BeginStart "
+             "= 0 AND main.'{0}'.EndStop = 0 AND main.'{0}'.CdsGap = 0 AND main.'{0}'.CdsUnknownSplice = 0 "
+             "AND main.'{0}'.UtrUnknownSplice = 0 AND main.'{0}'.StartOutOfFrame = 0 AND "
              "main.'{0}'.InFrameStop = 0 AND main.'{0}'.ShortCds = 0 AND main.'{0}'.CodingInsertions = 0 "
              "AND main.'{0}'.CodingDeletions = 0 AND main.'{0}'.FrameShift = 0 AND "
              "main.'{0}'.HasOriginalStart = 0 AND main.'{0}'.HasOriginalStop = 0 AND "
-             "main.'{0}'.HasOriginalIntrons = 0 ")
+             "main.'{0}'.HasOriginalIntrons <= 0.5 * attributes.'{0}'.NumberIntrons - 0.5")
     query = query.format(genome)
     return query
 
 
 def assemblyErrors(genome, biotype=None, details=True):
     query = (" FROM attributes.'{0}' JOIN details.'{0}' USING ('AlignmentId') JOIN main.'{0}' USING ('AlignmentId') "
-             "WHERE main.'{0}'.AlignmentPartialMap = 1 OR main.'{0}'.UnknownBases > 0 OR main.'{0}'.UnknownGap > 0 "
-             "OR main.'{0}'.ShortCds = 1 OR main.'{0}'.AlnAbutsUnknownBases = 1 OR main.'{0}'.AlnExtendsOffContig = 1")
+             "WHERE main.'{0}'.AlignmentPartialMap > 0 OR main.'{0}'.UnknownBases > 0 OR main.'{0}'.UnknownGap > 0 "
+             "OR main.'{0}'.ShortCds > 0 OR main.'{0}'.AlnAbutsUnknownBases > 0 OR main.'{0}'.AlnExtendsOffContig = 1")
     if details is True:
         query = ("SELECT details.'{0}'.AlignmentPartialMap,details.'{0}'.UnknownBases,details.'{0}'.UnknownGap,details."
                  "'{0}'.ShortCds,details.'{0}'.AlnAbutsUnknownBases,details.'{0}'.AlnExtendsOffContig ") + query
@@ -122,9 +123,10 @@ def assemblyErrors(genome, biotype=None, details=True):
 
 def alignmentErrors(genome, biotype=None, details=True):
     query = (" FROM attributes.'{0}' JOIN details.'{0}' USING ('AlignmentId') JOIN main.'{0}' USING "
-             "('AlignmentId') WHERE main.'{0}'.BadFrame = 1 OR main.'{0}'.CdsGap > 0 OR "
+             "('AlignmentId') WHERE main.'{0}'.BadFrame > 0 OR main.'{0}'.CdsGap > 0 OR "
              "main.'{0}'.CdsMult3Gap > 0 OR main.'{0}'.UtrGap > 0 OR main.'{0}'.Paralogy > 0 OR "
-             "main.'{0}'.HasOriginalIntrons > 0 OR main.'{0}'.StartOutOfFrame = 1")
+             "main.'{0}'.HasOriginalIntrons >= 0.5 * attributes.'{0}'.NumberIntrons - 0.5 OR "
+             "main.'{0}'.StartOutOfFrame = 1")
     if details is True:
         query = ("SELECT details.'{0}'.BadFrame,details.'{0}'.CdsGap,details.'{0}'.CdsMult3Gap,"
                  "details.'{0}'.UtrGap,details.'{0}'.Paralogy,details.'{0}'.HasOriginalIntrons,"
@@ -143,39 +145,43 @@ def transMapEval(ref_genome, genome, biotype, good=False):
     if biotype == "protein_coding" and good is False:
         query = ("SELECT AlignmentId FROM attributes.'{2}' JOIN main.'{2}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
-                 "(main.'{2}'.BadFrame = 0 AND main.'{0}'.BadFrame = 1) AND NOT (main.'{2}'.BeginStart = 0 "
-                  "AND main.'{0}'.BeginStart = 1) AND NOT (main.'{2}'.EndStop = 0 AND main.'{0}'.EndStop = 1) "
-                  "AND NOT (main.'{2}'.CdsGap = 0 AND main.'{0}'.CdsGap = 1) AND NOT (main.'{2}'.CdsUnknownSplice"
+                 "(main.'{2}'.BadFrame = 0 AND main.'{0}'.BadFrame > 0) AND NOT (main.'{2}'.BeginStart = 0 "
+                  "AND main.'{0}'.BeginStart > 0) AND NOT (main.'{2}'.EndStop = 0 AND main.'{0}'.EndStop > 0) "
+                  "AND NOT (main.'{2}'.CdsGap = 0 AND main.'{0}'.CdsGap > 0) AND NOT (main.'{2}'.CdsUnknownSplice"
                   " = 0 AND main.'{0}'.CdsUnknownSplice > 0) AND NOT (main.'{2}'.UtrUnknownSplice = 0 AND "
                   "main.'{0}'.UtrUnknownSplice > 0) AND NOT (main.'{2}'.StartOutOfFrame = 0 AND "
-                  "main.'{0}'.StartOutOfFrame = 1) AND NOT (main.'{2}'.InFrameStop = 0 AND "
-                  "main.'{0}'.InFrameStop = 1) AND NOT (main.'{2}'.ShortCds = 0 AND main.'{0}'.ShortCds = 1) AND "
+                  "main.'{0}'.StartOutOfFrame > 0) AND NOT (main.'{2}'.InFrameStop = 0 AND "
+                  "main.'{0}'.InFrameStop > 0) AND NOT (main.'{2}'.ShortCds = 0 AND main.'{0}'.ShortCds > 0) AND "
                   "main.'{0}'.CodingInsertions = 0 AND main.'{0}'.CodingDeletions = 0 AND main.'{0}'.FrameShift = 0 "
-                  "AND main.'{0}'.HasOriginalStart = 0 AND main.'{0}'.HasOriginalStop = 0 AND "
-                  "main.'{0}'.HasOriginalIntrons = 0 AND attributes.'{0}'.AlignmentCoverage = 100.0 AND "
+                  "AND main.'{0}'.HasOriginalStop = 0 AND attributes.'{0}'.AlignmentCoverage = 100.0 AND "
                   "attributes.'{0}'.PercentUnknownBases <= 1.0 AND attributes.'{0}'.PercentUnknownCodingBases <= 0.2 "
-                  "AND attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
+                  "AND main.'{0}'.HasOriginalIntrons <= 0.5 * attributes.'{0}'.NumberIntrons - 0.5 AND "
+                  "attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
     elif biotype == "protein_coding" and good is True:
         query = ("SELECT AlignmentId FROM attributes.'{2}' JOIN main.'{2}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
                  "(main.'{2}'.CdsUnknownSplice = 0 AND main.'{0}'.CdsUnknownSplice > 0) AND "
                  "main.'{0}'.FrameShift = 0 AND main.'{0}'.CodingInsertions = 0 AND main.'{0}'.CodingDeletions = 0 "
-                 "AND main.'{0}'.HasOriginalIntrons = 0 AND attributes.'{0}'.AlignmentCoverage >= 95.0 AND "
-                 "attributes.'{0}'.PercentUnknownBases <= 5.0 AND attributes.'{0}'.PercentUnknownCodingBases <= 1.0 AND"
-                 " attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
+                 "AND attributes.'{0}'.AlignmentCoverage >= 95.0 AND "
+                 "attributes.'{0}'.PercentUnknownBases <= 5.0 AND attributes.'{0}'.PercentUnknownCodingBases <= 1.0 "
+                 "AND main.'{0}'.HasOriginalIntrons <= 0.5 * attributes.'{0}'.NumberIntrons - 0.5 AND "
+                 "attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
     elif good is False:
         query = ("SELECT AlignmentId FROM attributes.'{2}' JOIN main.'{2}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
                  "(main.'{2}'.UtrUnknownSplice = 0 AND main.'{0}'.UtrUnknownSplice > 0) AND "
                  "attributes.'{0}'.AlignmentCoverage = 100.0 AND attributes.'{0}'.PercentUnknownBases <= 1.0 AND "
+                 "main.'{0}'.HasOriginalIntrons <= 0.5 * attributes.'{0}'.NumberIntrons - 0.5 AND "
                  "attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
     else:
         query = ("SELECT AlignmentId FROM attributes.'{2}' JOIN main.'{2}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
                  "(main.'{2}'.UtrUnknownSplice = 0 AND main.'{0}'.UtrUnknownSplice > 0) AND "
                  "main.'{0}'.UtrGap = 0 AND attributes.'{0}'.AlignmentCoverage >= 95.0 AND "
+                 "main.'{0}'.HasOriginalIntrons <= 0.5 * attributes.'{0}'.NumberIntrons - 0.5 AND "
                  "attributes.'{0}'.PercentUnknownBases <= 5.0 AND attributes.'{0}'.TranscriptType = '{1}' AND "
                  "attributes.'{0}'.GeneType = '{1}'")
+    
     query = query.format(genome, biotype, ref_genome)
     return query
 
