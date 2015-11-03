@@ -15,7 +15,7 @@ target_fasta = "/hive/groups/recon/projs/gorilla_eichler/pipeline_data/assemblie
 
 tx_dict = seq_lib.get_transcript_dict(gp)
 ref_dict = seq_lib.get_transcript_dict(ref_gp)
-#aug_dict = seq_lib.get_transcript_dict(aug_gp)
+aug_dict = seq_lib.get_transcript_dict(aug_gp)
 aln_dict = psl_lib.get_alignment_dict(aln_psl)
 ref_aln_dict = psl_lib.get_alignment_dict(ref_psl)
 
@@ -69,10 +69,16 @@ from collections import defaultdict
 classify_dict = {}
 details_dict = defaultdict(list)
 
+highest_cov_dict = sql_lib.highest_cov_aln(cur, 'gorilla')
+highest_cov_ids = set(zip(*highest_cov_dict.itervalues())[0])
+
+
 for aln_id, aln in aln_dict.iteritems():
+    if aln_id not in highest_cov_ids:
+        continue
     t = tx_dict[aln_id]
     a = ref_dict[psl_lib.strip_alignment_numbers(aln_id)]
-    aln_starts_ends = get_adjusted_starts_ends(t, aln)
+    aln_starts_ends = comp_ann_lib.get_adjusted_starts_ends(t, aln)
     count = 0
     for ref_exon in a.exons[1:]:
         r = [aln_start - fuzz_distance <= ref_exon.start <= aln_end + fuzz_distance for aln_start, aln_end in
@@ -82,9 +88,9 @@ for aln_id, aln in aln_dict.iteritems():
     classify_dict[aln_id] = count
 
 
-num_introns = {aln_id: len(tx_dict[aln_id].intron_intervals) for aln_id in tx_dict}
-ref_introns = {aln_id: len(ref_dict[psl_lib.strip_alignment_numbers(aln_id)].intron_intervals) for aln_id in tx_dict}
-num_short_introns = {aln_id: len([x for x in t.intron_intervals if comp_ann_lib.short_intron(x)]) for aln_id, t in tx_dict.iteritems()}
+num_introns = {aln_id: len(tx_dict[aln_id].intron_intervals) for aln_id in highest_cov_ids}
+ref_introns = {aln_id: len(ref_dict[psl_lib.strip_alignment_numbers(aln_id)].intron_intervals) for aln_id in highest_cov_ids}
+num_short_introns = {aln_id: len([x for x in t.intron_intervals if comp_ann_lib.short_intron(x)]) for aln_id, t in tx_dict.iteritems() if aln_id in highest_cov_ids}
 
 import pandas as pd
 
@@ -98,23 +104,70 @@ import cPickle as pickle
 with open("df_test.pickle", "w") as outf:
     pickle.dump(df3, outf)
 
+
 df = pickle.load(open("df_test.pickle"))
 df2 = df[df['# Original Introns'] <= 100]
 g = sns.pairplot(df2)
-g = g.map_offdiag(sns.kdeplot, cmap="Blues_d", n_levels=75)
-g.savefig("pairplot_100.png")
+g = g.map_offdiag(sns.kdeplot, cmap="Blues_d", n_levels=50)
+g.savefig("pairplot_best_cov_100.png")
 
 
 df3 = df[df['# Original Introns'] <= 20]
 g = sns.pairplot(df3)
 g = g.map_offdiag(sns.kdeplot, cmap="Blues_d", n_levels=50)
-g.savefig("pairplot_20.png")
-
-
-df4 = df2[df2['# Original Introns'] > 5]
-g = sns.pairplot(df4)
-g = g.map_offdiag(sns.kdeplot, cmap="Blues_d", n_levels=50)
-g.savefig("pairplot_100max_5min.png")
+g.savefig("pairplot_best_cov_20.png")
 
 
 
+with sns.axes_style("white"):
+    g = sns.jointplot(x=df3["# Original Introns"], y=df3["# Missing Original Introns"], kind='kde', color='k')
+
+
+g.savefig("jointplot_best_cov.png")
+
+import re
+r = re.compile("-[0-9]+-")
+from collections import Counter
+counts = Counter("-".join(r.split(aug_aln_id)) for aug_aln_id in aug_dict if psl_lib.remove_augustus_alignment_number(aug_aln_id) in highest_cov_ids)
+
+
+file_name = "paralogy_best_aln"
+out_path = "./"
+paralogy_bins = [0, 1, 2, 3, float('inf')]
+norm, raw = make_hist(counts.values(), paralogy_bins, reverse=False, roll=-1)
+results = [["intronBits", norm]]
+title_string = "AugustusParalogy on best transMaps"
+legend_labels = ["= {}".format(x) for x in paralogy_bins[1:-2]] + [u"\u2265 {}".format(paralogy_bins[-2])] + \
+                    ["= {}".format(paralogy_bins[0])]
+plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
+
+
+gene_transcript_map = sql_lib.get_gene_transcript_map(cur, 'human', biotype='protein_coding', filter_chroms=['Y', 'chrY'])
+transcript_gene_map = sql_lib.get_transcript_gene_map(cur, 'human', biotype='protein_coding', filter_chroms=['Y', 'chrY'])
+
+
+
+combined_counts = defaultdict(list)
+for aug_aln_id, c in counts.iteritems():
+    tx_id = psl_lib.strip_alignment_numbers(aug_aln_id)
+    if tx_id not in transcript_gene_map:
+        continue
+    gene_id = transcript_gene_map[tx_id]
+    combined_counts[gene_id].append([aug_aln_id, c])
+
+
+best_c = {}
+for gene_id, vals in combined_counts.iteritems():
+    best_c[tx_id] = sorted(vals, key=lambda x: -x[1])[0]
+
+
+
+file_name = "paralogy_best_aln_by_gene"
+out_path = "./"
+paralogy_bins = [1, 2, 3, float('inf')]
+values = zip(*best_c.values())[1]
+norm, raw = make_hist(values, paralogy_bins, reverse=False, roll=0)
+results = [["intronBits", norm]]
+title_string = "Fewest number of transcripts produced by Augustus for a given gene"
+legend_labels = ["= {}".format(x) for x in paralogy_bins[:-2]] + [u"\u2265 {}".format(paralogy_bins[-2])]
+plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)

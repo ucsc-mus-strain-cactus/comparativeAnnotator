@@ -110,13 +110,15 @@ def write_augustus(r, name_map, out_path):
                 if x[2] in ["exon", "CDS", "start_codon", "stop_codon", "tts", "tss"]:
                     t = x[-1].split()
                     n = t[-3].split('"')[1]
+                    if n not in name_map:
+                        continue  # skip transcripts filtered out previously
                     t[-1] = t[-3] = '"{}";'.format(name_map[n])
                     t = " ".join(t)
                     x[-1] = t
                     outf.write("\t".join(map(str, x)) + "\n")
 
 
-def run_augustus(hint_f, seq_f, name, start, stop, cfg_version, cfg_path, out_file_tree):
+def run_augustus(hint_f, seq_f, name, start, stop, cfg_version, cfg_path, out_file_tree, gp):
     """
     Runs Augustus for each cfg/gp_string pair.
     """
@@ -126,7 +128,7 @@ def run_augustus(hint_f, seq_f, name, start, stop, cfg_version, cfg_path, out_fi
     # extract only the transcript lines
     l = [x.split() for x in r if "\ttranscript\t" in x]
     # filter out transcripts that do not overlap the alignment range
-    transcripts = [x[-1] for x in l if not (int(x[4]) < start or int(x[3]) > stop)]
+    transcripts = [x[-1] for x in l if not (int(x[4]) < gp.start or int(x[3]) > gp.stop)]
     # if we lose everything, stop here
     if len(transcripts) > 0:
         # rename transcript based on cfg version, and make names unique
@@ -154,7 +156,7 @@ def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_t
         seq = fasta[chrom][start:stop]
         hint_f, seq_f = write_hint_fasta(hint, seq, chrom, target.getGlobalTempDir())
         for cfg_version, cfg_path in cfgs.iteritems():
-            run_augustus(hint_f, seq_f, gp.name, start, stop, cfg_version, cfg_path, out_file_tree)
+            run_augustus(hint_f, seq_f, gp.name, start, stop, cfg_version, cfg_path, out_file_tree, gp)
         # delete the seq and hint file. This makes the final tree cleanup not take so long.
         os.remove(hint_f)
         os.remove(seq_f)

@@ -283,7 +283,7 @@ def run_transmap_eval(cur, genome, biotype, trans_map_eval, good=True):
 def highest_cov_aln(cur, genome):
     """
     Returns the set of alignment IDs that represent the best alignment for each source transcript (that mapped over)
-    Best is defined as highest %COV. Also reports the associated coverage value.
+    Best is defined as highest %COV. Also reports the associated coverage and identity values.
     """
     tm_stats = get_stats(cur, genome, mode="transMap")
     combined_covs = defaultdict(list)
