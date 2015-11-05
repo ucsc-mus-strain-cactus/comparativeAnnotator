@@ -101,7 +101,7 @@ def bam_2_hints(target, bam_file, intron_hints_tree, chroms):
     slice_cmd = slice_cmd.format(bam_file, chroms, tmp)
     system(slice_cmd)
     system("samtools index {}".format(tmp))
-    cmd = " bam2hints --intronsonly --in {} --out {}"
+    cmd = "bam2hints --intronsonly --in {} --out {}"
     cmd = cmd.format(tmp, f)
     system(cmd)
 
@@ -112,7 +112,6 @@ def cat_bam_2_hints(target, intron_hints_tree, intron_gff_path):
     cmd = "cat {} | sort -n -k4,4 | sort -s -n -k5,5 | sort -s -n -k3,3 | sort -s -k1,1 | join_mult_hints.pl > {}"
     cmd = cmd.format(combined_bam_hints, intron_gff_path)
     system(cmd)
-    assert os.path.getsize(intron_gff_path) > 10000, cmd
 
 
 def cat_hints(target, exon_gff_path, intron_gff_path, db_path, genome, genome_fasta):
@@ -143,6 +142,8 @@ def main():
     parser.add_argument("--genome", required=True)
     parser.add_argument("--database", required=True)
     parser.add_argument("--fasta", required=True)
+    parser.add_argument("--filterTissues", nargs="+")
+    parser.add_argument("--filterCenters", nargs="+")
     bamfiles = parser.add_mutually_exclusive_group(required=True)
     bamfiles.add_argument("--bamFiles", nargs="+", help="bamfiles being used", dest="bams")
     bamfiles.add_argument("--bamFofn", help="File containing list of bamfiles", dest="bams")
@@ -151,7 +152,16 @@ def main():
     if not isinstance(args.bams, list):
         if not os.path.exists(args.bams):
             raise RuntimeError("ERROR: bamFofn does not exist.")
-        args.bams = [x.rstrip() for x in open(args.bams)]
+        bams = {x.rstrip() for x in open(args.bams)}
+        args.bams = bams
+    for to_remove_list in [args.filterTissues, args.filterCenters]:
+        if isinstance(to_remove_list, list):    
+            to_remove = set()
+            for x in to_remove_list:
+                for b in args.bams:
+                    if x in b:
+                        to_remove.add(b)
+            args.bams = args.bams - to_remove
     s = Stack(Target.makeTargetFn(filter_wrapper, memory=8 * 1024 ** 3,
                                   args=[args.bams, args.database, args.genome, args.fasta]))
     i = s.startJobTree(args)

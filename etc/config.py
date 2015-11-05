@@ -41,10 +41,9 @@ all_classifiers = ref_classifiers + ['AlnExtendsOffContig', 'CodingMult3Deletion
 
 # these classifiers define Pass for Augustus transcripts
 aug_classifiers = ['AugustusParalogy', 'AugustusNotSameStart', 'AugustusNotSameStop',
-                    'AugustusExonGain', 'AugustusNotSameStrand',
+                   'AugustusExonGain', 'AugustusNotSameStrand',
                    'AugustusNotSimilarTerminalExonBoundaries', 'AugustusExonLoss',
                    'AugustusNotSimilarInternalExonBoundaries']
-
 
 # these classifiers define Pass for single-genome analysis
 ref_coding_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
@@ -68,7 +67,7 @@ noncoding_good_classifiers = ["UtrUnknownSplice", "UtrGap"]
 clustering_classifiers = tm_pass_classifiers + ["AlnExtendsOffContig", "CodingMult3Deletions", "Paralogy", 
                                                 "AlnAbutsUnknownBases", "CodingMult3Insertions", "CdsMult3Gap", 
                                                 "SpliceContainsUnknownBases", "UnknownGap", "UnknownBases", 
-                                                "UnknownCdsBases", "UtrGap"]
+                                                "UnknownCdsBases", "UtrGap", "AlignmentPartialMap"]
 
 
 def refClassifiers(genome):

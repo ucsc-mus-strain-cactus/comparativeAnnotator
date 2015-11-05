@@ -112,21 +112,22 @@ def num_good_pass(highest_cov_dict, cur, genomes, ref_genome, out_path, biotype,
     file_name = "{}_num_good_pass".format(gencode)
     results = []
     for g in genomes:
-        good_query = etc.config.transMapEval(ref_genome, g, biotype, good=True)
-        pass_query = etc.config.transMapEval(ref_genome, g, biotype, good=False)
+        #good_query = etc.config.transMapEval(ref_genome, g, biotype, good=True)
+        #pass_query = etc.config.transMapEval(ref_genome, g, biotype, good=False)
         best_ids = {x for x in zip(*highest_cov_dict[g].itervalues())[0] if psl_lib.strip_alignment_numbers(x) in 
                     biotype_ids}
-        good_ids = {x for x in sql_lib.get_query_ids(cur, good_query) if x in best_ids}
-        pass_ids = {x for x in sql_lib.get_query_ids(cur, pass_query) if x in best_ids}
         num_no_aln = len(biotype_ids) - len(best_ids)
-        num_fail = len(best_ids) - len(good_ids)
-        num_good = len(good_ids) - len(pass_ids)
-        num_pass = len(pass_ids)
-        raw = np.array([num_pass, num_good, num_fail, num_no_aln])
+        #good_ids = {x for x in sql_lib.get_query_ids(cur, good_query) if x in best_ids}
+        #pass_ids = {x for x in sql_lib.get_query_ids(cur, pass_query) if x in best_ids}
+        fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, g, biotype)
+        #num_fail = len(best_ids) - len(good_ids)
+        #num_good = len(good_ids) - len(pass_ids)
+        #num_pass = len(pass_ids)
+        raw = np.array([len(pass_ids), len(good_specific_ids), len(fail_ids), num_no_aln])
         norm = raw / (0.01 * len(biotype_ids))
         results.append([g, norm])
     title_string = "Proportion of {:,} {} transcripts in biotype {}\ncategorized as Pass/Good/Fail"
-    title_string = title_string.format(len(biotype_ids), biotype, gencode)
+    title_string = title_string.format(len(biotype_ids), biotype.replace("_", " "), gencode)
     legend_labels = ["Pass", "Good", "Fail", "NoAln"]
     plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
 
@@ -149,7 +150,7 @@ def num_good_pass_gene_level(highest_cov_dict, cur, genome_order, ref_genome, ou
         norm = raw / (0.01 * num_genes)
         results.append([genome, norm])
     title_string = "Proportion of {:,} {} genes in biotype {}\nwith at least one transcript categorized as Pass/Good/Fail"
-    title_string = title_string.format(num_genes, biotype, gencode)
+    title_string = title_string.format(num_genes, biotype.replace("_", " "), gencode)
     legend_labels = ["Pass", "Good", "Fail", "NoAln"]
     plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
 

@@ -41,10 +41,10 @@ def munge_data(d, num_original_introns, filter_set):
     """
     Used to munge input data.
     """
-    d["HasOriginalIntrons"] = d["HasOriginalIntrons"] >= 0.5 * num_original_introns["NumberIntrons"] - 0.5
+    d["HasOriginalIntrons"] = d["HasOriginalIntrons"] > 0.5 * num_original_introns["NumberIntrons"] - 0.5
     m = d.ix[filter_set]
-    s = m.astype(bool)
-    s = s.sum(axis=0)
+    m = m.astype(bool)
+    s = m.sum(axis=0)
     s.sort(ascending=False)
     normed_s = s / (0.01 * len(m))
     drop_low_sums(normed_s, m)

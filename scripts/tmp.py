@@ -21,6 +21,12 @@ ref_aln_dict = psl_lib.get_alignment_dict(ref_psl)
 
 con, cur = sql_lib.attach_databases("/hive/groups/recon/projs/gorilla_eichler/pipeline_data/comparative/susie_3_1/comparativeAnnotation/2015-10-12/GencodeBasicV23", mode="transMap")
 
+genome = 'gorilla'
+ref_genome = 'human'
+biotype = 'protein_coding'
+filter_chroms = ["Y", "chrY"]
+
+
 aln_id = 'ENST00000340001.8-1'
 aln = aln_dict[aln_id]
 t = tx_dict[aln_id]
