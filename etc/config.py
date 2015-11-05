@@ -196,10 +196,12 @@ def refEval(genome):
 def augustusEval(genome):
     query = ("SELECT augustus.'{0}'.AugustusAlignmentId FROM augustus.'{0}' JOIN main.'{0}' ON main.'{0}'.AlignmentId "
              "= augustus.'{0}'.AlignmentId WHERE (AugustusNotSameStart = 0 OR "
-             "(HasOriginalStart = 1 OR StartOutOfFrame = 1)) AND (AugustusNotSameStop = 0 OR HasOriginalStop = 1) AND "
-             "(AugustusExonGain = 0 OR (HasOriginalStart = 1 OR HasOriginalStop = 1)) AND "
-             "(AugustusNotSimilarTerminalExonBoundaries = 0 OR (HasOriginalStart = 1 OR HasOriginalStop = 1 OR "
-             "StartOutOfFrame = 1)) AND AugustusNotSimilarInternalExonBoundaries = 0 AND "
-             "AugustusNotSameStrand = 0 AND AugustusExonLoss = 0 AND AugustusParalogy = 0")
+             "(main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.StartOutOfFrame = 1)) AND "
+             "(AugustusNotSameStop = 0 OR HasOriginalStop = 1) AND "
+             "(AugustusExonGain = 0 OR (main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.HasOriginalStop = 1)) AND "
+             "(AugustusNotSimilarTerminalExonBoundaries = 0 OR "
+             "(main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.HasOriginalStop = 1 OR main.'{0}'.StartOutOfFrame = 1)) "
+             "AND AugustusNotSimilarInternalExonBoundaries = 0 AND AugustusNotSameStrand = 0 AND AugustusExonLoss = 0 "
+             "AND AugustusParalogy = 0")
     query = query.format(genome)
     return query

@@ -154,14 +154,16 @@ def main():
             raise RuntimeError("ERROR: bamFofn does not exist.")
         bams = {x.rstrip() for x in open(args.bams)}
         args.bams = bams
+    else:
+        args.bams = set(args.bams)
     for to_remove_list in [args.filterTissues, args.filterCenters]:
-        if isinstance(to_remove_list, list):    
+        if isinstance(to_remove_list, list):
             to_remove = set()
             for x in to_remove_list:
                 for b in args.bams:
                     if x in b:
                         to_remove.add(b)
-            args.bams = args.bams - to_remove
+            args.bams -= to_remove
     s = Stack(Target.makeTargetFn(filter_wrapper, memory=8 * 1024 ** 3,
                                   args=[args.bams, args.database, args.genome, args.fasta]))
     i = s.startJobTree(args)
