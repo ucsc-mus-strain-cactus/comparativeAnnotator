@@ -19,12 +19,81 @@ aug_dict = seq_lib.get_transcript_dict(aug_gp)
 aln_dict = psl_lib.get_alignment_dict(aln_psl)
 ref_aln_dict = psl_lib.get_alignment_dict(ref_psl)
 
-con, cur = sql_lib.attach_databases("/hive/groups/recon/projs/gorilla_eichler/pipeline_data/comparative/susie_3_1/comparativeAnnotation/2015-10-12/GencodeBasicV23", mode="transMap")
+con, cur = sql_lib.attach_databases("/hive/groups/recon/projs/gorilla_eichler/pipeline_data/comparative/susie_3_1/comparativeAnnotation/2015-10-12/GencodeBasicV23", mode="augustus")
 
 genome = 'gorilla'
 ref_genome = 'human'
 biotype = 'protein_coding'
 filter_chroms = ["Y", "chrY"]
+
+stats = merge_stats(cur, 'gorilla')
+highest_cov_dict = sql_lib.highest_cov_aln(cur, "gorilla")
+highest_cov_ids = set(zip(*highest_cov_dict.itervalues())[0])
+biotype_ids = sql_lib.get_biotype_aln_ids(cur, 'gorilla', 'protein_coding')
+highest_cov_ids &= biotype_ids
+best_stats = {x: y for x, y in stats.iteritems() if psl_lib.remove_augustus_alignment_number(x) in highest_cov_ids}
+best_tm = {x: y for x, y in best_stats.iteritems() if x in highest_cov_ids}
+best_aug = {x: y for x, y in best_stats.iteritems() if psl_lib.remove_augustus_alignment_number(x) in highest_cov_ids and x not in highest_cov_ids}
+r = {"higher_cov": [], "higher_ident": [], "higher_both": [], "worse": []}
+for aug_id in best_aug:
+    aug_cov, aug_ident = best_aug[aug_id]
+    tm_cov, tm_ident = best_tm[psl_lib.remove_augustus_alignment_number(aug_id)]
+    if aug_cov > tm_cov and aug_ident > tm_ident:
+        r["higher_both"].append(aug_id)
+    elif aug_cov > tm_cov:
+        r["higher_cov"].append(aug_id)
+    elif aug_ident > tm_ident:
+        r["higher_ident"].append(aug_id)
+    else:
+        r["worse"].append(aug_id)
+
+
+transcript_gene_map = sql_lib.get_transcript_gene_map(cur, ref_genome, biotype=None, filter_chroms=filter_chroms)
+gene_transcript_map = sql_lib.get_gene_transcript_map(cur, ref_genome, biotype=biotype, filter_chroms=filter_chroms)
+fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
+aug_query = etc.config.augustusEval(genome)
+aug_ids = sql_lib.get_query_ids(cur, aug_query)
+id_names = ["fail_ids", "good_specific_ids", "pass_ids", "aug_ids"]
+id_list = [fail_ids, good_specific_ids, pass_ids, aug_ids]
+data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
+binned_transcripts = find_best_transcripts(data_dict, stats)
+consensus = find_consensus(binned_transcripts, stats)
+aug_cons = {x for x in consensus if 'aug' in x}
+
+look_at_me = {x for x in r["higher_both"] if psl_lib.remove_augustus_alignment_number(x) in fail_ids and x not in aug_cons}
+
+
+def augustusEval(genome):
+    query = ("SELECT augustus.'gorilla'.AugustusAlignmentId FROM augustus_attributes.'{0}' JOIN main.'{0}' ON "
+             "main.'{0}'.AlignmentId = augustus_attributes.'{0}'.AlignmentId JOIN augustus.'{0}' USING "
+             "(AugustusAlignmentId) WHERE (AugustusNotSameStart = 0 OR "
+             "(main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.StartOutOfFrame = 1)) AND "
+             "(AugustusNotSameStop = 0 OR HasOriginalStop = 1) AND "
+             "(AugustusExonGain = 0 OR (main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.HasOriginalStop = 1)) AND "
+             "(AugustusNotSimilarTerminalExonBoundaries = 0 OR "
+             "(main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.HasOriginalStop = 1 OR main.'{0}'.StartOutOfFrame = 1)) "
+             "AND AugustusNotSimilarInternalExonBoundaries = 0 AND AugustusNotSameStrand = 0 AND AugustusExonLoss = 0 "
+             "AND AugustusParalogy = 0")
+    query = query.format(genome)
+    return query
+
+
+"SELECT * FROM augustus_attributes.'{0}' JOIN main.'{0}' ON main.'{0}'.AlignmentId = augustus_attributes.'{0}'.AlignmentId JOIN augustus.'{0}' USING (AugustusAlignmentId)".format('gorilla')
+
+SELECT augustus.'gorilla'.AugustusAlignmentId FROM augustus.'gorilla' JOIN main.'gorilla' ON main.'gorilla'.AlignmentId = augustus.'gorilla'.AlignmentId JOIN main.'human' WHERE (AugustusNotSameStart = 0 OR (main.'gorilla'.HasOriginalStart = 1 OR main.'gorilla'.StartOutOfFrame = 1)) AND (AugustusNotSameStop = 0 OR HasOriginalStop = 1) AND (AugustusExonGain = 0 OR (main.'gorilla'.HasOriginalStart = 1 OR main.'gorilla'.HasOriginalStop = 1)) AND (AugustusNotSimilarTerminalExonBoundaries = 0 OR (main.'gorilla'.HasOriginalStart = 1 OR main.'gorilla'.HasOriginalStop = 1 OR main.'gorilla'.StartOutOfFrame = 1)) AND AugustusNotSimilarInternalExonBoundaries = 0 AND AugustusNotSameStrand = 0 AND AugustusExonLoss = 0 AND AugustusParalogy = 0
+
+("SELECT augustus.'gorilla'.AugustusAlignmentId,augustus_attributes.'gorilla'. FROM augustus.'gorilla' JOIN main.'gorilla' JOIN augustus_stats.'gorilla' "
+ "ON main.'gorilla'.AlignmentId = augustus.'gorilla'.AlignmentId WHERE augustus.'gorilla'.AugustusNotSameStart = 1 AND "
+ "main.'gorilla'.HasOriginalStart = 0 AND augustus.'gorilla'.AugustusParalogy = 0"
+
+"SELECT TranscriptId FROM main.'human' WHERE BeginStart = 1"
+
+aln_id = "ENST00000308744.10-1"
+aln = aln_dict[aln_id]
+t = tx_dict[aln_id]
+a = ref_dict[aln_id[:-2]]
+ref_aln = ref_aln_dict[aln_id[:-2]]
+aug_t = aug_dict["augI1-ENST00000308744.10-1"]
 
 
 aln_id = 'ENST00000340001.8-1'

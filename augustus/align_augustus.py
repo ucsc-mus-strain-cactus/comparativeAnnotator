@@ -47,7 +47,7 @@ def align(target, target_fasta, chunk, ref_fasta, file_tree):
         tmp_gencode = os.path.join(target.getLocalTempDir(), "tmp_gencode")
         fastaWrite(tmp_aug, aug_aln_id, aug_seq)
         fastaWrite(tmp_gencode, gencode_id, gencode_seq)
-        r = popenCatch("blat {} {} -out=psl -noHead /dev/stdout".format(tmp_gencode, tmp_aug))
+        r = popenCatch("blat {} {} -out=psl -noHead /dev/stdout".format(tmp_aug, tmp_gencode))
         r = r.split("\n")[:-3]
         if len(r) == 0:
             results.append([aug_aln_id, aln_id, "0", "0"])

@@ -118,7 +118,7 @@ class CdsGap(AbstractClassifier):
     def rgb(self):
         return self.colors["alignment"]
 
-    def run(self, cds_filter_fn=comp_ann_lib.is_not_cds, mult3=False, skip_n=True):
+    def run(self, cds_filter_fn=comp_ann_lib.is_cds, mult3=False, skip_n=True):
         self.get_fasta()
         for ens_id, a in self.annotation_iterator():
             for intron in a.intron_intervals:
@@ -138,7 +138,7 @@ class CdsMult3Gap(CdsGap):
     def rgb(self):
         return self.colors["mutation"]
 
-    def run(self, cds_filter_fn=comp_ann_lib.is_not_cds, mult3=True, skip_n=True):
+    def run(self, cds_filter_fn=comp_ann_lib.is_cds, mult3=True, skip_n=True):
         CdsGap.run(self, cds_filter_fn, mult3, skip_n)
 
 
@@ -152,7 +152,7 @@ class UtrGap(CdsGap):
     def rgb(self):
         return self.colors["alignment"]
 
-    def run(self, cds_filter_fn=comp_ann_lib.is_cds, mult3=None, skip_n=True):
+    def run(self, cds_filter_fn=comp_ann_lib.is_not_cds, mult3=None, skip_n=True):
         CdsGap.run(self, cds_filter_fn, mult3, skip_n)
 
 
@@ -182,7 +182,7 @@ class CdsNonCanonSplice(AbstractClassifier):
     def rgb(self):
         return self.colors["mutation"]
 
-    def run(self, cds_filter_fn=comp_ann_lib.is_not_cds, splice_dict={"GT": "AG"}):
+    def run(self, cds_filter_fn=comp_ann_lib.is_cds, splice_dict={"GT": "AG"}):
         self.get_fasta()
         for ens_id, a in self.annotation_iterator():
             for intron in a.intron_intervals:
@@ -202,7 +202,7 @@ class CdsUnknownSplice(CdsNonCanonSplice):
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
-    def run(self, cds_filter_fn=comp_ann_lib.is_not_cds, splice_dict={"GT": "AG", "GC": "AG", "AT": "AC"}):
+    def run(self, cds_filter_fn=comp_ann_lib.is_cds, splice_dict={"GT": "AG", "GC": "AG", "AT": "AC"}):
         CdsNonCanonSplice.run(self, cds_filter_fn, splice_dict)
 
 
@@ -214,7 +214,7 @@ class UtrNonCanonSplice(CdsNonCanonSplice):
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
-    def run(self, cds_filter_fn=comp_ann_lib.is_cds, splice_dict={"GT": "AG"}):
+    def run(self, cds_filter_fn=comp_ann_lib.is_not_cds, splice_dict={"GT": "AG"}):
         CdsNonCanonSplice.run(self, cds_filter_fn, splice_dict)
 
 
@@ -226,7 +226,7 @@ class UtrUnknownSplice(CdsNonCanonSplice):
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
-    def run(self, cds_filter_fn=comp_ann_lib.is_cds, splice_dict={"GT": "AG", "GC": "AG", "AT": "AC"}):
+    def run(self, cds_filter_fn=comp_ann_lib.is_not_cds, splice_dict={"GT": "AG", "GC": "AG", "AT": "AC"}):
         CdsNonCanonSplice.run(self, cds_filter_fn, splice_dict)
 
 

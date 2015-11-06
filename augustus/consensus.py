@@ -215,8 +215,7 @@ def evaluate_coding_consensus(binned_transcripts, stats):
 
 def find_consensus(binned_transcripts, stats):
     """
-    Takes the binned transcripts and picks a consensus. Also produces an evaluation dict for this biotype that
-    will be dumped to disk to load and produces pan-genome plots.
+    Takes the binned transcripts and picks a consensus.
     """
     consensus = []
     for gene_id in binned_transcripts:

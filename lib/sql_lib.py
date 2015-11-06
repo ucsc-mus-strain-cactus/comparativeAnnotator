@@ -117,7 +117,7 @@ def get_biotype_aln_ids(cur, genome, biotype):
 
 def get_biotype_ids(cur, ref_genome, biotype, mode="Transcript", filter_chroms=None):
     """
-    Returns a set of transcript_ids which are members of the biotype. Category should be Transcript or Gene.
+    Returns a set of transcript_ids which are members of the biotype. Mode should be Transcript or Gene.
     In gene mode returns the gene_id instead of transcript_id.
     """
     assert mode in ["Transcript", "Gene"]
