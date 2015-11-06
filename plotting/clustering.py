@@ -25,7 +25,7 @@ def build_parser():
     parser.add_argument("--comparativeAnnotationDir", required=True, help="directory containing databases")
     parser.add_argument("--gencode", type=str, required=True, help="current gencode set being analyzed")
     parser.add_argument("--filterChroms", nargs="+", default=["Y", "chrY"], help="chromosomes to ignore")
-    parser.add_argument("--mode", choices=["transMap", "augustus", "reference"], help="transMap/augustus/reference")
+    parser.add_argument("--mode", choices=["transMap", "augustus", "reference"], required=True, help="transMap/augustus/reference")
     return parser
 
 

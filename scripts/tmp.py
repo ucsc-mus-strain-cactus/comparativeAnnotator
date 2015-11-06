@@ -66,7 +66,9 @@ look_at_me = {x for x in r["higher_both"] if psl_lib.remove_augustus_alignment_n
 def augustusEval(genome):
     query = ("SELECT augustus.'gorilla'.AugustusAlignmentId FROM augustus_attributes.'{0}' JOIN main.'{0}' ON "
              "main.'{0}'.AlignmentId = augustus_attributes.'{0}'.AlignmentId JOIN augustus.'{0}' USING "
-             "(AugustusAlignmentId) WHERE (AugustusNotSameStart = 0 OR "
+             "(AugustusAlignmentId) JOIN "
+
+             "WHERE (AugustusNotSameStart = 0 OR "
              "(main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.StartOutOfFrame = 1)) AND "
              "(AugustusNotSameStop = 0 OR HasOriginalStop = 1) AND "
              "(AugustusExonGain = 0 OR (main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.HasOriginalStop = 1)) AND "
@@ -78,13 +80,15 @@ def augustusEval(genome):
     return query
 
 
+
 "SELECT * FROM augustus_attributes.'{0}' JOIN main.'{0}' ON main.'{0}'.AlignmentId = augustus_attributes.'{0}'.AlignmentId JOIN augustus.'{0}' USING (AugustusAlignmentId)".format('gorilla')
 
 SELECT augustus.'gorilla'.AugustusAlignmentId FROM augustus.'gorilla' JOIN main.'gorilla' ON main.'gorilla'.AlignmentId = augustus.'gorilla'.AlignmentId JOIN main.'human' WHERE (AugustusNotSameStart = 0 OR (main.'gorilla'.HasOriginalStart = 1 OR main.'gorilla'.StartOutOfFrame = 1)) AND (AugustusNotSameStop = 0 OR HasOriginalStop = 1) AND (AugustusExonGain = 0 OR (main.'gorilla'.HasOriginalStart = 1 OR main.'gorilla'.HasOriginalStop = 1)) AND (AugustusNotSimilarTerminalExonBoundaries = 0 OR (main.'gorilla'.HasOriginalStart = 1 OR main.'gorilla'.HasOriginalStop = 1 OR main.'gorilla'.StartOutOfFrame = 1)) AND AugustusNotSimilarInternalExonBoundaries = 0 AND AugustusNotSameStrand = 0 AND AugustusExonLoss = 0 AND AugustusParalogy = 0
 
-("SELECT augustus.'gorilla'.AugustusAlignmentId,augustus_attributes.'gorilla'. FROM augustus.'gorilla' JOIN main.'gorilla' JOIN augustus_stats.'gorilla' "
- "ON main.'gorilla'.AlignmentId = augustus.'gorilla'.AlignmentId WHERE augustus.'gorilla'.AugustusNotSameStart = 1 AND "
- "main.'gorilla'.HasOriginalStart = 0 AND augustus.'gorilla'.AugustusParalogy = 0"
+("SELECT augustus.'gorilla'.AugustusAlignmentId,augustus_attributes.'gorilla'. FROM augustus.'gorilla' "
+ "JOIN main.'gorilla' JOIN augustus_stats.'gorilla' ON main.'gorilla'.AlignmentId = augustus.'gorilla'.AlignmentId "
+ "WHERE augustus.'gorilla'.AugustusNotSameStart = 1 AND main.'gorilla'.HasOriginalStart = 0 AND "
+ "augustus.'gorilla'.AugustusParalogy = 0"
 
 "SELECT TranscriptId FROM main.'human' WHERE BeginStart = 1"
 

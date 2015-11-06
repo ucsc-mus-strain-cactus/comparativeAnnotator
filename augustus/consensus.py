@@ -237,7 +237,7 @@ def consensus_by_biotype(cur, ref_genome, genome, biotype, transcript_gene_map, 
     fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
     # hacky way to avoid duplicating code in consensus finding - we will always have an aug_id set, it just may be empty
     if biotype == "protein_coding":
-        aug_query = etc.config.augustusEval(genome)
+        aug_query = etc.config.augustusEval(genome, ref_genome)
         aug_ids = sql_lib.get_query_ids(cur, aug_query)
     else:
         aug_ids = set()

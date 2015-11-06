@@ -193,15 +193,17 @@ def refEval(genome):
     return query
 
 
-def augustusEval(genome):
-    query = ("SELECT augustus.'{0}'.AugustusAlignmentId FROM augustus.'{0}' JOIN main.'{0}' ON main.'{0}'.AlignmentId "
-             "= augustus.'{0}'.AlignmentId WHERE (AugustusNotSameStart = 0 OR "
-             "(main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.StartOutOfFrame = 1)) AND "
-             "(AugustusNotSameStop = 0 OR HasOriginalStop = 1) AND "
-             "(AugustusExonGain = 0 OR (main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.HasOriginalStop = 1)) AND "
-             "(AugustusNotSimilarTerminalExonBoundaries = 0 OR "
-             "(main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.HasOriginalStop = 1 OR main.'{0}'.StartOutOfFrame = 1)) "
-             "AND AugustusNotSimilarInternalExonBoundaries = 0 AND AugustusNotSameStrand = 0 AND AugustusExonLoss = 0 "
-             "AND AugustusParalogy = 0")
-    query = query.format(genome)
+def augustusEval(genome, ref_genome):
+    query = ("SELECT augustus.'{0}'.AugustusAlignmentId FROM attributes.'{1}' JOIN main.'{1}' USING (TranscriptId) "
+             "JOIN attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) JOIN "
+             "augustus_attributes.'{0}' ON main.'{0}'.AlignmentId = augustus_attributes.'{0}'.AlignmentId JOIN "
+             "augustus.'{0}' USING (AugustusAlignmentId) WHERE (AugustusNotSameStart = 0 OR "
+             "(main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.StartOutOfFrame = 1 OR main.'{0}'.BadFrame = 1 OR "
+             "main.'{1}'.BeginStart = 1)) AND (AugustusNotSameStop = 0 OR (main.'{0}'.HasOriginalStop = 1 OR "
+             "main.'{0}'.BadFrame = 1 OR main.'{1}'.EndStop = 1)) AND (AugustusNotSimilarTerminalExonBoundaries = 0 "
+             "OR (attributes.'{0}'.AlignmentCoverage < 95.0 OR main.'{0}'.UtrGap > 3)) AND "
+             "(AugustusNotSimilarInternalExonBoundaries = 0 OR (main.'{0}'.CdsGap > 3 OR main.'{0}'.UtrGap > 3 OR "
+             "main.'{1}'.CdsUnknownSplice > 0 OR main.'{1}'.UtrUnknownSplice > 0))  AND AugustusNotSameStrand = 0 AND "
+             "AugustusExonLoss = 0 AND AugustusParalogy = 0")
+    query = query.format(genome, ref_genome)
     return query
