@@ -70,7 +70,8 @@ def categorized_plot(cur, highest_cov_dict, genomes, out_path, file_name, biotyp
         best_ids = set(zip(*highest_cov_dict[g].itervalues())[0])
         query = query_fn(g, biotype, details=False)
         categorized_ids = sql_lib.get_query_ids(cur, query)
-        num_categorized = len({x for x in categorized_ids if x in best_ids})
+        num_categorized = len({x for x in categorized_ids if x in best_ids and 
+                               psl_lib.remove_alignment_number(x) in biotype_ids})
         norm = num_categorized / (0.01 * len(biotype_ids))
         results.append([g, norm, num_categorized])
     title_string = "Proportion of {:,} {} transcripts in biotype {}\ncategorized as {}"

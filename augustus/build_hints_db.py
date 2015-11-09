@@ -44,23 +44,37 @@ def get_tmp(target, global_dir=False, name=None):
         return os.path.join(target.getGlobalTempDir(), name)
 
 
+def filter_wrapper(target, bam_paths, db_path, genome, genome_fasta):
+    file_tree = TempFileTree(os.path.join(target.getGlobalTempDir(), "filter_file_tree"))
+    for p in bam_paths:
+        target.addChildTargetFn(filter_bam, memory=8 * 1024 ** 3, cpu=2,
+                                args=[p, file_tree])
+    wig_path = get_tmp(target, global_dir=True, name="wig_path")
+    target.setFollowOnTargetFn(merge_bam_to_wig, memory=32 * 1024 ** 3, cpu=16,
+                               args=[file_tree, wig_path, db_path, genome, genome_fasta])
+
+
 def filter_bam(target, path, file_tree):
     paired = "--paired --pairwiseAlignments" if bam_is_paired(path) is True else ""
-    cmd = ("samtools sort -O bam -T {} -n {} | filterBam --uniq {} --in /dev/stdin --out /dev/stdout | samtools sort "
-           "-O bam -T {} - > {}")
-    bam_path = file_tree.getTempFile(suffix="bam")
-    cmd = cmd.format(get_tmp(target), path, paired, get_tmp(target), bam_path)
+    cmd = "samtools sort -O bam -T {} -n {} | filterBam --uniq {} --in /dev/stdin --out {}"
+    bam_path = file_tree.getTempFile(suffix=".bam")
+    cmd = cmd.format(get_tmp(target), path, paired, bam_path)
     system(cmd)
+    assert os.path.getsize(bam_path) > 10000, (path, bam_path)
     system("samtools index {}".format(bam_path))
 
 
 def merge_bam_to_wig(target, file_tree, wig_path, db_path, genome, genome_fasta):
     bam_files = [x for x in file_tree.listFiles() if x.endswith("bam")]
-    fofn_path = os.path.join(target.getGlobalTempDir(), "fofn")
-    with open(fofn_path, "w") as fofn:
-        for x in bam_files:
-            fofn.write(x + "\n")
-    cmd = "bamtools merge -list {} | bam2wig /dev/stdin > {}".format(fofn_path, wig_path)
+    header_path = get_tmp(target, global_dir=True, name="header.sam")
+    cat_path = get_tmp(target, global_dir=True, name="cat.bam")
+    cmd = "samtools view -H {} > {}".format(bam_files[0], header_path)
+    system(cmd)
+    bam_files_str = " ".join(bam_files) # TODO: make this smart, use a tree
+    cmd = "samtools cat -h {} {} > {}".format(header_path, bam_files_str, cat_path)
+    system(cmd)
+    tmp_bam = get_tmp(target)
+    cmd = "samtools sort -O bam -T {} {} | bam2wig /dev/stdin > {}".format(tmp_bam, cat_path, wig_path)
     system(cmd)
     exon_gff_path = get_tmp(target, global_dir=True, name="exon_hints.gff")
     intron_gff_path = get_tmp(target, global_dir=True, name="intron_hints.gff")
@@ -81,7 +95,7 @@ def bam_2_hints_wrapper(target, bam_files, intron_gff_path, genome_fasta):
     intron_hints_tree = TempFileTree(os.path.join(target.getGlobalTempDir(), "intron_hints_tree"))
     tmp_bam_tree = TempFileTree(os.path.join(target.getGlobalTempDir(), "tmp_bam_tree"))
     fasta = Fasta(genome_fasta)
-    if len(fasta.keys()) > 1000:
+    if len(fasta.keys()) > 250:
         keys = chunker(fasta.keys(), 250)
     else:
         keys = fasta.keys()
@@ -127,15 +141,6 @@ def load_db(target, hints_file, db_path, genome, genome_fasta):
     hints_cmd = cmd.format(genome, db_path, hints_file)
     system(hints_cmd)
 
-
-def filter_wrapper(target, bam_paths, db_path, genome, genome_fasta):
-    file_tree = TempFileTree(os.path.join(target.getGlobalTempDir(), "filter_file_tree"))
-    for p in bam_paths:
-        target.addChildTargetFn(filter_bam, memory=8 * 1024 ** 3, cpu=2,
-                                args=[p, file_tree])
-    wig_path = get_tmp(target, global_dir=True, name="wig_path")
-    target.setFollowOnTargetFn(merge_bam_to_wig, memory=8 * 1024 ** 3, cpu=2,
-                               args=[file_tree, wig_path, db_path, genome, genome_fasta])
 
 def main():
     parser = argparse.ArgumentParser()

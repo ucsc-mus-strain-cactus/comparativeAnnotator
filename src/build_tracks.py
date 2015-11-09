@@ -147,7 +147,7 @@ def build_good_track(target, args):
     con, cur = sql_lib.attach_databases(args.outDir, args.mode)
     biotype_map = sql_lib.get_transcript_biotype_map(cur, args.refGenome)
     if args.mode == "augustus":
-        query = etc.config.augustusEval(args.genome)
+        query = etc.config.augustusEval(args.genome, args.refGenome)
         good_ids = sql_lib.get_query_ids(cur, query)
         out_good_bed_path, out_good_big_bed_path = get_bed_paths(args.outDir, "augustus", args.genome)
         gp_dict = seq_lib.get_transcript_dict(args.augustusGp)

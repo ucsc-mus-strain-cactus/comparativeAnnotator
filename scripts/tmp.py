@@ -50,8 +50,9 @@ for aug_id in best_aug:
 
 transcript_gene_map = sql_lib.get_transcript_gene_map(cur, ref_genome, biotype=None, filter_chroms=filter_chroms)
 gene_transcript_map = sql_lib.get_gene_transcript_map(cur, ref_genome, biotype=biotype, filter_chroms=filter_chroms)
+stats = merge_stats(cur, 'gorilla')
 fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
-aug_query = etc.config.augustusEval(genome)
+aug_query = etc.config.augustusEval(genome, ref_genome)
 aug_ids = sql_lib.get_query_ids(cur, aug_query)
 id_names = ["fail_ids", "good_specific_ids", "pass_ids", "aug_ids"]
 id_list = [fail_ids, good_specific_ids, pass_ids, aug_ids]
@@ -60,15 +61,30 @@ binned_transcripts = find_best_transcripts(data_dict, stats)
 consensus = find_consensus(binned_transcripts, stats)
 aug_cons = {x for x in consensus if 'aug' in x}
 
-look_at_me = {x for x in r["higher_both"] if psl_lib.remove_augustus_alignment_number(x) in fail_ids and x not in aug_cons}
+
+
+transcript_evaluation = OrderedDict((x, []) for x in ["PassTM", "PassAug", "PassTie", "GoodTM", "GoodAug", "GoodTie",
+                                                     "FailTM", "FailAug", "FailTie", "NoTransMap"])
+
+
+
+for gene_id in binned_transcripts:
+    categories = set()
+    for ens_id in binned_transcripts[gene_id]:
+        best_id, category, tie = binned_transcripts[gene_id][ens_id]
+        categories.add(category)
+        s = evaluate_transcript(best_id, category, tie)
+        transcript_evaluation[s].append(best_id)
+
+
+tie_ids = set(transcript_evaluation["FailTie"])
+look_at_me = {x for x in r["higher_both"] if psl_lib.remove_augustus_alignment_number(x) in fail_ids and x not in aug_cons and x not in tie_ids}
 
 
 def augustusEval(genome):
     query = ("SELECT augustus.'gorilla'.AugustusAlignmentId FROM augustus_attributes.'{0}' JOIN main.'{0}' ON "
              "main.'{0}'.AlignmentId = augustus_attributes.'{0}'.AlignmentId JOIN augustus.'{0}' USING "
-             "(AugustusAlignmentId) JOIN "
-
-             "WHERE (AugustusNotSameStart = 0 OR "
+             "(AugustusAlignmentId) WHERE (AugustusNotSameStart = 0 OR "
              "(main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.StartOutOfFrame = 1)) AND "
              "(AugustusNotSameStop = 0 OR HasOriginalStop = 1) AND "
              "(AugustusExonGain = 0 OR (main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.HasOriginalStop = 1)) AND "
@@ -80,15 +96,19 @@ def augustusEval(genome):
     return query
 
 
+query1 = "SELECT * FROM augustus_attributes.'{0}' JOIN main.'{0}' ON main.'{0}'.AlignmentId = augustus_attributes.'{0}'.AlignmentId JOIN augustus.'{0}' USING (AugustusAlignmentId)".format('gorilla')
+df1 = pd.read_sql(query1, con, index_col="AugustusAlignmentId")
 
-"SELECT * FROM augustus_attributes.'{0}' JOIN main.'{0}' ON main.'{0}'.AlignmentId = augustus_attributes.'{0}'.AlignmentId JOIN augustus.'{0}' USING (AugustusAlignmentId)".format('gorilla')
+
+query2 = "SELECT * FROM attributes.'{0}' JOIN main.'{0}' ON main.'{0}'.AlignmentId = attributes.'{0}'.AlignmentId".format('gorilla')
+df2 = pd.read_sql(query2, con, index_col="AlignmentId")
+
 
 SELECT augustus.'gorilla'.AugustusAlignmentId FROM augustus.'gorilla' JOIN main.'gorilla' ON main.'gorilla'.AlignmentId = augustus.'gorilla'.AlignmentId JOIN main.'human' WHERE (AugustusNotSameStart = 0 OR (main.'gorilla'.HasOriginalStart = 1 OR main.'gorilla'.StartOutOfFrame = 1)) AND (AugustusNotSameStop = 0 OR HasOriginalStop = 1) AND (AugustusExonGain = 0 OR (main.'gorilla'.HasOriginalStart = 1 OR main.'gorilla'.HasOriginalStop = 1)) AND (AugustusNotSimilarTerminalExonBoundaries = 0 OR (main.'gorilla'.HasOriginalStart = 1 OR main.'gorilla'.HasOriginalStop = 1 OR main.'gorilla'.StartOutOfFrame = 1)) AND AugustusNotSimilarInternalExonBoundaries = 0 AND AugustusNotSameStrand = 0 AND AugustusExonLoss = 0 AND AugustusParalogy = 0
 
-("SELECT augustus.'gorilla'.AugustusAlignmentId,augustus_attributes.'gorilla'. FROM augustus.'gorilla' "
- "JOIN main.'gorilla' JOIN augustus_stats.'gorilla' ON main.'gorilla'.AlignmentId = augustus.'gorilla'.AlignmentId "
- "WHERE augustus.'gorilla'.AugustusNotSameStart = 1 AND main.'gorilla'.HasOriginalStart = 0 AND "
- "augustus.'gorilla'.AugustusParalogy = 0"
+("SELECT augustus.'gorilla'.AugustusAlignmentId,augustus_attributes.'gorilla'. FROM augustus.'gorilla' JOIN main.'gorilla' JOIN augustus_stats.'gorilla' "
+ "ON main.'gorilla'.AlignmentId = augustus.'gorilla'.AlignmentId WHERE augustus.'gorilla'.AugustusNotSameStart = 1 AND "
+ "main.'gorilla'.HasOriginalStart = 0 AND augustus.'gorilla'.AugustusParalogy = 0"
 
 "SELECT TranscriptId FROM main.'human' WHERE BeginStart = 1"
 

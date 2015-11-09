@@ -25,7 +25,7 @@ def build_parser():
     parser.add_argument("--comparativeAnnotationDir", required=True, help="directory containing databases")
     parser.add_argument("--gencode", type=str, required=True, help="current gencode set being analyzed")
     parser.add_argument("--filterChroms", nargs="+", default=["Y", "chrY"], help="chromosomes to ignore")
-    parser.add_argument("--mode", choices=["transMap", "augustus", "reference"], required=True, help="transMap/augustus/reference")
+    parser.add_argument("--mode", choices=["transMap", "augustus", "reference"], help="transMap/augustus/reference")
     return parser
 
 
@@ -100,7 +100,8 @@ def main_fn(target, comp_ann_path, gencode, genome, ref_genome, base_out_path, f
 
 def main_augustus_fn(target, comp_ann_path, gencode, genome, base_out_path, filter_chroms):
     clust_title = "Hierarchical_clustering_of_augustus_classifiers"
-    base_barplot_title = ("Augustus classifiers failed by {:,} transcripts in the reference set {}\n")
+    base_barplot_title = ("Augustus classifiers failed by {:,} transcripts derived from transMap\n"
+                          "on the reference set {} with Augustus {}")
     out_path = os.path.join(base_out_path, "augustus_classifier_breakdown", genome)
     mkdir_p(out_path)
     con, cur = sql_lib.attach_databases(comp_ann_path, mode="augustus")
@@ -108,15 +109,19 @@ def main_augustus_fn(target, comp_ann_path, gencode, genome, base_out_path, filt
     highest_cov_ids = set(zip(*highest_cov_dict.itervalues())[0])
     sql_data = sql_lib.load_data(con, genome, etc.config.aug_classifiers, primary_key="AugustusAlignmentId", 
                                  table="augustus")
-    filter_set = {x for x in sql_data.index if psl_lib.remove_augustus_alignment_number(x) in highest_cov_ids}
-    out_barplot_file = os.path.join(out_path, "augustus_barplot_{}_{}".format(genome, gencode))
-    barplot_title = base_barplot_title.format(len(filter_set), gencode)
-    munged, stats = munge_data(sql_data, filter_set)
-    plot_lib.barplot(stats, out_path, out_barplot_file, barplot_title)
-    data_path = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString())
-    munged.to_csv(data_path)
-    out_cluster_file = os.path.join(out_path, "augustus_clustering_{}_{}".format(genome, gencode))
-    target.addChildTargetFn(r_wrapper, args=[data_path, clust_title, out_cluster_file])
+    base_filter_set = {x for x in sql_data.index if psl_lib.remove_augustus_alignment_number(x) in highest_cov_ids}
+    for mode in ["1", "2"]:
+        i = "I{}".format(mode)
+        aug_mode = "trusting RNAseq more" if mode == "2" else "trusting RNAseq less"
+        filter_set = {x for x in base_filter_set if i in x}
+        out_barplot_file = os.path.join(out_path, "augustus_barplot_{}_{}_{}".format(genome, gencode, i))
+        barplot_title = base_barplot_title.format(len(filter_set), gencode, aug_mode)
+        munged, stats = munge_data(sql_data, filter_set)
+        plot_lib.barplot(stats, out_path, out_barplot_file, barplot_title)
+        data_path = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString())
+        munged.to_csv(data_path)
+        out_cluster_file = os.path.join(out_path, "augustus_clustering_{}_{}_{}".format(genome, gencode, i))
+        target.addChildTargetFn(r_wrapper, args=[data_path, clust_title, out_cluster_file])
 
 
 def main_ref_fn(target, comp_ann_path, gencode, ref_genome, base_out_path, filter_chroms):

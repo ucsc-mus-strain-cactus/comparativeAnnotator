@@ -76,10 +76,10 @@ def find_best_alns(stats, ids, cov_cutoff=95.0):
     for aln_id in ids:
         cov, ident = stats[aln_id]
         # round to avoid floating point issues when finding ties
-        cov = round(cov, 3)
-        ident = round(ident, 3)
+        cov = round(cov, 6)
+        ident = round(ident, 6)
         s.append([aln_id, cov, ident])
-    s = sorted(s, key=lambda x:[0], reverse=True)
+    s = sorted(s, key=lambda x: x[0], reverse=True)
     # first we see if any transcripts pass cov_cutoff, if so we pick them based on best identity
     best_ident = sorted(s, key=lambda x: x[2], reverse=True)[0][2]
     best_overall = [x[0] for x in s if x[1] >= cov_cutoff and x[2] >= best_ident]
