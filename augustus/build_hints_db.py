@@ -33,6 +33,10 @@ def bam_is_paired(path, num_reads=100000, paired_cutoff=0.75):
 
 
 def main_hints_fn(target, bam_paths, db_path, genome, genome_fasta):
+    """
+    Main driver function. Loops over each BAM, inferring paired-ness, then passing each BAM with one chromosome name
+    for filtering. Each BAM will remain separated until the final concatenation and sorting of the hint gffs.
+    """
     filtered_bam_tree = TempFileTree(get_tmp(target, global_dir=True, name="filter_file_tree"))
     for bam_path in bam_paths:
         paired = "--paired --pairwiseAlignments" if bam_is_paired(bam_path) is True else ""
@@ -45,7 +49,10 @@ def main_hints_fn(target, bam_paths, db_path, genome, genome_fasta):
 
 
 def sort_by_name(target, bam_path, references, out_filter, paired):
-    assert references 
+    """
+    Slices out a chromosome from a BAM, re-sorts by name, filters the reads, then re-sorts by position.
+    filterBam does weird things when piped to stdout, so I don't do that.
+    """
     references = " ".join(references)
     tmp_filtered = get_tmp(target, name=".filtered.bam")
     cmd = "samtools view -b {} {} | samtools sort -O bam -T {} -n - | filterBam --uniq {} --in /dev/stdin --out {}"
@@ -56,8 +63,12 @@ def sort_by_name(target, bam_path, references, out_filter, paired):
     system("samtools index {}".format(out_filter))
 
 
-def build_hints(target, filtered_bam_tree, genome, db_path, genome_fasta):
-    bam_files = [x for x in file_tree.listFiles() if x.endswith("bam")]
+def build_hints(target, filtered_bam_tree, genome, db_path, genome_fasta, cat_cpu=10):
+    """
+    Driver function for hint building. Builts intron and exon hints, then calls cat_hints to do final concatenation
+    and sorting.
+    """
+    bam_files = [x for x in filtered_bam_tree.listFiles() if x.endswith("bam")]
     intron_hints_tree = TempFileTree(get_tmp(target, global_dir=True, name="intron_hints_tree"))
     exon_hints_tree = TempFileTree(get_tmp(target, global_dir=True, name="exon_hints_tree"))
     for bam_file in bam_files:
@@ -65,10 +76,13 @@ def build_hints(target, filtered_bam_tree, genome, db_path, genome_fasta):
         target.addChildTargetFn(build_intron_hints, memory=8 * 1024 ** 3, cpu=2, args=[bam_file, intron_hints_path])
         exon_hints_path = intron_hints_tree.getTempFile(suffix=".exon.gff")
         target.addChildTargetFn(build_exon_hints, memory=8 * 1024 ** 3, cpu=2, args=[bam_file, exon_hints_path])
-    target.setFollowOnTargetFn(cat_hints, args[intron_hints_tree, exon_hints_tree, genome, db_path, genome_fasta])
+    target.setFollowOnTargetFn(cat_hints, args=[intron_hints_tree, exon_hints_tree, genome, db_path, genome_fasta])
 
 
 def build_exon_hints(target, bam_file, exon_gff_path):
+    """
+    Exon hints are built from peaks of coverage, using bam2wig and wig2hints.pl in the Augustus repo.
+    """
     cmd = ('bam2wig {} | wig2hints.pl --width=10 --margin=10 --minthresh=2 --minscore=4 --prune=0.1 --src=W --type=ep '
            '--UCSC=/dev/null --radius=4.5 --pri=4 --strand="." > {}')
     cmd = cmd.format(bam_file, exon_gff_path)
@@ -76,21 +90,42 @@ def build_exon_hints(target, bam_file, exon_gff_path):
 
 
 def build_intron_hints(target, bam_file, intron_hints_path):
+    """
+    Intron hints look for splice junctions in BAM files
+    """
     cmd = "bam2hints --intronsonly --in {} --out {}"
     cmd = cmd.format(bam_file, intron_hints_path)
     system(cmd)
 
 
 def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db_path, genome_fasta):
+    """
+    All intron and exon hint gff files are concatenated and then sorted.
+    """
     all_gffs = intron_hints_tree.listFiles() + exon_hints_tree.listFiles()
+    # we use a fofn to side-step cat's inability to handle long input strings
+    gff_fofn = get_tmp(target, name="gff_fofn")
+    with open(gff_fofn, "w") as outf:
+        for x in all_gffs:
+            outf.write(x + "\n")
+    # TODO: remove this debugging code
+    #concat_hints = get_tmp(target, name="concat_hints")
+    concat_hints = genome + ".hints.gff"
+    cat_cmd = "cat {} | xargs -n 50 cat >> {}".format(gff_fofn, concat_hints)
+    system(cat_cmd)
     hints = get_tmp(target, global_dir=True, name="combined_sorted_hints.gff")
+    # TODO: this takes forever. Surely this can be merged into one better sort command
     cmd = "cat {} | sort -n -k4,4 | sort -s -n -k5,5 | sort -s -n -k3,3 | sort -s -k1,1 | join_mult_hints.pl > {}"
-    cmd = cmd.format(all_gffs, hints)
+    cmd = cmd.format(concat_hints, hints)
     system(cmd)
     target.setFollowOnTargetFn(load_db, args=[hints, db_path, genome, genome_fasta])
 
 
 def load_db(target, hints, db_path, genome, genome_fasta):
+    """
+    Final database loading.
+    NOTE: Once done on all genomes, you want to run load2sqlitedb --makeIdx --dbaccess ${db}
+    """
     cmd = "load2sqlitedb --noIdx --species={} --dbaccess={} {}"
     fa_cmd = cmd.format(genome, db_path, genome_fasta)
     system(fa_cmd)
@@ -110,6 +145,7 @@ def main():
     bamfiles.add_argument("--bamFofn", help="File containing list of bamfiles", dest="bams")
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
+    # below is an ugly hack to filter out tissues/centers by checking for the words in the file path
     if not isinstance(args.bams, list):
         if not os.path.exists(args.bams):
             raise RuntimeError("ERROR: bamFofn does not exist.")
