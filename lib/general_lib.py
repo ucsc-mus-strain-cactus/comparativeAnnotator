@@ -3,8 +3,10 @@ General purpose library of things.
 """
 import os
 import gzip
+import string
 import operator
 import itertools
+import random
 import types
 import errno
 from collections import OrderedDict, Callable, namedtuple
@@ -114,6 +116,16 @@ def functions_in_module(module):
     ]
 
 
+def tokenize_stream(stream):
+    """
+    Iterator through a tab delimited file, returning lines as list of tokens
+    """
+    for line in stream:
+        if line != '' and not line.startswith("#"):
+            tokens = line.rstrip().split("\t")
+            yield tokens
+
+
 def format_ratio(numerator, denominator):
     """
     Convenience function that converts two numbers, integer or no, to a ratio
@@ -128,16 +140,6 @@ def combine_dicts(a, b, op=operator.add):
     http://stackoverflow.com/questions/11011756/is-there-any-pythonic-way-to-combine-two-dicts-adding-values-for-keys-that-appe
     """
     return dict(a.items() + b.items() + [(k, op(a[k], b[k])) for k in b.viewkeys() & a.viewkeys()])
-
-
-def tokenize_stream(stream):
-    """
-    Iterator through a tab delimited file, returning lines as list of tokens
-    """
-    for line in stream:
-        if line != '' and not line.startswith("#"):
-            tokens = line.rstrip().split("\t")
-            yield tokens
 
 
 def dict_to_named_tuple(d, name):
@@ -160,3 +162,29 @@ def flatten_list_of_lists(l):
 
 def flatten_defaultdict_list(d):
     return {k: flatten_list_of_lists(v) for k, v in d.iteritems()}
+
+
+def grouper(iterable, size):
+    """
+    http://stackoverflow.com/questions/434287/what-is-the-most-pythonic-way-to-iterate-over-a-list-in-chunks
+    """
+    it = iter(iterable)
+    chunk = tuple(itertools.islice(it, size))
+    while chunk:
+        yield chunk
+        chunk = tuple(itertools.islice(it, size))
+
+
+def get_tmp(target, global_dir=False, name=None):
+    prefix = get_random_string(10)
+    name = "".join([prefix, name]) if name is not None else prefix
+    if global_dir is False:
+        return os.path.join(target.getLocalTempDir(), name)
+    else:
+        return os.path.join(target.getGlobalTempDir(), name)
+
+
+def get_random_string(length=10, chars=string.ascii_letters):
+    """Returns a random alpha numeric string of the given length.
+    """
+    return ''.join([random.choice(chars) for _ in  xrange(length)])

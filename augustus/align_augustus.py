@@ -4,7 +4,7 @@ import pandas as pd
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from lib.psl_lib import PslRow, remove_augustus_alignment_number, remove_alignment_number
-from lib.general_lib import tokenize_stream
+from lib.general_lib import tokenize_stream, grouper
 from sonLib.bioio import fastaWrite, popenCatch, TempFileTree, catFiles
 from pyfaidx import Fasta
 from lib.general_lib import format_ratio
@@ -28,10 +28,6 @@ def identity(p_list):
     ident = 100 * format_ratio(m + rep, m + rep + mi + ins)
     assert ident <= 100
     return ident
-
-
-def chunker(seq, size):
-    return (seq[pos:pos + size] for pos in xrange(0, len(seq), size))
 
 
 def align(target, target_fasta, chunk, ref_fasta, file_tree):
@@ -62,7 +58,7 @@ def align(target, target_fasta, chunk, ref_fasta, file_tree):
 def align_augustus(target, genome, ref_fasta, target_fasta, target_fasta_index, out_dir):
     file_tree = TempFileTree(target.getGlobalTempDir())
     aug_aln_ids = [x.split()[0] for x in open(target_fasta_index)]
-    for chunk in chunker(aug_aln_ids, 200):
+    for chunk in grouper(aug_aln_ids, 200):
         target.addChildTargetFn(align, args=[target_fasta, chunk, ref_fasta, file_tree])
     target.setFollowOnTargetFn(cat, args=(genome, file_tree, out_dir))
 

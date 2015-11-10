@@ -7,7 +7,7 @@ import os
 import pysam
 import argparse
 from pyfaidx import Fasta
-from lib.general_lib import format_ratio
+from lib.general_lib import format_ratio, get_tmp
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, popenCatch, getRandomAlphaNumericString, catFiles, TempFileTree
@@ -32,113 +32,69 @@ def bam_is_paired(path, num_reads=100000, paired_cutoff=0.75):
         raise RuntimeError("Unable to infer pairing from bamfile {}".format(path))
 
 
-def chunker(seq, size):
-    return (seq[pos:pos + size] for pos in xrange(0, len(seq), size))
+def main_hints_fn(target, bam_paths, db_path, genome, genome_fasta):
+    filtered_bam_tree = TempFileTree(get_tmp(target, global_dir=True, name="filter_file_tree"))
+    for bam_path in bam_paths:
+        paired = "--paired --pairwiseAlignments" if bam_is_paired(bam_path) is True else ""
+        sam_handle = pysam.Samfile(bam_path)
+        for reference in sam_handle.references:
+            out_filter = filtered_bam_tree.getTempFile(suffix=".bam")
+            target.addChildTargetFn(sort_by_name, memory=8 * 1024 ** 3, cpu=2, 
+                                    args=[bam_path, reference, out_filter, paired])
+    target.setFollowOnTargetFn(build_hints, args=[filtered_bam_tree, genome, db_path, genome_fasta])
 
 
-def get_tmp(target, global_dir=False, name=None):
-    name = getRandomAlphaNumericString(10) if name is None else name
-    if global_dir is False:
-        return os.path.join(target.getLocalTempDir(), name)
-    else:
-        return os.path.join(target.getGlobalTempDir(), name)
-
-
-def filter_wrapper(target, bam_paths, db_path, genome, genome_fasta):
-    file_tree = TempFileTree(os.path.join(target.getGlobalTempDir(), "filter_file_tree"))
-    for p in bam_paths:
-        target.addChildTargetFn(filter_bam, memory=8 * 1024 ** 3, cpu=2,
-                                args=[p, file_tree])
-    wig_path = get_tmp(target, global_dir=True, name="wig_path")
-    target.setFollowOnTargetFn(merge_bam_to_wig, memory=32 * 1024 ** 3, cpu=16,
-                               args=[file_tree, wig_path, db_path, genome, genome_fasta])
-
-
-def filter_bam(target, path, file_tree):
-    paired = "--paired --pairwiseAlignments" if bam_is_paired(path) is True else ""
-    cmd = "samtools sort -O bam -T {} -n {} | filterBam --uniq {} --in /dev/stdin --out {}"
-    bam_path = file_tree.getTempFile(suffix=".bam")
-    cmd = cmd.format(get_tmp(target), path, paired, bam_path)
+def sort_by_name(target, bam_path, references, out_filter, paired):
+    assert references 
+    references = " ".join(references)
+    tmp_filtered = get_tmp(target, name=".filtered.bam")
+    cmd = "samtools view -b {} {} | samtools sort -O bam -T {} -n - | filterBam --uniq {} --in /dev/stdin --out {}"
+    cmd = cmd.format(bam_path, references, get_tmp(target), paired, tmp_filtered)
     system(cmd)
-    assert os.path.getsize(bam_path) > 10000, (path, bam_path)
-    system("samtools index {}".format(bam_path))
+    cmd2 = "samtools sort -O bam -T {} {} > {}".format(get_tmp(target), tmp_filtered, out_filter)
+    system(cmd2)
+    system("samtools index {}".format(out_filter))
 
 
-def merge_bam_to_wig(target, file_tree, wig_path, db_path, genome, genome_fasta):
+def build_hints(target, filtered_bam_tree, genome, db_path, genome_fasta):
     bam_files = [x for x in file_tree.listFiles() if x.endswith("bam")]
-    header_path = get_tmp(target, global_dir=True, name="header.sam")
-    cat_path = get_tmp(target, global_dir=True, name="cat.bam")
-    cmd = "samtools view -H {} > {}".format(bam_files[0], header_path)
-    system(cmd)
-    bam_files_str = " ".join(bam_files) # TODO: make this smart, use a tree
-    cmd = "samtools cat -h {} {} > {}".format(header_path, bam_files_str, cat_path)
-    system(cmd)
-    tmp_bam = get_tmp(target)
-    cmd = "samtools sort -O bam -T {} {} | bam2wig /dev/stdin > {}".format(tmp_bam, cat_path, wig_path)
-    system(cmd)
-    exon_gff_path = get_tmp(target, global_dir=True, name="exon_hints.gff")
-    intron_gff_path = get_tmp(target, global_dir=True, name="intron_hints.gff")
-    target.addChildTargetFn(wig_2_hints, memory=8 * 1024 ** 3, cpu=2,
-                            args=[wig_path, exon_gff_path])
-    target.addChildTargetFn(bam_2_hints_wrapper, args=[bam_files, intron_gff_path, genome_fasta])
-    target.setFollowOnTargetFn(cat_hints, args=[exon_gff_path, intron_gff_path, db_path, genome, genome_fasta])
+    intron_hints_tree = TempFileTree(get_tmp(target, global_dir=True, name="intron_hints_tree"))
+    exon_hints_tree = TempFileTree(get_tmp(target, global_dir=True, name="exon_hints_tree"))
+    for bam_file in bam_files:
+        intron_hints_path = intron_hints_tree.getTempFile(suffix=".intron.gff")
+        target.addChildTargetFn(build_intron_hints, memory=8 * 1024 ** 3, cpu=2, args=[bam_file, intron_hints_path])
+        exon_hints_path = intron_hints_tree.getTempFile(suffix=".exon.gff")
+        target.addChildTargetFn(build_exon_hints, memory=8 * 1024 ** 3, cpu=2, args=[bam_file, exon_hints_path])
+    target.setFollowOnTargetFn(cat_hints, args[intron_hints_tree, exon_hints_tree, genome, db_path, genome_fasta])
 
 
-def wig_2_hints(target, wig_path, exon_gff_path):
-    cmd = ('cat {} | wig2hints.pl --width=10 --margin=10 --minthresh=2 --minscore=4 --prune=0.1 --src=W --type=ep '
+def build_exon_hints(target, bam_file, exon_gff_path):
+    cmd = ('bam2wig {} | wig2hints.pl --width=10 --margin=10 --minthresh=2 --minscore=4 --prune=0.1 --src=W --type=ep '
            '--UCSC=/dev/null --radius=4.5 --pri=4 --strand="." > {}')
-    cmd = cmd.format(wig_path, exon_gff_path)
+    cmd = cmd.format(bam_file, exon_gff_path)
     system(cmd)
 
 
-def bam_2_hints_wrapper(target, bam_files, intron_gff_path, genome_fasta):
-    intron_hints_tree = TempFileTree(os.path.join(target.getGlobalTempDir(), "intron_hints_tree"))
-    tmp_bam_tree = TempFileTree(os.path.join(target.getGlobalTempDir(), "tmp_bam_tree"))
-    fasta = Fasta(genome_fasta)
-    if len(fasta.keys()) > 250:
-        keys = chunker(fasta.keys(), 250)
-    else:
-        keys = fasta.keys()
-    for f in bam_files:
-        for chroms in keys:
-            target.addChildTargetFn(bam_2_hints, memory=8 * 1024 ** 3, cpu=2, 
-                                    args=[f, intron_hints_tree, chroms])
-    target.setFollowOnTargetFn(cat_bam_2_hints, memory=8 * 1024 ** 3, cpu=4,
-                                args=[intron_hints_tree, intron_gff_path])
-
-
-def bam_2_hints(target, bam_file, intron_hints_tree, chroms):
-    chroms = " ".join(chroms)
-    f = intron_hints_tree.getTempFile(suffix="hints")
-    tmp = get_tmp(target, name="tmp.bam")
-    slice_cmd = "samtools view -b {} {} > {}"
-    slice_cmd = slice_cmd.format(bam_file, chroms, tmp)
-    system(slice_cmd)
-    system("samtools index {}".format(tmp))
+def build_intron_hints(target, bam_file, intron_hints_path):
     cmd = "bam2hints --intronsonly --in {} --out {}"
-    cmd = cmd.format(tmp, f)
+    cmd = cmd.format(bam_file, intron_hints_path)
     system(cmd)
 
 
-def cat_bam_2_hints(target, intron_hints_tree, intron_gff_path):
-    combined_bam_hints = get_tmp(target, global_dir=True, name="combined_bam_hints")
-    combined = catFiles(intron_hints_tree.listFiles(), combined_bam_hints)
+def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db_path, genome_fasta):
+    all_gffs = intron_hints_tree.listFiles() + exon_hints_tree.listFiles()
+    hints = get_tmp(target, global_dir=True, name="combined_sorted_hints.gff")
     cmd = "cat {} | sort -n -k4,4 | sort -s -n -k5,5 | sort -s -n -k3,3 | sort -s -k1,1 | join_mult_hints.pl > {}"
-    cmd = cmd.format(combined_bam_hints, intron_gff_path)
+    cmd = cmd.format(all_gffs, hints)
     system(cmd)
+    target.setFollowOnTargetFn(load_db, args=[hints, db_path, genome, genome_fasta])
 
 
-def cat_hints(target, exon_gff_path, intron_gff_path, db_path, genome, genome_fasta):
-    hints_file = get_tmp(target, global_dir=True, name="hints_file")
-    system("cat {} {} > {}".format(exon_gff_path, intron_gff_path, hints_file))
-    target.setFollowOnTargetFn(load_db, args=[hints_file, db_path, genome, genome_fasta])
-
-
-def load_db(target, hints_file, db_path, genome, genome_fasta):
+def load_db(target, hints, db_path, genome, genome_fasta):
     cmd = "load2sqlitedb --noIdx --species={} --dbaccess={} {}"
     fa_cmd = cmd.format(genome, db_path, genome_fasta)
     system(fa_cmd)
-    hints_cmd = cmd.format(genome, db_path, hints_file)
+    hints_cmd = cmd.format(genome, db_path, hints)
     system(hints_cmd)
 
 
@@ -169,7 +125,7 @@ def main():
                     if x in b:
                         to_remove.add(b)
             args.bams -= to_remove
-    s = Stack(Target.makeTargetFn(filter_wrapper, memory=8 * 1024 ** 3,
+    s = Stack(Target.makeTargetFn(main_hints_fn, memory=8 * 1024 ** 3,
                                   args=[args.bams, args.database, args.genome, args.fasta]))
     i = s.startJobTree(args)
     if i != 0:
