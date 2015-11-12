@@ -108,9 +108,7 @@ def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db_path, genom
     with open(gff_fofn, "w") as outf:
         for x in all_gffs:
             outf.write(x + "\n")
-    # TODO: remove this debugging code
-    #concat_hints = get_tmp(target, name="concat_hints")
-    concat_hints = genome + ".hints.gff"
+    concat_hints = get_tmp(target, name="concat_hints")
     cat_cmd = "cat {} | xargs -n 50 cat >> {}".format(gff_fofn, concat_hints)
     system(cat_cmd)
     hints = get_tmp(target, global_dir=True, name="combined_sorted_hints.gff")
