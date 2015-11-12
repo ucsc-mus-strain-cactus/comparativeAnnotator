@@ -62,23 +62,46 @@ consensus = find_consensus(binned_transcripts, stats)
 aug_cons = {x for x in consensus if 'aug' in x}
 
 
-
 transcript_evaluation = OrderedDict((x, []) for x in ["PassTM", "PassAug", "PassTie", "GoodTM", "GoodAug", "GoodTie",
                                                      "FailTM", "FailAug", "FailTie", "NoTransMap"])
-
-
-
+gene_evaluation = OrderedDict((x, []) for x in ["Pass", "Good", "Fail", "NoTransMap"])
+gene_fail_evaluation = OrderedDict((x, []) for x in ["Fail", "NoTransMap"])
 for gene_id in binned_transcripts:
     categories = set()
     for ens_id in binned_transcripts[gene_id]:
         best_id, category, tie = binned_transcripts[gene_id][ens_id]
         categories.add(category)
         s = evaluate_transcript(best_id, category, tie)
-        transcript_evaluation[s].append(best_id)
+        transcript_evaluation[s].append(ens_id)
+    s = evaluate_gene(categories)
+    gene_evaluation[s].append(gene_id)
+    if s == "Fail":
+        best_for_gene = find_best_for_gene(binned_transcripts[gene_id], stats)
+        s = evaluate_best_for_gene(best_for_gene)
+        gene_fail_evaluation[s].append(gene_id)
 
+highest_covs = sql_lib.highest_cov_aln(cur, genome)
+highest_cov_map = {x: y[0] for x, y in highest_covs.iteritems()}
 
-tie_ids = set(transcript_evaluation["FailTie"])
-look_at_me = {x for x in r["higher_both"] if psl_lib.remove_augustus_alignment_number(x) in fail_ids and x not in aug_cons and x not in tie_ids}
+gene_fail_ids = set(gene_fail_evaluation["Fail"])
+transcript_fail_ids = []
+for x in gene_fail_ids:
+    t_ids = gene_transcript_map[x]
+    for t_id in t_ids:
+        if t_id in highest_cov_map:
+            a_id = highest_cov_map[t_id]
+            transcript_fail_ids.append(a_id)
+
+df = pd.read_sql("Select AlignmentId,{} FROM main.'gorilla'".format(",".join(etc.config.all_classifiers)), con, index_col="AlignmentId")
+df2 = df.ix[transcript_fail_ids]
+gene_ids = {n: transcript_gene_map[psl_lib.strip_alignment_numbers(n)] for n in df2.index}
+df3 = df2.copy()
+df3["GeneId"] = pd.Series(gene_ids)
+df3.to_csv("failed_gene_classifiers.tsv", sep="\t")
+
+no_tm_ids = set(transcript_evaluation["NoTransMap"])
+no_tm_genes = {n: transcript_gene_map[psl_lib.strip_alignment_numbers(n)] for n in no_tm_ids}
+
 
 
 def augustusEval(genome):

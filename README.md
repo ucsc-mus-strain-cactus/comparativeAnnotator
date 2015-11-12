@@ -1,58 +1,76 @@
-TODO: THIS IS OUT OF DATE
+# comparativeAnnotator
 
-# comparative annotation pipeline
+This pipeline attempts to classify and diagnose transcripts mapped over to target genomes using transMap. These transcripts are then cleaned up using a special form of Augustus, and finally a consensus gene set is produced.
 
-This pipeline is used to create comparative annotation of aligned whole genomes. It does this by taking a set of target genomes and one reference genome whose annotations will be mapped over, then checked for correctness. An assemblyHub is produced automatically to visualize the results.
-
-
-# INSTALLATION
-To install this program, you need the following things.
-1. sqlite3 in your path with version 3.8.7.4 or above
-2. The python package `pyfaidx` which can be gotten through pip
+See the main pipeline repo https://github.com/ucsc-mus-strain-cactus/pipeline
 
 
-`annotation-database-constructor` constructs `sqlite3` databases from alignments and BED/genePred files from the `transmap` and `gene-check` pipeline. Thus, the input for each genome is:
+# DEPENDENCIES
 
-1. PSL of alignments where the query is a transcript and the target is the genome the annotations are being transferred to.
-2. BED file representing the `transmap` output where the automatically annotated new transcript is.
+1. sqlite3 with >= 3.8.7.4
+2. python with the following packages: `pyfaidx`, `matplotlib`, `numpy`, `pandas`
+3. R with the package `pvclust` (if you want to cluster classifiers)
 
-In addition, an attributes file mapping the unique transcript ID names to attributes such as common gene name is used.
-
-Note that these PSLs/BED files should be uniquely keyed, meaning that alignments should have a unique number added to it.
-
-Given these inputs, and 2bit files representing source and target *genome*, this pipeline constructs three complementary databases:
-
-1. **classify** - this database has values of 1 for True and 0 for False in all cells. Represents boolean classifications of each transcript alignment for the categories below.
-2. **details** - this database has the same columns as classify, but with details represented as a string of BED records.
-3. **attributes** - this database stores attributes about the transcripts such as their gene name.
-
-If you want to add more classifiers, add them to the `classifiers.py` script in src/.
+For the full pipeline, you will also need the full Kent code base.
 
 
-1. CodingInsertions - are there insertions that are not a multiple of 3 in coding sequence?
-2. CodingMult3Insertions - same as CodingInsertions, but only multiples of 3.
-3. CodingDeletions - are there deletions that are not a multiple of 3 in coding sequence?
-4. CodingMult3Deletions - same as CodingDeletions, but only multiples of 3.
-5. Rearrangements - looks for jumps in PSL coordinates that are indicative of rearrangements. This is defined as a indel happening and then the coordinates going the other direction.
-6. FrameMismatch - Frameshifts are caused by coding indels that are not a multiple of 3.
-7. AlignmentAbutsLeft - does this alignment hit or overlap with the left edge of a assembly scaffold in the target genome?
-8. AlignmentAbutsRight - does this alignment hit or overlap with the right edge of a assembly scaffold in the target genome?
-9. AlignmentPartialMap - Does the query transcript NOT map entirely?
-10. BadFrame - is the CDS a multiple of 3?
-11. EndStop - does the CDS start with 'ATG'?
-12. CdsGap - does there exist an intron between CDS exons that is too short? Too short is currently defined as <=30bp. Only reports such gaps if they are not a multiple of 3.
-13. CdsMult3Gap - same as CdsGap but reports only multiples of 3.
-14. UtrGap - same as CdsGap, but for UTR introns.
-15. CdsUnknownSplice - does there exist a intron beween CDS whose splice sites do not fit one of the known sites, `GT..AG`, `GC..AG`, `AT..AC`?
-19. CdsNonCanonSplice - does there exist a intron beween CDS whose splice sites do not fit the canonical splice site, `GT..AG`?
-16. UtrUnknownSplice - does there exist a intron beween non-coding exons whose splice sites do not fit one of the known sites, `GT..AG`, `GC..AG`, `AT..AC`?
-17. UtrNonCanonSplice - does there exist a intron beween non-coding exons whose splice sites do not fit the canonical splice site, `GT..AG`?
-18. EndStop - does the CDS end with a stop codon? ('TAA', 'TGA', 'TAG')
-19. InFrameStop - is there a stop codon within the coding frame?
-20. NoCds - is there no annotated CDS?
-21. ScaffoldGap - Does this alignment span a scaffold gap (represented as 100 Ns)?
-22. UnknownBases - Are there Ns in the alignment?
-23. UnknownCdsBases - same as UnknownBases, but only if the Ns are in the CDS is this true.
-24. Nonsynonymous - looks for nonsynonymous mutations. Does not report mutations in frameshifted regions.
-25. Synonymous - looks for synonymous mutations. Does not report mutations in frameshifted regions.
-26. Paralogy - Does this query transcript have more than one target alignment?
+# INFORMATION
+
+`comparativeAnnotator` constructs `sqlite3` databases from transMap results, attempting to diagnose issues with the transcripts. See the pipeline repo for the makefile wrappers that drive this program.
+
+This pipeline produces a total of 3 databases in transMap mode, and an additional 3 in Augustus mode:
+
+1. **classify** - This database contains the results of the classifiers described below.
+2. **details** - This database has the same columns as classify, but with details represented as a string of BED records. These records will be loaded into the final assemblyHub.
+3. **attributes** - this database stores attributes about the transcripts such as their gene name as well as some alignment metrics.
+
+See the file etc/config.py for some example queries against these databases that are used to both determine the quality of a transcript as well as attempt to bin transcripts as likely having problems related to alignment or assembly.
+
+# CLASSIFIERS
+Each classifier is binary unless stated otherwise.
+
+Reference classifiers. These classifiers do not depend on an alignment and so can be run against any single gene set + genome.
+
+1. StartOutOfFrame - is the first coding base out of frame, as defined by the genePred exonFrames field?
+2. BadFrame - is the lifted over CDS both longer than 25 amino acids and not a multiple of 3?
+3. BeginStart - are the first 3 CDS bases 'ATG'?
+4. EndStop - are the last 3 CDS bases one of 'TAA', 'TGA', 'TAG'?
+5. CdsGap - are any of the CDS introns shorter than or equal to 30bp and are not a multiple of 3? Reports the number of such gaps.
+6. CdsMult3Gap - are any of the CDS introns shorter than or equal to 30bp and are a multiple of 3? Reports the number of such gaps.
+7. UtrGap - are any of the non-CDS introns shorter than or equal to 30bp? Reports the number of such gaps.
+8. UnknownGap - are any of the introns shorter than or equal to 30bp, and do these introns contain Ns? Reports the number of such gaps.
+9. CdsNonCanonSplice - are any of the CDS introns longer than 30bp and not of the canonical form 'GT:AG'? Reports the number of such introns.
+10. CdsUnknownSplice - are any of the CDS introns longer than 30bp and not of any of the canonical or non-canonical splice sites ('AG:GC', 'GC:AG', 'AT:AC')? Reports the number of such introns.
+11. CdsNonCanonSplice - are any of the non-CDS introns longer than 30bp and not of the canonical form 'GT:AG'? Reports the number of such introns.
+12. CdsUnknownSplice - are any of the non-CDS introns longer than 30bp and not of any of the canonical or non-canonical splice sites ('AG:GC', 'GC:AG', 'AT:AC')? Reports the number of such introns.
+13. SpliceContainsUnknownBases - are any of the introns longer than 30bp and have a unknown base in either the donor or acceptor sequence? Reports the number of such introns.
+14. InFrameStop - in the frame the transcript is supposed to have (taking into account exonFrames), are there any in frame stop codons? Reports the number of in frame stops.
+15. ShortCds - is the lifted over CDS shorter than or equal to 25 amino acids?
+16. UnknownBases - how many bases in the lifted over mRNA sequence are Ns?
+17. UnknownCdsBases - how many bases in the lifted over CDS are Ns?
+
+Alignment classifiers. These classifiers rely on having a PSL mapping between a source and target transcript, as produced by transMap.
+18. AlnExtendsOffContig - does the alignment go off the end of a contig? This is defined as the source transcript having unaligned portions while the alignment hits the edge of the contig.
+19. AlnAbutsUnknownBases - does the 5' or 3' end of the transcript touch Ns?
+20. HasOriginalIntrons - how many original intron boundaries (in transcript space) are not present in this lifted over transcript? This classifier looks at where the source transcript had splice sites in mRNA coordinates and compares this to the splice sites in the lifted over transcript. Reports the number of missing introns.
+21. CodingInsertions - does the alignment introduce insertions to the target genome that are not a multiple of 3? Only evaluates transcripts with at least 25 amino acids. Reports the number of insertions.
+22. CodingMult3Insertions - does the alignment introduce insertions to the target genome that are a multiple of 3? Only evalutes transcripts with at least 25 amino acids. Reports the number of insertions.
+23. CodingDeletions - does the alignment introduce deletions to the target genome that are not a multiple of 3? Only evalutes transcripts with at least 25 amino acids. Reports the number of deletions.
+24. CodingMult3Deletions - does the alignment introduce deletions to the target genome that are a multiple of 3? Only evalutes transcripts with at least 25 amino acids. Reports the number of deletions.
+25. FrameShift - are there non multiple of 3 indels that lead to frameshifts? In details mode, attempts to determine if frame is restored by a subsequent indel. Reports the number of frame shifts.
+26. AlignmentPartialMap - does the source transcript not map over entirely?
+27. HasOriginalStart - based on the alignment, is the lifted over start codon aligned to the source start codon? This will be false when an incomplete alignment extends past the UTR to the CDS.
+28. HasOriginalStop - based on the alignment, is the lifted over stop codon aligned to the source stop codon?
+29. Nonsynonymous - are there any nonsynonymous changes in this transcript? Reports the number of nonsynonymous changes.
+30. Synonymous - are there any synonymous changes in this transcript? Reports the number of synoynmous changes.
+31. Paralogy - did transMap map this transcript to more than one place? Reports the number of extra alignments (n-1).
+
+Augustus classifiers. These classifiers apply to transcripts resulting from AugustusTMR.
+32. AugustusNotSameStrand - did augustusTMR produce a transcript on the same strand as the source transcript?
+33. AugustusParalogy - did augustusTMR produce exactly one transcript for this source transcript?
+34. AugustusExonGain - did augustusTMR add new exons relative to the source transcript?
+35. AugustusExonLoss - did augustusTMR remove any exons?
+36. AugustusNotSimilarInternalExonBoundaries - did augustus move any internal exons more than 30bp, after merging any transMap alignment gaps shorter than 50bp?
+37. AugustusNotSimilarTerminalExonBoundaries - did augustus move any terminal exon boundaries more than 200bp, after merging any transMap alignment gaps shorter than 100bp?
+38. AugustusNotSameStart - does the augustusTMR transcript have the exact same CDS start coordinates?
+39. AugustusNotSameStop - does the augustusTMR transcript have the exact same CDS stop coordinates?
