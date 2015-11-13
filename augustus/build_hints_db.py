@@ -32,7 +32,7 @@ def bam_is_paired(path, num_reads=100000, paired_cutoff=0.75):
         raise RuntimeError("Unable to infer pairing from bamfile {}".format(path))
 
 
-def main_hints_fn(target, bam_paths, db_path, genome, genome_fasta):
+def main_hints_fn(target, bam_paths, db_path, genome, genome_fasta, hints_dir):
     """
     Main driver function. Loops over each BAM, inferring paired-ness, then passing each BAM with one chromosome name
     for filtering. Each BAM will remain separated until the final concatenation and sorting of the hint gffs.
@@ -45,7 +45,7 @@ def main_hints_fn(target, bam_paths, db_path, genome, genome_fasta):
             out_filter = filtered_bam_tree.getTempFile(suffix=".bam")
             target.addChildTargetFn(sort_by_name, memory=8 * 1024 ** 3, cpu=2, 
                                     args=[bam_path, reference, out_filter, paired])
-    target.setFollowOnTargetFn(build_hints, args=[filtered_bam_tree, genome, db_path, genome_fasta])
+    target.setFollowOnTargetFn(build_hints, args=[filtered_bam_tree, genome, db_path, genome_fasta, hints_dir])
 
 
 def sort_by_name(target, bam_path, references, out_filter, paired):
@@ -63,7 +63,7 @@ def sort_by_name(target, bam_path, references, out_filter, paired):
     system("samtools index {}".format(out_filter))
 
 
-def build_hints(target, filtered_bam_tree, genome, db_path, genome_fasta, cat_cpu=10):
+def build_hints(target, filtered_bam_tree, genome, db_path, genome_fasta, hints_dir):
     """
     Driver function for hint building. Builts intron and exon hints, then calls cat_hints to do final concatenation
     and sorting.
@@ -76,7 +76,8 @@ def build_hints(target, filtered_bam_tree, genome, db_path, genome_fasta, cat_cp
         target.addChildTargetFn(build_intron_hints, memory=8 * 1024 ** 3, cpu=2, args=[bam_file, intron_hints_path])
         exon_hints_path = intron_hints_tree.getTempFile(suffix=".exon.gff")
         target.addChildTargetFn(build_exon_hints, memory=8 * 1024 ** 3, cpu=2, args=[bam_file, exon_hints_path])
-    target.setFollowOnTargetFn(cat_hints, args=[intron_hints_tree, exon_hints_tree, genome, db_path, genome_fasta])
+    target.setFollowOnTargetFn(cat_hints, args=[intron_hints_tree, exon_hints_tree, genome, db_path, genome_fasta,
+                                                hints_dir])
 
 
 def build_exon_hints(target, bam_file, exon_gff_path):
@@ -98,7 +99,7 @@ def build_intron_hints(target, bam_file, intron_hints_path):
     system(cmd)
 
 
-def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db_path, genome_fasta):
+def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db_path, genome_fasta, hints_dir):
     """
     All intron and exon hint gff files are concatenated and then sorted.
     """
@@ -111,7 +112,7 @@ def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db_path, genom
     concat_hints = get_tmp(target, name="concat_hints")
     cat_cmd = "cat {} | xargs -n 50 cat >> {}".format(gff_fofn, concat_hints)
     system(cat_cmd)
-    hints = get_tmp(target, global_dir=True, name="combined_sorted_hints.gff")
+    hints = os.path.join(hints_dir, genome + ".reduced_hints.gff")
     # TODO: this takes forever. Surely this can be merged into one better sort command
     cmd = "cat {} | sort -n -k4,4 | sort -s -n -k5,5 | sort -s -n -k3,3 | sort -s -k1,1 | join_mult_hints.pl > {}"
     cmd = cmd.format(concat_hints, hints)
@@ -135,6 +136,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--genome", required=True)
     parser.add_argument("--database", required=True)
+    parser.add_argument("--hintsDir", required=True)
     parser.add_argument("--fasta", required=True)
     parser.add_argument("--filterTissues", nargs="+")
     parser.add_argument("--filterCenters", nargs="+")
@@ -160,7 +162,7 @@ def main():
                         to_remove.add(b)
             args.bams -= to_remove
     s = Stack(Target.makeTargetFn(main_hints_fn, memory=8 * 1024 ** 3,
-                                  args=[args.bams, args.database, args.genome, args.fasta]))
+                                  args=[args.bams, args.database, args.genome, args.fasta, args.hintsDir]))
     i = s.startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
