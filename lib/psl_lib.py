@@ -106,6 +106,10 @@ class PslRow(object):
                                   self.matches + self.repmatches + self.mismatches + self.q_num_insert)
 
     @property
+    def target_coverage(self):
+        return 100 * format_ratio(self.matches + self.mismatches + self.repmatches, self.t_size)
+
+    @property
     def percent_n(self):
         return 100 * format_ratio(self.n_count, self.q_size)
 

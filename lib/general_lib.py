@@ -143,6 +143,9 @@ def combine_dicts(a, b, op=operator.add):
 
 
 def dict_to_named_tuple(d, name):
+    """
+    Converts a dict to a named tuple, whose name is name.
+    """
     return namedtuple(name, d.keys())(**d)
 
 
@@ -176,6 +179,9 @@ def grouper(iterable, size):
 
 
 def get_tmp(target, global_dir=False, name=None):
+    """
+    Wrapper functionality for getting temp dirs from jobTree. 
+    """
     prefix = get_random_string(10)
     name = "".join([prefix, name]) if name is not None else prefix
     if global_dir is False:
@@ -185,6 +191,7 @@ def get_tmp(target, global_dir=False, name=None):
 
 
 def get_random_string(length=10, chars=string.ascii_letters):
-    """Returns a random alpha numeric string of the given length.
     """
-    return ''.join([random.choice(chars) for _ in  xrange(length)])
+    Returns a random alpha numeric string of the given length.
+    """
+    return ''.join([random.choice(chars) for _ in xrange(length)])

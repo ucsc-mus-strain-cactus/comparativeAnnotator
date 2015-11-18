@@ -556,7 +556,7 @@ class GenePredTranscript(Transcript):
     Then they will be stored so we don't slice the same thing over and over.
     """
     # adding slots for new fields
-    __slots__ = ('cds_start_stat', 'cds_end_stat', 'exon_frames')
+    __slots__ = ('cds_start_stat', 'cds_end_stat', 'exon_frames', 'name2', 'id')
 
     def __init__(self, gene_pred_tokens):
         # Text genePred fields
@@ -571,6 +571,8 @@ class GenePredTranscript(Transcript):
         self.stop = int(gene_pred_tokens[4])
         self.rgb = "128,0,0"  # no RGB in genePred files
         # genePred specific fields
+        self.id = gene_pred_tokens[10]
+        self.name2 = gene_pred_tokens[11]
         self.cds_start_stat = gene_pred_tokens[12]
         self.cds_end_stat = gene_pred_tokens[13]
         self.exon_frames = [int(x) for x in gene_pred_tokens[14].split(",") if x != ""]
@@ -799,17 +801,14 @@ class ChromosomeInterval(object):
     def __len__(self):
         return abs(self.stop - self.start)
 
-    def __cmp__(self, other):
-        """
-        compares this chromosome interval to another
-        """
-        if None == other:
-            return 1
-        start_cmp = cmp(self.start, other.start)
-        if start_cmp != 0:
-            return start_cmp
-        else:
-            return cmp(self.stop, other.stop)
+    def __hash__(self):
+        return (hash(self.chromosome) ^ hash(self.start) ^ hash(self.stop) ^ hash(self.strand) ^
+                hash((self.chromosome, self.start, self.stop, self.strand)))
+
+    def __eq__(self, other):
+        return (isinstance(other, type(self)) and 
+                (self.chromosome, self.start, self.stop, self.strand) ==
+                    (other.chromosome, other.start, other.stop, other.strand))
 
     def __contains__(self, other):
         return self.start <= other < self.stop

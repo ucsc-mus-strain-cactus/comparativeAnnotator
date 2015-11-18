@@ -165,6 +165,7 @@ aug_dict = seq_lib.get_transcript_dict(aug_gp)
 aln_dict = psl_lib.get_alignment_dict(aln_psl)
 ref_aln_dict = psl_lib.get_alignment_dict(ref_psl)
 seq_dict = seq_lib.get_sequence_dict(target_fasta)
+ref_seq_dict = seq_lib.get_sequence_dict(ref_fasta)
 con, cur = sql_lib.attach_databases("/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509/comparativeAnnotation/2015-10-12/GencodeCompVM7", mode="augustus")
 
 

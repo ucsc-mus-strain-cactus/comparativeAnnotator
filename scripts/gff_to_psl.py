@@ -9,6 +9,8 @@ import argparse
 from collections import defaultdict
 from lib.general_lib import tokenize_stream
 
+__author__ = "Ian Fiddes"
+
 
 class IndelRecord(object):
     __slots__ = ["chromosome", "category", "start", "end", "size"]

@@ -39,14 +39,19 @@ def attach_database(con, path, name):
     con.execute("ATTACH DATABASE '{}' AS {}".format(path, name))
 
 
-def attach_databases(comp_ann_path, mode, timeout=1200):
+def open_database(path, timeout=1200):
+    con = sql.connect(path, timeout=timeout)
+    cur = con.cursor()
+    return con, cur
+
+
+def attach_databases(comp_ann_path, mode):
     """
     Attaches all of the databases needed for this execution mode.
     """
     assert mode in ["reference", "augustus", "transMap"]
     classify_path = os.path.join(comp_ann_path, "classify.db")
-    con = sql.connect(classify_path, timeout=timeout)
-    cur = con.cursor()
+    con, cur = open_database(classify_path)
     details_path = os.path.join(comp_ann_path, "details.db")
     attach_database(con, details_path, "details")
     attr_path = os.path.join(comp_ann_path, "attributes.db")
