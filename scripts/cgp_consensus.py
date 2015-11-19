@@ -21,13 +21,14 @@ __author__ = "Ian Fiddes"
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cgpDb", required=True)
+    parser.add_argument("--cgpDb", default="cgp_cds_metrics.db")
     parser.add_argument("--cgpGp", required=True)
-    parser.add_argument("--consensusProteinCodingGp", required=True)
+    parser.add_argument("--consensusGp", required=True)
     parser.add_argument("--compAnnPath", required=True)
     parser.add_argument("--intronBitsPath", required=True)
     parser.add_argument("--genome", required=True)
-    parser.add_argument("--outDir", required=True)
+    parser.add_argument("--refGenome", required=True)
+    parser.add_argument("--outGp", required=True)
     parser.add_argument("--metricsOutDir", required=True)
     return parser.parse_args()
 
@@ -129,18 +130,19 @@ def find_new_transcripts(cgp_dict, final_consensus, metrics):
         if 'jg' in cgp_tx.name2:
             final_consensus[cgp_id] = cgp_tx
             jg_genes.add(cgp_id.split(".")[0])
-    metrics["CgpNewGenes"] = len(jg_genes)
-    metrics["CgpNewTranscripts"] = len(final_consensus)
+    metrics["CgpAdditions"] = {"CgpNewGenes": len(jg_genes), "CgpNewTranscripts": len(final_consensus)}
 
 
 def build_final_consensus(consensus_dict, replace_map, new_isoforms, final_consensus):
     """
-    Builds the final consensus gene set given the replace map as well as the new isoforms.
+    Builds the final consensus gene set given the replace map as well as the new isoforms. Deduplicates.
     """
+    seen_ids = set()  # used to deduplicate the results
     for consensus_id, consensus_tx in consensus_dict.iteritems():
-        if consensus_id in replace_map:
+        if consensus_id in replace_map and consensus_id not in seen_ids:
+            seen_ids.add(consensus_id)
             cgp_tx = replace_map[consensus_id]
-            cgp_tx.id = cgp_id
+            cgp_tx.id = cgp_tx.name
             cgp_tx.name = consensus_id
             final_consensus[consensus_id] = cgp_tx
         else:
@@ -169,8 +171,7 @@ def update_transcripts(cgp_dict, consensus_dict, cur, genome, gene_transcript_ma
         elif determine_if_new_introns(cgp_id, cgp_tx, ens_ids, consensus_dict, gene_transcript_map, intron_dict):
             new_isoforms.append(cgp_tx)
     # calculate some metrics for plots once all genomes are analyzed
-    metrics["CgpReplaceRate"] = len(replace_map)
-    metrics["CgpCollapseRate"] = len(set(replace_map.itervalues()))
+    metrics["CgpReplace"] = {"CgpReplaceRate": len(replace_map), "CgpCollapseRate": len(set(replace_map.itervalues()))}
     metrics["NewIsoforms"] = len(new_isoforms)
     build_final_consensus(consensus_dict, replace_map, new_isoforms, final_consensus)
 
@@ -181,10 +182,10 @@ def main():
     con, cur = sql_lib.attach_databases(args.compAnnPath, mode="reference")
     gene_transcript_map = sql_lib.get_gene_transcript_map(cur, args.refGenome, biotype="protein_coding")
     # open CGP database -- we don't need comparativeAnnotator databases anymore
-    con, cur = sql_lib.open_database(args.cgpDb)
-    consensus_base_path = os.path.join(args.outDir, args.genome)
+    cgp_db = os.path.join(args.compAnnPath, args.cgpDb)
+    con, cur = sql_lib.open_database(cgp_db)
     # load both consensus and CGP into dictionaries
-    consensus_dict = seq_lib.get_transcript_dict(args.consensusProteinCodingGp)
+    consensus_dict = seq_lib.get_transcript_dict(args.consensusGp)
     cgp_dict = seq_lib.get_transcript_dict(args.cgpGp)
     # load the intron bits
     intron_dict = load_intron_bits(args.intronBitsPath)
@@ -195,14 +196,14 @@ def main():
     find_new_transcripts(cgp_dict, final_consensus, metrics)
     # remove all such transcripts from the cgp dict before we evaluate for updating
     cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in final_consensus}
-    update_transcripts(cgp_dict, consensus_dict, cur, genome, gene_transcript_map, intron_dict, final_consensus, 
+    update_transcripts(cgp_dict, consensus_dict, cur, args.genome, gene_transcript_map, intron_dict, final_consensus, 
                        metrics)
     # write results out to disk
-    with open(os.path.join(args.outDir, args.genome + ".CGP.consensus.gp"), "w") as outf:
-        for tx_id, tx in final_consensus.iteritems():
-            outf.write("\t".join(map(str, tx.get_bed())) + "\n")
     with open(os.path.join(args.metricsOutDir, args.genome + ".metrics.pickle"), "w") as outf:
         pickle.dump(metrics, outf)
+    with open(args.outGp, "w") as outf:
+        for tx_id, tx in final_consensus.iteritems():
+            outf.write("\t".join(map(str, tx.get_bed())) + "\n")
 
 
 if __name__ == "__main__":

@@ -29,6 +29,7 @@ def load_evaluations(work_dir, genomes):
     tx_evals = OrderedDict()
     gene_evals = OrderedDict()
     gene_fail_evals = OrderedDict()
+    tx_dup_rate = OrderedDict()
     for genome in genomes:
         p = os.path.join(work_dir, genome)
         with open(p) as inf:
@@ -36,7 +37,8 @@ def load_evaluations(work_dir, genomes):
         tx_evals[genome] = r["transcript"]
         gene_evals[genome] = r["gene"]
         gene_fail_evals[genome] = r["gene_fail"]
-    return tx_evals, gene_evals, gene_fail_evals
+        tx_dup_rate[genome] = r["duplication_rate"]
+    return tx_evals, gene_evals, gene_fail_evals, tx_dup_rate
 
 
 def munge_data(data_dict, norm=False):
@@ -73,13 +75,22 @@ def gene_fail_plot(gene_fail_evals, out_path, gencode):
     plot_lib.stacked_unequal_barplot(results, categories, out_path, out_name, title, ylabel="Number of genes")
 
 
+def dup_rate_plot(tx_dup_rate, out_path, gencode):
+    results = list(tx_dup_rate.iteritems())
+    base_title = "Number of duplicate transcripts in consensus before de-duplication\nfrom annotation set {}"
+    title = base_title.format(gencode)
+    out_name = "{}_{}_coding_consensus".format(gencode, "DuplicationRate")
+    plot_lib.unequal_barplot(results, out_path, out_name, title)
+
+
 def main():
     args = parse_args()
     mkdir_p(args.outDir)
-    tx_evals, gene_evals, gene_fail_evals = load_evaluations(args.workDir, args.genomes)
+    tx_evals, gene_evals, gene_fail_evals, tx_dup_rate = load_evaluations(args.workDir, args.genomes)
     for evals, mode in zip(*[[tx_evals, gene_evals], ["transcripts", "genes"]]):
         transcript_gene_plot(evals, args.outDir, args.gencode, mode)
     gene_fail_plot(gene_fail_evals, args.outDir, args.gencode)
+    dup_rate_plot(tx_dup_rate, args.outDir, args.gencode)
 
 
 if __name__ == "__main__":

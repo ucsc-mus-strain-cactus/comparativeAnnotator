@@ -18,6 +18,10 @@ from etc.config import *
 
 __author__ = "Ian Fiddes"
 
+width = 9.0
+height = 6.0
+bar_width = 0.45
+
 
 def find_genome_order(highest_cov_dict, biotype_ids):
     """
@@ -89,7 +93,7 @@ def adjust_x_labels(ax, names, cutoff1=12, cutoff2=18, cutoff3=26):
             t.label1.set_fontsize(6)
 
 
-def base_barplot(max_y_value, names, out_path, file_name, title_string, border=True, has_legend=True):
+def base_barplot(max_y_value, names, out_path, file_name, title_string, breaks, border=True, has_legend=True):
     """
     Used to initialize either a stacked or unstacked barplot. Expects the max y value to be somewhere in the 10-100
     range or things will get weird.
@@ -133,7 +137,8 @@ def barplot(results, out_path, file_name, title_string, color="#0072b2", border=
     pdf.close()
 
 
-def stacked_barplot(results, legend_labels, out_path, file_name, title_string, color_palette=palette, border=True):
+def stacked_barplot(results, legend_labels, out_path, file_name, title_string, color_palette=palette, border=True,
+                    breaks=10.0):
     """
     Boilerplate code that will produce a stacked barplot. Expects results to be a list of lists of lists in the form
     [[name1, [value1a, value1b]], [name2, [value2a, value2b]]. The values should be normalized between 0 and 100.
@@ -151,12 +156,14 @@ def stacked_barplot(results, legend_labels, out_path, file_name, title_string, c
         cumulative += d
     fig.legend([x[0] for x in bars[::-1]], legend_labels[::-1], bbox_to_anchor=(1, 0.8), fontsize=11,
                frameon=True, title="Category")
+    if max(len(x) for x in names) > 15:
+        adjust_x_labels(ax, names)
     fig.savefig(pdf, format='pdf')
     plt.close()
     pdf.close()
 
 
-def base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks=1000, border=True,
+def base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks, border=True,
                          has_legend=True):
     fig, pdf = init_image(out_path, file_name, width, height)
     ax = establish_axes(fig, width, height, border, has_legend)
@@ -165,14 +172,33 @@ def base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, 
     ax.set_ylim([0, max_y_value])
     plt.tick_params(axis='y', labelsize=9)
     plt.tick_params(axis='x', labelsize=9)
-    ax.yaxis.set_ticks(np.arange(0.0, int(max_y_value + 1), breaks))
+    ax.yaxis.set_ticks(np.arange(breaks) * max_y_value)
     ax.xaxis.set_ticks(np.arange(0, len(names)) + bar_width / 2.0)
     ax.xaxis.set_ticklabels(names, rotation=60)
     return ax, fig, pdf
 
 
+def unequal_barplot(results, out_path, file_name, title_string, color_palette=palette, breaks=10.0, border=False, 
+                    ylabel="Number of transcripts"):
+    """
+    Boilerplate code that will produce a barplot. Expects results to be a list of lists of lists in the form
+    [[name1, val1], [name2, val2]].
+    Should be in the same order as legend_labels or your legend will be wrong.
+    """
+    names, values = zip(*results)
+    max_y_value = math.ceil(1.0 * max(values) / breaks) * breaks
+    ax, fig, pdf = base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks,
+                                        border=border, has_legend=True)
+    bars = ax.bar(range(len(names)), values, bar_width, color=palette[0])
+    if max(len(x) for x in names) > 15:
+        adjust_x_labels(ax, names)
+    fig.savefig(pdf, format='pdf')
+    plt.close()
+    pdf.close()
+
+
 def stacked_unequal_barplot(results, legend_labels, out_path, file_name, title_string, color_palette=palette,
-                            breaks=1000, border=True, ylabel="Number of transcripts"):
+                            breaks=10.0, border=True, ylabel="Number of transcripts"):
     """
     Boilerplate code that will produce a stacked barplot. Expects results to be a list of lists of lists in the form
     [[name1, [value1a, value1b]], [name2, [value2a, value2b]].
@@ -180,8 +206,8 @@ def stacked_unequal_barplot(results, legend_labels, out_path, file_name, title_s
     """
     names, values = zip(*results)
     max_y_value = math.ceil(1.0 * max(sum(x) for x in values) / breaks) * breaks
-    ax, fig, pdf = base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, border=border, 
-                                        has_legend=True)
+    ax, fig, pdf = base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks,
+                                        border=border, has_legend=True)
     bars = []
     cumulative = np.zeros(len(values))
     for i, d in enumerate(np.asarray(values).transpose()):
@@ -191,6 +217,33 @@ def stacked_unequal_barplot(results, legend_labels, out_path, file_name, title_s
         cumulative += d
     fig.legend([x[0] for x in bars[::-1]], legend_labels[::-1], bbox_to_anchor=(1, 0.8), fontsize=11,
                frameon=True, title="Category")
+    if max(len(x) for x in names) > 15:
+        adjust_x_labels(ax, names)
+    fig.savefig(pdf, format='pdf')
+    plt.close()
+    pdf.close()
+
+
+def side_by_side_unequal_barplot(results, legend_labels, out_path, file_name, title_string, color_palette=palette,
+                                 breaks=10.0, border=True, ylabel="Number of transcripts"):
+    """
+    Boilerplate code that will produce a side by side barplot. Expects results to be a list of lists of lists in the form
+    [[name1, [value1a, value1b]], [name2, [value2a, value2b]].
+    Should be in the same order as legend_labels or your legend will be wrong.
+    """
+    names, values = zip(*results)
+    shorter_bar_width = bar_width / len(names)
+    max_y_value = math.ceil(1.0 * max(sum(x) for x in values) / breaks) * breaks
+    ax, fig, pdf = base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks,
+                                        border=border, has_legend=True)
+    bars = []
+    for i, d in enumerate(np.asarray(values).transpose()):
+        bars.append(ax.bar(np.arange(len(values)) + shorter_bar_width * i, d, shorter_bar_width, 
+                           color=color_palette[i % len(color_palette)], linewidth=0.0, alpha=1.0))
+    fig.legend([x[0] for x in bars[::-1]], legend_labels[::-1], bbox_to_anchor=(1, 0.8), fontsize=11,
+               frameon=True, title="Category")
+    if max(len(x) for x in names) > 15:
+        adjust_x_labels(ax, names)
     fig.savefig(pdf, format='pdf')
     plt.close()
     pdf.close()

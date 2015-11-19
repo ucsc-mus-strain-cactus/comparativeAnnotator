@@ -157,22 +157,21 @@ def main():
     parser.add_argument("--refTranscriptFasta", required=True)
     parser.add_argument("--targetGenomeFasta", required=True)
     parser.add_argument("--outDb", default="cgp_cds_metrics.db")
-    parser.add_argument("--outDir", required=True)
     parser.add_argument("--compAnnPath", required=True)
     gp_group = parser.add_mutually_exclusive_group(required=True)
     gp_group.add_argument("--cgpGp")
     gp_group.add_argument("--consensusGp")
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
-    out_db = os.path.join(args.outDir, args.outDb)
+    out_db = os.path.join(args.compAnnPath, args.outDb)
     if args.cgpGp is not None:
         gp = args.cgpGp
         mode = "cgp"
-        chunk_size = 25  # smaller chunk size because we will do more alignments per transcript
+        chunk_size = 20  # smaller chunk size because we will do more alignments per transcript
     else:
         gp = args.consensusGp
         mode = "consensus"
-        chunk_size = 75
+        chunk_size = 50
     s = Stack(Target.makeTargetFn(align_gp, args=[args.genome, args.refGenome, args.refTranscriptFasta, 
                                                   args.targetGenomeFasta, gp, mode, out_db, args.compAnnPath,
                                                   chunk_size]))
@@ -182,5 +181,5 @@ def main():
 
 
 if __name__ == '__main__':
-    from scripts.align_cgp import *
+    from scripts.align_cgp_cds import *
     main()

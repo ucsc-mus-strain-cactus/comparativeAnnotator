@@ -64,8 +64,9 @@ class Transcript(object):
     def __len__(self):
         return self.transcript_size
 
-    def __cmp__(self, transcript):
-        return cmp((self, self.name), (transcript, transcript.name))
+    def __hash__(self):
+        return (hash(self.chromosome) ^ hash(self.start) ^ hash(self.stop) ^ hash(self.strand) ^
+                hash((self.chromosome, self.start, self.stop, self.strand)))
 
     def get_bed(self, rgb=None, name=None, start_offset=None, stop_offset=None):
         """
