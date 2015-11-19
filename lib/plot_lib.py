@@ -113,7 +113,8 @@ def base_barplot(max_y_value, names, out_path, file_name, title_string, breaks, 
     return ax, fig, pdf
 
 
-def barplot(results, out_path, file_name, title_string, color="#0072b2", border=True, add_labels=True, adjust_y=True):
+def barplot(results, out_path, file_name, title_string, color="#0072b2", border=True, add_labels=True, adjust_y=True,
+            breaks=10.0):
     """
     Boilerplate code that will produce a unstacked barplot. Expects results to be a list of lists in the form
     [[name1, normalized_value1, value1], [name2, normalized_value2, value2]]. Normalized between 0 and 100.
@@ -124,7 +125,8 @@ def barplot(results, out_path, file_name, title_string, color="#0072b2", border=
         max_y_value = math.ceil(max(values) / 10.0) * 10
     else:
         max_y_value = 100.0
-    ax, fig, pdf = base_barplot(max_y_value, names, out_path, file_name, title_string, border=border, has_legend=False)
+    ax, fig, pdf = base_barplot(max_y_value, names, out_path, file_name, title_string, breaks, border=border, 
+                                has_legend=False)
     bars = ax.bar(range(len(names)), values, bar_width, color=color)
     if add_labels is True:
         for i, rect in enumerate(bars):
@@ -146,7 +148,7 @@ def stacked_barplot(results, legend_labels, out_path, file_name, title_string, c
     Assumes that all bars have the same denominator, and so are normalizable.
     """
     names, values = zip(*results)
-    ax, fig, pdf = base_barplot(100.0, names, out_path, file_name, title_string, border=border, has_legend=True)
+    ax, fig, pdf = base_barplot(100.0, names, out_path, file_name, title_string, breaks, border=border, has_legend=True)
     bars = []
     cumulative = np.zeros(len(values))
     for i, d in enumerate(np.asarray(values).transpose()):

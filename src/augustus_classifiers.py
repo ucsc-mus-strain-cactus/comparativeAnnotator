@@ -6,7 +6,7 @@ import lib.comp_ann_lib as comp_ann_lib
 from src.abstract_classifier import AbstractAugustusClassifier
 
 
-class AugustusNotSameStrand(AbstractAugustusClassifier):
+class NotSameStrand(AbstractAugustusClassifier):
     """
     Does this transcript exist on the same strand?
     """
@@ -25,7 +25,7 @@ class AugustusNotSameStrand(AbstractAugustusClassifier):
         self.dump_results_to_disk()
 
 
-class AugustusParalogy(AbstractAugustusClassifier):
+class MultipleTranscripts(AbstractAugustusClassifier):
     """
     Does this transcript appear more than once in the augustus transcript dict?
     """
@@ -49,7 +49,7 @@ class AugustusParalogy(AbstractAugustusClassifier):
         self.dump_results_to_disk()
 
 
-class AugustusExonGain(AbstractAugustusClassifier):
+class ExonGain(AbstractAugustusClassifier):
     """
     Does the augustus version of this transcript add an exon?
     This is calculated by looking at the exon boundary intervals between the genePreds
@@ -74,7 +74,7 @@ class AugustusExonGain(AbstractAugustusClassifier):
         self.dump_results_to_disk()
 
 
-class AugustusExonLoss(AbstractAugustusClassifier):
+class ExonLoss(AbstractAugustusClassifier):
     """
     Does the augustus version of this transcript lose an exon?
     This is calculated by looking at the exon boundary intervals between the genePreds
@@ -98,7 +98,7 @@ class AugustusExonLoss(AbstractAugustusClassifier):
         self.dump_results_to_disk()
 
 
-class AugustusNotSimilarInternalExonBoundaries(AbstractAugustusClassifier):
+class NotSimilarInternalExonBoundaries(AbstractAugustusClassifier):
     """
     Does the augustus version of this transcript have the same exon boundaries, within a wiggle room range?
     Returns True if any internal exons are NOT in the same boundaries, and also reports each such splice junction
@@ -123,7 +123,7 @@ class AugustusNotSimilarInternalExonBoundaries(AbstractAugustusClassifier):
         self.dump_results_to_disk()
 
 
-class AugustusNotSimilarTerminalExonBoundaries(AbstractAugustusClassifier):
+class NotSimilarTerminalExonBoundaries(AbstractAugustusClassifier):
     """
     Does the augustus version of this transcript have the same terminal exon boundaries?
     """
@@ -147,7 +147,7 @@ class AugustusNotSimilarTerminalExonBoundaries(AbstractAugustusClassifier):
         self.dump_results_to_disk()
 
 
-class AugustusNotSameStart(AbstractAugustusClassifier):
+class NotSameStart(AbstractAugustusClassifier):
     """
     Does the augustus transcript NOT have the exact same start bases as the transMap transcript?
     """
@@ -167,7 +167,7 @@ class AugustusNotSameStart(AbstractAugustusClassifier):
         self.dump_results_to_disk()
 
 
-class AugustusNotSameStop(AbstractAugustusClassifier):
+class NotSameStop(AbstractAugustusClassifier):
     """
     Does the augustus transcript NOT have the exact same stop bases as the transMap transcript?
     """

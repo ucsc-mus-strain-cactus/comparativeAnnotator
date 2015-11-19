@@ -202,7 +202,7 @@ def main():
     with open(os.path.join(args.metricsOutDir, args.genome + ".metrics.pickle"), "w") as outf:
         pickle.dump(metrics, outf)
     with open(args.outGp, "w") as outf:
-        for tx_id, tx in final_consensus.iteritems():
+        for tx_id, tx in sorted(final_consensus.iteritems(), key=lambda x: [x[1].chromosome, x[1].start]):
             outf.write("\t".join(map(str, tx.get_bed())) + "\n")
 
 
