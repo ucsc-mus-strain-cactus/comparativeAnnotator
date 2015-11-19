@@ -47,29 +47,6 @@ def load_intron_bits(intron_bits_path):
     return intron_dict
 
 
-def get_cgp_stats(cur, cgp_id, genome):
-    """
-    Query the CDS database for stats on a CGP transcript, reporting all alignments
-    """
-    base_cmd = "SELECT EnsId,AlignmentIdentity,AlignmentCoverage FROM '{}_cgp' WHERE CgpId = '{}'"
-    cmd = base_cmd.format(genome, cgp_id)
-    return sql_lib.get_query_dict(cur, cmd)
-
-
-def get_consensus_stats(cur, ens_ids, genome):
-    """
-    Query the CDS database for TMR/transMap stats who are in ens_ids
-    """
-    base_cmd = "SELECT AlignmentId,AlignmentIdentity,AlignmentCoverage FROM '{}_consensus' WHERE EnsId = '{}'"
-    results = {}
-    for ens_id in ens_ids:
-        cmd = base_cmd.format(genome, ens_id)
-        result = cur.execute(cmd).fetchall()
-        for r in result:
-            results[r[0]] = r[1:]
-    return results
-
-
 def build_splice_junction_set(gps):
     """
     Given an iterable of GenePredTranscript objects, returns a set of all splice junction intervals
@@ -94,21 +71,36 @@ def filter_cgp_splice_junctions(gp, intron_vector):
     return sjs
 
 
-def determine_if_better(cgp_stats, consensus_stats):
+def build_full_gene_interval(gps):
     """
-    Determines if this CGP transcript is better than any of the consensus transcripts it may come from
+    Given a iterable of GenePredTranscripts, return one ChromosomeInterval that encapsulates the entire region
     """
-    ens_ids = []
-    for aln_id, (consensus_ident, consensus_cov) in consensus_stats.iteritems():
-        ens_id = psl_lib.strip_alignment_numbers(aln_id)
-        cgp_ident, cgp_cov = cgp_stats[ens_id]
-        if ((cgp_ident > consensus_ident and cgp_cov >= consensus_cov) or 
-                (cgp_cov > consensus_cov and cgp_ident >= consensus_ident)):
-            ens_ids.append(ens_id)
-    return ens_ids
+    intervals = [seq_lib.ChromosomeInterval(x.chromosome, x.start, x.stop, x.strand) for x in gps]
+    return reduce(lambda x, y: x.hull(y), intervals)
 
 
-def determine_if_new_introns(cgp_id, cgp_tx, ens_ids, consensus_dict, gene_transcript_map, intron_dict):
+def determine_if_split_gene_is_supported(consensus_dict, cgp_tx, gene_transcript_map, intron_vector):
+    """
+    If a CGP gene is assigned more than one gene, determine if the spanning intron blocks are supported by RNAseq.
+    Returns True if this joined gene is supported
+    A canonical example:
+    -----------------CGP----------------
+    -----ENSG1-----         -----ENSG2-----
+    ----ENST1A-----         ----ENST2A-----
+    --ENST1B--                  --ENST2B--
+    """
+    cgp_genes = cgp_tx.name2.split(",")
+    full_intervals = []
+    for cgp_gene in cgp_genes:
+        txs = [consensus_dict[x] for x in gene_transcript_map[cgp_gene]]
+        full_intervals.append(build_full_gene_interval(txs))
+    for support, intron_interval in zip(*[intron_vector, cgp_tx.intron_intervals]):
+        if not any([intron_interval.overlap(x) for x in full_intervals]) and support == 1:
+            return True
+    return False
+
+
+def determine_if_new_introns(cgp_id, cgp_tx, ens_ids, consensus_dict, intron_dict):
     """
     Use intron bit information to build a set of CGP introns, and compare this set to all consensus introns
     for a given set of genes.
@@ -119,6 +111,19 @@ def determine_if_new_introns(cgp_id, cgp_tx, ens_ids, consensus_dict, gene_trans
     if len(cgp_splice_junctions - ens_splice_junctions) > 0:
         return True
     return False
+
+
+def determine_if_better(cgp_stats, consensus_stats):
+    """
+    Determines if this CGP transcript is better than any of the consensus transcripts it may come from
+    """
+    ens_ids = []
+    for ens_id, (consensus_ident, consensus_cov) in consensus_stats.iteritems():
+        cgp_ident, cgp_cov = cgp_stats[ens_id]
+        if ((cgp_ident > consensus_ident and cgp_cov >= consensus_cov) or 
+                (cgp_cov > consensus_cov and cgp_ident >= consensus_ident)):
+            ens_ids.append(ens_id)
+    return ens_ids
 
 
 def find_new_transcripts(cgp_dict, final_consensus, metrics):
@@ -151,8 +156,8 @@ def build_final_consensus(consensus_dict, replace_map, new_isoforms, final_conse
         final_consensus[cgp_tx.name] = cgp_tx
 
 
-def update_transcripts(cgp_dict, consensus_dict, cur, genome, gene_transcript_map, intron_dict, final_consensus, 
-                       metrics):
+def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, intron_dict, final_consensus, metrics,
+                       cgp_stats_dict, consensus_stats_dict):
     """
     Main transcript replacement/inclusion algorithm.
     For every cgp transcript, determine if it should replace one or more consensus transcripts.
@@ -160,19 +165,28 @@ def update_transcripts(cgp_dict, consensus_dict, cur, genome, gene_transcript_ma
     """
     replace_map = {}  # will store a mapping between consensus IDs and the CGP IDs that will replace them
     new_isoforms = []  # will store cgp IDs which represent new potential isoforms of a gene
+    join_genes = {"Unsupported": 0, "Supported": 0}  # will count the number of unsupported joins
     for cgp_id, cgp_tx in cgp_dict.iteritems():
-        cgp_stats = get_cgp_stats(cur, cgp_id, genome)
+        cgp_stats = cgp_stats_dict[cgp_id]
         ens_ids = cgp_stats.keys()
-        consensus_stats = get_consensus_stats(cur, ens_ids, genome)
+        consensus_stats = {x: consensus_stats_dict[x] for x in ens_ids}
         to_replace_ids = determine_if_better(cgp_stats, consensus_stats)
         if len(to_replace_ids) > 0:
             for to_replace_id in to_replace_ids:
                 replace_map[to_replace_id] = cgp_tx
-        elif determine_if_new_introns(cgp_id, cgp_tx, ens_ids, consensus_dict, gene_transcript_map, intron_dict):
-            new_isoforms.append(cgp_tx)
+        elif determine_if_new_introns(cgp_id, cgp_tx, ens_ids, consensus_dict, intron_dict) is True:
+            # make sure this isn't joining two genes in an unsupported way
+            if len(cgp_tx.name2.split(",")) == 1:
+                new_isoforms.append(cgp_tx)
+            elif determine_if_split_gene_is_supported(consensus_dict, cgp_tx, gene_transcript_map, intron_vector):
+                new_isoforms.append(cgp_tx)
+                metrics["Supported"] += 1
+            else:
+                metrics["Unsupported"] += 1
     # calculate some metrics for plots once all genomes are analyzed
     metrics["CgpReplace"] = {"CgpReplaceRate": len(replace_map), "CgpCollapseRate": len(set(replace_map.itervalues()))}
     metrics["NewIsoforms"] = len(new_isoforms)
+    metrics["JoinGeneSupported"] = join_genes
     build_final_consensus(consensus_dict, replace_map, new_isoforms, final_consensus)
 
 
@@ -187,6 +201,12 @@ def main():
     # load both consensus and CGP into dictionaries
     consensus_dict = seq_lib.get_transcript_dict(args.consensusGp)
     cgp_dict = seq_lib.get_transcript_dict(args.cgpGp)
+    # load the BLAT results from the sqlite database
+    cgp_stats_query = "SELECT CgpId,EnsId,AlignmentIdentity,AlignmentCoverage FROM '{}_cgp'".format(args.genome)
+    cgp_stats_dict = sql_lib.get_non_unique_query_dict(cur, cgp_stats_query)
+    consensus_stats_query = ("SELECT EnsId,AlignmentIdentity,AlignmentCoverage FROM "
+                             "'{}_consensus'".format(args.genome))
+    consensus_stats_dict = sql_lib.get_query_dict(cur, consensus_stats_query)
     # load the intron bits
     intron_dict = load_intron_bits(args.intronBitsPath)
     # final dictionaries
@@ -196,8 +216,8 @@ def main():
     find_new_transcripts(cgp_dict, final_consensus, metrics)
     # remove all such transcripts from the cgp dict before we evaluate for updating
     cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in final_consensus}
-    update_transcripts(cgp_dict, consensus_dict, cur, args.genome, gene_transcript_map, intron_dict, final_consensus, 
-                       metrics)
+    update_transcripts(cgp_dict, consensus_dict, args.genome, gene_transcript_map, intron_dict, final_consensus, 
+                       metrics, cgp_stats_dict, consensus_stats_dict)
     # write results out to disk
     with open(os.path.join(args.metricsOutDir, args.genome + ".metrics.pickle"), "w") as outf:
         pickle.dump(metrics, outf)

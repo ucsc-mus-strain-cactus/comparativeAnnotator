@@ -78,7 +78,7 @@ def allClassifiers(genome):
     return query
 
 
-def allClassifiers(genome):
+def allAugustusClassifiers(genome):
     base_query = "SELECT {} FROM augustus_details.'{}'"
     query = base_query.format(",".join(aug_classifiers), genome)
     return query

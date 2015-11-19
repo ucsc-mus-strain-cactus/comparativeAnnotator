@@ -809,7 +809,26 @@ class ChromosomeInterval(object):
     def __eq__(self, other):
         return (isinstance(other, type(self)) and 
                 (self.chromosome, self.start, self.stop, self.strand) ==
-                    (other.chromosome, other.start, other.stop, other.strand))
+                (other.chromosome, other.start, other.stop, other.strand))
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __gt__(self, other):
+        return (isinstance(other, type(self)) and self.chromosome == other.chromosome and
+                (self.start, self.stop) > (other.start, other.stop))
+
+    def __ge__(self, other):
+        return (isinstance(other, type(self)) and self.chromosome == other.chromosome and
+                (self.start, self.stop) >= (other.start, other.stop))
+
+    def __lt__(self, other):
+        return (isinstance(other, type(self)) and self.chromosome == other.chromosome and
+                (self.start, self.stop) < (other.start, other.stop))
+
+    def __le__(self, other):
+        return (isinstance(other, type(self)) and self.chromosome == other.chromosome and
+                (self.start, self.stop) <= (other.start, other.stop))
 
     def __contains__(self, other):
         return self.start <= other < self.stop

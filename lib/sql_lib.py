@@ -97,7 +97,7 @@ def get_query_dict(cur, query):
         raise RuntimeError("query failed: {}.\nOriginal error message: {}".format(query, exc))
 
 
-def get_non_unique_query_dict(cur, query):
+def get_non_unique_query_dict(cur, query, flatten=True):
     """
     Same as get_query_dict, but has no guarantee of uniqueness. Therefore, the returned data structure is a
     defaultdict(list)
@@ -108,7 +108,26 @@ def get_non_unique_query_dict(cur, query):
             d[r[0]].append(r[1:])
     except sql.OperationalError, exc:
         raise RuntimeError("query failed: {}.\nOriginal error message: {}".format(query, exc))
-    return general_lib.flatten_defaultdict_list(d)
+    return general_lib.flatten_defaultdict_list(d) if flatten is True else d
+
+
+def get_multi_index_query_dict(cur, query, num_indices=2):
+    """
+    Similar to get_non_unique_query_dict, but instead produces a layered dict of dicts where the number of layers
+    is the num_indicies. Expects the query to be in the form Index1,Index2,IndexN,data and will produce the data
+    structure {Index1: {Index2: data}}.
+    """
+    d = {}
+    try:
+        for r in cur.execute(query):
+            last_layer = d
+            for i in xrange(num_indices - 1):
+                if r[i] not in last_layer:
+                    last_layer[r[i]] = {}
+                last_layer = last_layer[r[i]]
+            last_layer[r[i + 1]] = r[i + 2:]
+    except sql.OperationalError, exc:
+        raise RuntimeError("query failed: {}.\nOriginal error message: {}".format(query, exc))
 
 
 def get_biotype_aln_ids(cur, genome, biotype):
