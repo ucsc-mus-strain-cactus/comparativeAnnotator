@@ -79,7 +79,7 @@ def build_full_gene_interval(gps):
     return reduce(lambda x, y: x.hull(y), intervals)
 
 
-def determine_if_split_gene_is_supported(consensus_dict, cgp_tx, gene_transcript_map, intron_vector):
+def determine_if_split_gene_is_supported(consensus_dict, cgp_tx, ens_ids, intron_vector):
     """
     If a CGP gene is assigned more than one gene, determine if the spanning intron blocks are supported by RNAseq.
     Returns True if this joined gene is supported
@@ -92,7 +92,7 @@ def determine_if_split_gene_is_supported(consensus_dict, cgp_tx, gene_transcript
     cgp_genes = cgp_tx.name2.split(",")
     full_intervals = []
     for cgp_gene in cgp_genes:
-        txs = [consensus_dict[x] for x in gene_transcript_map[cgp_gene]]
+        txs = [consensus_dict[x] for x in ens_ids]
         full_intervals.append(build_full_gene_interval(txs))
     for support, intron_interval in zip(*[intron_vector, cgp_tx.intron_intervals]):
         if not any([intron_interval.overlap(x) for x in full_intervals]) and support == 1:
@@ -168,7 +168,7 @@ def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, in
     join_genes = {"Unsupported": 0, "Supported": 0}  # will count the number of unsupported joins
     for cgp_id, cgp_tx in cgp_dict.iteritems():
         cgp_stats = cgp_stats_dict[cgp_id]
-        ens_ids = cgp_stats.keys()
+        ens_ids = {x for x in cgp_stats.keys() if x in consensus_stats_dict}
         consensus_stats = {x: consensus_stats_dict[x] for x in ens_ids}
         to_replace_ids = determine_if_better(cgp_stats, consensus_stats)
         if len(to_replace_ids) > 0:
@@ -178,11 +178,11 @@ def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, in
             # make sure this isn't joining two genes in an unsupported way
             if len(cgp_tx.name2.split(",")) == 1:
                 new_isoforms.append(cgp_tx)
-            elif determine_if_split_gene_is_supported(consensus_dict, cgp_tx, gene_transcript_map, intron_vector):
+            elif determine_if_split_gene_is_supported(consensus_dict, cgp_tx, ens_ids, intron_vector):
                 new_isoforms.append(cgp_tx)
-                metrics["Supported"] += 1
+                join_genes["Supported"] += 1
             else:
-                metrics["Unsupported"] += 1
+                join_genes["Unsupported"] += 1
     # calculate some metrics for plots once all genomes are analyzed
     metrics["CgpReplace"] = {"CgpReplaceRate": len(replace_map), "CgpCollapseRate": len(set(replace_map.itervalues()))}
     metrics["NewIsoforms"] = len(new_isoforms)
