@@ -76,7 +76,10 @@ def build_full_gene_interval(gps):
     Given a iterable of GenePredTranscripts, return one ChromosomeInterval that encapsulates the entire region
     """
     intervals = [seq_lib.ChromosomeInterval(x.chromosome, x.start, x.stop, x.strand) for x in gps]
-    return reduce(lambda x, y: x.hull(y), intervals)
+    try:
+        return reduce(lambda x, y: x.hull(y), intervals)
+    except:
+        assert False, ([[x.name, x.name2] for x in gps])
 
 
 def determine_if_split_gene_is_supported(consensus_dict, cgp_tx, ens_ids, intron_vector):
@@ -100,14 +103,14 @@ def determine_if_split_gene_is_supported(consensus_dict, cgp_tx, ens_ids, intron
     return False
 
 
-def determine_if_new_introns(cgp_id, cgp_tx, ens_ids, consensus_dict, intron_dict):
+def determine_if_new_introns(cgp_id, cgp_tx, ens_ids, consensus_dict, intron_vector):
     """
     Use intron bit information to build a set of CGP introns, and compare this set to all consensus introns
     for a given set of genes.
     """
     gps = [consensus_dict[x] for x in ens_ids if x in consensus_dict]
     ens_splice_junctions = build_splice_junction_set(gps)
-    cgp_splice_junctions = filter_cgp_splice_junctions(cgp_tx, intron_dict[cgp_id])
+    cgp_splice_junctions = filter_cgp_splice_junctions(cgp_tx, intron_vector)
     if len(cgp_splice_junctions - ens_splice_junctions) > 0:
         return True
     return False
@@ -171,10 +174,11 @@ def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, in
         ens_ids = {x for x in cgp_stats.keys() if x in consensus_stats_dict}
         consensus_stats = {x: consensus_stats_dict[x] for x in ens_ids}
         to_replace_ids = determine_if_better(cgp_stats, consensus_stats)
+        intron_vector = intron_dict[cgp_id]
         if len(to_replace_ids) > 0:
             for to_replace_id in to_replace_ids:
                 replace_map[to_replace_id] = cgp_tx
-        elif determine_if_new_introns(cgp_id, cgp_tx, ens_ids, consensus_dict, intron_dict) is True:
+        elif determine_if_new_introns(cgp_id, cgp_tx, ens_ids, consensus_dict, intron_vector) is True:
             # make sure this isn't joining two genes in an unsupported way
             if len(cgp_tx.name2.split(",")) == 1:
                 new_isoforms.append(cgp_tx)
@@ -203,7 +207,7 @@ def main():
     cgp_dict = seq_lib.get_transcript_dict(args.cgpGp)
     # load the BLAT results from the sqlite database
     cgp_stats_query = "SELECT CgpId,EnsId,AlignmentIdentity,AlignmentCoverage FROM '{}_cgp'".format(args.genome)
-    cgp_stats_dict = sql_lib.get_non_unique_query_dict(cur, cgp_stats_query)
+    cgp_stats_dict = sql_lib.get_multi_index_query_dict(cur, cgp_stats_query, num_indices=2)
     consensus_stats_query = ("SELECT EnsId,AlignmentIdentity,AlignmentCoverage FROM "
                              "'{}_consensus'".format(args.genome))
     consensus_stats_dict = sql_lib.get_query_dict(cur, consensus_stats_query)

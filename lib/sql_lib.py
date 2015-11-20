@@ -128,6 +128,7 @@ def get_multi_index_query_dict(cur, query, num_indices=2):
             last_layer[r[i + 1]] = r[i + 2:]
     except sql.OperationalError, exc:
         raise RuntimeError("query failed: {}.\nOriginal error message: {}".format(query, exc))
+    return d
 
 
 def get_biotype_aln_ids(cur, genome, biotype):

@@ -36,10 +36,8 @@ all_classifiers = ref_classifiers + ['AlnExtendsOffContig', 'CodingMult3Deletion
                                      'Nonsynonymous', 'HasOriginalStart']
 
 # these classifiers define Pass for Augustus transcripts
-aug_classifiers = ['MultipleTranscripts', 'NotSameStart', 'NotSameStop',
-                   'ExonGain', 'NotSameStrand',
-                   'NotSimilarTerminalExonBoundaries', 'ExonLoss',
-                   'NotSimilarInternalExonBoundaries']
+aug_classifiers = ['MultipleTranscripts', 'NotSameStart', 'NotSameStop', 'ExonGain', 'NotSameStrand',
+                   'NotSimilarTerminalExonBoundaries', 'ExonLoss', 'NotSimilarInternalExonBoundaries']
 
 # these classifiers define Pass for single-genome analysis
 ref_coding_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
@@ -190,10 +188,10 @@ def refEval(genome):
 
 
 def augustusEval(genome, ref_genome):
-    query = ("SELECT augustus.'{0}'.AlignmentId FROM attributes.'{1}' JOIN main.'{1}' USING (TranscriptId) "
+    query = ("SELECT augustus.'{0}'.AugustusAlignmentId FROM attributes.'{1}' JOIN main.'{1}' USING (TranscriptId) "
              "JOIN attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) JOIN "
              "augustus_attributes.'{0}' ON main.'{0}'.AlignmentId = augustus_attributes.'{0}'.AlignmentId JOIN "
-             "augustus.'{0}' USING (AlignmentId) WHERE (NotSameStart = 0 OR "
+             "augustus.'{0}' USING (AugustusAlignmentId) WHERE (NotSameStart = 0 OR "
              "(main.'{0}'.HasOriginalStart = 1 OR main.'{0}'.StartOutOfFrame = 1 OR main.'{0}'.BadFrame = 1 OR "
              "main.'{1}'.BeginStart = 1)) AND (NotSameStop = 0 OR (main.'{0}'.HasOriginalStop = 1 OR "
              "main.'{0}'.BadFrame = 1 OR main.'{1}'.EndStop = 1)) AND (NotSimilarTerminalExonBoundaries = 0 "

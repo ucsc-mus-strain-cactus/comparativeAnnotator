@@ -93,6 +93,12 @@ def adjust_x_labels(ax, names, cutoff1=12, cutoff2=18, cutoff3=26):
             t.label1.set_fontsize(6)
 
 
+def calculate_y_range(max_y_value, breaks):
+    pn = 1.0 * breaks ** math.ceil(math.log10(max_y_value) - 1)
+    max_ceil_val = math.ceil(max_y_value / pn) * pn
+    return np.arange(0, max_ceil_val + 1, max_ceil_val / breaks)
+
+
 def base_barplot(max_y_value, names, out_path, file_name, title_string, breaks, border=True, has_legend=True):
     """
     Used to initialize either a stacked or unstacked barplot. Expects the max y value to be somewhere in the 10-100
@@ -106,7 +112,7 @@ def base_barplot(max_y_value, names, out_path, file_name, title_string, breaks, 
     ax.set_ylim([0, max_y_value])
     plt.tick_params(axis='y', labelsize=9)
     plt.tick_params(axis='x', labelsize=9)
-    ax.yaxis.set_ticks(np.arange(0.0, int(max_y_value + 1), max_y_value / 10))
+    ax.yaxis.set_ticks(calculate_y_range(max_y_value, breaks))
     ax.yaxis.set_ticklabels([str(x) + "%" for x in range(0, int(max_y_value + 1), int(max_y_value / 10))])
     ax.xaxis.set_ticks(np.arange(0, len(names)) + bar_width / 2.0)
     ax.xaxis.set_ticklabels(names, rotation=60)
@@ -122,7 +128,7 @@ def barplot(results, out_path, file_name, title_string, color="#0072b2", border=
     """
     names, values, raw_values = zip(*results)
     if adjust_y is True:
-        max_y_value = math.ceil(max(values) / 10.0) * 10
+        max_y_value = max(values)
     else:
         max_y_value = 100.0
     ax, fig, pdf = base_barplot(max_y_value, names, out_path, file_name, title_string, breaks, border=border, 
@@ -174,7 +180,7 @@ def base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, 
     ax.set_ylim([0, max_y_value])
     plt.tick_params(axis='y', labelsize=9)
     plt.tick_params(axis='x', labelsize=9)
-    ax.yaxis.set_ticks(np.arange(breaks) * max_y_value)
+    ax.yaxis.set_ticks(calculate_y_range(max_y_value, breaks))
     ax.xaxis.set_ticks(np.arange(0, len(names)) + bar_width / 2.0)
     ax.xaxis.set_ticklabels(names, rotation=60)
     return ax, fig, pdf
@@ -188,7 +194,7 @@ def unequal_barplot(results, out_path, file_name, title_string, color_palette=pa
     Should be in the same order as legend_labels or your legend will be wrong.
     """
     names, values = zip(*results)
-    max_y_value = math.ceil(1.0 * max(values) / breaks) * breaks
+    max_y_value =  max(values)
     ax, fig, pdf = base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks,
                                         border=border, has_legend=True)
     bars = ax.bar(range(len(names)), values, bar_width, color=palette[0])
@@ -207,7 +213,7 @@ def stacked_unequal_barplot(results, legend_labels, out_path, file_name, title_s
     Should be in the same order as legend_labels or your legend will be wrong.
     """
     names, values = zip(*results)
-    max_y_value = math.ceil(1.0 * max(sum(x) for x in values) / breaks) * breaks
+    max_y_value = max(sum(x) for x in values)
     ax, fig, pdf = base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks,
                                         border=border, has_legend=True)
     bars = []
@@ -235,7 +241,7 @@ def side_by_side_unequal_barplot(results, legend_labels, out_path, file_name, ti
     """
     names, values = zip(*results)
     shorter_bar_width = bar_width / len(names)
-    max_y_value = math.ceil(1.0 * max(sum(x) for x in values) / breaks) * breaks
+    max_y_value = max(sum(x) for x in values)
     ax, fig, pdf = base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks,
                                         border=border, has_legend=True)
     bars = []

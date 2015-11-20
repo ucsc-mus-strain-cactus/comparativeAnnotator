@@ -167,11 +167,11 @@ def main():
     if args.cgpGp is not None:
         gp = args.cgpGp
         mode = "cgp"
-        chunk_size = 20  # smaller chunk size because we will do more alignments per transcript
+        chunk_size = 15  # smaller chunk size because we will do more alignments per transcript
     else:
         gp = args.consensusGp
         mode = "consensus"
-        chunk_size = 50
+        chunk_size = 40
     s = Stack(Target.makeTargetFn(align_gp, args=[args.genome, args.refGenome, args.refTranscriptFasta, 
                                                   args.targetGenomeFasta, gp, mode, out_db, args.compAnnPath,
                                                   chunk_size]))
