@@ -22,6 +22,7 @@ def parse_args():
     parser.add_argument("--genomes", nargs="+", required=True)
     parser.add_argument("--workDir", required=True)
     parser.add_argument("--outDir", required=True)
+    parser.add_argument("--gencode", required=True)
     return parser.parse_args()
 
 
@@ -31,7 +32,7 @@ def load_evaluations(work_dir, genomes):
     new_isoforms = OrderedDict()
     cgp_missing = OrderedDict()
     for genome in genomes:
-        p = os.path.join(work_dir, genome)
+        p = os.path.join(work_dir, genome + ".metrics.pickle")
         with open(p) as inf:
             r = pickle.load(inf)
         cgp_additions[genome] = r["CgpAdditions"]
@@ -60,31 +61,31 @@ def replace_plot(cgp_replace, out_path, gencode):
 
 
 def new_isoforms_plot(new_isoforms, out_path, gencode):
-    results, categories = munge_data(cgp_replace, norm=False)
+    results = list(new_isoforms.iteritems())
     base_title = ("Breakdown of the number of new isoforms added by Comparative Augustus\n"
                   "to the consensus gene set derived from the annotation set {}")
     title = base_title.format(gencode)
     out_name = "{}_{}_cgp_consensus".format(gencode, "new_isoforms")
-    plot_lib.unequal_barplot(results, categories, out_path, out_name, title)
+    plot_lib.unequal_barplot(results, out_path, out_name, title)
 
 
 def missing_plot(cgp_missing, out_path, gencode):
-    results, categories = munge_data(cgp_replace, norm=False)
+    results, categories = munge_data(cgp_missing, norm=False)
     base_title = ("Breakdown of the number of missing genes/transcripts rescued by Comparative Augustus\n"
                   "to the consensus gene set derived from the annotation set {}")
     title = base_title.format(gencode)
-    out_name = "{}_{}_cgp_consensus".format(gencode, "new_isoforms")
-    plot_lib.unequal_barplot(results, categories, out_path, out_name, title)
+    out_name = "{}_{}_cgp_consensus".format(gencode, "missing_genes")
+    plot_lib.side_by_side_unequal_barplot(results, categories, out_path, out_name, title)
 
 
 def main():
     args = parse_args()
     mkdir_p(args.outDir)
     cgp_additions, cgp_replace, new_isoforms, cgp_missing = load_evaluations(args.workDir, args.genomes)
-    addition_plot(cgp_additions, out_path, gencode)
-    replace_plot(cgp_replace, out_path, gencode)
-    new_isoforms_plot(new_isoforms, out_path, gencode)
-    missing_plot(cgp_missing, out_path, gencode)
+    addition_plot(cgp_additions, args.outDir, args.gencode)
+    replace_plot(cgp_replace, args.outDir, args.gencode)
+    new_isoforms_plot(new_isoforms, args.outDir, args.gencode)
+    missing_plot(cgp_missing, args.outDir, args.gencode)
 
 
 if __name__ == "__main__":

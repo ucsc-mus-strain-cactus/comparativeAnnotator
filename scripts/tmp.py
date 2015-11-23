@@ -18,6 +18,8 @@ ref_dict = seq_lib.get_transcript_dict(ref_gp)
 aug_dict = seq_lib.get_transcript_dict(aug_gp)
 aln_dict = psl_lib.get_alignment_dict(aln_psl)
 ref_aln_dict = psl_lib.get_alignment_dict(ref_psl)
+seq_dict = seq_lib.get_sequence_dict(target_fasta)
+ref_seq_dict = seq_lib.get_sequence_dict(ref_fasta)
 
 con, cur = sql_lib.attach_databases("/hive/groups/recon/projs/gorilla_eichler/pipeline_data/comparative/susie_3_2/comparativeAnnotation/2015-10-12/GencodeBasicV23", mode="augustus")
 

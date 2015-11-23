@@ -239,7 +239,7 @@ def side_by_side_unequal_barplot(results, legend_labels, out_path, file_name, ti
     Should be in the same order as legend_labels or your legend will be wrong.
     """
     names, values = zip(*results)
-    shorter_bar_width = bar_width / len(names)
+    shorter_bar_width = bar_width / len(values[0])
     max_y_value = max(sum(x) for x in values)
     ax, fig, pdf = base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks,
                                         border=border, has_legend=True)

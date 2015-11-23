@@ -149,9 +149,10 @@ def find_new_transcripts(cgp_dict, final_consensus, metrics):
 def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, final_consensus, metrics, support_cutoff=80.0):
     """
     If a CGP transcript is associated with genes that are all missing from the consensus, include it if it has at least
-    support_cutoff supported introns
+    support_cutoff supported introns. Otherwise, remove it.
     """
     jg_genes = set()
+    to_remove = set()
     for cgp_id, cgp_tx in cgp_dict.iteritems():
         if 'jg' in cgp_tx.name2:
             continue
@@ -161,7 +162,13 @@ def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, final_conse
             if percent_support >= support_cutoff:
                 final_consensus[cgp_id] = cgp_tx
                 jg_genes.add(cgp_id.split(".")[0])
+            # we want to exclude transcripts without support from further consensus finding
+            else:
+                to_remove.add(cgp_id)
     metrics["CgpAddMissing"] = {"CgpMissingGenes": len(jg_genes), "CgpMissingTranscripts": len(final_consensus)}
+    # hacking this in here
+    for cgp_id in to_remove:
+        del cgp_dict[cgp_id]
 
 
 def build_final_consensus(consensus_dict, replace_map, new_isoforms, final_consensus):
