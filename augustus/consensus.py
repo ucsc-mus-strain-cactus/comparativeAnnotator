@@ -142,7 +142,7 @@ def find_best_transcripts(data_dict, stats):
     return binned_transcripts
 
 
-def find_best_for_gene(bins, stats, cov_cutoff=50.0, ident_cutoff=90.0):
+def find_best_for_gene(bins, stats, cov_cutoff=30.0, ident_cutoff=90.0):
     """
     Finds the best transcript for a gene. This is used when all transcripts failed, and has more relaxed cutoffs.
     """
@@ -151,7 +151,7 @@ def find_best_for_gene(bins, stats, cov_cutoff=50.0, ident_cutoff=90.0):
     for aln_id in aln_ids:
         if aln_id is None:
             continue
-        ident, cov = stats[aln_id]
+        cov, ident = stats[aln_id]
         if cov >= cov_cutoff and ident >= ident_cutoff:
             keep_ids.append(aln_id)
     if len(keep_ids) > 0:

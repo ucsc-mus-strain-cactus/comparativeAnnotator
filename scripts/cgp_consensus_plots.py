@@ -29,6 +29,7 @@ def load_evaluations(work_dir, genomes):
     cgp_additions = OrderedDict()
     cgp_replace = OrderedDict()
     new_isoforms = OrderedDict()
+    cgp_missing = OrderedDict()
     for genome in genomes:
         p = os.path.join(work_dir, genome)
         with open(p) as inf:
@@ -36,7 +37,8 @@ def load_evaluations(work_dir, genomes):
         cgp_additions[genome] = r["CgpAdditions"]
         cgp_replace[genome] = r["CgpReplace"]
         new_isoforms[genome] = r["NewIsoforms"]
-    return cgp_additions, cgp_replace, new_isoforms
+        cgp_missing[genome] = r["CgpAddMissing"]
+    return cgp_additions, cgp_replace, new_isoforms, cgp_missing
 
 
 def addition_plot(cgp_additions, out_path, gencode):
@@ -66,14 +68,23 @@ def new_isoforms_plot(new_isoforms, out_path, gencode):
     plot_lib.unequal_barplot(results, categories, out_path, out_name, title)
 
 
+def missing_plot(cgp_missing, out_path, gencode):
+    results, categories = munge_data(cgp_replace, norm=False)
+    base_title = ("Breakdown of the number of missing genes/transcripts rescued by Comparative Augustus\n"
+                  "to the consensus gene set derived from the annotation set {}")
+    title = base_title.format(gencode)
+    out_name = "{}_{}_cgp_consensus".format(gencode, "new_isoforms")
+    plot_lib.unequal_barplot(results, categories, out_path, out_name, title)
+
 
 def main():
     args = parse_args()
     mkdir_p(args.outDir)
-    cgp_additions, cgp_replace, new_isoforms = load_evaluations(args.workDir, args.genomes)
+    cgp_additions, cgp_replace, new_isoforms, cgp_missing = load_evaluations(args.workDir, args.genomes)
     addition_plot(cgp_additions, out_path, gencode)
     replace_plot(cgp_replace, out_path, gencode)
     new_isoforms_plot(new_isoforms, out_path, gencode)
+    missing_plot(cgp_missing, out_path, gencode)
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ import sys
 import os
 import pysam
 import argparse
+import itertools
 from pyfaidx import Fasta
 from lib.general_lib import format_ratio, get_tmp
 from jobTree.scriptTree.target import Target
@@ -32,6 +33,27 @@ def bam_is_paired(path, num_reads=100000, paired_cutoff=0.75):
         raise RuntimeError("Unable to infer pairing from bamfile {}".format(path))
 
 
+def group_references(sam_handle, num_bases=20 ** 7, max_seqs=100):
+    """
+    Group up references by num_bases, unless that exceeds max_seqs.
+    """
+    name_iter = itertools.izip(*[sam_handle.references, sam_handle.lengths])
+    name, size = name_iter.next()
+    this_bin = [name]
+    bin_base_count = size
+    num_seqs = 1
+    for name, size in name_iter:
+        bin_base_count += size
+        num_seqs += 1
+        if bin_base_count >= num_bases or num_seqs > max_seqs:
+            yield this_bin
+            this_bin = [name]
+            bin_base_count = size
+            num_seqs = 1
+        else:
+            this_bin.append(name)
+
+
 def main_hints_fn(target, bam_paths, db_path, genome, genome_fasta, hints_dir):
     """
     Main driver function. Loops over each BAM, inferring paired-ness, then passing each BAM with one chromosome name
@@ -41,10 +63,10 @@ def main_hints_fn(target, bam_paths, db_path, genome, genome_fasta, hints_dir):
     for bam_path in bam_paths:
         paired = "--paired --pairwiseAlignments" if bam_is_paired(bam_path) is True else ""
         sam_handle = pysam.Samfile(bam_path)
-        for reference in sam_handle.references:
+        for references in group_references(sam_handle):
             out_filter = filtered_bam_tree.getTempFile(suffix=".bam")
             target.addChildTargetFn(sort_by_name, memory=8 * 1024 ** 3, cpu=2, 
-                                    args=[bam_path, reference, out_filter, paired])
+                                    args=[bam_path, references, out_filter, paired])
     target.setFollowOnTargetFn(build_hints, args=[filtered_bam_tree, genome, db_path, genome_fasta, hints_dir])
 
 
@@ -74,7 +96,7 @@ def build_hints(target, filtered_bam_tree, genome, db_path, genome_fasta, hints_
     for bam_file in bam_files:
         intron_hints_path = intron_hints_tree.getTempFile(suffix=".intron.gff")
         target.addChildTargetFn(build_intron_hints, memory=8 * 1024 ** 3, cpu=2, args=[bam_file, intron_hints_path])
-        exon_hints_path = intron_hints_tree.getTempFile(suffix=".exon.gff")
+        exon_hints_path = exon_hints_tree.getTempFile(suffix=".exon.gff")
         target.addChildTargetFn(build_exon_hints, memory=8 * 1024 ** 3, cpu=2, args=[bam_file, exon_hints_path])
     target.setFollowOnTargetFn(cat_hints, args=[intron_hints_tree, exon_hints_tree, genome, db_path, genome_fasta,
                                                 hints_dir])

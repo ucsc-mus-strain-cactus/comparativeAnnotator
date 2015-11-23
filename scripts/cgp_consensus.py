@@ -12,6 +12,7 @@ supported splice junctions not present in any of the transcripts for this gene. 
 import argparse
 import os
 import cPickle as pickle
+from collections import defaultdict
 import lib.sql_lib as sql_lib
 import lib.psl_lib as psl_lib
 import lib.seq_lib as seq_lib
@@ -71,15 +72,18 @@ def filter_cgp_splice_junctions(gp, intron_vector):
     return sjs
 
 
-def build_full_gene_interval(gps):
+def build_full_gene_intervals(gps):
     """
-    Given a iterable of GenePredTranscripts, return one ChromosomeInterval that encapsulates the entire region
+    Given a iterable of GenePredTranscripts, return ChromosomeIntervals that encapsulate the maximum boundaries of
+    these intervals. This can be more than one if the gene ends up mapping to different chromosomes.
     """
-    intervals = [seq_lib.ChromosomeInterval(x.chromosome, x.start, x.stop, x.strand) for x in gps]
-    try:
-        return reduce(lambda x, y: x.hull(y), intervals)
-    except:
-        assert False, ([[x.name, x.name2] for x in gps])
+    interval_map = defaultdict(list)
+    for x in gps:
+        interval_map[x.chromosome].append(seq_lib.ChromosomeInterval(x.chromosome, x.start, x.stop, x.strand))
+    r = set()
+    for intervals in interval_map.itervalues():
+        r.add(reduce(lambda x, y: x.hull(y), intervals))
+    return r
 
 
 def determine_if_split_gene_is_supported(consensus_dict, cgp_tx, ens_ids, intron_vector):
@@ -93,10 +97,11 @@ def determine_if_split_gene_is_supported(consensus_dict, cgp_tx, ens_ids, intron
     --ENST1B--                  --ENST2B--
     """
     cgp_genes = cgp_tx.name2.split(",")
-    full_intervals = []
+    full_intervals = set()
     for cgp_gene in cgp_genes:
-        txs = [consensus_dict[x] for x in ens_ids]
-        full_intervals.append(build_full_gene_interval(txs))
+        txs = [consensus_dict[x] for x in ens_ids if x in consensus_dict]
+        assert len(txs) != 0, cgp_tx.name
+        full_intervals.update(build_full_gene_intervals(txs))
     for support, intron_interval in zip(*[intron_vector, cgp_tx.intron_intervals]):
         if not any([intron_interval.overlap(x) for x in full_intervals]) and support == 1:
             return True
@@ -121,8 +126,8 @@ def determine_if_better(cgp_stats, consensus_stats):
     Determines if this CGP transcript is better than any of the consensus transcripts it may come from
     """
     ens_ids = []
-    for ens_id, (consensus_ident, consensus_cov) in consensus_stats.iteritems():
-        cgp_ident, cgp_cov = cgp_stats[ens_id]
+    for ens_id, (consensus_cov, consensus_ident) in consensus_stats.iteritems():
+        cgp_cov, cgp_ident = cgp_stats[ens_id]
         if ((cgp_ident > consensus_ident and cgp_cov >= consensus_cov) or 
                 (cgp_cov > consensus_cov and cgp_ident >= consensus_ident)):
             ens_ids.append(ens_id)
@@ -131,7 +136,7 @@ def determine_if_better(cgp_stats, consensus_stats):
 
 def find_new_transcripts(cgp_dict, final_consensus, metrics):
     """
-    For each CGP transcript, if it was not assigned a gene ID, incorporate it into the final set
+    Include any transcripts which were not assigned any gene IDs
     """
     jg_genes = set()
     for cgp_id, cgp_tx in cgp_dict.iteritems():
@@ -139,6 +144,24 @@ def find_new_transcripts(cgp_dict, final_consensus, metrics):
             final_consensus[cgp_id] = cgp_tx
             jg_genes.add(cgp_id.split(".")[0])
     metrics["CgpAdditions"] = {"CgpNewGenes": len(jg_genes), "CgpNewTranscripts": len(final_consensus)}
+
+
+def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, final_consensus, metrics, support_cutoff=80.0):
+    """
+    If a CGP transcript is associated with genes that are all missing from the consensus, include it if it has at least
+    support_cutoff supported introns
+    """
+    jg_genes = set()
+    for cgp_id, cgp_tx in cgp_dict.iteritems():
+        if 'jg' in cgp_tx.name2:
+            continue
+        cgp_genes = set(cgp_tx.name2.split(","))
+        if len(cgp_genes & consensus_genes) == 0:
+            percent_support = 100.0 * sum(intron_dict[cgp_id]) / len(intron_dict[cgp_id])
+            if percent_support >= support_cutoff:
+                final_consensus[cgp_id] = cgp_tx
+                jg_genes.add(cgp_id.split(".")[0])
+    metrics["CgpAddMissing"] = {"CgpMissingGenes": len(jg_genes), "CgpMissingTranscripts": len(final_consensus)}
 
 
 def build_final_consensus(consensus_dict, replace_map, new_isoforms, final_consensus):
@@ -206,9 +229,9 @@ def main():
     consensus_dict = seq_lib.get_transcript_dict(args.consensusGp)
     cgp_dict = seq_lib.get_transcript_dict(args.cgpGp)
     # load the BLAT results from the sqlite database
-    cgp_stats_query = "SELECT CgpId,EnsId,AlignmentIdentity,AlignmentCoverage FROM '{}_cgp'".format(args.genome)
+    cgp_stats_query = "SELECT CgpId,EnsId,AlignmentCoverage,AlignmentIdentity FROM '{}_cgp'".format(args.genome)
     cgp_stats_dict = sql_lib.get_multi_index_query_dict(cur, cgp_stats_query, num_indices=2)
-    consensus_stats_query = ("SELECT EnsId,AlignmentIdentity,AlignmentCoverage FROM "
+    consensus_stats_query = ("SELECT EnsId,AlignmentCoverage,AlignmentIdentity FROM "
                              "'{}_consensus'".format(args.genome))
     consensus_stats_dict = sql_lib.get_query_dict(cur, consensus_stats_query)
     # load the intron bits
@@ -216,8 +239,11 @@ def main():
     # final dictionaries
     final_consensus = {}
     metrics = {}
-    # easy case - save all CGP transcripts which have no associated genes
+    # save all CGP transcripts which have no associated genes
     find_new_transcripts(cgp_dict, final_consensus, metrics)
+    # save all CGP transcripts whose associated genes are not in the consensus
+    consensus_genes = {x.name2 for x in consensus_dict.itervalues()}
+    find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, final_consensus, metrics)
     # remove all such transcripts from the cgp dict before we evaluate for updating
     cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in final_consensus}
     update_transcripts(cgp_dict, consensus_dict, args.genome, gene_transcript_map, intron_dict, final_consensus, 

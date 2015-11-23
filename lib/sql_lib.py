@@ -229,20 +229,6 @@ def get_transcript_biotype_map(cur, ref_genome):
     return get_query_dict(cur, query)
 
 
-def get_stats(cur, genome, mode="transMap"):
-    """
-    Returns a dictionary mapping each aln_id to [aln_id, %ID, %COV].
-    We replace all NULL values with zero to make things easier in consensus finding.
-    """
-    if mode == "transMap":
-        query = ("SELECT AlignmentId,IFNULL(AlignmentCoverage, 0),IFNULL(AlignmentIdentity, 0) "
-                 "FROM attributes.'{}'").format(genome)
-    else:
-        query = ("SELECT AugustusAlignmentId,IFNULL(AlignmentCoverage, 0),IFNULL(AlignmentIdentity, 0) "
-                 "FROM augustus_attributes.'{}'").format(genome)
-    return get_query_dict(cur, query)
-
-
 def get_fail_good_pass_ids(cur, ref_genome, genome, biotype):
     """
     Returns the IDs categorized as fail, good_specific, pass
@@ -305,6 +291,20 @@ def run_transmap_eval(cur, genome, biotype, trans_map_eval, good=True):
     return get_query_ids(cur, query)
 
 
+def get_stats(cur, genome, mode="transMap"):
+    """
+    Returns a dictionary mapping each aln_id to [aln_id, %ID, %COV].
+    We replace all NULL values with zero to make things easier in consensus finding.
+    """
+    if mode == "transMap":
+        query = ("SELECT AlignmentId,IFNULL(AlignmentCoverage, 0),IFNULL(AlignmentIdentity, 0) "
+                 "FROM attributes.'{}'").format(genome)
+    else:
+        query = ("SELECT AugustusAlignmentId,IFNULL(AlignmentCoverage, 0),IFNULL(AlignmentIdentity, 0) "
+                 "FROM augustus_attributes.'{}'").format(genome)
+    return get_query_dict(cur, query)
+
+
 def highest_cov_aln(cur, genome):
     """
     Returns the set of alignment IDs that represent the best alignment for each source transcript (that mapped over)
@@ -312,9 +312,9 @@ def highest_cov_aln(cur, genome):
     """
     tm_stats = get_stats(cur, genome, mode="transMap")
     combined_covs = defaultdict(list)
-    for aln_id, (ident, cov) in tm_stats.iteritems():
+    for aln_id, (cov, ident) in tm_stats.iteritems():
         tx_id = psl_lib.strip_alignment_numbers(aln_id)
-        combined_covs[tx_id].append([aln_id, ident, cov])
+        combined_covs[tx_id].append([aln_id, cov, ident])
     best_cov = {}
     for tx_id, vals in combined_covs.iteritems():
         best_cov[tx_id] = sorted(vals, key=lambda x: -x[2])[0]

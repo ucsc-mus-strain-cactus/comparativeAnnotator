@@ -101,10 +101,8 @@ def calculate_y_range(max_y_value, breaks):
 
 def base_barplot(max_y_value, names, out_path, file_name, title_string, breaks, border=True, has_legend=True):
     """
-    Used to initialize either a stacked or unstacked barplot. Expects the max y value to be somewhere in the 10-100
-    range or things will get weird.
+    Used to initialize either a stacked or unstacked barplot.
     """
-    assert 10 <= max_y_value <= 100, (max_y_value, names, out_path, file_name, title_string)
     fig, pdf = init_image(out_path, file_name, width, height)
     ax = establish_axes(fig, width, height, border, has_legend)
     plt.text(0.5, 1.08, title_string, horizontalalignment='center', fontsize=12, transform=ax.transAxes)
@@ -112,8 +110,9 @@ def base_barplot(max_y_value, names, out_path, file_name, title_string, breaks, 
     ax.set_ylim([0, max_y_value])
     plt.tick_params(axis='y', labelsize=9)
     plt.tick_params(axis='x', labelsize=9)
-    ax.yaxis.set_ticks(calculate_y_range(max_y_value, breaks))
-    ax.yaxis.set_ticklabels([str(x) + "%" for x in range(0, int(max_y_value + 1), int(max_y_value / 10))])
+    y_range = calculate_y_range(max_y_value, breaks)
+    ax.yaxis.set_ticks(y_range)
+    ax.yaxis.set_ticklabels([str(x) + "%" for x in y_range])
     ax.xaxis.set_ticks(np.arange(0, len(names)) + bar_width / 2.0)
     ax.xaxis.set_ticklabels(names, rotation=60)
     return ax, fig, pdf
