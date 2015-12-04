@@ -607,6 +607,31 @@ class GenePredTranscript(Transcript):
         return translate_sequence(cds[offset:])
 
 
+    def get_gene_pred(self, name=None, start_offset=None, stop_offset=None, name2=None, uid=None):
+        """
+        Returns this transcript as a genePred transcript.
+        If start_offset or stop_offset are set (chromosome coordinates), then this record will be changed to only
+        show results within that region, which is defined in chromosome coordinates.
+        TODO: if the functionality to resize this is used, exon frame information will be incorrect.
+        """
+        bed_rec = self.get_bed(name=name, start_offset=start_offset, stop_offset=stop_offset)
+        chrom, start, stop, name, _, strand, thick_start, thick_stop, __, block_count, block_sizes, block_starts = bed_rec
+        block_sizes = map(int, block_sizes.split(","))
+        block_starts = map(int, block_starts.split(","))
+        # convert BED fields to genePred fields
+        exon_starts = [start + x for x in block_starts]
+        exon_ends = [x + y for x, y in zip(*[exon_starts, block_sizes])]
+        exon_starts = ",".join(map(str, exon_starts))
+        exon_ends = ",".join(map(str, exon_ends))
+        exon_frames = ",".join(map(str, self.exon_frames))
+        # change names if desired
+        name2 = self.name2 if name2 is None else name2
+        uid = self.id if uid is None else uid
+        return [name, chrom, strand, start, stop, thick_start, thick_stop, len(exon_starts), exon_starts, exon_ends,
+                uid, name2, self.cds_start_stat, self.cds_end_stat, exon_frames]
+
+
+
 class Exon(object):
     """
     An Exon object stores information about one exon in both
@@ -793,6 +818,7 @@ class ChromosomeInterval(object):
 
     def __init__(self, chromosome, start, stop, strand):
         self.chromosome = str(chromosome)
+        assert start <= stop
         self.start = int(start)    # 0 based
         self.stop = int(stop)      # exclusive
         if strand not in [True, False, None]:

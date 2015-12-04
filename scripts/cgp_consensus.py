@@ -260,7 +260,7 @@ def main():
         pickle.dump(metrics, outf)
     with open(args.outGp, "w") as outf:
         for tx_id, tx in sorted(final_consensus.iteritems(), key=lambda x: [x[1].chromosome, x[1].start]):
-            outf.write("\t".join(map(str, tx.get_bed())) + "\n")
+            outf.write("\t".join(map(str, tx.get_gene_pred())) + "\n")
 
 
 if __name__ == "__main__":

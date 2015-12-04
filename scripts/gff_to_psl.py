@@ -6,6 +6,8 @@ Converts a pileup2fasta output GFF to a PSL representing a fake alignment
 import sys
 import os
 import argparse
+from operator import itemgetter
+from itertools import groupby
 from collections import defaultdict
 from lib.general_lib import tokenize_stream, opener
 
@@ -20,19 +22,30 @@ class IndelRecord(object):
     def __init__(self, tokens):
         self.chromosome = tokens[0]
         self.category = tokens[2]
-        assert self.category in ["DELETION", "INSERTION"]
+        assert self.category in ["DELETION", "INSERTION", "SNP"]
         self.start = int(tokens[3]) - 1
         self.end = int(tokens[4]) - 1
         if self.category == "DELETION":
             self.size = int(tokens[-1].split("=")[-1])
             assert self.size == self.end - self.start
-        else:
+        elif self.category == "INSERTION":
             self.size = len(tokens[-1].split("=")[-1])
+        else:
+            self.size = 1
     def __repr__(self):
         return "IndelRecord(chromosome={}, start={}, end={}, category={})".format(self.chromosome, self.start, 
                                                                                  self.end, self.category)
     def __len__(self):
         return self.size
+
+
+class DeletionRecord(IndelRecord):
+    def __init__(self, chrom, start, end, size):
+        self.chromosome = chrom
+        self.start = start
+        self.end = end
+        self.size = size
+        self.category = "DELETION"
 
 
 def parse_args():
@@ -43,6 +56,20 @@ def parse_args():
     return parser.parse_args()
 
 
+def clean_gff_snps(gff_recs, snp_positions):
+    """
+    These silly GFFs have 1bp deletions listed as SNPs, but the target is a *. It then lines these up sometimes.
+    We need to merge these into deletion records.
+    """
+    intervals = []
+    for k, g in groupby(enumerate(snp_positions), lambda (i, (x, y)):i - x):
+        intervals.append(map(itemgetter(1), g))
+    for interval in intervals:
+        positions, chrom = zip(*interval)
+        assert len(set(chrom)) == 1
+        gff_recs[chrom[0]].append(DeletionRecord(chrom[0], positions[0], positions[0] + len(positions) + 1, len(positions) + 1))
+
+
 def build_gff_dict(gff_file):
     """
     Builds a sorted list of IndelRecords for each chromosome in the input gff
@@ -50,10 +77,15 @@ def build_gff_dict(gff_file):
     """
     gff_recs = defaultdict(list)
     with open(gff_file) as inf:
+        snp_positions = []
         for tokens in tokenize_stream(inf):
             if tokens[2] in ["DELETION", "INSERTION"]:
                 rec = IndelRecord(tokens)
                 gff_recs[rec.chromosome].append(rec)
+            elif tokens[-1][-1] == "*":
+                snp_positions.append([int(tokens[3]), tokens[0]])
+    # fix the stupid SNP * problem
+    clean_gff_snps(gff_recs, snp_positions)
     # just in case for some reason the GFF isn't sorted
     for chrom, val in gff_recs.iteritems():
         gff_recs[chrom] = sorted(val, key=lambda x: x.start)
@@ -85,6 +117,7 @@ def build_blocks(chrom_recs, q_start, q_end):
             raise RuntimeError("you shouldn't have gotten here")
         t_starts.append(t_pos)
         q_starts.append(q_pos)
+        print rec, len(rec), "q_pos: {}".format(q_pos), "t_pos: {}".format(t_pos), "prev_block: {}".format(prev_block_size)
     block_sizes.append(q_end - q_pos)
     return q_num_insert, q_base_insert, t_num_insert, len(block_sizes), block_sizes, q_starts, t_starts
 
