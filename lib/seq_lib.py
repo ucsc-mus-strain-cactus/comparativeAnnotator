@@ -627,7 +627,7 @@ class GenePredTranscript(Transcript):
         # change names if desired
         name2 = self.name2 if name2 is None else name2
         uid = self.id if uid is None else uid
-        return [name, chrom, strand, start, stop, thick_start, thick_stop, len(exon_starts), exon_starts, exon_ends,
+        return [name, chrom, strand, start, stop, thick_start, thick_stop, len(self.exons), exon_starts, exon_ends,
                 uid, name2, self.cds_start_stat, self.cds_end_stat, exon_frames]
 
 
