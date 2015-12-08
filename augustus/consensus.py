@@ -142,9 +142,9 @@ def find_best_transcripts(data_dict, stats):
     return binned_transcripts
 
 
-def find_best_for_gene(bins, stats, cov_cutoff=30.0, ident_cutoff=90.0):
+def find_longest_for_gene(bins, stats, gps, cov_cutoff=80.0, ident_cutoff=90.0):
     """
-    Finds the best transcript for a gene. This is used when all transcripts failed, and has more relaxed cutoffs.
+    Finds the longest transcript(s) for a gene. This is used when all transcripts failed, and has more relaxed cutoffs.
     """
     aln_ids = zip(*bins.itervalues())[0]
     keep_ids = []
@@ -155,12 +155,14 @@ def find_best_for_gene(bins, stats, cov_cutoff=30.0, ident_cutoff=90.0):
         if cov >= cov_cutoff and ident >= ident_cutoff:
             keep_ids.append(aln_id)
     if len(keep_ids) > 0:
-        return find_best_alns(stats, keep_ids)
+        sizes = [[x, len(gps[x])] for x in keep_ids]
+        longest_size = max(zip(*sizes)[1])
+        return [x for x, y in sizes if y == longest_size]
     else:
         return None
 
 
-def find_consensus(binned_transcripts, stats):
+def find_consensus(binned_transcripts, stats, gps):
     """
     Takes the binned transcripts and builds a consensus gene set.
     """
@@ -173,18 +175,19 @@ def find_consensus(binned_transcripts, stats):
                 consensus.append(best_id)
                 gene_in_consensus = True
         if gene_in_consensus is False:
-            # find the one best transcript for this gene based on identity after filtering for coverage
-            best_for_gene = find_best_for_gene(binned_transcripts[gene_id], stats)
+            # find the single longest transcript for this gene
+            best_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps)
             if best_for_gene is not None:
                 consensus.append(best_for_gene[0])
     return consensus
 
 
-def consensus_by_biotype(cur, ref_genome, genome, biotype, transcript_gene_map, gene_transcript_map, stats):
+def consensus_by_biotype(cur, ref_genome, genome, biotype, gps, transcript_gene_map, gene_transcript_map, stats):
     """
     Main consensus finding function.
     """
-    fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
+    fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype,
+                                                                           best_cov_only=False)
     # hacky way to avoid duplicating code in consensus finding - we will always have an aug_id set, it just may be empty
     if biotype == "protein_coding":
         aug_query = etc.config.augustusEval(genome, ref_genome)
@@ -195,7 +198,7 @@ def consensus_by_biotype(cur, ref_genome, genome, biotype, transcript_gene_map, 
     id_list = [fail_ids, good_specific_ids, pass_ids, aug_ids]
     data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
     binned_transcripts = find_best_transcripts(data_dict, stats)
-    consensus = find_consensus(binned_transcripts, stats)
+    consensus = find_consensus(binned_transcripts, stats, gps)
     return binned_transcripts, consensus
 
 
@@ -238,7 +241,7 @@ def evaluate_best_for_gene(tx_ids):
     return "NoTransMap" if tx_ids is None else "Fail"
 
 
-def evaluate_coding_consensus(binned_transcripts, stats):
+def evaluate_coding_consensus(binned_transcripts, stats, gps):
     """
     Evaluates the coding consensus for plots. Reproduces a lot of code from find_consensus()
     TODO: split out duplicated code.
@@ -257,7 +260,7 @@ def evaluate_coding_consensus(binned_transcripts, stats):
         s = evaluate_gene(categories)
         gene_evaluation[s] += 1
         if s == "Fail":
-            best_for_gene = find_best_for_gene(binned_transcripts[gene_id], stats)
+            best_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps)
             s = evaluate_best_for_gene(best_for_gene)
             gene_fail_evaluation[s] += 1
     return {"transcript": transcript_evaluation, "gene": gene_evaluation, "gene_fail": gene_fail_evaluation}
@@ -330,7 +333,7 @@ def main():
     for biotype in biotypes:
         gene_transcript_map = sql_lib.get_gene_transcript_map(cur, args.refGenome, biotype=biotype, 
                                                               filter_chroms=args.filterChroms)
-        binned_transcripts, consensus = consensus_by_biotype(cur, args.refGenome, args.genome, biotype,
+        binned_transcripts, consensus = consensus_by_biotype(cur, args.refGenome, args.genome, biotype, gps,
                                                              transcript_gene_map, gene_transcript_map, stats)
         deduplicated_consensus, dup_count = deduplicate_consensus(consensus, gps, stats)
         if len(deduplicated_consensus) > 0:  # some biotypes we may have nothing
@@ -338,7 +341,7 @@ def main():
         if biotype == "protein_coding":
             p = os.path.join(args.workDir, args.genome)
             mkdir_p(os.path.dirname(p))
-            gene_transcript_evals = evaluate_coding_consensus(binned_transcripts, stats)
+            gene_transcript_evals = evaluate_coding_consensus(binned_transcripts, stats, gps)
             gene_transcript_evals["duplication_rate"] = dup_count
             with open(p, "w") as outf:
                 pickle.dump(gene_transcript_evals, outf)

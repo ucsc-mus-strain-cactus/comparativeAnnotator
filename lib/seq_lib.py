@@ -68,6 +68,12 @@ class Transcript(object):
         return (hash(self.chromosome) ^ hash(self.start) ^ hash(self.stop) ^ hash(self.strand) ^
                 hash((self.chromosome, self.start, self.stop, self.strand)))
 
+    def get_interval(self):
+        """
+        Returns a ChromosomeInterval object representing the full span of this transcript.
+        """
+        return ChromosomeInterval(self.chromosome, self.start, self.stop, convert_strand(self.strand))
+
     def get_bed(self, rgb=None, name=None, start_offset=None, stop_offset=None):
         """
         Returns this transcript as a BED record with optional changes to rgb and name.

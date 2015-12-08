@@ -31,6 +31,7 @@ def load_evaluations(work_dir, genomes):
     cgp_replace = OrderedDict()
     new_isoforms = OrderedDict()
     cgp_missing = OrderedDict()
+    cgp_join_genes = OrderedDict()
     for genome in genomes:
         p = os.path.join(work_dir, genome + ".metrics.pickle")
         with open(p) as inf:
@@ -39,7 +40,8 @@ def load_evaluations(work_dir, genomes):
         cgp_replace[genome] = r["CgpReplace"]
         new_isoforms[genome] = r["NewIsoforms"]
         cgp_missing[genome] = r["CgpAddMissing"]
-    return cgp_additions, cgp_replace, new_isoforms, cgp_missing
+        cgp_join_genes[genome] = r["JoinGeneSupported"]
+    return cgp_additions, cgp_replace, new_isoforms, cgp_missing, cgp_join_genes
 
 
 def addition_plot(cgp_additions, out_path, gencode):
@@ -78,14 +80,24 @@ def missing_plot(cgp_missing, out_path, gencode):
     plot_lib.side_by_side_unequal_barplot(results, categories, out_path, out_name, title)
 
 
+def join_genes_plot(cgp_join_genes, out_path, gencode):
+    results, categories = munge_data(cgp_join_genes, norm=False)
+    base_title = ("How many CGP consensus transcripts join TMR transcripts in a supported fashion\n"
+                  "to the consensus gene set derived from the annotation set {}")
+    title = base_title.format(gencode)
+    out_name = "{}_{}_cgp_consensus".format(gencode, "join_genes")
+    plot_lib.side_by_side_unequal_barplot(results, categories, out_path, out_name, title)
+
+
 def main():
     args = parse_args()
     mkdir_p(args.outDir)
-    cgp_additions, cgp_replace, new_isoforms, cgp_missing = load_evaluations(args.workDir, args.genomes)
+    cgp_additions, cgp_replace, new_isoforms, cgp_missing, cgp_join_genes = load_evaluations(args.workDir, args.genomes)
     addition_plot(cgp_additions, args.outDir, args.gencode)
     replace_plot(cgp_replace, args.outDir, args.gencode)
     new_isoforms_plot(new_isoforms, args.outDir, args.gencode)
     missing_plot(cgp_missing, args.outDir, args.gencode)
+    join_genes_plot(cgp_join_genes, args.outDir, args.gencode)
 
 
 if __name__ == "__main__":

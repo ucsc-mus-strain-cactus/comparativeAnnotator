@@ -229,14 +229,19 @@ def get_transcript_biotype_map(cur, ref_genome):
     return get_query_dict(cur, query)
 
 
-def get_fail_good_pass_ids(cur, ref_genome, genome, biotype):
+def get_fail_good_pass_ids(cur, ref_genome, genome, biotype, best_cov_only=True):
     """
     Returns the IDs categorized as fail, good_specific, pass
     """
     good_query = etc.config.transMapEval(ref_genome, genome, biotype, good=True)
     pass_query = etc.config.transMapEval(ref_genome, genome, biotype, good=False)
-    best_covs = highest_cov_aln(cur, genome)
-    best_ids = set(zip(*best_covs.itervalues())[0])
+    if best_cov_only is True:
+        best_covs = highest_cov_aln(cur, genome)
+        best_ids = set(zip(*best_covs.itervalues())[0])
+    else:
+        class Universe:
+            def __contains__(_,x): return True
+        best_ids = Universe()
     good_ids = {x for x in get_query_ids(cur, good_query) if x in best_ids}
     pass_ids = {x for x in get_query_ids(cur, pass_query) if x in best_ids}
     all_ids = {x for x in get_biotype_aln_ids(cur, genome, biotype) if x in best_ids}
@@ -317,7 +322,7 @@ def highest_cov_aln(cur, genome):
         combined_covs[tx_id].append([aln_id, cov, ident])
     best_cov = {}
     for tx_id, vals in combined_covs.iteritems():
-        best_cov[tx_id] = sorted(vals, key=lambda x: -x[2])[0]
+        best_cov[tx_id] = sorted(vals, key=lambda x: [-x[1], -x[2]])[0]
     return best_cov
 
 

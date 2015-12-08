@@ -79,7 +79,7 @@ def build_full_gene_intervals(gps):
     """
     interval_map = defaultdict(list)
     for x in gps:
-        interval_map[x.chromosome].append(seq_lib.ChromosomeInterval(x.chromosome, x.start, x.stop, x.strand))
+        interval_map[x.chromosome].append(x.get_interval())
     r = set()
     for intervals in interval_map.itervalues():
         r.add(reduce(lambda x, y: x.hull(y), intervals))
@@ -96,12 +96,10 @@ def determine_if_split_gene_is_supported(consensus_dict, cgp_tx, ens_ids, intron
     ----ENST1A-----         ----ENST2A-----
     --ENST1B--                  --ENST2B--
     """
-    cgp_genes = cgp_tx.name2.split(",")
-    full_intervals = set()
-    for cgp_gene in cgp_genes:
-        txs = [consensus_dict[x] for x in ens_ids if x in consensus_dict]
-        assert len(txs) != 0, cgp_tx.name
-        full_intervals.update(build_full_gene_intervals(txs))
+    gps = [consensus_dict[x] for x in ens_ids if x in consensus_dict]
+    assert len(gps) != 0, cgp_tx.name
+    # ignore the case where the CGP transcript was assigned transcripts on another chromosome
+    full_intervals = {x for x in build_full_gene_intervals(gps)}
     for support, intron_interval in zip(*[intron_vector, cgp_tx.intron_intervals]):
         if not any([intron_interval.overlap(x) for x in full_intervals]) and support == 1:
             return True
@@ -146,10 +144,13 @@ def find_new_transcripts(cgp_dict, final_consensus, metrics):
     metrics["CgpAdditions"] = {"CgpNewGenes": len(jg_genes), "CgpNewTranscripts": len(final_consensus)}
 
 
-def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, final_consensus, metrics, support_cutoff=80.0):
+def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, final_consensus, metrics, consensus_dict,
+                             gene_transcript_map, support_cutoff=80.0):
     """
     If a CGP transcript is associated with genes that are all missing from the consensus, include it if it has at least
-    support_cutoff supported introns. Otherwise, remove it.
+    support_cutoff supported introns. Otherwise, remove it. 
+    Also, check whether this transcript does not at all overlap the consensus transcript(s) for the gene(s) it is
+    assigned. If this is true, also re-include it. This is generally the result of transMap mapping two places.
     """
     jg_genes = set()
     to_remove = set()
@@ -163,6 +164,23 @@ def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, final_conse
                 final_consensus[cgp_id] = cgp_tx
                 jg_genes.add(cgp_id.split(".")[0])
             # we want to exclude transcripts without support from further consensus finding
+            else:
+                to_remove.add(cgp_id)
+            continue
+        # does this transcript exist on a different chromosome from the consensus picked?
+        gps = []
+        for gene_id in cgp_genes:
+            # gene may not be in gene_transcript map if it is listed as protein_coding but none of its transcripts are
+            if gene_id not in gene_transcript_map:
+                continue
+            gps.extend([consensus_dict[x] for x in gene_transcript_map[gene_id] if x in consensus_dict])  
+        full_intervals = build_full_gene_intervals(gps)
+        cgp_interval = cgp_tx.get_interval()
+        if not any([cgp_interval.overlap(x) for x in full_intervals]):
+            percent_support = 100.0 * sum(intron_dict[cgp_id]) / len(intron_dict[cgp_id])
+            if percent_support >= support_cutoff:
+                final_consensus[cgp_id] = cgp_tx
+                jg_genes.add(cgp_id.split(".")[0])
             else:
                 to_remove.add(cgp_id)
     metrics["CgpAddMissing"] = {"CgpMissingGenes": len(jg_genes), "CgpMissingTranscripts": len(final_consensus)}
@@ -189,8 +207,8 @@ def build_final_consensus(consensus_dict, replace_map, new_isoforms, final_conse
         final_consensus[cgp_tx.name] = cgp_tx
 
 
-def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, intron_dict, final_consensus, metrics,
-                       cgp_stats_dict, consensus_stats_dict):
+def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, transcript_gene_map, intron_dict, 
+                       final_consensus, metrics, cgp_stats_dict, consensus_stats_dict):
     """
     Main transcript replacement/inclusion algorithm.
     For every cgp transcript, determine if it should replace one or more consensus transcripts.
@@ -201,7 +219,10 @@ def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, in
     join_genes = {"Unsupported": 0, "Supported": 0}  # will count the number of unsupported joins
     for cgp_id, cgp_tx in cgp_dict.iteritems():
         cgp_stats = cgp_stats_dict[cgp_id]
-        ens_ids = {x for x in cgp_stats.keys() if x in consensus_stats_dict}
+        ens_ids = {x for x in cgp_stats.keys() if x in consensus_stats_dict and consensus_dict[x].chromosome ==
+                   cgp_tx.chromosome}  # we filter out join-gene cases that are on alternative chromosomes
+        # as a result of this filtering, we cannot rely on name2 to show if this is a join-genes case
+        gene_ids = {transcript_gene_map[x] for x in ens_ids}
         consensus_stats = {x: consensus_stats_dict[x] for x in ens_ids}
         to_replace_ids = determine_if_better(cgp_stats, consensus_stats)
         intron_vector = intron_dict[cgp_id]
@@ -210,11 +231,12 @@ def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, in
                 replace_map[to_replace_id] = cgp_tx
         elif determine_if_new_introns(cgp_id, cgp_tx, ens_ids, consensus_dict, intron_vector) is True:
             # make sure this isn't joining two genes in an unsupported way
-            if len(cgp_tx.name2.split(",")) == 1:
+            if len(gene_ids) == 1:
                 new_isoforms.append(cgp_tx)
             elif determine_if_split_gene_is_supported(consensus_dict, cgp_tx, ens_ids, intron_vector):
                 new_isoforms.append(cgp_tx)
                 join_genes["Supported"] += 1
+                print cgp_id
             else:
                 join_genes["Unsupported"] += 1
     # calculate some metrics for plots once all genomes are analyzed
@@ -229,6 +251,7 @@ def main():
     # attach regular comparativeAnnotator reference databases in order to build gene-transcript map
     con, cur = sql_lib.attach_databases(args.compAnnPath, mode="reference")
     gene_transcript_map = sql_lib.get_gene_transcript_map(cur, args.refGenome, biotype="protein_coding")
+    transcript_gene_map = sql_lib.get_transcript_gene_map(cur, args.refGenome, biotype="protein_coding")
     # open CGP database -- we don't need comparativeAnnotator databases anymore
     cgp_db = os.path.join(args.compAnnPath, args.cgpDb)
     con, cur = sql_lib.open_database(cgp_db)
@@ -250,11 +273,12 @@ def main():
     find_new_transcripts(cgp_dict, final_consensus, metrics)
     # save all CGP transcripts whose associated genes are not in the consensus
     consensus_genes = {x.name2 for x in consensus_dict.itervalues()}
-    find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, final_consensus, metrics)
+    find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, final_consensus, metrics, consensus_dict,
+                             gene_transcript_map)
     # remove all such transcripts from the cgp dict before we evaluate for updating
     cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in final_consensus}
-    update_transcripts(cgp_dict, consensus_dict, args.genome, gene_transcript_map, intron_dict, final_consensus, 
-                       metrics, cgp_stats_dict, consensus_stats_dict)
+    update_transcripts(cgp_dict, consensus_dict, args.genome, gene_transcript_map, transcript_gene_map, intron_dict, 
+                       final_consensus, metrics, cgp_stats_dict, consensus_stats_dict)
     # write results out to disk
     with open(os.path.join(args.metricsOutDir, args.genome + ".metrics.pickle"), "w") as outf:
         pickle.dump(metrics, outf)
