@@ -1,6 +1,6 @@
 import os
 import argparse
-from collections import Counter
+from collections import Counter, OrderedDict
 import numpy as np
 import lib.sql_lib as sql_lib
 import lib.psl_lib as psl_lib
@@ -38,7 +38,8 @@ def paralogy(cur, genome):
 def make_hist(vals, bins, reverse=False, roll=0):
     """
     Makes a histogram out of a value vector given a list of bins. Returns this normalized off the total number.
-    Reverse reverse the output relative to bins, roll determines how far to roll the bins around
+    Reverse reverses the output relative to bins, roll determines how far to roll the bins around. Useful for putting
+    the 0 bin on top.
     """
     raw = np.histogram(vals, bins)[0]
     if reverse is True:
@@ -46,6 +47,17 @@ def make_hist(vals, bins, reverse=False, roll=0):
     raw = np.roll(raw, roll)
     norm = raw / (0.01 * len(vals))
     return norm, raw
+
+
+def get_fail_good_pass_dict(cur, ref_genome, genomes, highest_cov_dict, biotype, filter_chroms):
+    """
+    Wrapper for sql_lib.get_fail_good_pass_ids that applies to many genomes.
+    """
+    results = OrderedDict()
+    for genome in genomes:
+        results[genome] = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype, best_cov_only=True,
+                                                         filter_chroms=filter_chroms, highest_cov_dict=highest_cov_dict)
+    return results
 
 
 def paralogy_plot(cur, genomes, out_path, biotype, biotype_ids, gencode):
@@ -90,7 +102,7 @@ def metrics_plot(highest_cov_dict, bins, genomes, out_path, file_name, biotype, 
     results = []
     for g in genomes:
         covs = highest_cov_dict[g]
-        vals = [eval(analysis) for tx_id, (aln_id, identity, coverage) in covs.iteritems() if tx_id in biotype_ids]
+        vals = [eval(analysis) for tx_id, (aln_id, coverage, identity) in covs.iteritems() if tx_id in biotype_ids]
         vals.extend([0] * (len(biotype_ids) - len(vals)))  # add all of the unmapped transcripts
         norm, raw = make_hist(vals, bins, reverse=True, roll=0)
         results.append([g, norm])
@@ -109,36 +121,25 @@ def cov_ident_wrapper(highest_cov_dict, genomes, out_path,  biotype, gencode, bi
         metrics_plot(highest_cov_dict, bins, genomes, out_path, file_name, biotype, gencode, biotype_ids, analysis)
 
 
-def num_good_pass(highest_cov_dict, cur, genomes, ref_genome, out_path, biotype, gencode, biotype_ids):
+def num_good_pass(fail_good_pass_dict, cur, ref_genome, out_path, biotype, gencode, biotype_ids):
     file_name = "{}_num_good_pass".format(gencode)
     results = []
-    for g in genomes:
-        #good_query = etc.config.transMapEval(ref_genome, g, biotype, good=True)
-        #pass_query = etc.config.transMapEval(ref_genome, g, biotype, good=False)
-        best_ids = {x for x in zip(*highest_cov_dict[g].itervalues())[0] if psl_lib.strip_alignment_numbers(x) in 
-                    biotype_ids}
-        num_no_aln = len(biotype_ids) - len(best_ids)
-        #good_ids = {x for x in sql_lib.get_query_ids(cur, good_query) if x in best_ids}
-        #pass_ids = {x for x in sql_lib.get_query_ids(cur, pass_query) if x in best_ids}
-        fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, g, biotype)
-        #num_fail = len(best_ids) - len(good_ids)
-        #num_good = len(good_ids) - len(pass_ids)
-        #num_pass = len(pass_ids)
+    for genome, (fail_ids, good_specific_ids, pass_ids) in fail_good_pass_dict.iteritems():
+        num_no_aln = len(biotype_ids) - sum([len(x) for x in [fail_ids, good_specific_ids, pass_ids]])
         raw = np.array([len(pass_ids), len(good_specific_ids), len(fail_ids), num_no_aln])
+        assert all([x >= 0 for x in raw])
         norm = raw / (0.01 * len(biotype_ids))
-        results.append([g, norm])
+        results.append([genome, norm])
     title_string = "Proportion of {:,} {} transcripts in biotype {}\ncategorized as Pass/Good/Fail"
     title_string = title_string.format(len(biotype_ids), biotype.replace("_", " "), gencode)
     legend_labels = ["Pass", "Good", "Fail", "NoAln"]
     plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
 
 
-def num_good_pass_gene_level(highest_cov_dict, cur, genome_order, ref_genome, out_path, biotype, gencode, biotype_ids):
+def num_good_pass_gene_level(fail_good_pass_dict, cur, ref_genome, out_path, biotype, gencode, transcript_gene_map):
     file_name = "{}_num_good_pass_gene_level".format(gencode)
     results = []
-    for genome in genome_order:
-        fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
-        transcript_gene_map = sql_lib.get_transcript_gene_map(cur, ref_genome, biotype)
+    for genome, (fail_ids, good_specific_ids, pass_ids) in fail_good_pass_dict.iteritems():
         pass_genes = {transcript_gene_map[psl_lib.strip_alignment_numbers(x)] for x in pass_ids}
         good_specific_genes = {transcript_gene_map[psl_lib.strip_alignment_numbers(x)] for x in good_specific_ids}
         fail_genes = {transcript_gene_map[psl_lib.strip_alignment_numbers(x)] for x in fail_ids}
@@ -148,6 +149,7 @@ def num_good_pass_gene_level(highest_cov_dict, cur, genome_order, ref_genome, ou
         num_fail_genes = len(fail_genes - (good_specific_genes | pass_genes))
         num_no_aln = num_genes - (num_pass_genes + num_good_genes + num_fail_genes)
         raw = np.array([num_pass_genes, num_good_genes, num_fail_genes, num_no_aln])
+        assert all([x >= 0 for x in raw])
         norm = raw / (0.01 * num_genes)
         results.append([genome, norm])
     title_string = "Proportion of {:,} {} genes in biotype {}\nwith at least one transcript categorized as Pass/Good/Fail"
@@ -159,19 +161,21 @@ def num_good_pass_gene_level(highest_cov_dict, cur, genome_order, ref_genome, ou
 def main():
     args = parse_args()
     con, cur = sql_lib.attach_databases(args.comparativeAnnotationDir, mode="transMap")
-    highest_cov_dict = sql_lib.get_highest_cov_alns(cur, args.genomes)
+    highest_cov_dict = sql_lib.get_highest_cov_alns(cur, args.genomes, args.filterChroms)
     for biotype in sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=False):
         biotype_ids = sql_lib.get_biotype_ids(cur, args.refGenome, biotype, filter_chroms=args.filterChroms)
+        transcript_gene_map = sql_lib.get_transcript_gene_map(cur, args.refGenome, biotype, filter_chroms=args.filterChroms)
         if len(biotype_ids) > 50:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty
+            fail_good_pass_dict = get_fail_good_pass_dict(cur, args.refGenome, args.genomes, highest_cov_dict, biotype,
+                                                          args.filterChroms)
             out_path = os.path.join(args.outDir, "transmap_analysis", biotype)
             mkdir_p(out_path)
             cov_ident_wrapper(highest_cov_dict, args.genomes, out_path, biotype, args.gencode, biotype_ids)
             cat_plot_wrapper(cur, highest_cov_dict, args.genomes, out_path, biotype, args.gencode, biotype_ids)
             paralogy_plot(cur, args.genomes, out_path, biotype, biotype_ids, args.gencode)
-            num_good_pass(highest_cov_dict, cur, args.genomes, args.refGenome, out_path, biotype,
-                          args.gencode, biotype_ids)
-            num_good_pass_gene_level(highest_cov_dict, cur, args.genomes, args.refGenome, out_path, biotype,
-                                     args.gencode, biotype_ids)
+            num_good_pass(fail_good_pass_dict, cur, args.refGenome, out_path, biotype, args.gencode, biotype_ids)
+            num_good_pass_gene_level(fail_good_pass_dict, cur, args.refGenome, out_path, biotype, args.gencode, 
+                                     transcript_gene_map)
 
 if __name__ == "__main__":
     main()

@@ -43,7 +43,8 @@ def munge_intron_data(d, num_original_introns, filter_set):
     """
     Used to munge input data.
     """
-    d["HasOriginalIntrons"] = d["HasOriginalIntrons"] >= 0.5 * num_original_introns["NumberIntrons"] - 0.5
+    d["HasOriginalIntrons"] = np.logical_or(d["HasOriginalIntrons"] >= 0.5 * num_original_introns["NumberIntrons"] - 0.5,
+                                             num_original_introns["NumberIntrons"] == 0)
     m = d.ix[filter_set]
     return munge_data(d, filter_set)
 

@@ -342,3 +342,21 @@ with open("/hive/groups/recon/projs/gorilla_eichler/pipeline_data/comparative/su
             x = x.rstrip().split("\t")
             if x[0] in save_gp_intron_bits:
                 outf.write("\t".join(x) + "\n")
+
+
+q = "SELECT AlignmentId,main.'{genome}'.UtrUnknownSplice,main.'{genome}'. "
+
+
+
+noncoding_classifiers = ["UtrUnknownSplice", "PercentUnknownBases", "HasOriginalIntrons"]
+biotype = "snoRNA"
+ref_genome = "C57B6J"
+for genome in ["C57B6NJ", "PAHARIEiJ"]:
+    fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
+    sql_data = sql_lib.load_data(con, genome, noncoding_classifiers)
+    num_original_introns = sql_lib.load_data(con, genome, ["NumberIntrons"], table="attributes")
+    query = query.format(genome, biotype, ref_genome)
+    df = pd.read_sql(query, con, index_col="AlignmentId")
+    df["AlignmentCoverage"] = 100 - df["AlignmentCoverage"]
+    munged, stats = munge_intron_data(df, num_original_introns, fail_ids)
+    plot_lib.barplot(stats, "./", "{}_barplot".format(genome), "{} Fail {} classifiers".format(genome, biotype))

@@ -131,11 +131,14 @@ def get_multi_index_query_dict(cur, query, num_indices=2):
     return d
 
 
-def get_biotype_aln_ids(cur, genome, biotype):
+def get_biotype_aln_ids(cur, genome, biotype, filter_chroms=None):
     """
     Returns a set of aln_ids which are members of the biotype.
     """
     query = "SELECT AlignmentId FROM attributes.'{0}' WHERE TranscriptType = '{1}' AND GeneType = '{1}'"
+    if filter_chroms is not None:
+        for filter_chrom in filter_chroms:
+            query += " AND refChrom != '{}'".format(filter_chrom)
     query = query.format(genome, biotype)
     return get_query_ids(cur, query)
 
@@ -229,23 +232,29 @@ def get_transcript_biotype_map(cur, ref_genome):
     return get_query_dict(cur, query)
 
 
-def get_fail_good_pass_ids(cur, ref_genome, genome, biotype, best_cov_only=True):
+def get_fail_good_pass_ids(cur, ref_genome, genome, biotype, best_cov_only=True, filter_chroms=None, 
+                           highest_cov_dict=None):
     """
-    Returns the IDs categorized as fail, good_specific, pass
+    Returns the IDs categorized as fail, good_specific, pass. You can set the best_cov_only flag to only report
+    those transcripts with highest coverage. You can also pass a premade highest_cov_dict to save computation time.
     """
     good_query = etc.config.transMapEval(ref_genome, genome, biotype, good=True)
     pass_query = etc.config.transMapEval(ref_genome, genome, biotype, good=False)
     if best_cov_only is True:
-        best_covs = highest_cov_aln(cur, genome)
+        if highest_cov_dict is None:
+            best_covs = highest_cov_aln(cur, genome)
+        else:
+            best_covs = highest_cov_dict[genome]
         best_ids = set(zip(*best_covs.itervalues())[0])
     else:
         class Universe:
-            def __contains__(_,x): return True
+            def __contains__(_, __):
+                return True
         best_ids = Universe()
     good_ids = {x for x in get_query_ids(cur, good_query) if x in best_ids}
     pass_ids = {x for x in get_query_ids(cur, pass_query) if x in best_ids}
     all_ids = {x for x in get_biotype_aln_ids(cur, genome, biotype) if x in best_ids}
-    fail_ids = all_ids - good_ids
+    fail_ids = all_ids - (good_ids | pass_ids)
     good_specific_ids = good_ids - pass_ids
     return fail_ids, good_specific_ids, pass_ids
 
@@ -296,26 +305,32 @@ def run_transmap_eval(cur, genome, biotype, trans_map_eval, good=True):
     return get_query_ids(cur, query)
 
 
-def get_stats(cur, genome, mode="transMap"):
+def get_stats(cur, genome, mode="transMap", filter_chroms=None):
     """
     Returns a dictionary mapping each aln_id to [aln_id, %ID, %COV].
     We replace all NULL values with zero to make things easier in consensus finding.
+    If filter_chroms is set, will filter out transcripts that come from those transcripts. However, at this point,
+    if this is done in augustus mode nothing will happen.
     """
     if mode == "transMap":
         query = ("SELECT AlignmentId,IFNULL(AlignmentCoverage, 0),IFNULL(AlignmentIdentity, 0) "
-                 "FROM attributes.'{}'").format(genome)
+                 "FROM attributes.'{}'")
+        if filter_chroms is not None:
+            add = "AND".join([" sourceChrom != '{}' ".format(filter_chrom) for filter_chrom in filter_chroms])
+            query += " WHERE "
+            query += add
     else:
         query = ("SELECT AugustusAlignmentId,IFNULL(AlignmentCoverage, 0),IFNULL(AlignmentIdentity, 0) "
-                 "FROM augustus_attributes.'{}'").format(genome)
-    return get_query_dict(cur, query)
+                 "FROM augustus_attributes.'{}'")
+    return get_query_dict(cur, query.format(genome))
 
 
-def highest_cov_aln(cur, genome):
+def highest_cov_aln(cur, genome, filter_chroms=None):
     """
     Returns the set of alignment IDs that represent the best alignment for each source transcript (that mapped over)
     Best is defined as highest %COV. Also reports the associated coverage and identity values.
     """
-    tm_stats = get_stats(cur, genome, mode="transMap")
+    tm_stats = get_stats(cur, genome, mode="transMap", filter_chroms=filter_chroms)
     combined_covs = defaultdict(list)
     for aln_id, (cov, ident) in tm_stats.iteritems():
         tx_id = psl_lib.strip_alignment_numbers(aln_id)
@@ -326,8 +341,8 @@ def highest_cov_aln(cur, genome):
     return best_cov
 
 
-def get_highest_cov_alns(cur, genomes):
+def get_highest_cov_alns(cur, genomes, filter_chroms=None):
     """
     Dictionary mapping each genome to a dictionary reporting each highest coverage alignment and its metrics
     """
-    return {genome: highest_cov_aln(cur, genome) for genome in genomes}
+    return {genome: highest_cov_aln(cur, genome, filter_chroms=filter_chroms) for genome in genomes}

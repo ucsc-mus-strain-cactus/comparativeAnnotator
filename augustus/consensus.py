@@ -263,7 +263,29 @@ def evaluate_coding_consensus(binned_transcripts, stats, gps):
             best_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps)
             s = evaluate_best_for_gene(best_for_gene)
             gene_fail_evaluation[s] += 1
-    return {"transcript": transcript_evaluation, "gene": gene_evaluation, "gene_fail": gene_fail_evaluation}
+    r = {"transcript": transcript_evaluation, "gene": gene_evaluation, "gene_fail": gene_fail_evaluation}
+    return r
+
+
+def evaluate_noncoding_consensus(binned_transcripts, stats, gps):
+    transcript_evaluation = OrderedDict((x, 0) for x in ["PassTM", "GoodTM", "FailTM", "NoTransMap"])
+    gene_evaluation = OrderedDict((x, 0) for x in ["Pass", "Good", "Fail", "NoTransMap"])
+    gene_fail_evaluation = OrderedDict((x, 0) for x in ["Fail", "NoTransMap"])
+    for gene_id in binned_transcripts:
+        categories = set()
+        for ens_id in binned_transcripts[gene_id]:
+            best_id, category, tie = binned_transcripts[gene_id][ens_id]
+            categories.add(category)
+            s = evaluate_transcript(best_id, category, tie)
+            transcript_evaluation[s] += 1
+        s = evaluate_gene(categories)
+        gene_evaluation[s] += 1
+        if s == "Fail":
+            best_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps)
+            s = evaluate_best_for_gene(best_for_gene)
+            gene_fail_evaluation[s] += 1
+    r = {"transcript": transcript_evaluation, "gene": gene_evaluation, "gene_fail": gene_fail_evaluation}
+    return r
 
 
 def deduplicate_consensus(consensus, gps, stats):
@@ -295,7 +317,10 @@ def fix_gene_pred(gp, transcript_gene_map):
     These genePreds have a few problems. First, the alignment numbers must be removed. Second, we want to fix
     the name2 field to be the gene name. Third, we want to set the unique ID field. Finally, we want to sort the whole
     thing by genomic coordinates.
+    Also reports the number of genes and transcripts seen.
     """
+    genes = set()
+    txs = set()
     gp = sorted([x.split("\t") for x in gp], key=lambda x: [x[1], x[3]])
     fixed = []
     for x in gp:
@@ -305,20 +330,24 @@ def fix_gene_pred(gp, transcript_gene_map):
         gene_id = transcript_gene_map[tx_id]
         x[11] = gene_id
         fixed.append(x)
-    return ["\t".join(x) for x in fixed]
+        genes.add(gene_id)
+        txs.add(tx_id)
+    return len(genes), len(txs), ["\t".join(x) for x in fixed]
 
 
 def write_gps(consensus, gps, consensus_base_path, biotype, transcript_gene_map):
     """
-    Writes the final consensus gene set to a genePred, after fixing the names.
+    Writes the final consensus gene set to a genePred, after fixing the names. Reports the number of genes and txs
+    in the final set
     """
     p = os.path.join(consensus_base_path, biotype + ".consensus_gene_set.gp")
     mkdir_p(os.path.dirname(p))
     gp_recs = [gps[aln_id] for aln_id in consensus]
-    fixed_gp_recs = fix_gene_pred(gp_recs, transcript_gene_map)
+    num_genes, num_txs, fixed_gp_recs = fix_gene_pred(gp_recs, transcript_gene_map)
     with open(p, "w") as outf:
         for rec in fixed_gp_recs:
             outf.write(rec)
+    return num_genes, num_txs
 
 
 def main():
@@ -337,12 +366,16 @@ def main():
                                                              transcript_gene_map, gene_transcript_map, stats)
         deduplicated_consensus, dup_count = deduplicate_consensus(consensus, gps, stats)
         if len(deduplicated_consensus) > 0:  # some biotypes we may have nothing
-            write_gps(deduplicated_consensus, gps, consensus_base_path, biotype, transcript_gene_map)
-        if biotype == "protein_coding":
-            p = os.path.join(args.workDir, args.genome)
+            num_genes, num_txs = write_gps(deduplicated_consensus, gps, consensus_base_path, biotype, transcript_gene_map)
+            if biotype == "protein_coding":
+                gene_transcript_evals = evaluate_coding_consensus(binned_transcripts, stats, gps)
+            else:
+                gene_transcript_evals = evaluate_noncoding_consensus(binned_transcripts, stats, gps)
+            p = os.path.join(args.workDir, "_".join([args.genome, biotype]))
             mkdir_p(os.path.dirname(p))
-            gene_transcript_evals = evaluate_coding_consensus(binned_transcripts, stats, gps)
             gene_transcript_evals["duplication_rate"] = dup_count
+            gene_transcript_evals["gene_counts"] = num_genes
+            gene_transcript_evals["tx_counts"] = num_txs
             with open(p, "w") as outf:
                 pickle.dump(gene_transcript_evals, outf)
 

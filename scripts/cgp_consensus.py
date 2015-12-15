@@ -12,7 +12,7 @@ supported splice junctions not present in any of the transcripts for this gene. 
 import argparse
 import os
 import cPickle as pickle
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 import lib.sql_lib as sql_lib
 import lib.psl_lib as psl_lib
 import lib.seq_lib as seq_lib
@@ -236,7 +236,6 @@ def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, tr
             elif determine_if_split_gene_is_supported(consensus_dict, cgp_tx, ens_ids, intron_vector):
                 new_isoforms.append(cgp_tx)
                 join_genes["Supported"] += 1
-                print cgp_id
             else:
                 join_genes["Unsupported"] += 1
     # calculate some metrics for plots once all genomes are analyzed
@@ -244,6 +243,25 @@ def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, tr
     metrics["NewIsoforms"] = len(new_isoforms)
     metrics["JoinGeneSupported"] = join_genes
     build_final_consensus(consensus_dict, replace_map, new_isoforms, final_consensus)
+
+
+def evaluate_cgp_consensus(consensus_dict, metrics):
+    tx_names = OrderedDict((("transMap",  set()), ("AugustusTMR", set()), ("CGP", set())))
+    gene_names = OrderedDict((("GENCODE", set()), ("CGP", set())))
+    for cgp_tx in consensus_dict.itervalues():
+        if "jg" in cgp_tx.name:
+            tx_names["CGP"].add(cgp_tx.name)
+            gene_names["CGP"].update([x for x in cgp_tx.name2.split(",") if 'jg' in x])
+            gene_names["GENCODE"].update([x for x in cgp_tx.name2.split(",") if not 'jg' in x])
+        elif "aug" in cgp_tx.id:
+            tx_names["AugustusTMR"].add(cgp_tx.id)
+            gene_names["GENCODE"].add(cgp_tx.name2)
+        else:
+            tx_names["transMap"].add(cgp_tx.id)
+            gene_names["GENCODE"].add(cgp_tx.name2)
+    transcript_stats = OrderedDict([[x, len(y)] for x, y in tx_names.iteritems()])
+    gene_stats = OrderedDict([[x, len(y)] for x, y in gene_names.iteritems()])
+    metrics["ConsensusStats"] = {"Transcript": transcript_stats, "Gene": gene_stats}
 
 
 def main():
@@ -279,6 +297,7 @@ def main():
     cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in final_consensus}
     update_transcripts(cgp_dict, consensus_dict, args.genome, gene_transcript_map, transcript_gene_map, intron_dict, 
                        final_consensus, metrics, cgp_stats_dict, consensus_stats_dict)
+    evaluate_cgp_consensus(final_consensus, metrics)
     # write results out to disk
     with open(os.path.join(args.metricsOutDir, args.genome + ".metrics.pickle"), "w") as outf:
         pickle.dump(metrics, outf)

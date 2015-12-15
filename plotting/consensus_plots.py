@@ -22,23 +22,28 @@ def parse_args():
     parser.add_argument("--gencode", required=True)
     parser.add_argument("--workDir", required=True)
     parser.add_argument("--outDir", required=True)
+    parser.add_argument("--biotypes", default=["protein_coding", "lincRNA", "miRNA", "snRNA", "snoRNA"])
     return parser.parse_args()
 
 
-def load_evaluations(work_dir, genomes):
+def load_evaluations(work_dir, genomes, biotype):
     tx_evals = OrderedDict()
     gene_evals = OrderedDict()
     gene_fail_evals = OrderedDict()
     tx_dup_rate = OrderedDict()
+    tx_counts = OrderedDict()
+    gene_counts = OrderedDict()
     for genome in genomes:
-        p = os.path.join(work_dir, genome)
+        p = os.path.join(work_dir, "_".join([genome, biotype]))
         with open(p) as inf:
             r = pickle.load(inf)
         tx_evals[genome] = r["transcript"]
         gene_evals[genome] = r["gene"]
         gene_fail_evals[genome] = r["gene_fail"]
         tx_dup_rate[genome] = r["duplication_rate"]
-    return tx_evals, gene_evals, gene_fail_evals, tx_dup_rate
+        tx_counts[genome] = r["tx_counts"]
+        gene_counts[genome] = r["gene_counts"]
+    return tx_evals, gene_evals, gene_fail_evals, tx_dup_rate, tx_counts, gene_counts
 
 
 def munge_data(data_dict, norm=False):
@@ -57,40 +62,50 @@ def find_total(data_dict):
     return totals.pop()
 
 
-def transcript_gene_plot(evals, out_path, gencode, mode):
+def transcript_gene_plot(evals, out_path, gencode, mode, biotype):
     results, categories = munge_data(evals, norm=True)
     total = find_total(evals)
-    base_title = "Breakdown of {:,} protein-coding {} categorized by consensus finding\nfrom annotation set {}"
-    title = base_title.format(total, mode, gencode)
-    out_name = "{}_{}_coding_consensus".format(gencode, mode)
-    palette = etc.config.palette if mode == "genes" else etc.config.triple_palette
+    base_title = "Breakdown of {:,} {} {} categorized by consensus finding\nfrom annotation set {}"
+    title = base_title.format(total, biotype, mode, gencode)
+    out_name = "{}_{}_{}_consensus".format(gencode, biotype, mode)
+    palette = etc.config.palette if mode == "genes" or biotype != "protein_coding" else etc.config.triple_palette
     plot_lib.stacked_barplot(results, categories, out_path, out_name, title, color_palette=palette)
 
 
-def gene_fail_plot(gene_fail_evals, out_path, gencode):
+def gene_fail_plot(gene_fail_evals, out_path, gencode, biotype):
     results, categories = munge_data(gene_fail_evals)
-    base_title = "Breakdown of genes that failed consensus finding\nfrom annotation set {}"
-    title = base_title.format(gencode)
-    out_name = "{}_{}_coding_consensus".format(gencode, "GeneFail")
+    base_title = "Breakdown of {} genes that failed consensus finding\nfrom annotation set {}"
+    title = base_title.format(biotype, gencode)
+    out_name = "{}_{}_{}_consensus".format(gencode, biotype, "GeneFail")
     plot_lib.stacked_unequal_barplot(results, categories, out_path, out_name, title, ylabel="Number of genes")
 
 
-def dup_rate_plot(tx_dup_rate, out_path, gencode):
+def dup_rate_plot(tx_dup_rate, out_path, gencode, biotype):
     results = list(tx_dup_rate.iteritems())
-    base_title = "Number of duplicate transcripts in consensus before de-duplication\nfrom annotation set {}"
-    title = base_title.format(gencode)
-    out_name = "{}_{}_coding_consensus".format(gencode, "DuplicationRate")
+    base_title = "Number of duplicate {} transcripts in consensus before de-duplication\nfrom annotation set {}"
+    title = base_title.format(biotype, gencode)
+    out_name = "{}_{}_{}_consensus".format(gencode, biotype, "DuplicationRate")
+    plot_lib.unequal_barplot(results, out_path, out_name, title)
+
+
+def size_plot(counts, out_path, gencode, mode, biotype):
+    results = list(counts.iteritems())
+    base_title = "Number of {} {} in consensus\nfrom annotation set {}"
+    title = base_title.format(biotype, mode, gencode)
+    out_name = "{}_{}_{}_{}_consensus".format(gencode, biotype, mode, "BinSizes")
     plot_lib.unequal_barplot(results, out_path, out_name, title)
 
 
 def main():
     args = parse_args()
     mkdir_p(args.outDir)
-    tx_evals, gene_evals, gene_fail_evals, tx_dup_rate = load_evaluations(args.workDir, args.genomes)
-    for evals, mode in zip(*[[tx_evals, gene_evals], ["transcripts", "genes"]]):
-        transcript_gene_plot(evals, args.outDir, args.gencode, mode)
-    gene_fail_plot(gene_fail_evals, args.outDir, args.gencode)
-    dup_rate_plot(tx_dup_rate, args.outDir, args.gencode)
+    for biotype in args.biotypes:
+        tx_evals, gene_evals, gene_fail_evals, tx_dup_rate, tx_counts, gene_counts = load_evaluations(args.workDir, args.genomes, biotype)
+        for (evals, counts), mode in zip(*[[[tx_evals, tx_counts], [gene_evals, gene_counts]], ["transcripts", "genes"]]):
+            transcript_gene_plot(evals, args.outDir, args.gencode, mode, biotype)
+            size_plot(counts, args.outDir, args.gencode, mode, biotype)
+        gene_fail_plot(gene_fail_evals, args.outDir, args.gencode, biotype)
+        dup_rate_plot(tx_dup_rate, args.outDir, args.gencode, biotype)
 
 
 if __name__ == "__main__":

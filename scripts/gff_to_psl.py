@@ -37,6 +37,12 @@ class IndelRecord(object):
                                                                                  self.end, self.category)
     def __len__(self):
         return self.size
+    def __hash__(self):
+        return (hash(self.chromosome) ^ hash(self.category) ^ hash(self.start) ^ hash(self.end) ^
+                hash((self.chromosome, self.category, self.start, self.end)))
+    def __eq__(self, other):
+        return  ((self.chromosome, self.start, self.end, self.category) ==
+                (other.chromosome, other.start, other.end, other.category))
 
 
 class DeletionRecord(IndelRecord):
@@ -60,6 +66,9 @@ def clean_gff_snps(gff_recs, snp_positions):
     """
     These silly GFFs have 1bp deletions listed as SNPs, but the target is a *. It then lines these up sometimes.
     We need to merge these into deletion records.
+    They also have this silly thing where a 1bp insertion will be immediately followed with a SNP-deletion.
+    This leads to a frameshift when it should really be two mismatches. Filter out such pairs of records.
+    (They are now 2bp apart because of the 1bp insertion)
     """
     intervals = []
     for k, g in groupby(enumerate(snp_positions), lambda (i, (x, y)):i - x):
@@ -68,6 +77,18 @@ def clean_gff_snps(gff_recs, snp_positions):
         positions, chrom = zip(*interval)
         assert len(set(chrom)) == 1
         gff_recs[chrom[0]].append(DeletionRecord(chrom[0], positions[0], positions[0] + len(positions) + 1, len(positions) + 1))
+    for chrom, val in gff_recs.iteritems():
+        gff_recs[chrom] = sorted(val, key=lambda x: x.start)
+    # this is a hack... to fix the 1bp insert then delete problem
+    for chrom, vals in gff_recs.iteritems():
+        to_remove = set()
+        for i in xrange(len(vals) - 1):
+            left_rec = vals[i]
+            right_rec = vals[i + 1]
+            if left_rec.category == "INSERTION" and right_rec.category == "DELETION" and left_rec.start + 2 == right_rec.start:
+                to_remove.update([left_rec, right_rec])
+        vals = [x for x in vals if x not in to_remove]
+        gff_recs[chrom] = vals
 
 
 def build_gff_dict(gff_file):
@@ -86,9 +107,6 @@ def build_gff_dict(gff_file):
                 snp_positions.append([int(tokens[3]), tokens[0]])
     # fix the stupid SNP * problem
     clean_gff_snps(gff_recs, snp_positions)
-    # just in case for some reason the GFF isn't sorted
-    for chrom, val in gff_recs.iteritems():
-        gff_recs[chrom] = sorted(val, key=lambda x: x.start)
     return gff_recs
 
 
@@ -117,7 +135,7 @@ def build_blocks(chrom_recs, q_start, q_end):
             raise RuntimeError("you shouldn't have gotten here")
         t_starts.append(t_pos)
         q_starts.append(q_pos)
-        print rec, len(rec), "q_pos: {}".format(q_pos), "t_pos: {}".format(t_pos), "prev_block: {}".format(prev_block_size)
+        assert block_sizes[-1] >= 0
     block_sizes.append(q_end - q_pos)
     return q_num_insert, q_base_insert, t_num_insert, len(block_sizes), block_sizes, q_starts, t_starts
 
@@ -130,7 +148,11 @@ def gff_to_psl(gff_recs, ref_sizes, target_sizes):
         q_end = chrom_recs[-1].start + 1
         t_start = 0
         t_end = t_size
-        vals = build_blocks(chrom_recs, q_start, q_end)
+        try:
+            vals = build_blocks(chrom_recs, q_start, q_end)
+        except:
+            print chrom
+            assert False
         q_num_insert, q_base_insert, t_num_insert, block_count, block_sizes, q_starts, t_starts = vals
         block_sizes = ",".join(map(str, block_sizes))
         q_starts = ",".join(map(str, q_starts))
