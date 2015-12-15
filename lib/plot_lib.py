@@ -140,7 +140,7 @@ def barplot(results, out_path, file_name, title_string, color="#0072b2", border=
     if max(len(x) for x in names) > 15:
         adjust_x_labels(ax, names)
     fig.savefig(pdf, format='pdf')
-    plt.close()
+    plt.close('all')
     pdf.close()
 
 
@@ -166,7 +166,7 @@ def stacked_barplot(results, legend_labels, out_path, file_name, title_string, c
     if max(len(x) for x in names) > 15:
         adjust_x_labels(ax, names)
     fig.savefig(pdf, format='pdf')
-    plt.close()
+    plt.close('all')
     pdf.close()
 
 
@@ -200,7 +200,7 @@ def unequal_barplot(results, out_path, file_name, title_string, color_palette=pa
     if max(len(x) for x in names) > 15:
         adjust_x_labels(ax, names)
     fig.savefig(pdf, format='pdf')
-    plt.close()
+    plt.close('all')
     pdf.close()
 
 
@@ -227,7 +227,7 @@ def stacked_unequal_barplot(results, legend_labels, out_path, file_name, title_s
     if max(len(x) for x in names) > 15:
         adjust_x_labels(ax, names)
     fig.savefig(pdf, format='pdf')
-    plt.close()
+    plt.close('all')
     pdf.close()
 
 
@@ -252,7 +252,7 @@ def side_by_side_unequal_barplot(results, legend_labels, out_path, file_name, ti
     if max(len(x) for x in names) > 15:
         adjust_x_labels(ax, names)
     fig.savefig(pdf, format='pdf')
-    plt.close()
+    plt.close('all')
     pdf.close()
 
 
@@ -291,5 +291,5 @@ def stacked_side_by_side_unequal_barplot(results, legend_labels, out_path, file_
     if max(len(x) for x in names) > 15:
         adjust_x_labels(ax, names)
     fig.savefig(pdf, format='pdf')
-    plt.close()
+    plt.close('all')
     pdf.close()

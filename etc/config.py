@@ -205,3 +205,8 @@ def augustusEval(genome, ref_genome):
              "ExonLoss = 0 AND MultipleTranscripts = 0")
     query = query.format(genome, ref_genome)
     return query
+
+
+# biotype groupings
+GencodeCompVM7 = GencodeBasicVM7 = dict([('snoRNA', 'Small RNAs'), ('snRNA', 'Small RNAs'), ('scaRNA', 'Small RNAs'), ('miRNA', 'Small RNAs'), ('misc_RNA', 'Small RNAs'), ('protein_coding', 'Protein Coding'), ('lincRNA', 'lincRNA'), ('macro_lncRNA', 'lincRNA'), ('bidirectional_promoter_lncrna', 'lincRNA')])
+GencodePseudoGeneVM7 = dict([('processed_pseudogene', 'Processed Pseudogenes'), ('translated_processed_pseudogene', 'Processed Pseudogenes'), ('transcribed_processed_pseudogene', 'Processed Pseudogenes'), ('unprocessed_pseudogene', 'Unprocessed Pseudogenes'), ('translated_unprocessed_pseudogene', 'Unprocessed Pseudogenes'), ('transcribed_unprocessed_pseudogene', 'Unprocessed Pseudogenes')])

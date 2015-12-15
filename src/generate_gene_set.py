@@ -1,8 +1,5 @@
 """
-Produces a consensus between Augustus and transMap. This only really applies to protein_coding transcripts,
-but this code will still pick the best transMap alignment for other biotypes. Produces a genePred for each biotype
-in the analysis. Also dumps a file for the protein_coding transcripts to args.workDir so that plots can be generated
-to analyze all genomes.
+Produces a gene set from transMap alignments.
 """
 import argparse
 import os
@@ -11,7 +8,7 @@ from collections import defaultdict, OrderedDict
 import lib.sql_lib as sql_lib
 import lib.psl_lib as psl_lib
 import lib.seq_lib as seq_lib
-from lib.general_lib import mkdir_p, merge_dicts
+from lib.general_lib import mkdir_p
 import etc.config
 
 
@@ -25,10 +22,17 @@ def parse_args():
     parser.add_argument("--compAnnPath", required=True)
     parser.add_argument("--outDir", required=True)
     parser.add_argument("--workDir", required=True)
-    parser.add_argument("--augGp", required=True)
+    parser.add_argument("--augGp")
     parser.add_argument("--tmGp", required=True)
     parser.add_argument("--filterChroms", nargs="+", default=["Y", "chrY"], help="chromosomes to ignore")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.augGp is None:
+        args.mode = "transMap"
+        args.gps = [args.tmGp]
+    else:
+        args.mode = "augustus"
+        args.gps = [args.tmGp, args.augGp]
+    return args
 
 
 def load_gps(gp_paths):
@@ -39,13 +43,16 @@ def load_gps(gp_paths):
     return {l.split()[0]: l for p in gp_paths for l in open(p)}
 
 
-def merge_stats(cur, genome):
+def get_stats(cur, genome, mode):
     """
     Adapter function to return the combination of the stats dicts produced for augustus and transMap
     """
     tm_stats = sql_lib.get_stats(cur, genome, mode="transMap")
-    aug_stats = sql_lib.get_stats(cur, genome, mode="augustus")
-    return merge_dicts([tm_stats, aug_stats])
+    if mode == "augustus": 
+        aug_stats = sql_lib.get_stats(cur, genome, mode="augustus")
+        return merge_dicts([tm_stats, aug_stats])
+    else:
+        return tm_stats
 
 
 def build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map):
@@ -123,7 +130,7 @@ def is_tie(best_alns):
     return False
 
 
-def find_best_transcripts(data_dict, stats):
+def find_best_transcripts(data_dict, stats, mode):
     """
     For all of the transcripts categorized in data_dict, evaluate them and bin them.
     """
@@ -132,7 +139,11 @@ def find_best_transcripts(data_dict, stats):
         binned_transcripts[gene_id] = {}
         for ens_id in data_dict[gene_id]:
             tx_recs = data_dict[gene_id][ens_id]
-            fail_ids, good_specific_ids, pass_ids, aug_ids = tx_recs.values()
+            if mode == "augustus":
+                fail_ids, good_specific_ids, pass_ids, aug_ids = tx_recs.values()
+            else:
+                fail_ids, good_specific_ids, pass_ids = tx_recs.values()
+                aug_ids = []
             best_alns, category = evaluate_ids(fail_ids, good_specific_ids, pass_ids, aug_ids, stats)
             if best_alns is None:
                 binned_transcripts[gene_id][ens_id] = [best_alns, category, None]
@@ -182,22 +193,23 @@ def find_consensus(binned_transcripts, stats, gps):
     return consensus
 
 
-def consensus_by_biotype(cur, ref_genome, genome, biotype, gps, transcript_gene_map, gene_transcript_map, stats):
+def consensus_by_biotype(cur, ref_genome, genome, biotype, gps, transcript_gene_map, gene_transcript_map, stats, mode):
     """
     Main consensus finding function.
     """
     fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype,
                                                                            best_cov_only=False)
     # hacky way to avoid duplicating code in consensus finding - we will always have an aug_id set, it just may be empty
-    if biotype == "protein_coding":
+    if mode == "augustus" and biotype == "protein_coding":
         aug_query = etc.config.augustusEval(genome, ref_genome)
         aug_ids = sql_lib.get_query_ids(cur, aug_query)
+        id_names = ["fail_ids", "good_specific_ids", "pass_ids", "aug_ids"]
+        id_list = [fail_ids, good_specific_ids, pass_ids, aug_ids]
     else:
-        aug_ids = set()
-    id_names = ["fail_ids", "good_specific_ids", "pass_ids", "aug_ids"]
-    id_list = [fail_ids, good_specific_ids, pass_ids, aug_ids]
+        id_names = ["fail_ids", "good_specific_ids", "pass_ids"]
+        id_list = [fail_ids, good_specific_ids, pass_ids]
     data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
-    binned_transcripts = find_best_transcripts(data_dict, stats)
+    binned_transcripts = find_best_transcripts(data_dict, stats, mode)
     consensus = find_consensus(binned_transcripts, stats, gps)
     return binned_transcripts, consensus
 
@@ -241,21 +253,25 @@ def evaluate_best_for_gene(tx_ids):
     return "NoTransMap" if tx_ids is None else "Fail"
 
 
-def evaluate_coding_consensus(binned_transcripts, stats, gps):
+def evaluate_coding_consensus(binned_transcripts, stats, gps, mode):
     """
     Evaluates the coding consensus for plots. Reproduces a lot of code from find_consensus()
     TODO: split out duplicated code.
     """
-    transcript_evaluation = OrderedDict((x, 0) for x in ["PassTM", "PassAug", "PassTie", "GoodTM", "GoodAug", "GoodTie",
-                                                         "FailTM", "FailAug", "FailTie", "NoTransMap"])
-    gene_evaluation = OrderedDict((x, 0) for x in ["Pass", "Good", "Fail", "NoTransMap"])
+    if mode == "augustus":
+        transcript_evaluation = OrderedDict((x, 0) for x in ["PassTM", "PassAug", "PassTie", "GoodTM", "GoodAug", 
+                                                             "GoodTie", "FailTM", "FailAug", "FailTie", "NoTransMap"])
+        gene_evaluation = OrderedDict((x, 0) for x in ["Pass", "Good", "Fail", "NoTransMap"])
+    else:
+        transcript_evaluation = OrderedDict((x, 0) for x in ["Pass", "Good", "Fail", "NoTransMap"])
+        gene_evaluation = OrderedDict((x, 0) for x in ["Pass", "Good", "Fail", "NoTransMap"])
     gene_fail_evaluation = OrderedDict((x, 0) for x in ["Fail", "NoTransMap"])
     for gene_id in binned_transcripts:
         categories = set()
         for ens_id in binned_transcripts[gene_id]:
             best_id, category, tie = binned_transcripts[gene_id][ens_id]
             categories.add(category)
-            s = evaluate_transcript(best_id, category, tie)
+            s = evaluate_transcript(best_id, category, tie) if mode == "augustus" else category
             transcript_evaluation[s] += 1
         s = evaluate_gene(categories)
         gene_evaluation[s] += 1
@@ -352,23 +368,23 @@ def write_gps(consensus, gps, consensus_base_path, biotype, transcript_gene_map)
 
 def main():
     args = parse_args()
-    con, cur = sql_lib.attach_databases(args.compAnnPath, mode="augustus")
+    con, cur = sql_lib.attach_databases(args.compAnnPath, mode=args.mode)
     biotypes = sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=True)
     transcript_gene_map = sql_lib.get_transcript_gene_map(cur, args.refGenome, biotype=None, 
                                                           filter_chroms=args.filterChroms)
-    gps = load_gps([args.tmGp, args.augGp])  # load all Augustus and transMap transcripts into one big dict
+    gps = load_gps(args.gps)  # load all Augustus and transMap transcripts into one big dict
     consensus_base_path = os.path.join(args.outDir, args.genome)
-    stats = merge_stats(cur, args.genome)
+    stats = get_stats(cur, args.genome, args.mode)
     for biotype in biotypes:
         gene_transcript_map = sql_lib.get_gene_transcript_map(cur, args.refGenome, biotype=biotype, 
                                                               filter_chroms=args.filterChroms)
         binned_transcripts, consensus = consensus_by_biotype(cur, args.refGenome, args.genome, biotype, gps,
-                                                             transcript_gene_map, gene_transcript_map, stats)
+                                                             transcript_gene_map, gene_transcript_map, stats, args.mode)
         deduplicated_consensus, dup_count = deduplicate_consensus(consensus, gps, stats)
         if len(deduplicated_consensus) > 0:  # some biotypes we may have nothing
             num_genes, num_txs = write_gps(deduplicated_consensus, gps, consensus_base_path, biotype, transcript_gene_map)
             if biotype == "protein_coding":
-                gene_transcript_evals = evaluate_coding_consensus(binned_transcripts, stats, gps)
+                gene_transcript_evals = evaluate_coding_consensus(binned_transcripts, stats, gps, args.mode)
             else:
                 gene_transcript_evals = evaluate_noncoding_consensus(binned_transcripts, stats, gps)
             p = os.path.join(args.workDir, "_".join([args.genome, biotype]))
