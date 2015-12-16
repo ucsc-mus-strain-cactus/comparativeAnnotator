@@ -3,6 +3,7 @@ This program takes a series of BAM files and converts them to a Augustus hints d
 """
 
 import sys
+import time
 import os
 import pysam
 import argparse
@@ -142,16 +143,30 @@ def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db_path, genom
     target.setFollowOnTargetFn(load_db, args=[hints, db_path, genome, genome_fasta])
 
 
-def load_db(target, hints, db_path, genome, genome_fasta):
+def load_db(target, hints, db_path, genome, genome_fasta, timeout=6000, intervals=120):
     """
     Final database loading.
     NOTE: Once done on all genomes, you want to run load2sqlitedb --makeIdx --dbaccess ${db}
     """
     cmd = "load2sqlitedb --noIdx --species={} --dbaccess={} {}"
     fa_cmd = cmd.format(genome, db_path, genome_fasta)
-    system(fa_cmd)
     hints_cmd = cmd.format(genome, db_path, hints)
-    system(hints_cmd)
+    def handle_concurrency(cmd, timeout, intervals, start_time=None):
+        if start_time is None:
+            start_time = time.time()
+        elif time.time() - start_time >= timeout:
+            raise RuntimeError("hints database still locked after {} seconds".format(timeout))
+        p = subprocess.Popen(command, shell=True, bufsize=-1, stderr=subprocess.PIPE)
+        _, ret = p.communicate()
+        if p.returncode == 0:
+            return 1
+        elif p.returncode == 1 and "locked" in ret:
+            time.sleep(intervals)
+            handle_concurrency(cmd, timeout, intervals, start_time)
+        else:
+            raise RuntimeError(ret)
+    for cmd in [fa_cmd, hints_cmd]:
+        ret = handle_concurrency(cmd, timeout, intervals)        
 
 
 def main():
