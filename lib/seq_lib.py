@@ -1,6 +1,6 @@
 """
 Convenience library for sequence information, including BED/genePred files and fasta files
-Needs the python library pyfaidx installed.
+Needs the python library pyfasta installed.
 
 Original Author: Dent Earl
 Modified by Ian Fiddes
@@ -8,13 +8,24 @@ Modified by Ian Fiddes
 
 import string
 import copy
+import os
 import math
 import re
 from itertools import izip
 from lib.general_lib import tokenize_stream
-from pyfaidx import Fasta
+from pyfasta import Fasta, NpyFastaRecord
 
 __author__ = "Ian Fiddes"
+
+
+class UpperNpyFastaRecord(NpyFastaRecord):
+    """
+    Used when we want only upper case records.
+    If as_string is False, will no longer return a memmap object but instead a list.
+    """
+    def __getitem__(self, islice):
+        d = self.getdata(islice)
+        return d.tostring().decode().upper() if self.as_string else map(string.upper, d)
 
 
 class Transcript(object):
@@ -1189,12 +1200,17 @@ def read_codons_with_position(seq, offset=0, skip_last=True):
             yield i, seq[i:i + 3]
 
 
-def get_sequence_dict(file_path):
+def get_sequence_dict(file_path, upper=True):
     """
-    Returns a dictionary of fasta records.
+    Returns a dictionary of fasta records. If upper is true, all bases will be uppercased.
     """
-    return Fasta(file_path, as_raw=True, one_based_attributes=False, sequence_always_upper=True)
-
+    gdx_path = file_path + ".gdx"
+    assert os.path.exists(gdx_path), ("Error: gdx does not exist for this fasta. We need the fasta files to be "
+                                     "flattened in place prior to running the pipeline because of concurrency issues.")
+    if upper is True:
+        return Fasta(file_path, record_class=UpperNpyFastaRecord)
+    else:
+        return Fasta(file_path)
 
 def get_transcript_dict(gp_file):
     """

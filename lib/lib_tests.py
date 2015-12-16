@@ -149,6 +149,7 @@ def createSequenceFile(sequences, tmpDir, filename='seq.fa'):
     with open(seqfile, 'w') as f:
         for name, sequence in sequences.iteritems():
             f.write(">{}\n{}\n".format(name, sequence))
+    subprocess.call("pyfasta flatten {}".format(seqfile), shell=True)
     return seqfile
 
 
@@ -1213,7 +1214,7 @@ class ComplicatedTranscript2(unittest.TestCase):
         self.assertEqual(len(self.t), len(self.transcript_seq))
         self.assertEqual(len(self.t.get_cds(self.chrom_seq)), len(self.cds_seq))
         self.assertEqual(len(self.t.get_protein_sequence(self.chrom_seq)), len(self.amino_acid))
-        self.assertEqual(len(self.t.get_cds(self.chrom_seq)), self.t.get_cds_length())
+        self.assertEqual(len(self.t.get_cds(self.chrom_seq)), self.t.cds_size)
 
     def test_chromosome_coordinate_translations(self):
         """
