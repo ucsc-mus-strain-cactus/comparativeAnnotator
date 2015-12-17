@@ -219,6 +219,17 @@ def simplePsl(strand, qSize, qStart, qEnd, tSize, tStart, tEnd,
 ##############################################################################
 
 
+class UpperCaseTest(unittest.TestCase):
+    def setUp(self):
+        tmp = os.path.abspath(makeTempDir())
+        createSequenceFile({"chr1": "GTATTagtcACCTAA"}, tmp)
+        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
+        self.addCleanup(removeDir, tmp)
+
+    def test_case(self):
+        self.assertEqual(self.chrom_seq["chr1"][:], "GTATTAGTCACCTAA")
+
+
 class NegativeStrandTranscriptTests(unittest.TestCase):
     """
     Tests the Transcript functionality of sequence_lib.
