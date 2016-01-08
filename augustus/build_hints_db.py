@@ -8,8 +8,9 @@ import os
 import pysam
 import argparse
 import itertools
+import subprocess
 from pyfaidx import Fasta
-from lib.general_lib import format_ratio, get_tmp
+from lib.general_lib import format_ratio, get_tmp, mkdir_p
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, popenCatch, getRandomAlphaNumericString, catFiles, TempFileTree
@@ -156,7 +157,7 @@ def load_db(target, hints, db_path, genome, genome_fasta, timeout=6000, interval
             start_time = time.time()
         elif time.time() - start_time >= timeout:
             raise RuntimeError("hints database still locked after {} seconds".format(timeout))
-        p = subprocess.Popen(command, shell=True, bufsize=-1, stderr=subprocess.PIPE)
+        p = subprocess.Popen(cmd, shell=True, bufsize=-1, stderr=subprocess.PIPE)
         _, ret = p.communicate()
         if p.returncode == 0:
             return 1
@@ -165,6 +166,7 @@ def load_db(target, hints, db_path, genome, genome_fasta, timeout=6000, interval
             handle_concurrency(cmd, timeout, intervals, start_time)
         else:
             raise RuntimeError(ret)
+    mkdir_p(os.path.dirname(db_path))
     for cmd in [fa_cmd, hints_cmd]:
         ret = handle_concurrency(cmd, timeout, intervals)        
 

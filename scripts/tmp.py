@@ -153,13 +153,13 @@ ref_aln = ref_aln_dict[aln_id[:-2]]
 
 
 
-gp = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509/transMap/2015-10-06/transMap/C57B6NJ/transMapGencodeCompVM7.gp"
-ref_gp = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509/transMap/2015-10-06/data/wgEncodeGencodeCompVM7.gp"
-aug_gp = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509/augustus/tmr/C57B6NJ.output.gp"
-aln_psl = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509/transMap/2015-10-06/transMap/C57B6NJ/transMapGencodeCompVM7.psl"
-ref_psl = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509/transMap/2015-10-06/data/wgEncodeGencodeCompVM7.psl"
-ref_fasta = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/assemblies/1509/C57B6J.fa"
-target_fasta = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/assemblies/1509/C57B6NJ.fa"
+gp = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/transMap/2015-10-06/transMap/NZO_HlLtJ/transMapGencodeCompVM7.gp"
+ref_gp = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/transMap/2015-10-06/data/wgEncodeGencodeCompVM7.gp"
+aug_gp = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/augustus/tmr/NZO_HlLtJ.output.gp"
+aln_psl = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/transMap/2015-10-06/transMap/NZO_HlLtJ/transMapGencodeCompVM7.psl"
+ref_psl = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/transMap/2015-10-06/data/wgEncodeGencodeCompVM7.psl"
+ref_fasta = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/assemblies/1509_v2/C57B6J.fa"
+target_fasta = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/assemblies/1509_v2/NZO_HlLtJ.fa"
 
 tx_dict = seq_lib.get_transcript_dict(gp)
 ref_dict = seq_lib.get_transcript_dict(ref_gp)
@@ -168,7 +168,7 @@ aln_dict = psl_lib.get_alignment_dict(aln_psl)
 ref_aln_dict = psl_lib.get_alignment_dict(ref_psl)
 seq_dict = seq_lib.get_sequence_dict(target_fasta)
 ref_seq_dict = seq_lib.get_sequence_dict(ref_fasta)
-con, cur = sql_lib.attach_databases("/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509/comparativeAnnotation/2015-10-12/GencodeCompVM7", mode="augustus")
+con, cur = sql_lib.attach_databases("/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/comparativeAnnotation/2015-10-12/GencodeCompVM7", mode="augustus")
 
 
 aln_id = "ENSMUST00000020843.11-1"

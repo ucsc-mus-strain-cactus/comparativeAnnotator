@@ -93,7 +93,7 @@ def potentiallyInterestingBiology(genome):
              "AND main.'{0}'.CodingDeletions = 0 AND main.'{0}'.FrameShift = 0 AND "
              "main.'{0}'.HasOriginalStart = 0 AND main.'{0}'.HasOriginalStop = 0 AND "
              "(main.'{0}'.HasOriginalIntrons <= 0.5 * attributes.'{0}'.NumberIntrons - 0.5 OR "
-             "attributes.'{0}'.NumberIntrons = 0")
+             "attributes.'{0}'.NumberIntrons = 0)")
     query = query.format(genome)
     return query
 
@@ -119,8 +119,8 @@ def alignmentErrors(genome, biotype=None, details=True):
     query = (" FROM attributes.'{0}' JOIN details.'{0}' USING ('AlignmentId') JOIN main.'{0}' USING "
              "('AlignmentId') WHERE main.'{0}'.BadFrame > 0 OR main.'{0}'.CdsGap > 0 OR "
              "main.'{0}'.CdsMult3Gap > 0 OR main.'{0}'.UtrGap > 0 OR main.'{0}'.Paralogy > 0 OR "
-             "main.'{0}'.HasOriginalIntrons >= 0.5 * attributes.'{0}'.NumberIntrons - 0.5 OR "
-             "main.'{0}'.StartOutOfFrame = 1")
+             "(main.'{0}'.HasOriginalIntrons >= 0.5 * attributes.'{0}'.NumberIntrons - 0.5 AND "
+             "attributes.'{0}'.NumberIntrons != 0) OR main.'{0}'.StartOutOfFrame = 1")
     if details is True:
         query = ("SELECT details.'{0}'.BadFrame,details.'{0}'.CdsGap,details.'{0}'.CdsMult3Gap,"
                  "details.'{0}'.UtrGap,details.'{0}'.Paralogy,details.'{0}'.HasOriginalIntrons,"

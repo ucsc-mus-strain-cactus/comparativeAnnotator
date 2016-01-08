@@ -1139,7 +1139,7 @@ def codon_to_amino_acid(c):
     Given a codon C, return an amino acid or ??? if codon unrecognized.
     Codons could be unrecognized due to ambiguity in IUPAC characters.
     """
-    assert len(c) == 3
+    assert len(c) == 3, c
     if c is None:
         return None
     c = c

@@ -185,7 +185,9 @@ def codon_pair_iterator(a, t, aln, target_seq_dict, query_seq_dict):
         a_offset = a_frames[0]
     else:
         a_offset = 3 - a_frames[-1]
-    for i in xrange(a_offset, a.cds_size, 3):
+        if a_offset == 3:
+            a_offset = 0
+    for i in xrange(a_offset, a.cds_size - a.cds_size % 3, 3):
         target_cds_positions = [t.chromosome_coordinate_to_cds(
                                 aln.query_coordinate_to_target(
                                 a.cds_coordinate_to_transcript(j)))
@@ -197,6 +199,7 @@ def codon_pair_iterator(a, t, aln, target_seq_dict, query_seq_dict):
                     target_cds_positions[0] == 1, target_cds_positions[2] - target_cds_positions[0] == 2])
         target_codon = target_cds[target_cds_positions[0]:target_cds_positions[0] + 3]
         query_codon = query_cds[i:i + 3]
+        assert len(target_codon) == len(query_codon) == 3, a.name
         yield target_cds_positions[0], target_codon, query_codon
 
 

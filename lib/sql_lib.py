@@ -75,6 +75,17 @@ def load_data(con, genome, columns, primary_key="AlignmentId", table="main"):
     return pd.read_sql_query(query, con, index_col=primary_key)
 
 
+def execute_query(cur, query):
+    """
+    Wraps around cur.execute(query) to handle exceptions and report more useful information than what sqlite3 does
+    by default.
+    """
+    try:
+        return cur.execute(query)
+    except sql.OperationalError, exc:
+        raise RuntimeError("query failed: {}\nOriginal error message: {}".format(query, exc))
+
+
 def get_query_ids(cur, query):
     """
     Returns a set of aln_ids which are OK based on the definition of OK in config.py that made this query.
@@ -83,7 +94,7 @@ def get_query_ids(cur, query):
     try:
         return {x[0] for x in cur.execute(query)}
     except sql.OperationalError, exc:
-        raise RuntimeError("query failed: {}.\nOriginal error message: {}".format(query, exc))
+        raise RuntimeError("query failed: {}\nOriginal error message: {}".format(query, exc))
 
 
 def get_query_dict(cur, query):
@@ -94,7 +105,7 @@ def get_query_dict(cur, query):
     try:
         return {x[0]: x[1] if len(x) == 2 else x[1:] for x in cur.execute(query)}
     except sql.OperationalError, exc:
-        raise RuntimeError("query failed: {}.\nOriginal error message: {}".format(query, exc))
+        raise RuntimeError("query failed: {}\nOriginal error message: {}".format(query, exc))
 
 
 def get_non_unique_query_dict(cur, query, flatten=True):

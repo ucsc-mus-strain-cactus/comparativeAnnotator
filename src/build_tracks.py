@@ -116,7 +116,7 @@ def build_classifier_tracks(target, query_fn, genome, args):
     query = query_fn(genome)
     query_name = query_fn.__name__
     con, cur = sql_lib.attach_databases(args.outDir, mode=args.mode)
-    bed_recs = cur.execute(query)
+    bed_recs = sql_lib.execute_query(cur, query)
     out_bed_path, out_big_bed_path = get_bed_paths(args.outDir, query_name, genome)
     with open(out_bed_path, "w") as outf:
         for recs in bed_recs:
