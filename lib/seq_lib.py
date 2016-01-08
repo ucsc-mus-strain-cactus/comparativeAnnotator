@@ -12,20 +12,11 @@ import os
 import math
 import re
 from itertools import izip
+from collections import OrderedDict
 from lib.general_lib import tokenize_stream
-from pyfasta import Fasta, NpyFastaRecord
+from pyfaidx import Fasta
 
 __author__ = "Ian Fiddes"
-
-
-class UpperNpyFastaRecord(NpyFastaRecord):
-    """
-    Used when we want only upper case records.
-    If as_string is False, will no longer return a memmap object but instead a list.
-    """
-    def __getitem__(self, islice):
-        d = self.getdata(islice)
-        return d.tostring().decode().upper() if self.as_string else map(string.upper, d)
 
 
 class Transcript(object):
@@ -1200,23 +1191,21 @@ def read_codons_with_position(seq, offset=0, skip_last=True):
             yield i, seq[i:i + 3]
 
 
-def get_sequence_dict(file_path, upper=True):
+def get_sequence_dict(file_path, buffer=500000):
     """
-    Returns a dictionary of fasta records. If upper is true, all bases will be uppercased.
+    Returns a dictionary of fasta records. Buffer determines how many bases to read ahead. Set to None or -1 to
+    disable this feature. If using this feature, try to request your sequences in genomic order.
     """
-    gdx_path = file_path + ".gdx"
-    assert os.path.exists(gdx_path), ("Error: gdx does not exist for this fasta. We need the fasta files to be "
-                                     "flattened in place prior to running the pipeline because of concurrency issues.")
-    if upper is True:
-        return Fasta(file_path, record_class=UpperNpyFastaRecord)
-    else:
-        return Fasta(file_path)
+    if buffer is None or buffer <= 0:
+        return Fasta(file_path, as_raw=True, one_based_attributes=False, sequence_always_upper=True)
+    return Fasta(file_path, as_raw=True, one_based_attributes=False, sequence_always_upper=True, read_ahead=buffer)
+
 
 def get_transcript_dict(gp_file):
     """
     Convenience function for creating transcript dictionaries
     """
-    return {n: t for n, t in transcript_iterator(gp_file)}
+    return OrderedDict(sorted(transcript_iterator(gp_file), key=lambda t: [t.chromosome, t.t.start]))
 
 
 def transcript_iterator(gp_file):

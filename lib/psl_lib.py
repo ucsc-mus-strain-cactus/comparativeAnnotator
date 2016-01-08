@@ -5,7 +5,7 @@ Original Author: Dent Earl
 Modified by Ian Fiddes
 """
 
-from collections import Counter
+from collections import Counter, OrderedDict
 import re
 from lib.general_lib import format_ratio, tokenize_stream
 
@@ -155,7 +155,7 @@ def get_alignment_dict(psl_file):
     """
     Convenience function for creating a dictionary of PslRow objects.
     """
-    return {aln_id: aln for aln_id, aln in psl_iterator(psl_file)}
+    return OrderedDict(sorted(psl_iterator(psl_file), key=lambda p: [p.q_name, p.q_start]))
 
 
 def remove_alignment_number(s, aln_re=re.compile("-[0-9]+$")):
