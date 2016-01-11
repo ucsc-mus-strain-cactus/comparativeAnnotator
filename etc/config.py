@@ -35,30 +35,30 @@ all_classifiers = ref_classifiers + ['AlnExtendsOffContig', 'CodingMult3Deletion
                                      'FrameShift', 'HasOriginalStop', 'CodingMult3Insertions', 'CodingDeletions',
                                      'Nonsynonymous', 'HasOriginalStart']
 
-# these classifiers define Pass for Augustus transcripts
+# these classifiers define Excellent for Augustus transcripts
 aug_classifiers = ['MultipleTranscripts', 'NotSameStart', 'NotSameStop', 'ExonGain', 'NotSameStrand',
                    'NotSimilarTerminalExonBoundaries', 'ExonLoss', 'NotSimilarInternalExonBoundaries']
 
-# these classifiers define Pass for single-genome analysis
+# these classifiers define Excellent for single-genome analysis
 ref_coding_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
                           "StartOutOfFrame", "SpliceContainsUnknownBases", "InFrameStop", "ShortCds"]
 
-# these classifiers define Pass for coding transcripts
-tm_pass_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
+# these classifiers define Excellent for coding transcripts
+tm_excel_classifiers = ["BadFrame", "BeginStart", "EndStop", "CdsGap", "CdsUnknownSplice", "UtrUnknownSplice",
                        "StartOutOfFrame", "InFrameStop", "ShortCds", "CodingInsertions", "CodingDeletions",
                        "FrameShift", "HasOriginalStart", "HasOriginalStop", "HasOriginalIntrons"]
 
-# these classifiers define Good for coding transcripts
+# these classifiers define Pass for coding transcripts
 # the difference: Can have an incomplete CDS, but that incomplete CDS should remain in frame. UtrUnknownSplice is also
 # allowed.
-tm_good_classifiers = ["CdsUnknownSplice", "FrameShift", "CodingInsertions", "CodingDeletions", "HasOriginalIntrons"]
+tm_passing_classifiers = ["CdsUnknownSplice", "FrameShift", "CodingInsertions", "CodingDeletions", "HasOriginalIntrons"]
 
-# these classifiers define Pass/Good for non-coding transcripts
-noncoding_pass_classifiers = ref_noncoding_classifiers = ["UtrUnknownSplice"]
-noncoding_good_classifiers = ["UtrUnknownSplice", "UtrGap"]
+# these classifiers define Excellent/Pass for non-coding transcripts
+noncoding_excel_classifiers = ref_noncoding_classifiers = ["UtrUnknownSplice"]
+noncoding_passing_classifiers = ["UtrUnknownSplice", "UtrGap"]
 
 
-clustering_classifiers = tm_pass_classifiers + ["AlnExtendsOffContig", "CodingMult3Deletions", "Paralogy", 
+clustering_classifiers = tm_excel_classifiers + ["AlnExtendsOffContig", "CodingMult3Deletions", "Paralogy", 
                                                 "AlnAbutsUnknownBases", "CodingMult3Insertions", "CdsMult3Gap", 
                                                 "SpliceContainsUnknownBases", "UnknownGap", "UnknownBases", 
                                                 "UnknownCdsBases", "UtrGap", "AlignmentPartialMap"]
@@ -135,8 +135,8 @@ def alignmentErrors(genome, biotype=None, details=True):
     return query
 
 
-def transMapEval(ref_genome, genome, biotype, good=False):
-    if biotype == "protein_coding" and good is False:
+def transMapEval(ref_genome, genome, biotype, passing=False):
+    if biotype == "protein_coding" and passing is False:
         query = ("SELECT AlignmentId FROM attributes.'{2}' JOIN main.'{2}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
                  "(main.'{2}'.BadFrame = 0 AND main.'{0}'.BadFrame > 0) AND NOT (main.'{2}'.BeginStart = 0 "
@@ -152,7 +152,7 @@ def transMapEval(ref_genome, genome, biotype, good=False):
                   "AND (main.'{0}'.HasOriginalIntrons <= 0.5 * attributes.'{0}'.NumberIntrons - 0.5 OR "
                   "attributes.'{0}'.NumberIntrons = 0) AND "
                   "attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
-    elif biotype == "protein_coding" and good is True:
+    elif biotype == "protein_coding" and passing is True:
         query = ("SELECT AlignmentId FROM attributes.'{2}' JOIN main.'{2}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
                  "(main.'{2}'.CdsUnknownSplice = 0 AND main.'{0}'.CdsUnknownSplice > 0) AND "
@@ -162,7 +162,7 @@ def transMapEval(ref_genome, genome, biotype, good=False):
                  "AND (main.'{0}'.HasOriginalIntrons <= 0.5 * attributes.'{0}'.NumberIntrons - 0.5 OR "
                  "attributes.'{0}'.NumberIntrons = 0) AND "
                  "attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
-    elif good is False:
+    elif passing is False:
         query = ("SELECT AlignmentId FROM attributes.'{2}' JOIN main.'{2}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
                  "(main.'{2}'.UtrUnknownSplice = 0 AND main.'{0}'.UtrUnknownSplice > 0) AND "
@@ -210,3 +210,7 @@ def augustusEval(genome, ref_genome):
 # biotype groupings
 GencodeCompVM7 = GencodeBasicVM7 = dict([('snoRNA', 'Small RNAs'), ('snRNA', 'Small RNAs'), ('scaRNA', 'Small RNAs'), ('miRNA', 'Small RNAs'), ('misc_RNA', 'Small RNAs'), ('protein_coding', 'Protein Coding'), ('lincRNA', 'lincRNA'), ('macro_lncRNA', 'lincRNA'), ('bidirectional_promoter_lncrna', 'lincRNA')])
 GencodePseudoGeneVM7 = dict([('processed_pseudogene', 'Processed Pseudogenes'), ('translated_processed_pseudogene', 'Processed Pseudogenes'), ('transcribed_processed_pseudogene', 'Processed Pseudogenes'), ('unprocessed_pseudogene', 'Unprocessed Pseudogenes'), ('translated_unprocessed_pseudogene', 'Unprocessed Pseudogenes'), ('transcribed_unprocessed_pseudogene', 'Unprocessed Pseudogenes')])
+
+GencodeCompVM8 = GencodeCompVM7
+GencodeBasicVM8 = GencodeBasicVM7
+GencodePseudoGeneVM8 = GencodePseudoGeneVM7

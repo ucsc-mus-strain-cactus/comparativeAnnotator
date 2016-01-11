@@ -9,6 +9,7 @@ import itertools
 import random
 import types
 import errno
+import pandas as pd
 from collections import OrderedDict, Callable, namedtuple
 
 __author__ = "Ian Fiddes"
@@ -195,3 +196,25 @@ def get_random_string(length=10, chars=string.ascii_letters):
     Returns a random alpha numeric string of the given length.
     """
     return ''.join([random.choice(chars) for _ in xrange(length)])
+
+
+def convert_dicts_to_dataframe(data_dict, norm=False, sort_column=None):
+    """
+    Munges nested dictionaries into a pandas DataFrame. If sort_column is not None, will order rows based on values
+    in that column. If sort_column is None, will maintain internal dictionary orders. Obviously, if the internal
+    dictionaries are not ordered, then this will be meaningless. This is necessary because while 
+    pd.DataFrame.from_dict() honors an outer OrderedDict, it does not honor nested ones.
+    If norm is True, will normalize so that the sum of every column is 1.
+    """
+    df = pd.DataFrame.from_dict(data_dict)
+    if sort_column is not None:
+        assert sort_column < df.shape[1], "sort_column larger than number of columns"
+        first_column = df[df.columns[0]].copy()
+        first_column.sort(ascending=False)
+        row_order = first_column.index
+    else:
+        row_order = data_dict[data_dict.keys()[0]].keys()
+    df = df.reindex(row_order)
+    if norm is True:
+        df = 100 * df.div(df.sum(axis=0), axis=1)
+    return [[x[0], x[1].tolist()] for x in df.iteritems()], list(row_order)

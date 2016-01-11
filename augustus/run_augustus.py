@@ -6,7 +6,7 @@ import os
 import argparse
 import itertools
 import sqlite3 as sql
-from pyfaidx import Fasta
+from pyfasta import Fasta
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, popenCatch, getRandomAlphaNumericString, catFiles, TempFileTree

@@ -243,14 +243,14 @@ def get_transcript_biotype_map(cur, ref_genome):
     return get_query_dict(cur, query)
 
 
-def get_fail_good_pass_ids(cur, ref_genome, genome, biotype, best_cov_only=True, filter_chroms=None, 
+def get_fail_passing_excel_ids(cur, ref_genome, genome, biotype, best_cov_only=True, filter_chroms=None, 
                            highest_cov_dict=None):
     """
-    Returns the IDs categorized as fail, good_specific, pass. You can set the best_cov_only flag to only report
-    those transcripts with highest coverage. You can also pass a premade highest_cov_dict to save computation time.
+    Returns the IDs categorized as fail, passing_specific, excellent. You can set the best_cov_only flag to only report
+    those transcripts with highest coverage. You can also excellent a premade highest_cov_dict to save computation time.
     """
-    good_query = etc.config.transMapEval(ref_genome, genome, biotype, good=True)
-    pass_query = etc.config.transMapEval(ref_genome, genome, biotype, good=False)
+    passing_query = etc.config.transMapEval(ref_genome, genome, biotype, passing=True)
+    excellent_query = etc.config.transMapEval(ref_genome, genome, biotype, passing=False)
     if best_cov_only is True:
         if highest_cov_dict is None:
             best_covs = highest_cov_aln(cur, genome)
@@ -262,12 +262,12 @@ def get_fail_good_pass_ids(cur, ref_genome, genome, biotype, best_cov_only=True,
             def __contains__(_, __):
                 return True
         best_ids = Universe()
-    good_ids = {x for x in get_query_ids(cur, good_query) if x in best_ids}
-    pass_ids = {x for x in get_query_ids(cur, pass_query) if x in best_ids}
+    passing_ids = {x for x in get_query_ids(cur, passing_query) if x in best_ids}
+    excellent_ids = {x for x in get_query_ids(cur, excellent_query) if x in best_ids}
     all_ids = {x for x in get_biotype_aln_ids(cur, genome, biotype) if x in best_ids}
-    fail_ids = all_ids - (good_ids | pass_ids)
-    good_specific_ids = good_ids - pass_ids
-    return fail_ids, good_specific_ids, pass_ids
+    fail_ids = all_ids - (passing_ids | excellent_ids)
+    passing_specific_ids = passing_ids - excellent_ids
+    return fail_ids, passing_specific_ids, excellent_ids
 
 
 def write_dict(data_dict, database_path, table, index_label="AlignmentId"):
@@ -308,11 +308,11 @@ def collapse_details_dict(details_dict):
     return collapsed
 
 
-def run_transmap_eval(cur, genome, biotype, trans_map_eval, good=True):
+def run_transmap_eval(cur, genome, biotype, trans_map_eval, passing=True):
     """
-    Convenience wrapper for getting all Good/Pass transcripts for transMap
+    Convenience wrapper for getting all Pass/Excellent transcripts for transMap
     """
-    query = trans_map_eval(genome, biotype, good)
+    query = trans_map_eval(genome, biotype, passing)
     return get_query_ids(cur, query)
 
 

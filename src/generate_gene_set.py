@@ -8,7 +8,7 @@ from collections import defaultdict, OrderedDict
 import lib.sql_lib as sql_lib
 import lib.psl_lib as psl_lib
 import lib.seq_lib as seq_lib
-from lib.general_lib import mkdir_p
+from lib.general_lib import mkdir_p, merge_dicts
 import etc.config
 
 
@@ -98,17 +98,17 @@ def find_best_alns(stats, ids, cov_cutoff=95.0):
     return best_overall
 
 
-def evaluate_ids(fail_ids, good_specific_ids, pass_ids, aug_ids, stats):
+def evaluate_ids(fail_ids, pass_specific_ids, excel_ids, aug_ids, stats):
     """
-    For a given ensembl ID, we have augustus/transMap ids in 4 categories. Based on the hierarchy Pass>Good>Fail,
+    For a given ensembl ID, we have augustus/transMap ids in 4 categories. Based on the hierarchy Excellent>Pass>Fail,
     return the best transcript in the highest category with a transMap transcript.
     """
-    if len(pass_ids) > 0:
-        best_alns = find_best_alns(stats, pass_ids + aug_ids)
+    if len(excel_ids) > 0:
+        best_alns = find_best_alns(stats, excel_ids + aug_ids)
+        return best_alns, "Excellent"
+    elif len(pass_specific_ids) > 0:
+        best_alns = find_best_alns(stats, pass_specific_ids + aug_ids)
         return best_alns, "Pass"
-    elif len(good_specific_ids) > 0:
-        best_alns = find_best_alns(stats, good_specific_ids + aug_ids)
-        return best_alns, "Good"
     elif len(fail_ids) > 0:
         best_alns = find_best_alns(stats, fail_ids + aug_ids)
         return best_alns, "Fail"
@@ -130,7 +130,7 @@ def is_tie(best_alns):
     return False
 
 
-def find_best_transcripts(data_dict, stats, mode):
+def find_best_transcripts(data_dict, stats, mode, biotype):
     """
     For all of the transcripts categorized in data_dict, evaluate them and bin them.
     """
@@ -139,12 +139,12 @@ def find_best_transcripts(data_dict, stats, mode):
         binned_transcripts[gene_id] = {}
         for ens_id in data_dict[gene_id]:
             tx_recs = data_dict[gene_id][ens_id]
-            if mode == "augustus":
-                fail_ids, good_specific_ids, pass_ids, aug_ids = tx_recs.values()
+            if mode == "augustus" and biotype == "protein_coding":
+                fail_ids, pass_specific_ids, excel_ids, aug_ids = tx_recs.values()
             else:
-                fail_ids, good_specific_ids, pass_ids = tx_recs.values()
+                fail_ids, pass_specific_ids, excel_ids = tx_recs.values()
                 aug_ids = []
-            best_alns, category = evaluate_ids(fail_ids, good_specific_ids, pass_ids, aug_ids, stats)
+            best_alns, category = evaluate_ids(fail_ids, pass_specific_ids, excel_ids, aug_ids, stats)
             if best_alns is None:
                 binned_transcripts[gene_id][ens_id] = [best_alns, category, None]
             else:
@@ -182,7 +182,7 @@ def find_consensus(binned_transcripts, stats, gps):
         gene_in_consensus = False
         for ens_id in binned_transcripts[gene_id]:
             best_id, category, tie = binned_transcripts[gene_id][ens_id]
-            if category in ["Pass", "Good"]:
+            if category in ["Excellent", "Pass"]:
                 consensus.append(best_id)
                 gene_in_consensus = True
         if gene_in_consensus is False:
@@ -197,26 +197,26 @@ def consensus_by_biotype(cur, ref_genome, genome, biotype, gps, transcript_gene_
     """
     Main consensus finding function.
     """
-    fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype,
+    fail_ids, pass_specific_ids, excel_ids = sql_lib.get_fail_passing_excel_ids(cur, ref_genome, genome, biotype,
                                                                            best_cov_only=False)
     # hacky way to avoid duplicating code in consensus finding - we will always have an aug_id set, it just may be empty
     if mode == "augustus" and biotype == "protein_coding":
         aug_query = etc.config.augustusEval(genome, ref_genome)
         aug_ids = sql_lib.get_query_ids(cur, aug_query)
-        id_names = ["fail_ids", "good_specific_ids", "pass_ids", "aug_ids"]
-        id_list = [fail_ids, good_specific_ids, pass_ids, aug_ids]
+        id_names = ["fail_ids", "pass_specific_ids", "excel_ids", "aug_ids"]
+        id_list = [fail_ids, pass_specific_ids, excel_ids, aug_ids]
     else:
-        id_names = ["fail_ids", "good_specific_ids", "pass_ids"]
-        id_list = [fail_ids, good_specific_ids, pass_ids]
+        id_names = ["fail_ids", "pass_specific_ids", "excel_ids"]
+        id_list = [fail_ids, pass_specific_ids, excel_ids]
     data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
-    binned_transcripts = find_best_transcripts(data_dict, stats, mode)
+    binned_transcripts = find_best_transcripts(data_dict, stats, mode, biotype)
     consensus = find_consensus(binned_transcripts, stats, gps)
     return binned_transcripts, consensus
 
 
 def evaluate_transcript(best_id, category, tie):
     """
-    Evaluates the best transcript(s) for a given ensembl ID for being pass/fail/ok and asks if it is a tie
+    Evaluates the best transcript(s) for a given ensembl ID for being excel/fail/ok and asks if it is a tie
     """
     if category is "NoTransMap":
         return category
@@ -235,12 +235,12 @@ def evaluate_transcript(best_id, category, tie):
 def evaluate_gene(categories):
     """
     Same as evaluate_transcript, but on the gene level. Does this gene have at least one transcript categorized
-    as pass/good/fail?
+    as excellent/passing/fail?
     """
-    if "Pass" in categories:
+    if "Excellent" in categories:
+        return "Excellent"
+    elif "Pass" in categories:
         return "Pass"
-    elif "Good" in categories:
-        return "Good"
     elif "Fail" in categories:
         return "Fail"
     elif "NoTransMap" in categories:
@@ -259,12 +259,12 @@ def evaluate_coding_consensus(binned_transcripts, stats, gps, mode):
     TODO: split out duplicated code.
     """
     if mode == "augustus":
-        transcript_evaluation = OrderedDict((x, 0) for x in ["PassTM", "PassAug", "PassTie", "GoodTM", "GoodAug", 
-                                                             "GoodTie", "FailTM", "FailAug", "FailTie", "NoTransMap"])
-        gene_evaluation = OrderedDict((x, 0) for x in ["Pass", "Good", "Fail", "NoTransMap"])
+        transcript_evaluation = OrderedDict((x, 0) for x in ["ExcellentTM", "ExcellentAug", "ExcellentTie", "PassTM", "PassAug", 
+                                                             "PassTie", "FailTM", "FailAug", "FailTie", "NoTransMap"])
+        gene_evaluation = OrderedDict((x, 0) for x in ["Excellent", "Pass", "Fail", "NoTransMap"])
     else:
-        transcript_evaluation = OrderedDict((x, 0) for x in ["Pass", "Good", "Fail", "NoTransMap"])
-        gene_evaluation = OrderedDict((x, 0) for x in ["Pass", "Good", "Fail", "NoTransMap"])
+        transcript_evaluation = OrderedDict((x, 0) for x in ["Excellent", "Pass", "Fail", "NoTransMap"])
+        gene_evaluation = OrderedDict((x, 0) for x in ["Excellent", "Pass", "Fail", "NoTransMap"])
     gene_fail_evaluation = OrderedDict((x, 0) for x in ["Fail", "NoTransMap"])
     for gene_id in binned_transcripts:
         categories = set()
@@ -284,8 +284,8 @@ def evaluate_coding_consensus(binned_transcripts, stats, gps, mode):
 
 
 def evaluate_noncoding_consensus(binned_transcripts, stats, gps):
-    transcript_evaluation = OrderedDict((x, 0) for x in ["PassTM", "GoodTM", "FailTM", "NoTransMap"])
-    gene_evaluation = OrderedDict((x, 0) for x in ["Pass", "Good", "Fail", "NoTransMap"])
+    transcript_evaluation = OrderedDict((x, 0) for x in ["ExcellentTM", "PassTM", "FailTM", "NoTransMap"])
+    gene_evaluation = OrderedDict((x, 0) for x in ["Excellent", "Pass", "Fail", "NoTransMap"])
     gene_fail_evaluation = OrderedDict((x, 0) for x in ["Fail", "NoTransMap"])
     for gene_id in binned_transcripts:
         categories = set()

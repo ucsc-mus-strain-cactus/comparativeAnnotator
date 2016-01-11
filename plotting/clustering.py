@@ -3,6 +3,7 @@ import os
 import argparse
 import subprocess
 import pandas as pd
+import numpy as np
 import lib.sql_lib as sql_lib
 import lib.plot_lib as plot_lib
 import lib.psl_lib as psl_lib
@@ -81,12 +82,12 @@ def main_fn(target, comp_ann_path, gencode, genome, ref_genome, base_out_path, f
     out_path = os.path.join(base_out_path, "classifier_breakdown", genome)
     mkdir_p(out_path)
     con, cur = sql_lib.attach_databases(comp_ann_path, mode="transMap")
-    fail_ids, good_specific_ids, pass_ids = sql_lib.get_fail_good_pass_ids(cur, ref_genome, genome, biotype)
+    fail_ids, passing_specific_ids, excellent_ids = sql_lib.get_fail_passing_excel_ids(cur, ref_genome, genome, biotype)
     biotype_ids = sql_lib.get_biotype_ids(cur, ref_genome, biotype, filter_chroms=filter_chroms)
     if len(biotype_ids) > 50:
         sql_data = sql_lib.load_data(con, genome, etc.config.clustering_classifiers)
         num_original_introns = sql_lib.load_data(con, genome, ["NumberIntrons"], table="attributes")
-        for mode, ids in zip(*[["Fail", "Good/NotPass"], [fail_ids, good_specific_ids]]):
+        for mode, ids in zip(*[["Fail", "Pass/NotExcellent"], [fail_ids, passing_specific_ids]]):
             mode_underscore = mode.replace("/", "_")
             out_barplot_file = os.path.join(out_path, "barplot_{}_{}_{}".format(genome, biotype, mode_underscore))
             percentage_of_set = 100.0 * len(ids) / len(biotype_ids)

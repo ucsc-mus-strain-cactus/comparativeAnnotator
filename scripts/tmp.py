@@ -153,11 +153,11 @@ ref_aln = ref_aln_dict[aln_id[:-2]]
 
 
 
-gp = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/transMap/2015-10-06/transMap/NZO_HlLtJ/transMapGencodeCompVM7.gp"
-ref_gp = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/transMap/2015-10-06/data/wgEncodeGencodeCompVM7.gp"
+gp = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/transMap/2015-10-06/transMap/NZO_HlLtJ/transMapGencodeCompVM8.gp"
+ref_gp = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/transMap/2015-10-06/data/wgEncodeGencodeCompVM8.gp"
 aug_gp = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/augustus/tmr/NZO_HlLtJ.output.gp"
-aln_psl = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/transMap/2015-10-06/transMap/NZO_HlLtJ/transMapGencodeCompVM7.psl"
-ref_psl = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/transMap/2015-10-06/data/wgEncodeGencodeCompVM7.psl"
+aln_psl = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/transMap/2015-10-06/transMap/NZO_HlLtJ/transMapGencodeCompVM8.psl"
+ref_psl = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/comparative/1509_v2/transMap/2015-10-06/data/wgEncodeGencodeCompVM8.psl"
 ref_fasta = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/assemblies/1509_v2/C57B6J.fa"
 target_fasta = "/hive/groups/recon/projs/mus_strain_cactus/pipeline_data/assemblies/1509_v2/NZO_HlLtJ.fa"
 

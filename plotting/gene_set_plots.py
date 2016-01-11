@@ -9,7 +9,7 @@ from collections import OrderedDict, defaultdict
 import lib.psl_lib as psl_lib
 import lib.sql_lib as sql_lib
 import lib.plot_lib as plot_lib
-from lib.general_lib import mkdir_p, DefaultOrderedDict
+from lib.general_lib import mkdir_p, DefaultOrderedDict, convert_dicts_to_dataframe
 import etc.config
 
 __author__ = "Ian Fiddes"
@@ -50,18 +50,6 @@ def load_evaluations(work_dir, genomes, biotype):
     return tx_evals, gene_evals, gene_fail_evals, tx_dup_rate, tx_counts, gene_counts
 
 
-def munge_data(data_dict, norm=False):
-    df = pd.DataFrame.from_dict(data_dict)
-    # find the order based on the first column
-    first_column = df[df.columns[0]].copy()
-    first_column.sort(ascending=False)
-    row_order = first_column.index
-    df = df.reindex(row_order)
-    if norm is True:
-        df = 100 * df.div(df.sum(axis=0), axis=1)
-    return [[x[0], x[1].tolist()] for x in df.iteritems()], list(row_order)
-
-
 def find_total(data_dict):
     totals = {sum(x.values()) for x in data_dict.itervalues()}
     assert len(totals) == 1, "unequal number of items between genomes"
@@ -69,7 +57,7 @@ def find_total(data_dict):
 
 
 def transcript_gene_plot(evals, out_path, gencode, mode, biotype):
-    results, categories = munge_data(evals, norm=True)
+    results, categories = convert_dicts_to_dataframe(evals, norm=True)
     total = find_total(evals)
     base_title = "Breakdown of {:,} {} {} categorized by consensus finding\nfrom annotation set {}"
     title = base_title.format(total, biotype, mode, gencode)
@@ -79,7 +67,7 @@ def transcript_gene_plot(evals, out_path, gencode, mode, biotype):
 
 
 def gene_fail_plot(gene_fail_evals, out_path, gencode, biotype):
-    results, categories = munge_data(gene_fail_evals)
+    results, categories = convert_dicts_to_dataframe(gene_fail_evals)
     base_title = "Breakdown of {} genes that failed consensus finding\nfrom annotation set {}"
     title = base_title.format(biotype, gencode)
     out_name = "{}_{}_{}_consensus".format(gencode, biotype, "GeneFail")
@@ -111,7 +99,7 @@ def collapse_evals(tx_evals):
 
 
 def biotype_stacked_plot(counter, out_path, gencode, mode):
-    results, categories = munge_data(counter)
+    results, categories = convert_dicts_to_dataframe(counter)
     if gencode == "GencodePseudoGeneVM7":
         categories = ["\n".join(x.split(" ")) for x in categories]
     base_title = "Biotype breakdown in final {} set derived\nfrom annotation set {}"
@@ -146,7 +134,7 @@ def main():
         for genome, tx_count in tx_evals_collapsed.iteritems():
             biotype_tx_counter[genome][biotype_bin] += tx_count
             biotype_gene_counter[genome][biotype_bin] += gene_evals_collapsed[genome]
-    for mode, counter in zip(*[["Transcript", "gene"], [biotype_tx_counter, biotype_gene_counter]]):
+    for mode, counter in zip(*[["transcript", "gene"], [biotype_tx_counter, biotype_gene_counter]]):
         biotype_stacked_plot(counter, args.outDir, args.gencode, mode)
 
 
