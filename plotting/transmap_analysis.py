@@ -51,11 +51,11 @@ def make_hist(vals, bins, reverse=False, roll=0):
 
 def get_fail_pass_excel_dict(cur, ref_genome, genomes, highest_cov_dict, biotype, filter_chroms):
     """
-    Wrapper for sql_lib.get_fail_pass_excel_ids that applies to many genomes.
+    Wrapper for sql_lib.get_fail_passing_excel_ids that applies to many genomes.
     """
     results = OrderedDict()
     for genome in genomes:
-        results[genome] = sql_lib.get_fail_pass_excel_ids(cur, ref_genome, genome, biotype, best_cov_only=True,
+        results[genome] = sql_lib.get_fail_passing_excel_ids(cur, ref_genome, genome, biotype, best_cov_only=True,
                                                          filter_chroms=filter_chroms, highest_cov_dict=highest_cov_dict)
     return results
 
@@ -86,7 +86,7 @@ def categorized_plot(cur, highest_cov_dict, genomes, out_path, file_name, biotyp
                                psl_lib.remove_alignment_number(x) in biotype_ids})
         norm = num_categorized / (0.01 * len(biotype_ids))
         results.append([g, norm, num_categorized])
-    title_string = "Proportion of {:,} {} transcripts in biotype {}\ncategorized as {}"
+    title_string = "Proportion of {:,} {} transcripts in {}\ncategorized as {}"
     title_string = title_string.format(len(biotype_ids), biotype, gencode, query_fn.__name__)
     plot_lib.barplot(results, out_path, file_name, title_string, adjust_y=False)
 
@@ -106,7 +106,7 @@ def metrics_plot(highest_cov_dict, bins, genomes, out_path, file_name, biotype, 
         vals.extend([0] * (len(biotype_ids) - len(vals)))  # add all of the unmapped transcripts
         norm, raw = make_hist(vals, bins, reverse=True, roll=0)
         results.append([g, norm])
-    title_string = "transMap alignment {} breakdown for\n{:,} {} transcripts in biotype {}"
+    title_string = "transMap alignment {} breakdown for\n{:,} {} transcripts in {}"
     title_string = title_string.format(analysis, len(biotype_ids), biotype, gencode)
     legend_labels = ["= {0:.1f}%".format(bins[-1])]
     legend_labels.extend(["< {0:.1f}%".format(x) for x in bins[2:-1][::-1]])
@@ -130,7 +130,7 @@ def num_pass_excel(fail_pass_excel_dict, cur, ref_genome, out_path, biotype, gen
         assert all([x >= 0 for x in raw])
         norm = raw / (0.01 * len(biotype_ids))
         results.append([genome, norm])
-    title_string = "Proportion of {:,} {} transcripts in biotype {}\ncategorized as Excellent/Pass/Fail"
+    title_string = "Proportion of {:,} {} transcripts in {}\ncategorized as Excellent/Pass/Fail"
     title_string = title_string.format(len(biotype_ids), biotype.replace("_", " "), gencode)
     legend_labels = ["Excellent", "Pass", "Fail", "NoAln"]
     plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
@@ -152,7 +152,7 @@ def num_pass_excel_gene_level(fail_pass_excel_dict, cur, ref_genome, out_path, b
         assert all([x >= 0 for x in raw])
         norm = raw / (0.01 * num_genes)
         results.append([genome, norm])
-    title_string = "Proportion of {:,} {} genes in biotype {}\nwith at least one transcript categorized as Excellent/Pass/Fail"
+    title_string = "Proportion of {:,} {} genes in {}\nwith at least one transcript categorized as Excellent/Pass/Fail"
     title_string = title_string.format(num_genes, biotype.replace("_", " "), gencode)
     legend_labels = ["Excellent", "Pass", "Fail", "NoAln"]
     plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)

@@ -1156,12 +1156,11 @@ def find_offset(exon_frames, strand):
     if len(frames) == 0:
         return 0
     if strand is True:
-        if frames[0] == 0:
-            offset = 0
-        else:
-            offset = 3 - frames[0]
+        offset = frames[0]
     else:
-        offset = frames[-1]
+        offset = 3 - frames[-1]
+        if offset == 3:
+            offset = 0
     return offset
 
 

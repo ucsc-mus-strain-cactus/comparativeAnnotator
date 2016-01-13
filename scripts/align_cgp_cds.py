@@ -16,7 +16,7 @@ from lib.sql_lib import ExclusiveSqlConnection, get_gene_transcript_map, attach_
 from lib.seq_lib import GenePredTranscript
 from lib.general_lib import tokenize_stream, grouper
 from sonLib.bioio import fastaWrite, popenCatch, system, TempFileTree, catFiles
-from pyfaidx import Fasta
+from pyfasta import Fasta
 from lib.general_lib import format_ratio
 
 __author__ = "Ian Fiddes"
@@ -93,8 +93,8 @@ def align_cgp(tmp_dir, gp, target_genome_fasta, tx_dict, ref_tx_fasta):
     in the case of repeats.
     """
     results = []
-    ref_tx_fasta = Fasta(ref_tx_fasta, as_raw=True)
-    target_genome_fasta = Fasta(target_genome_fasta, as_raw=True)
+    ref_tx_fasta = Fasta(ref_tx_fasta)
+    target_genome_fasta = Fasta(target_genome_fasta)
     tmp_tgt, tmp_ref, tmp_psl = prepare_tmp_files(tmp_dir, gp, target_genome_fasta)
     for gene_name, tx_names in tx_dict.iteritems():
         for tx_name in tx_names:
@@ -112,8 +112,8 @@ def align_consensus(tmp_dir, gp, target_genome_fasta, ref_tx_fasta):
     """
     Main consensus alignment function. 
     """
-    ref_tx_fasta = Fasta(ref_tx_fasta, as_raw=True)
-    target_genome_fasta = Fasta(target_genome_fasta, as_raw=True)
+    ref_tx_fasta = Fasta(ref_tx_fasta)
+    target_genome_fasta = Fasta(target_genome_fasta)
     tmp_tgt, tmp_ref, tmp_psl = prepare_tmp_files(tmp_dir, gp, target_genome_fasta)
     tx_seq = str(ref_tx_fasta[gp.name])
     fastaWrite(tmp_ref, gp.name, tx_seq)

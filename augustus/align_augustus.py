@@ -11,7 +11,7 @@ from jobTree.scriptTree.stack import Stack
 from lib.psl_lib import PslRow, remove_augustus_alignment_number, remove_alignment_number
 from lib.general_lib import tokenize_stream, grouper
 from sonLib.bioio import fastaWrite, popenCatch, system, TempFileTree, catFiles
-from pyfaidx import Fasta
+from pyfasta import Fasta
 from lib.general_lib import format_ratio
 from lib.sql_lib import ExclusiveSqlConnection
 

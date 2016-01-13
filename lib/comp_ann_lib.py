@@ -181,12 +181,7 @@ def codon_pair_iterator(a, t, aln, target_seq_dict, query_seq_dict):
     target_cds = t.get_cds(target_seq_dict)
     query_cds = a.get_cds(query_seq_dict)
     a_frames = [x for x in a.exon_frames if x != -1]
-    if a.strand is True:
-        a_offset = a_frames[0]
-    else:
-        a_offset = 3 - a_frames[-1]
-        if a_offset == 3:
-            a_offset = 0
+    a_offset = seq_lib.find_offset(a_frames, a.strand)
     for i in xrange(a_offset, a.cds_size - a.cds_size % 3, 3):
         target_cds_positions = [t.chromosome_coordinate_to_cds(
                                 aln.query_coordinate_to_target(

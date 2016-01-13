@@ -351,12 +351,15 @@ def fix_gene_pred(gp, transcript_gene_map):
     return len(genes), len(txs), ["\t".join(x) for x in fixed]
 
 
-def write_gps(consensus, gps, consensus_base_path, biotype, transcript_gene_map):
+def write_gps(consensus, gps, consensus_base_path, biotype, transcript_gene_map, mode):
     """
     Writes the final consensus gene set to a genePred, after fixing the names. Reports the number of genes and txs
     in the final set
     """
-    p = os.path.join(consensus_base_path, biotype + ".consensus_gene_set.gp")
+    if mode == "transMap":
+        p = os.path.join(consensus_base_path, biotype + ".transmap_gene_set.gp")
+    else:
+        p = os.path.join(consensus_base_path, biotype + ".augustus_consensus_gene_set.gp")
     mkdir_p(os.path.dirname(p))
     gp_recs = [gps[aln_id] for aln_id in consensus]
     num_genes, num_txs, fixed_gp_recs = fix_gene_pred(gp_recs, transcript_gene_map)
@@ -382,7 +385,8 @@ def main():
                                                              transcript_gene_map, gene_transcript_map, stats, args.mode)
         deduplicated_consensus, dup_count = deduplicate_consensus(consensus, gps, stats)
         if len(deduplicated_consensus) > 0:  # some biotypes we may have nothing
-            num_genes, num_txs = write_gps(deduplicated_consensus, gps, consensus_base_path, biotype, transcript_gene_map)
+            num_genes, num_txs = write_gps(deduplicated_consensus, gps, consensus_base_path, biotype, 
+                                           transcript_gene_map, args.mode)
             if biotype == "protein_coding":
                 gene_transcript_evals = evaluate_coding_consensus(binned_transcripts, stats, gps, args.mode)
             else:

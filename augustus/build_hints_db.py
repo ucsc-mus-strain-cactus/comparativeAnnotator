@@ -144,7 +144,7 @@ def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db_path, genom
     target.setFollowOnTargetFn(load_db, args=[hints, db_path, genome, genome_fasta])
 
 
-def load_db(target, hints, db_path, genome, genome_fasta, timeout=6000, intervals=120):
+def load_db(target, hints, db_path, genome, genome_fasta, timeout=30000, intervals=120):
     """
     Final database loading.
     NOTE: Once done on all genomes, you want to run load2sqlitedb --makeIdx --dbaccess ${db}
