@@ -431,7 +431,7 @@ class Transcript(object):
         cds = self.get_cds(seq_dict)
         if len(cds) < 3:
             return ""
-        return translate_sequence(self.get_cds(seq_dict))
+        return translate_sequence(self.get_cds(seq_dict).upper())
 
     def intron_sequence_iterator(self, seq_dict):
         """
