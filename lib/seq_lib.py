@@ -621,7 +621,7 @@ class GenePredTranscript(Transcript):
         cds = self.get_cds(seq_dict)
         if len(cds) < 3:
             return ""
-        return translate_sequence(cds[offset:])
+        return translate_sequence(cds[offset:].upper())
 
 
     def get_gene_pred(self, name=None, start_offset=None, stop_offset=None, name2=None, uid=None):
@@ -1098,7 +1098,7 @@ def complement(seq, comp=string.maketrans("ATGC", "TACG")):
     return str(seq).translate(comp)
 
 
-def reverse_complement(seq, comp=string.maketrans("ATGC", "TACG")):
+def reverse_complement(seq, comp=string.maketrans("ATGCatgc", "TACGtacg")):
     """
     Given a sequence, return the reverse complement.
     """
@@ -1109,10 +1109,10 @@ _codon_table = {
     'ATG': 'M',
     'TAA': '*', 'TAG': '*', 'TGA': '*', 'TAR': '*', 'TRA': '*',
     'GCT': 'A', 'GCC': 'A', 'GCA': 'A', 'GCG': 'A', 'GCN': 'A',
-    'CGT': 'R', 'CGC': 'R', 'CGA': 'R', 'CGG': 'R','AGA': 'R',
+    'CGT': 'R', 'CGC': 'R', 'CGA': 'R', 'CGG': 'R', 'AGA': 'R',
     'AGG': 'R', 'CGN': 'R', 'MGR': 'R',
     'AAT': 'N', 'AAC': 'N', 'AAY': 'N',
-    'GAT': 'N', 'GAC': 'N', 'GAY': 'N',
+    'GAT': 'D', 'GAC': 'D', 'GAY': 'D',
     'TGT': 'C', 'TGC': 'C', 'TGY': 'C',
     'CAA': 'Q', 'CAG': 'Q', 'CAR': 'Q',
     'GAA': 'E', 'GAG': 'E', 'GAR': 'E',
@@ -1156,23 +1156,27 @@ def find_offset(exon_frames, strand):
     if len(frames) == 0:
         return 0
     if strand is True:
-        offset = frames[0]
+        offset = 3 - frames[0]
     else:
         offset = 3 - frames[-1]
-        if offset == 3:
-            offset = 0
+    if offset == 3:
+        offset = 0
     return offset
 
 
 def translate_sequence(sequence):
     """
     Translates a given DNA sequence to single-letter amino acid
-    space. If the sequence is not a multiple of 3 it will be truncated
-    silently.
+    space. If the sequence is not a multiple of 3 and is not a unique degenerate codon it will be truncated silently.
     """
     result = []
+    sequence = sequence.upper()
     for i in xrange(0, len(sequence) - len(sequence) % 3, 3):
         result.append(codon_to_amino_acid(sequence[i: i + 3]))
+    if len(sequence) % 3 == 2:
+        c = codon_to_amino_acid(sequence[i + 3:] + "N")
+        if c != "?":
+            result.append(c)
     return "".join(result)
 
 

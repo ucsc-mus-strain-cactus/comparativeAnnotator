@@ -832,7 +832,7 @@ class SingleExonTranscript3(unittest.TestCase):
         self.t = seq_lib.Transcript(['chr1', '0', '6', 'A', '0', '-', '0', '5', '0,128,0', '1', '6', '0'])
         self.transcript_seq = "GAATAC"
         self.cds_seq = "AATAC"
-        self.amino_acid = "N"
+        self.amino_acid = "NT"  # ACN is unambiguously Threonine 
         self.introns = []
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
@@ -1308,34 +1308,6 @@ class ComplicatedTranscript2(unittest.TestCase):
         self.assertEqual(self.t.get_intron_sequences(self.chrom_seq), self.introns)
 
 
-class NegativeStrandGenePredTranscript(NegativeStrandTranscriptTests):
-    """
-    Tests the GenePred functionality by copying the negative strand transcript being inherited.
-
-    """
-    def setUp(self):
-        self.t = seq_lib.GenePredTranscript(['A', 'chr1', '-', '2', '15', '4', '13', '3', '2,7,12', '6,10,15', '1',
-                                             'q2', 'cmpl', 'cmpl', '2,0,0'])
-        self.transcript_seq = "TAGCCAGAAT"
-        self.cds_seq = "GCCAGA"
-        self.amino_acid = "AR"
-        self.introns = ["GT", "A"]
-        tmp = os.path.abspath(makeTempDir())
-        createSequenceFile({"chr1": "GTATTCTTGGACCTAA"}, tmp)
-
-        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
-        self.addCleanup(removeDir, tmp)
-
-    def test_sequences(self):
-        """
-        Tests that the proper sequences are created from the intervals
-        """
-        self.assertEqual(self.t.get_mrna(self.chrom_seq), self.transcript_seq)
-        self.assertEqual(self.t.get_cds(self.chrom_seq), self.cds_seq)
-        self.assertEqual(self.t.get_protein_sequence(self.chrom_seq), self.amino_acid)
-        self.assertEqual(self.t.get_intron_sequences(self.chrom_seq), self.introns)
-
-
 class PositiveStrandGenePredTranscript(PositiveStrandTranscriptTests):
     """
     Tests the Transcript functionality part of sequence_lib.
@@ -1355,7 +1327,7 @@ class PositiveStrandGenePredTranscript(PositiveStrandTranscriptTests):
                                              'q2', 'cmpl', 'cmpl', '2,0,0'])
         self.transcript_seq = "ATTCTGGCTA"
         self.cds_seq = "TCTGGC"
-        self.amino_acid = "L"  # this transcript has a offset of 2, so the first in-frame codon is CTG
+        self.amino_acid = "LA"  # this transcript has a offset of 2, so the first in-frame codon is TGG
         self.introns = ["T", "AC"]
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
@@ -1392,7 +1364,7 @@ class NegativeStrandGenePredTranscript(NegativeStrandTranscriptTests):
                                              'q2', 'cmpl', 'cmpl', '0,0,1'])
         self.transcript_seq = "TAGCCAGAAT"
         self.cds_seq = "GCCAGA"
-        self.amino_acid = "P"  # this transcript has a offset of 2, so the first in-frame codon is CCA
+        self.amino_acid = "Q"  # this transcript has a offset of 1, so the first in-frame codon is CAG
         self.introns = ["GT", "A"]
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)

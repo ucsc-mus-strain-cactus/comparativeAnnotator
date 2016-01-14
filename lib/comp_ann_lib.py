@@ -178,8 +178,8 @@ def codon_pair_iterator(a, t, aln, target_seq_dict, query_seq_dict):
 
     Order is (target_cds_pos, target, query)
     """
-    target_cds = t.get_cds(target_seq_dict)
-    query_cds = a.get_cds(query_seq_dict)
+    target_cds = t.get_cds(target_seq_dict).upper()
+    query_cds = a.get_cds(query_seq_dict).upper()
     a_frames = [x for x in a.exon_frames if x != -1]
     a_offset = seq_lib.find_offset(a_frames, a.strand)
     for i in xrange(a_offset, a.cds_size - a.cds_size % 3, 3):
