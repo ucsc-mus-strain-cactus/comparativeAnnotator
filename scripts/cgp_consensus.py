@@ -197,9 +197,10 @@ def build_final_consensus(consensus_dict, replace_map, new_isoforms, final_conse
     for consensus_id, consensus_tx in consensus_dict.iteritems():
         if consensus_id in replace_map and consensus_id not in seen_ids:
             seen_ids.add(consensus_id)
-            cgp_tx = replace_map[consensus_id]
+            cgp_tx, gene_id = replace_map[consensus_id]
             cgp_tx.id = cgp_tx.name
             cgp_tx.name = consensus_id
+            cgp_tx.name2 = gene_id
             final_consensus[consensus_id] = cgp_tx
         else:
             final_consensus[consensus_id] = consensus_tx
@@ -214,8 +215,8 @@ def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, tr
     For every cgp transcript, determine if it should replace one or more consensus transcripts.
     If it should not, then determine if it should be kept because it adds new splice junctions.
     """
-    replace_map = {}  # will store a mapping between consensus IDs and the CGP IDs that will replace them
-    new_isoforms = []  # will store cgp IDs which represent new potential isoforms of a gene
+    replace_map = {}  # will store a mapping between consensus IDs and the CGP transcripts that will replace them
+    new_isoforms = []  # will store cgp transcripts which represent new potential isoforms of a gene
     join_genes = {"Unsupported": 0, "Supported": 0}  # will count the number of unsupported joins
     for cgp_id, cgp_tx in cgp_dict.iteritems():
         cgp_stats = cgp_stats_dict[cgp_id]
@@ -228,7 +229,8 @@ def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, tr
         intron_vector = intron_dict[cgp_id]
         if len(to_replace_ids) > 0:
             for to_replace_id in to_replace_ids:
-                replace_map[to_replace_id] = cgp_tx
+                gene_id = transcript_gene_map[to_replace_id]
+                replace_map[to_replace_id] = [cgp_tx, gene_id]
         elif determine_if_new_introns(cgp_id, cgp_tx, ens_ids, consensus_dict, intron_vector) is True:
             # make sure this isn't joining two genes in an unsupported way
             if len(gene_ids) == 1:
@@ -239,7 +241,8 @@ def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, tr
             else:
                 join_genes["Unsupported"] += 1
     # calculate some metrics for plots once all genomes are analyzed
-    metrics["CgpReplace"] = {"CgpReplaceRate": len(replace_map), "CgpCollapseRate": len(set(replace_map.itervalues()))}
+    collapse_rate = len(set(zip(*replace_map.values())[0]))
+    metrics["CgpReplace"] = {"CgpReplaceRate": len(replace_map), "CgpCollapseRate": collapse_rate}
     metrics["NewIsoforms"] = len(new_isoforms)
     metrics["JoinGeneSupported"] = join_genes
     build_final_consensus(consensus_dict, replace_map, new_isoforms, final_consensus)

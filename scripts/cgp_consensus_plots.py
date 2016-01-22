@@ -9,9 +9,8 @@ from collections import OrderedDict
 import lib.psl_lib as psl_lib
 import lib.sql_lib as sql_lib
 import lib.plot_lib as plot_lib
-from lib.general_lib import mkdir_p
+from lib.general_lib import mkdir_p, convert_dicts_to_dataframe
 import etc.config
-from plotting.consensus_plots import munge_data
 
 __author__ = "Ian Fiddes"
 
@@ -47,7 +46,7 @@ def load_evaluations(work_dir, genomes):
 
 
 def addition_plot(cgp_additions, out_path, gencode):
-    results, categories = munge_data(cgp_additions, norm=False)
+    results, categories = convert_dicts_to_dataframe(cgp_additions, norm=False)
     base_title = ("Breakdown of the number of new genes/transcripts introduced by Comparative Augustus\n"
                   "to the consensus gene set derived from the annotation set {}")
     title = base_title.format(gencode)
@@ -56,7 +55,7 @@ def addition_plot(cgp_additions, out_path, gencode):
 
 
 def replace_plot(cgp_replace, out_path, gencode):
-    results, categories = munge_data(cgp_replace, norm=False)
+    results, categories = convert_dicts_to_dataframe(cgp_replace, norm=False)
     base_title = ("Breakdown of the number of transMap/augustusTMR consensus transcripts replaced by augustusCGP\n"
                   "from the consensus gene set derived from the annotation set {}")
     title = base_title.format(gencode)
@@ -74,7 +73,7 @@ def new_isoforms_plot(new_isoforms, out_path, gencode):
 
 
 def missing_plot(cgp_missing, out_path, gencode):
-    results, categories = munge_data(cgp_missing, norm=False)
+    results, categories = convert_dicts_to_dataframe(cgp_missing, norm=False)
     base_title = ("Breakdown of the number of missing genes/transcripts rescued by Comparative Augustus\n"
                   "to the consensus gene set derived from the annotation set {}")
     title = base_title.format(gencode)
@@ -83,7 +82,7 @@ def missing_plot(cgp_missing, out_path, gencode):
 
 
 def join_genes_plot(cgp_join_genes, out_path, gencode):
-    results, categories = munge_data(cgp_join_genes, norm=False)
+    results, categories = convert_dicts_to_dataframe(cgp_join_genes, norm=False)
     base_title = ("How many CGP consensus transcripts join TMR transcripts in a supported fashion\n"
                   "to the consensus gene set derived from the annotation set {}")
     title = base_title.format(gencode)
@@ -98,7 +97,7 @@ def consensus_stats_plot(consensus_stats, out_path, gencode):
     categories = ["Transcript", "Gene"]
     for cat in categories:
         data = OrderedDict((x, y[cat]) for x, y in consensus_stats.iteritems())
-        results, categories = munge_data(data, norm=False)
+        results, categories = convert_dicts_to_dataframe(data, norm=False)
         base_title = ("Breakdown of the origins of the final consensus {} set\n"
                       "to the consensus gene set derived from the annotation set {}")
         title = base_title.format(cat, gencode)
@@ -111,7 +110,6 @@ def main():
     args = parse_args()
     mkdir_p(args.outDir)
     cgp_additions, cgp_replace, new_isoforms, cgp_missing, cgp_join_genes, consensus_stats = load_evaluations(args.workDir, args.genomes)
-    print set.intersection(*jg_new_genes.values())
     addition_plot(cgp_additions, args.outDir, args.gencode)
     replace_plot(cgp_replace, args.outDir, args.gencode)
     new_isoforms_plot(new_isoforms, args.outDir, args.gencode)
