@@ -214,3 +214,7 @@ GencodePseudoGeneVM7 = dict([('processed_pseudogene', 'Processed Pseudogenes'), 
 GencodeCompVM8 = GencodeCompVM7
 GencodeBasicVM8 = GencodeBasicVM7
 GencodePseudoGeneVM8 = GencodePseudoGeneVM7
+
+GencodeCompV24 = GencodeCompVM7
+GencodeBasicV24 = GencodeBasicVM7
+GencodePseudoGeneV24 = GencodePseudoGeneVM7

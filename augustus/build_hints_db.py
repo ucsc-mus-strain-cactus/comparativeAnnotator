@@ -167,10 +167,8 @@ def load_db(target, hints, db_path, genome, genome_fasta, timeout=30000, interva
         else:
             raise RuntimeError(ret)
     mkdir_p(os.path.dirname(db_path))
-    ret = handle_concurrency(hints_cmd, timeout, intervals)
-    #for cmd in [fa_cmd, hints_cmd]:
-    #    ret = handle_concurrency(cmd, timeout, intervals)
-    #TODO: restore this        
+    for cmd in [fa_cmd, hints_cmd]:
+        ret = handle_concurrency(cmd, timeout, intervals)
 
 
 def main():
