@@ -25,6 +25,11 @@ def parse_args():
                         help='windows parameter to pass on to msa_view (default: %(default)s)')
     parser.add_argument('--between-blocks', default='5000',
                         help='between blocks parameter to pass on to msa_view (default: %(default)s)')
+    parser.add_argument('--pre-extracted', default=None,
+                        help=('Path to pre-extracted alignments from phast_subset.'
+                              ' Will start the pipeline past that point.'))
+    parser.add_argument('--ref-fasta-path', default=None,
+                        help='Path to reference genome FASTA. If not provided, it will be extracted from the HAL.')
     Stack.addJobTreeOptions(parser)
     return parser.parse_args()
 
@@ -33,15 +38,22 @@ def dless_pipeline_wrapper(target, args):
     """
     Main pipeline wrapper. Calls out to phast_subset commands, which finally will return to the function passed.
     """
-    args.ref_fasta_path = get_ref_genome_fasta(args.hal, args.ref_genome, target.getGlobalTempDir())
-    target.setFollowOnTargetFn(extract_maf_wrapper, args=(args, dless_wrapper))
+    if args.ref_fasta_path is None:
+        args.ref_fasta_path = get_ref_genome_fasta(args.hal, args.ref_genome, target.getGlobalTempDir())
+    if args.pre_extracted is None:
+        tmp_ss_path = os.path.join(args.getGlobalTempDir(), 'extracted_sub_alignments')
+        target.addChildTargetFn(subset_hal_pipeline, args=(args, tmp_ss_path))
+        split_ss_dict = read_subalignment_dir(tmp_ss_path)
+    else:
+        split_ss_dict = read_subalignment_dir(args.pre_extracted)
+    target.setFollowOnTargetFn(dless_wrapper, args=(args, split_ss_dict))
 
 
 def dless_wrapper(target, args, split_ss_dict):
     """
     Wrapper for dless function.
     """
-    output_gff_tree = TempFileTree(os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString()))
+    output_gff_tree = TempFileTree(os.path.join(target.getGlobalTempDir(), 'output_gff'))
     for chromosome, split_ss_dir in split_ss_dict.iteritems():
         for split_ss in os.listdir(split_ss_dir):
             gff_path = output_gff_tree.getTempFile(suffix=split_ss + '.gff')
