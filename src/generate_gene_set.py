@@ -8,7 +8,7 @@ from collections import defaultdict, OrderedDict
 import lib.sql_lib as sql_lib
 import lib.psl_lib as psl_lib
 import lib.seq_lib as seq_lib
-from lib.general_lib import mkdir_p, merge_dicts
+from lib.general_lib import mkdir_p, merge_dicts, format_ratio
 import etc.config
 
 
@@ -175,19 +175,36 @@ def find_longest_for_gene(bins, stats, gps, cov_cutoff=60.0, ident_cutoff=80.0):
         return None
 
 
-def find_consensus(binned_transcripts, stats, gps):
+def has_only_short(bins, ids_included, ref_interval, tgt_intervals, percentage_of_ref=60.0):
+    """
+    Are all of the consensus transcripts we found for this gene too short?
+    """
+    source_size = len(ref_interval)
+    tgt_sizes = [len(tgt_intervals[x]) for x in zip(*bins.itervalues())[0] if x in ids_included]
+    return all([100 * format_ratio(tgt_size, source_size) < percentage_of_ref for tgt_size in tgt_sizes])
+
+
+def find_consensus(binned_transcripts, stats, gps, ref_intervals, tgt_intervals):
     """
     Takes the binned transcripts and builds a consensus gene set.
     """
     consensus = []
     for gene_id in binned_transcripts:
         gene_in_consensus = False
+        ids_included = set()
         for ens_id in binned_transcripts[gene_id]:
             best_id, category, tie = binned_transcripts[gene_id][ens_id]
             if category in ["Excellent", "Pass"]:
                 consensus.append(best_id)
+                ids_included.add(best_id)
                 gene_in_consensus = True
-        if gene_in_consensus is False:
+        if gene_id not in ref_intervals:
+            # we really have none, no transMap here. TODO; fix this, see how we generate ref_intervals
+            has_only_short_txs = True
+        else:
+            has_only_short_txs = has_only_short(binned_transcripts[gene_id], ids_included, ref_intervals[gene_id],
+                                                tgt_intervals)
+        if gene_in_consensus is False or has_only_short_txs is True:
             # find the single longest transcript for this gene
             best_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps)
             if best_for_gene is not None:
@@ -195,7 +212,8 @@ def find_consensus(binned_transcripts, stats, gps):
     return consensus
 
 
-def consensus_by_biotype(cur, ref_genome, genome, biotype, gps, transcript_gene_map, gene_transcript_map, stats, mode):
+def consensus_by_biotype(cur, ref_genome, genome, biotype, gps, transcript_gene_map, gene_transcript_map, stats, mode,
+                         ref_intervals, tgt_intervals):
     """
     Main consensus finding function.
     """
@@ -212,7 +230,7 @@ def consensus_by_biotype(cur, ref_genome, genome, biotype, gps, transcript_gene_
         id_list = [fail_ids, pass_specific_ids, excel_ids]
     data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
     binned_transcripts = find_best_transcripts(data_dict, stats, mode, biotype)
-    consensus = find_consensus(binned_transcripts, stats, gps)
+    consensus = find_consensus(binned_transcripts, stats, gps, ref_intervals, tgt_intervals)
     return binned_transcripts, consensus
 
 
@@ -259,9 +277,13 @@ def evaluate_coding_consensus(binned_transcripts, stats, gps, mode):
     """
     Evaluates the coding consensus for plots. Reproduces a lot of code from find_consensus()
     TODO: split out duplicated code.
+    TODO: Assigning s to FailTM is a hack in cases where we filter out all transcripts due to coverage. This really
+    needs to be addressed, primarly by re-writing this code to actually happen simultaneously with find_consensus.
+    Ideally, we also generate a new specific plot showing how often we only report longest-per-gene as well as how often
+    the short_transcript filter gets hit.
     """
     if mode == "augustus":
-        transcript_evaluation = OrderedDict((x, 0) for x in ["ExcellentTM", "ExcellentAug", "ExcellentTie", "PassTM", "PassAug", 
+        transcript_evaluation = OrderedDict((x, 0) for x in ["ExcellentTM", "ExcellentAug", "ExcellentTie", "PassTM", "PassAug",
                                                              "PassTie", "FailTM", "FailAug", "FailTie", "NoTransMap"])
         gene_evaluation = OrderedDict((x, 0) for x in ["Excellent", "Pass", "Fail", "NoTransMap"])
     else:
@@ -273,7 +295,10 @@ def evaluate_coding_consensus(binned_transcripts, stats, gps, mode):
         for ens_id in binned_transcripts[gene_id]:
             best_id, category, tie = binned_transcripts[gene_id][ens_id]
             categories.add(category)
-            s = evaluate_transcript(best_id, category, tie) if mode == "augustus" else category
+            if best_id is not None:
+                s = evaluate_transcript(best_id, category, tie) if mode == "augustus" else category
+            else:
+                s = "FailTM"
             transcript_evaluation[s] += 1
         s = evaluate_gene(categories)
         gene_evaluation[s] += 1
@@ -294,7 +319,10 @@ def evaluate_noncoding_consensus(binned_transcripts, stats, gps):
         for ens_id in binned_transcripts[gene_id]:
             best_id, category, tie = binned_transcripts[gene_id][ens_id]
             categories.add(category)
-            s = evaluate_transcript(best_id, category, tie)
+            if best_id is not None:
+                s = evaluate_transcript(best_id, category, tie)
+            else:
+                s = "FailTM"
             transcript_evaluation[s] += 1
         s = evaluate_gene(categories)
         gene_evaluation[s] += 1
@@ -322,7 +350,7 @@ def deduplicate_consensus(consensus, gps, stats):
         if len(gp_list) > 1:
             dup_count += 1
             # we have duplicates to collapse - which has the highest %ID followed by highest %coverage?
-            dup_stats = sorted([[x, stats[x.name]] for x in gp_list], key=lambda x: (x[0], x[1]))
+            dup_stats = sorted([[x, stats[x.name]] for x in gp_list], key=lambda (n, (cov, ident)): (ident, cov))
             best = dup_stats[0][0].name
             deduplicated_consensus.append(best)
         else:
@@ -371,6 +399,34 @@ def write_gps(consensus, gps, consensus_base_path, biotype, transcript_gene_map,
     return num_genes, num_txs
 
 
+def build_ref_intervals(cur, genome):
+    """
+    Build ChromosomeInterval objects for each source transcript, finding a max per-gene.
+    TODO: add refStart, refEnd to reference comparative annotator to avoid hacks used here.
+    """
+    def largest(intervals):
+        intervals = [seq_lib.ChromosomeInterval(*x) for x in intervals]
+        s = [[len(x), x] for x in intervals]
+        return s[0][1]
+    query = "SELECT GeneId, SourceChrom, SourceStart, SourceStop, SourceStrand FROM attributes.'{}'".format(genome)
+    ref_sizes = sql_lib.get_non_unique_query_dict(cur, query, flatten=False)
+    r = {}
+    for gene, intervals in ref_sizes.iteritems():
+        r[gene] = largest(intervals)
+    return r
+
+
+def build_tgt_intervals(gps):
+    """
+    Constructs a ChromosomeInterval object for each transcript in gps
+    """
+    r = {}
+    for aln_id, tx in gps.iteritems():
+        l = tx.rstrip().split("\t")
+        r[aln_id] = seq_lib.ChromosomeInterval(l[1], int(l[3]), int(l[4]), l[2])
+    return r
+
+
 def main():
     args = parse_args()
     con, cur = sql_lib.attach_databases(args.compAnnPath, mode=args.mode)
@@ -380,11 +436,14 @@ def main():
     gps = load_gps(args.gps)  # load all Augustus and transMap transcripts into one big dict
     consensus_base_path = os.path.join(args.outDir, args.genome)
     stats = get_stats(cur, args.genome, args.mode)
+    ref_gene_intervals = build_ref_intervals(cur, args.genome)
+    tgt_intervals = build_tgt_intervals(gps)
     for biotype in biotypes:
         gene_transcript_map = sql_lib.get_gene_transcript_map(cur, args.refGenome, biotype=biotype,
                                                               filter_chroms=args.filterChroms)
         binned_transcripts, consensus = consensus_by_biotype(cur, args.refGenome, args.genome, biotype, gps,
-                                                             transcript_gene_map, gene_transcript_map, stats, args.mode)
+                                                             transcript_gene_map, gene_transcript_map, stats, args.mode,
+                                                             ref_gene_intervals, tgt_intervals)
         deduplicated_consensus, dup_count = deduplicate_consensus(consensus, gps, stats)
         if len(deduplicated_consensus) > 0:  # some biotypes we may have nothing
             num_genes, num_txs = write_gps(deduplicated_consensus, gps, consensus_base_path, biotype,

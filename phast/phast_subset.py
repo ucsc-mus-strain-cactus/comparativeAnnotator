@@ -99,7 +99,7 @@ def split_ss_wrapper(target, args, ss_dict):
     if args.ref_fasta_path is None:
         args.ref_fasta_path = get_ref_genome_fasta(args.hal, args.ref_genome, target.getGlobalTempDir())
     for chromosome, ss_path in ss_dict.iteritems():
-        out_dir = os.path.join(args.output_dir, chromosome) + '/'  # need to add trailing slash for msa_split
+        out_dir = os.path.join(args.output_dir, chromosome, chromosome)
         mkdir_p(out_dir)
         target.addChildTargetFn(split_ss, args=(chromosome, ss_path, out_dir, args.ref_fasta_path,
                                                 args.msa_split_options))
