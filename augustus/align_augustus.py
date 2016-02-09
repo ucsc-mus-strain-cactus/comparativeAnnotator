@@ -6,6 +6,7 @@ metrics in a sqlite database. This is used for building consensus gene sets.
 import os
 import argparse
 import pandas as pd
+from collections import defaultdict
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from lib.psl_lib import PslRow, remove_augustus_alignment_number, remove_alignment_number
@@ -20,25 +21,30 @@ def align(target, target_fasta, chunk, ref_fasta, file_tree):
     g_f = Fasta(target_fasta)
     r_f = Fasta(ref_fasta)
     results = []
+    tmp_aug = os.path.join(target.getGlobalTempDir(), "tmp_aug")
+    tmp_gencode = os.path.join(target.getGlobalTempDir(), "tmp_gencode")
+    tmp_psl = os.path.join(target.getGlobalTempDir(), "tmp_psl")
+    with open(tmp_aug, "w") as tmp_aug_h, open(tmp_gencode, "w") as tmp_gencode_h:
+        for tgt_id in chunk:
+            query_id = remove_augustus_alignment_number(tgt_id)
+            gencode_id = remove_alignment_number(query_id)
+            gencode_seq = str(r_f[gencode_id])
+            aug_seq = str(g_f[tgt_id])
+            fastaWrite(tmp_aug_h, tgt_id, aug_seq)
+            fastaWrite(tmp_gencode_h, gencode_id, gencode_seq)
+    system("blat {} {} -out=psl -noHead {}".format(tmp_aug, tmp_gencode, tmp_psl))
+    r = popenCatch("simpleChain -outPsl {} /dev/stdout".format(tmp_psl))
+    r = r.split("\n")[:-1]
+    r_d = defaultdict(list)
+    for p in tokenize_stream(r):
+        psl = PslRow(p)
+        r_d[psl.t_name].append(psl)
+    assert len(r_d.viewkeys() & set(chunk)) > 0, (r_d.viewkeys(), set(chunk))
     for tgt_id in chunk:
-        query_id = remove_augustus_alignment_number(tgt_id)
-        gencode_id = remove_alignment_number(query_id)
-        gencode_seq = str(r_f[gencode_id])
-        aug_seq = str(g_f[tgt_id])
-        tmp_aug = os.path.join(target.getLocalTempDir(), "tmp_aug")
-        tmp_gencode = os.path.join(target.getLocalTempDir(), "tmp_gencode")
-        fastaWrite(tmp_aug, tgt_id, aug_seq)
-        fastaWrite(tmp_gencode, gencode_id, gencode_seq)
-        tmp_psl = os.path.join(target.getLocalTempDir(), tgt_id)
-        system("blat {} {} -out=psl -noHead {}".format(tmp_aug, tmp_gencode, tmp_psl))
-        r = popenCatch("simpleChain -outPsl {} /dev/stdout".format(tmp_psl))
-        r = r.split("\n")[:-1]
-        if len(r) == 0:
+        if tgt_id not in r_d:
             results.append([tgt_id, query_id, "0", "0"])
         else:
-            p_list = [PslRow(x) for x in tokenize_stream(r)]
-            # we take the smallest coverage value to account for Augustus adding bases
-            p_list = [[min(x.coverage, x.target_coverage), x.identity] for x in p_list]
+            p_list = [[min(x.coverage, x.target_coverage), x.identity] for x in r_d[tgt_id]]
             best_cov, best_ident = sorted(p_list, key=lambda x: x[0])[-1]
             results.append(map(str, [tgt_id, query_id, best_cov, best_ident]))
     with open(file_tree.getTempFile(), "w") as outf:
@@ -49,7 +55,7 @@ def align(target, target_fasta, chunk, ref_fasta, file_tree):
 def align_augustus(target, genome, ref_fasta, target_fasta, target_fasta_index, out_db):
     file_tree = TempFileTree(target.getGlobalTempDir())
     tgt_ids = [x.split()[0] for x in open(target_fasta_index)]
-    for chunk in grouper(tgt_ids, 200):
+    for chunk in grouper(tgt_ids, 250):
         target.addChildTargetFn(align, args=[target_fasta, chunk, ref_fasta, file_tree])
     target.setFollowOnTargetFn(cat, args=(genome, file_tree, out_db))
 
