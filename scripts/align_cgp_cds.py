@@ -49,7 +49,7 @@ def evaluate_blat_results(r):
         return best_cov, best_ident
 
 
-def align_gp(target, genome, ref_genome, ref_tx_fasta, target_genome_fasta, gp, mode, out_db, comp_ann_path, 
+def align_gp(target, genome, ref_genome, ref_tx_fasta, target_genome_fasta, gp, mode, out_db, comp_ann_path,
              chunk_size):
     """
     Initial wrapper job. Constructs a file tree and starts alignment job batches in groups of chunk_size.
@@ -57,7 +57,7 @@ def align_gp(target, genome, ref_genome, ref_tx_fasta, target_genome_fasta, gp, 
     """
     file_tree = TempFileTree(target.getGlobalTempDir())
     for recs in grouper(open(gp), chunk_size):
-        target.addChildTargetFn(align_wrapper, args=[recs, file_tree, ref_tx_fasta, target_genome_fasta, comp_ann_path, 
+        target.addChildTargetFn(align_wrapper, args=[recs, file_tree, ref_tx_fasta, target_genome_fasta, comp_ann_path,
                                                      ref_genome, mode])
     target.setFollowOnTargetFn(cat, args=[genome, file_tree, out_db, mode])
 
@@ -110,7 +110,7 @@ def align_cgp(tmp_dir, gp, target_genome_fasta, tx_dict, ref_tx_fasta):
 
 def align_consensus(tmp_dir, gp, target_genome_fasta, ref_tx_fasta):
     """
-    Main consensus alignment function. 
+    Main consensus alignment function.
     """
     ref_tx_fasta = Fasta(ref_tx_fasta)
     target_genome_fasta = Fasta(target_genome_fasta)

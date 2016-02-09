@@ -179,7 +179,7 @@ def wrapper(target, input_gp, output_gtf, genome, sizes_path, fasta_path, hints_
     # this file will be where we reduce the final results to before sorting
     unsorted_tmp_file = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString(10))
     for line in open(input_gp):
-        target.addChildTargetFn(transmap_2_aug, memory=8 * (1024 ** 3), 
+        target.addChildTargetFn(transmap_2_aug, memory=8 * (1024 ** 3),
                                 args=[line, genome, sizes_path, fasta_path, out_file_tree, hints_db])
     target.setFollowOnTargetFn(cat, args=[output_gtf, unsorted_tmp_file, out_file_tree])
 
@@ -194,7 +194,7 @@ def main():
     parser.add_argument("--hintsDb", required=True)
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
-    i = Stack(Target.makeTargetFn(wrapper, memory=8 * (1024 ** 3), 
+    i = Stack(Target.makeTargetFn(wrapper, memory=8 * (1024 ** 3),
                                   args=[args.inputGp, args.outputGtf, args.genome,
                                         args.chromSizes, args.fasta, args.hintsDb])).startJobTree(args)
     if i != 0:

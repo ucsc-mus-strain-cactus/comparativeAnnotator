@@ -243,7 +243,7 @@ def get_transcript_biotype_map(cur, ref_genome):
     return get_query_dict(cur, query)
 
 
-def get_fail_passing_excel_ids(cur, ref_genome, genome, biotype, best_cov_only=True, filter_chroms=None, 
+def get_fail_passing_excel_ids(cur, ref_genome, genome, biotype, best_cov_only=True, filter_chroms=None,
                            highest_cov_dict=None):
     """
     Returns the IDs categorized as fail, passing_specific, excellent. You can set the best_cov_only flag to only report

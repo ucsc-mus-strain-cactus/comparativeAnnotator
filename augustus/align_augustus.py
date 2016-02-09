@@ -61,8 +61,8 @@ def cat(target, genome, file_tree, out_db):
 
 
 def load_db(target, genome, tmp_file, out_db):
-    df = pd.read_csv(tmp_file, index_col=0, names=["AugustusAlignmentId", "AlignmentId", "AlignmentIdentity", 
-                                                   "AlignmentCoverage"])
+    df = pd.read_csv(tmp_file, index_col=0, names=["AugustusAlignmentId", "AlignmentId",
+                                                   "AlignmentCoverage", "AlignmentIdentity"])
     df = df.convert_objects(convert_numeric=True)  # have to convert to float because pandas lacks a good dtype function
     df = df.sort_index()
     with ExclusiveSqlConnection(out_db) as con:
@@ -80,7 +80,7 @@ def main():
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
     out_db = os.path.join(args.outDir, args.outDb)
-    i = Stack(Target.makeTargetFn(align_augustus, args=[args.genome, args.refTranscriptFasta, 
+    i = Stack(Target.makeTargetFn(align_augustus, args=[args.genome, args.refTranscriptFasta,
                                                         args.targetTranscriptFasta, args.targetTranscriptFastaIndex,
                                                         out_db])).startJobTree(args)
     if i != 0:

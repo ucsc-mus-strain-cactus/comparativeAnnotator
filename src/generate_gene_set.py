@@ -48,7 +48,7 @@ def get_stats(cur, genome, mode):
     Adapter function to return the combination of the stats dicts produced for augustus and transMap
     """
     tm_stats = sql_lib.get_stats(cur, genome, mode="transMap")
-    if mode == "augustus": 
+    if mode == "augustus":
         aug_stats = sql_lib.get_stats(cur, genome, mode="augustus")
         return merge_dicts([tm_stats, aug_stats])
     else:
@@ -75,7 +75,7 @@ def build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
     return data_dict
 
 
-def find_best_alns(stats, ids, cov_cutoff=95.0):
+def find_best_alns(stats, ids, cov_cutoff=80.0):
     """
     Takes the list of transcript Ids and finds the best alignment(s) by highest percent identity and coverage
     We sort by ID to favor Augustus transcripts going to the consensus set in the case of ties
@@ -87,14 +87,16 @@ def find_best_alns(stats, ids, cov_cutoff=95.0):
         cov = round(cov, 6)
         ident = round(ident, 6)
         s.append([aln_id, cov, ident])
-    s = sorted(s, key=lambda x: x[0], reverse=True)
-    # first we see if any transcripts pass cov_cutoff, if so we pick them based on best identity
-    best_ident = sorted(s, key=lambda x: x[2], reverse=True)[0][2]
-    best_overall = [x[0] for x in s if x[1] >= cov_cutoff and x[2] >= best_ident]
-    if len(best_overall) > 0:
-        return best_overall
-    # if we failed that, then we pick based on best_ident regardless of coverage
-    best_overall = [x[0] for x in s if x[2] >= best_ident]
+    # put aug names first
+    s = sorted(s, key=lambda (aln_id, cov, ident): aln_id, reverse=True)
+    # first we see if any transcripts pass cov_cutoff
+    cov_s = filter(lambda (aln_id, cov, ident): cov >= cov_cutoff, s)
+    # if no transcripts
+    if len(cov_s) == 0:
+        return None
+    else:
+        best_ident = sorted(cov_s, key=lambda (aln_id, cov, ident): ident, reverse=True)[0][2]
+    best_overall = [aln_id for aln_id, cov, ident in cov_s if ident >= best_ident]
     return best_overall
 
 
@@ -153,7 +155,7 @@ def find_best_transcripts(data_dict, stats, mode, biotype):
     return binned_transcripts
 
 
-def find_longest_for_gene(bins, stats, gps, cov_cutoff=80.0, ident_cutoff=90.0):
+def find_longest_for_gene(bins, stats, gps, cov_cutoff=60.0, ident_cutoff=80.0):
     """
     Finds the longest transcript(s) for a gene. This is used when all transcripts failed, and has more relaxed cutoffs.
     """
@@ -198,7 +200,7 @@ def consensus_by_biotype(cur, ref_genome, genome, biotype, gps, transcript_gene_
     Main consensus finding function.
     """
     fail_ids, pass_specific_ids, excel_ids = sql_lib.get_fail_passing_excel_ids(cur, ref_genome, genome, biotype,
-                                                                           best_cov_only=False)
+                                                                                best_cov_only=False)
     # hacky way to avoid duplicating code in consensus finding - we will always have an aug_id set, it just may be empty
     if mode == "augustus" and biotype == "protein_coding":
         aug_query = etc.config.augustusEval(genome, ref_genome)
@@ -373,19 +375,19 @@ def main():
     args = parse_args()
     con, cur = sql_lib.attach_databases(args.compAnnPath, mode=args.mode)
     biotypes = sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=True)
-    transcript_gene_map = sql_lib.get_transcript_gene_map(cur, args.refGenome, biotype=None, 
+    transcript_gene_map = sql_lib.get_transcript_gene_map(cur, args.refGenome, biotype=None,
                                                           filter_chroms=args.filterChroms)
     gps = load_gps(args.gps)  # load all Augustus and transMap transcripts into one big dict
     consensus_base_path = os.path.join(args.outDir, args.genome)
     stats = get_stats(cur, args.genome, args.mode)
     for biotype in biotypes:
-        gene_transcript_map = sql_lib.get_gene_transcript_map(cur, args.refGenome, biotype=biotype, 
+        gene_transcript_map = sql_lib.get_gene_transcript_map(cur, args.refGenome, biotype=biotype,
                                                               filter_chroms=args.filterChroms)
         binned_transcripts, consensus = consensus_by_biotype(cur, args.refGenome, args.genome, biotype, gps,
                                                              transcript_gene_map, gene_transcript_map, stats, args.mode)
         deduplicated_consensus, dup_count = deduplicate_consensus(consensus, gps, stats)
         if len(deduplicated_consensus) > 0:  # some biotypes we may have nothing
-            num_genes, num_txs = write_gps(deduplicated_consensus, gps, consensus_base_path, biotype, 
+            num_genes, num_txs = write_gps(deduplicated_consensus, gps, consensus_base_path, biotype,
                                            transcript_gene_map, args.mode)
             if biotype == "protein_coding":
                 gene_transcript_evals = evaluate_coding_consensus(binned_transcripts, stats, gps, args.mode)
