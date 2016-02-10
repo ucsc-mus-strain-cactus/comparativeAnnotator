@@ -12,7 +12,8 @@ from ete3 import Tree
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, popenCatch, TempFileTree, getRandomAlphaNumericString
-from phast.phast_subset import *
+from phast.phast_functions import *
+from phast.phast_subset import subset_hal_pipeline
 
 
 def parse_args():

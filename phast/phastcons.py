@@ -18,7 +18,8 @@ from ete3 import Tree
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, popenCatch
-from phast.phast_subset import subset_hal_pipeline, read_subalignment_dir
+from phast.phast_functions import *
+from phast.phast_subset import subset_hal_pipeline
 
 
 def parse_args():
@@ -58,7 +59,7 @@ def phastcons_pipeline_wrapper(target, args):
     if args.ref_fasta_path is None:
         args.ref_fasta_path = get_ref_genome_fasta(args.hal, args.ref_genome, target.getGlobalTempDir())
     if args.pre_extracted is None:
-        tmp_ss_path = os.path.join(args.getGlobalTempDir(), 'extracted_sub_alignments')
+        tmp_ss_path = os.path.join(target.getGlobalTempDir(), 'extracted_sub_alignments')
         target.addChildTargetFn(subset_hal_pipeline, args=(args, tmp_ss_path))
         split_ss_dict = read_subalignment_dir(tmp_ss_path)
     else:
