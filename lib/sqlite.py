@@ -1,3 +1,8 @@
+from collections import defaultdict
+from name_conversions import strip_alignment_numbers
+from pycbio.sys.sqliteOps import get_query_ids, get_query_dict, get_non_unique_query_dict
+
+
 def get_biotype_aln_ids(cur, genome, biotype, filter_chroms=None):
     """
     Returns a set of aln_ids which are members of the biotype.
@@ -180,11 +185,11 @@ def highest_cov_aln(cur, genome, filter_chroms=None):
     tm_stats = get_stats(cur, genome, mode="transMap", filter_chroms=filter_chroms)
     combined_covs = defaultdict(list)
     for aln_id, (cov, ident) in tm_stats.iteritems():
-        tx_id = psl_lib.strip_alignment_numbers(aln_id)
+        tx_id = strip_alignment_numbers(aln_id)
         combined_covs[tx_id].append([aln_id, cov, ident])
     best_cov = {}
     for tx_id, vals in combined_covs.iteritems():
-        best_cov[tx_id] = sorted(vals, key=lambda x: [-x[1], -x[2]])[0]
+        best_cov[tx_id] = sorted(vals, key=lambda (aln_id, cov, ident): (-cov, -ident))[0]
     return best_cov
 
 
