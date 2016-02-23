@@ -1,6 +1,7 @@
 """
 This file contains helper functions for comparativeAnnotator.
 """
+from sqlalchemy import Integer
 from pycbio.bio.transcripts import GenePredTranscript, find_offset
 
 
@@ -8,6 +9,18 @@ __author__ = "Ian Fiddes"
 
 short_intron_size = 30
 short_cds_size = 75
+
+
+class AbstractClassifier(object):
+    dtype = Integer  # default to integer unless specified otherwise
+    colors = {'input': '219,220,222',     # grey
+              'mutation': '132,35,27',    # red-ish
+              'assembly': '167,206,226',  # light blue
+              'alignment': '35,125,191',  # blue
+              'synon': '163,116,87',      # light brown
+              'nonsynon': '181,216,139',  # avocado
+              'generic': '152,156,45'     # grey-yellow
+              }
 
 
 def short_cds(t):
@@ -199,11 +212,17 @@ def codon_pair_iterator(a, t, aln, target_seq_dict, query_seq_dict):
 
 
 def get_adjusted_starts_ends(t, aln):
+    """
+    Converts target coordinates to query for each intron start.
+    """
     return [[aln.target_coordinate_to_query(intron.start - 1), aln.target_coordinate_to_query(intron.stop)]
             for intron in t.intron_intervals]
 
 
 def is_fuzzy_intron(intron, aln, ref_starts, fuzz_distance=5):
+    """
+    Determines if a intron is within fuzz distance of its aligned partner.
+    """
     q_gap_start = aln.target_coordinate_to_query(intron.start - 1)
     q_gap_end = aln.target_coordinate_to_query(intron.stop)
     return query_contains_intron(q_gap_start - fuzz_distance, q_gap_end + fuzz_distance, ref_starts)
@@ -215,6 +234,9 @@ def query_contains_intron(q_gap_start, q_gap_end, ref_starts):
 
 
 def fix_ref_q_starts(ref_aln):
+    """
+    Inverts a negative strand reference psl.
+    """
     if ref_aln.strand == "-":
         ref_starts = [ref_aln.q_size - (ref_aln.q_starts[i] + ref_aln.block_sizes[i]) for i in
                       xrange(len(ref_aln.q_starts))]

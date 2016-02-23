@@ -1,181 +1,169 @@
 """
 Classifiers in comparativeAnnotator pipeline. Broken down into 3 categories, Single Genome/Comparative/Augustus
 """
-from pycbio.bio.transcripts import *
-from comparativeAnnotator.lib.annotation_utils import *
+import re
+import pycbio.bio.transcripts as tx_lib
+import pycbio.bio.bio as bio_lib
+import comparativeAnnotator.lib.annotation_utils as utils
 
 __author__ = "Ian Fiddes"
 
-colors = {'input': '219,220,222',  # grey
-          'mutation': '132,35,27',  # red-ish
-          'assembly': '167,206,226',  # light blue
-          'alignment': '35,125,191',  # blue
-          'synon': '163,116,87',  # light brown
-          'nonsynon': '181,216,139',  # avocado
-          'generic': '152,156,45'  # grey-yellow
-          }
 
-
-def StartOutOfFrame(a, ref_fasta):
+class StartOutOfFrame(utils.AbstractClassifier):
     """
     Is the start out of frame, according to the ExonFrames field?
     If True, reports the first 3 bases.
     """
-    # do not include noncoding transcripts or lift-overs that contain less than short_cds_size
-    if short_cds(a):
-        return []
-    # remove all -1 frames because those are UTR exons
-    a_frames = [x for x in a.exon_frames if x != -1]
-    if a.strand is True and a_frames[0] != 0 or a.strand is False and a_frames[-1] != 0:
-        return cds_coordinate_to_bed(a, 0, 3, colors['alignment'], 'StartOutOfFrame')
-    else:
-        return []
+    @property
+    def rgb(self):
+        return self.colors["alignment"]
+
+    def __call__(self, a, ref_fasta):
+        # do not include noncoding transcripts or lift-overs that contain less than short_cds_size
+        if utils.short_cds(a):
+            return []
+        # remove all -1 frames because those are UTR exons
+        a_frames = [x for x in a.exon_frames if x != -1]
+        if a.strand is True and a_frames[0] != 0 or a.strand is False and a_frames[-1] != 0:
+            return tx_lib.cds_coordinate_to_bed(a, 0, 3, self.rgb, self.name)
+        else:
+            return []
 
 
-def BadFrame(a, ref_fasta):
+class BadFrame(utils.AbstractClassifier):
     """
     Looks for CDS sequences that are not a multiple of 3. Must have at least 25 codons.
-
     Will report a BED record of the transcript if true
     """
-    # do not include noncoding transcripts or lift-overs that contain less than short_cds_size
-    if short_cds(a):
-        return []
-    if a.cds_size % 3 != 0:
-        return chromosome_coordinate_to_bed(a, a.thick_start, a.thick_stop, colors['alignment'], 'BadFrame')
-    else:
-        return []
+    @property
+    def rgb(self):
+        return self.colors["generic"]
+
+    def __call__(self, a, ref_fasta):
+        # do not include noncoding transcripts or lift-overs that contain less than short_cds_size
+        if utils.short_cds(a):
+            return []
+        if a.cds_size % 3 != 0:
+            return tx_lib.chromosome_coordinate_to_bed(a, a.thick_start, a.thick_stop, self.rgb, self.name)
+        else:
+            return []
 
 
-def BeginStart(a, ref_fasta):
+class BeginStart(utils.AbstractClassifier):
     """
     Is the first 3 bases of thick_start 'ATG'?
-
     Returns a BED record of the first 3 bases if this is NOT true
     """
-    # do not include noncoding transcripts or lift-overs that contain less than short_cds_size
-    if short_cds(a):
-        return []
-    elif a.get_cds(ref_fasta)[:3] != "ATG":
-        bed_rec = cds_coordinate_to_bed(a, 0, 3, rgb, column)
-        details_dict[ens_id].append(bed_rec)
-        classify_dict[ens_id] = 1
-    else:
-        return 0
-dump_results_to_disk()
+    @property
+    def rgb(self):
+        return self.colors["generic"]
+
+    def __call__(self, a, ref_fasta):
+        # do not include noncoding transcripts or lift-overs that contain less than short_cds_size
+        if utils.short_cds(a):
+            return []
+        elif a.get_cds(ref_fasta)[:3] != "ATG":
+            return tx_lib.cds_coordinate_to_bed(a, 0, 3, self.rgb, self.name)
+        else:
+            return []
 
 
-def EndStop(a, ref_fasta):
+class EndStop(utils.AbstractClassifier):
     """
     Are the last three bases a stop codon?
     If this is NOT true, will report a BED record of the last 3 bases.
     """
-    get_fasta()
-
-
-stop_codons = {'TAA', 'TGA', 'TAG'}
-for ens_id, a in annotation_iterator():
-    # do not include noncoding transcripts or lift-overs that contain less than short_cds_size
-    if short_cds(a):
-        return 0
-    elif a.get_cds(ref_seq_dict)[-3:] not in stop_codons:
-        bed_rec = cds_coordinate_to_bed(a, a.cds_size - 3, a.cds_size, rgb, column)
-        details_dict[ens_id].append(bed_rec)
-        classify_dict[ens_id] = 1
-    else:
-        return 0
-dump_results_to_disk()
-
-
-def CdsGap(a, ref_fasta):
-    """
-    Are any of the CDS introns too short?
-
-    Reports a BED record for each intron interval that is too short.
-    """
-
     @property
     def rgb(self):
-        return colors["alignment"]
+        return self.colors["alignment"]
 
-    def run(self, cds_filter_fn=is_cds, mult3=False, skip_n=True):
-        get_fasta()
-        for ens_id, a in annotation_iterator():
-            for intron in a.intron_intervals:
-                is_gap = analyze_intron_gap(a, intron, ref_seq_dict, cds_filter_fn, skip_n, mult3)
-                if is_gap is True:
-                    bed_rec = interval_to_bed(a, intron, rgb, column)
-                    details_dict[ens_id].append(bed_rec)
-            classify_dict[ens_id] = len(details_dict[ens_id])
-        dump_results_to_disk()
+    def __call__(self, a, ref_fasta):
+        stop_codons = {'TAA', 'TGA', 'TAG'}
+        # do not include noncoding transcripts or lift-overs that contain less than short_cds_size
+        if utils.short_cds(a):
+            return []
+        elif a.get_cds(ref_fasta)[-3:] not in stop_codons:
+            return tx_lib.cds_coordinate_to_bed(a, a.cds_size - 3, a.cds_size, self.rgb, self.name)
+        else:
+            return []
+
+
+class CdsGap(utils.AbstractClassifier):
+    """
+    Are any of the CDS introns too short?
+    Reports a BED record for each intron interval that is too short.
+    """
+    @property
+    def rgb(self):
+        return self.colors["alignment"]
+
+    def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_cds, mult3=False, skip_n=True):
+        bed_recs = []
+        for intron in a.intron_intervals:
+            is_gap = utils.analyze_intron_gap(a, intron, ref_fasta, cds_filter_fn, skip_n, mult3)
+            if is_gap is True:
+                bed_rec = tx_lib.interval_to_bed(a, intron, self.rgb, self.name)
+                bed_recs.append(bed_rec)
+        return bed_recs
 
 
 class CdsMult3Gap(CdsGap):
     """
     Same as CdsGap, but only reports on multiple of 3s.
     """
-
     @property
     def rgb(self):
-        return colors["mutation"]
+        return self.colors["mutation"]
 
-    def run(self, cds_filter_fn=is_cds, mult3=True, skip_n=True):
-        CdsGap.run(self, cds_filter_fn, mult3, skip_n)
+    def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_cds, mult3=True, skip_n=True):
+        CdsGap.__call__(self, a, ref_fasta, cds_filter_fn, mult3, skip_n)
 
 
 class UtrGap(CdsGap):
     """
     Are any UTR introns too short?
-
     Reports on all such introns.
     """
-
     @property
     def rgb(self):
-        return colors["alignment"]
+        return self.colors["alignment"]
 
-    def run(self, cds_filter_fn=is_not_cds, mult3=None, skip_n=True):
-        CdsGap.run(self, cds_filter_fn, mult3, skip_n)
+    def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_not_cds, mult3=None, skip_n=True):
+        CdsGap.__call__(self, a, ref_fasta, cds_filter_fn, mult3, skip_n)
 
 
 class UnknownGap(CdsGap):
     """
     Looks for short introns that contain unknown bases. Any number of unknown bases is fine.
     """
-
     @property
     def rgb(self):
-        return colors["assembly"]
+        return self.colors["assembly"]
 
-    def run(self, cds_filter_fn=lambda intron, t: True, mult3=None, skip_n=False):
-        CdsGap.run(self, cds_filter_fn, mult3, skip_n)
+    def __call__(self, a, ref_fasta, cds_filter_fn=lambda intron, t: True, mult3=None, skip_n=False):
+        CdsGap.__call__(self, a, ref_fasta, cds_filter_fn, mult3, skip_n)
 
 
-def CdsNonCanonSplice(a, ref_fasta):
+class CdsNonCanonSplice(utils.AbstractClassifier):
     """
     Are any of the CDS introns splice sites not of the canonical form
     GT..AG
-
     Ignores cases where the splice sites are ambiguous (contains an N)
-
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
-
     @property
     def rgb(self):
-        return colors["mutation"]
+        return self.colors["mutation"]
 
-    def run(self, cds_filter_fn=is_cds, splice_dict={"GT": "AG"}):
-        get_fasta()
-        for ens_id, a in annotation_iterator():
-            for intron in a.intron_intervals:
-                splice_is_good = analyze_splice(intron, a, ref_seq_dict, cds_filter_fn, splice_dict)
-                if splice_is_good is True:
-                    bed_rec = splice_intron_interval_to_bed(a, intron, rgb, column)
-                    details_dict[ens_id].append(bed_rec)
-            classify_dict[ens_id] = len(details_dict[ens_id])
-        dump_results_to_disk()
+    def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_cds, splice_dict={"GT": "AG"}):
+        bed_recs = []
+        for intron in a.intron_intervals:
+            splice_is_good = utils.analyze_splice(intron, a, ref_fasta, cds_filter_fn, splice_dict)
+            if splice_is_good is True:
+                bed_rec = tx_lib.splice_intron_interval_to_bed(a, intron, self.rgb, self.name)
+                bed_recs.append(bed_rec)
+            return bed_recs
 
 
 class CdsUnknownSplice(CdsNonCanonSplice):
@@ -186,9 +174,8 @@ class CdsUnknownSplice(CdsNonCanonSplice):
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
-
-    def run(self, cds_filter_fn=is_cds, splice_dict={"GT": "AG", "GC": "AG", "AT": "AC"}):
-        CdsNonCanonSplice.run(self, cds_filter_fn, splice_dict)
+    def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_cds, splice_dict={"GT": "AG", "GC": "AG", "AT": "AC"}):
+        CdsNonCanonSplice.__call__(self, a, ref_fasta, cds_filter_fn, splice_dict)
 
 
 class UtrNonCanonSplice(CdsNonCanonSplice):
@@ -199,9 +186,8 @@ class UtrNonCanonSplice(CdsNonCanonSplice):
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
-
-    def run(self, cds_filter_fn=is_not_cds, splice_dict={"GT": "AG"}):
-        CdsNonCanonSplice.run(self, cds_filter_fn, splice_dict)
+    def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_not_cds, splice_dict={"GT": "AG"}):
+        CdsNonCanonSplice.__call__(self, a, ref_fasta, cds_filter_fn, splice_dict)
 
 
 class UtrUnknownSplice(CdsNonCanonSplice):
@@ -212,31 +198,31 @@ class UtrUnknownSplice(CdsNonCanonSplice):
     This classifier is only applied to introns which are longer than
     a minimum intron size.
     """
+    def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_not_cds, splice_dict={"GT": "AG", "GC": "AG", "AT": "AC"}):
+        CdsNonCanonSplice.__call__(self, a, ref_fasta, cds_filter_fn, splice_dict)
 
-    def run(self, cds_filter_fn=is_not_cds, splice_dict={"GT": "AG", "GC": "AG", "AT": "AC"}):
-        CdsNonCanonSplice.run(self, cds_filter_fn, splice_dict)
 
-
-def SpliceContainsUnknownBases(a, ref_fasta):
+class SpliceContainsUnknownBases(utils.AbstractClassifier):
     """
     Do any of the splice junctions contain unknown bases?
     """
-    get_fasta()
+    @property
+    def rgb(self):
+        return self.colors["assembly"]
+
+    def __call__(self, a, ref_fasta):
+        bed_recs = []
+        for intron in a.intron_intervals:
+            if utils.short_intron(intron) is False:
+                seq = intron.get_sequence(ref_fasta, strand=True)
+                donor, acceptor = seq[:2], seq[-2:]
+                if "N" in donor or "N" in acceptor:
+                    bed_rec = tx_lib.splice_intron_interval_to_bed(a, intron, self.rgb, self.name)
+                    bed_recs.append(bed_rec)
+            return bed_recs
 
 
-for ens_id, a in annotation_iterator():
-    for intron in a.intron_intervals:
-        if short_intron(intron) is False:
-            seq = intron.get_sequence(ref_seq_dict, strand=True)
-            donor, acceptor = seq[:2], seq[-2:]
-            if "N" in donor or "N" in acceptor:
-                bed_rec = splice_intron_interval_to_bed(a, intron, rgb, column)
-                details_dict[ens_id].append(bed_rec)
-    classify_dict[ens_id] = len(details_dict[ens_id])
-dump_results_to_disk()
-
-
-def InFrameStop(a, ref_fasta):
+class InFrameStop(utils.AbstractClassifier):
     """
     Reports on in frame stop codons for each transcript.
 
@@ -244,69 +230,63 @@ def InFrameStop(a, ref_fasta):
 
     Returns a BED record of the position of the in frame stop if it exists.
     """
-    get_fasta()
+    @property
+    def rgb(self):
+        return self.colors["mutation"]
+
+    def __call__(self, a, ref_fasta):
+        bed_recs = []
+        cds = a.get_cds(ref_fasta)
+        offset = tx_lib.find_offset(a.exon_frames, a.strand)
+        for i, codon in bio_lib.read_codons_with_position(cds, offset, skip_last=True):
+            amino_acid = bio_lib.codon_to_amino_acid(codon)
+            if amino_acid == "*":
+                bed_rec = tx_lib.cds_coordinate_to_bed(a, i, i + 3, self.rgb, self.name)
+                bed_recs.append(bed_rec)
+        return bed_recs
 
 
-for ens_id, a in annotation_iterator():
-    cds = a.get_cds(ref_seq_dict)
-    offset = find_offset(a.exon_frames, a.strand)
-    for i, codon in read_codons_with_position(cds, offset, skip_last=True):
-        amino_acid = codon_to_amino_acid(codon)
-        if amino_acid == "*":
-            bed_rec = cds_coordinate_to_bed(a, i, i + 3, rgb, column)
-            details_dict[ens_id].append(bed_rec)
-    classify_dict[ens_id] = len(details_dict[ens_id])
-dump_results_to_disk()
-
-
-def ShortCds(a, ref_fasta):
+class ShortCds(utils.AbstractClassifier):
     """
     Looks to see if this transcript has a short CDS.
     """
-    for ens_id, a in annotation_iterator():
-        if short_cds(a) is True and a.cds_size != 0:
-            bed_rec = cds_coordinate_to_bed(a, 0, a.cds_size, rgb, column)
-            details_dict[ens_id].append(bed_rec)
-            classify_dict[ens_id] = 1
+    @property
+    def rgb(self):
+        return self.colors["alignment"]
+
+    def __call__(self, a, ref_fasta):
+        if utils.short_cds(a) is True and a.cds_size != 0:
+            bed_rec = tx_lib.cds_coordinate_to_bed(a, 0, a.cds_size, self.rgb, self.name)
+            return bed_rec
         else:
-            return 0
+            return []
 
 
-dump_results_to_disk()
-
-
-def UnknownBases(a, ref_fasta):
+class UnknownBases(utils.AbstractClassifier):
     """
     Does this alignment contain Ns in the target genome?
 
     Only looks at mRNA bases, and restricts to CDS if cds is True
     """
-
     @property
     def rgb(self):
-        return colors["assembly"]
+        return self.colors["assembly"]
 
     def make_bed_recs(self, a, s, bed_rec_fn, r=re.compile("[atgcATGC][N]+[atgcATGC]")):
         for m in re.finditer(r, s):
-            yield bed_rec_fn(a, m.start() + 1, m.end() - 1, rgb, column)
+            yield bed_rec_fn(a, m.start() + 1, m.end() - 1, self.rgb, self.name)
 
-    def run(self, cds=False):
-        get_fasta()
+    def __call__(self, a, ref_fasta, cds=False):
         if cds is True:
-            bed_rec_fn = cds_coordinate_to_bed
+            bed_rec_fn = tx_lib.cds_coordinate_to_bed
+            s = a.get_cds(ref_fasta)
         else:
-            bed_rec_fn = transcript_coordinate_to_bed
-        for ens_id, a in annotation_iterator():
-            if cds is True:
-                s = a.get_cds(ref_seq_dict)
-            else:
-                s = a.get_mrna(ref_seq_dict)
-            for bed_rec in make_bed_recs(a, s, bed_rec_fn):
-                details_dict[ens_id].append(bed_rec)
-            classify_dict[ens_id] = len(details_dict[ens_id])
-        dump_results_to_disk()
+            bed_rec_fn = tx_lib.transcript_coordinate_to_bed
+            s = a.get_mrna(ref_fasta)
+        bed_recs = self.make_bed_recs(a, s, bed_rec_fn)
+        return bed_recs
 
 
 class UnknownCdsBases(UnknownBases):
-    def run(self, cds=True):
-        UnknownBases.run(self, cds)
+    def __call__(self, a, ref_fasta, cds=True):
+        UnknownBases.__call__(self, a, ref_fasta, cds)

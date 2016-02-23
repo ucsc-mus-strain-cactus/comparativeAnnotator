@@ -4,17 +4,16 @@ This is the main driver script for comparativeAnnotator in transMap mode.
 import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String
-from pycbio.sys.introspection import classes_in_module
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
-from pycbio.sys.dataOps import grouper, merge_dicts
+from pycbio.sys.dataOps import grouper
 from pycbio.sys.introspection import classes_in_module
 from pycbio.bio.transcripts import get_transcript_dict
 from pycbio.bio.psl import get_alignment_dict
 from pycbio.bio.bio import get_sequence_dict
 from comparativeAnnotator.lib.name_conversions import remove_alignment_number
 import comparativeAnnotator.reference_classifiers as ref_classifiers
+from comparativeAnnotator.database_schema import construct_ref_tables
 
 __author__ = "Ian Fiddes"
 
@@ -32,18 +31,35 @@ class Classify(Target):
         self.engine = engine
 
     def run(self):
-        r = {}
-        ref_classifiers = classes_in_module(ref_classifiers)
-        aln_classifiers = classes_in_module(aln_classifiers)
+        r = {}  # results dict contains integer classifications
+        r_details = {}  # details dict contains BED entries
+        ref_classifier_list = classes_in_module(ref_classifiers)
+        # instantiate each classifier
+        ref_classifier_fns = [x() for x in ref_classifier_list]
         ref_fasta = get_sequence_dict(self.args.ref_fasta)
-        tgt_fasta = get_sequence_dict(self.args.fasta)
         for aln_id, (a, t, aln) in self.chunk:
-            ref_results = {classify_fn.name: classify_fn(a, ref_fasta) for classify_fn in ref_classifiers}
-            aln_results = {classify_fn.name: classify_fn(a, t, aln, ref_fasta, tgt_fasta) for classify_fn in
-                           aln_classifiers}
-            r[aln_id] = merge_dicts([ref_results, aln_results])
+            r[aln_id] = {classify_fn.name: classify_fn(a, ref_fasta) for classify_fn in ref_classifier_fns}
+            r[aln_id] = {classify_name: len(details) for classify_name, details in r[aln_id].iteritems()}
         df = pd.DataFrame.from_dict(r)
-        df.to_sql(self.args.genome, self.engine, if_exists='append', index=True)
+        df.to_sql(self.args.genome + '_Classify', self.engine, if_exists='append')
+        df_details = pd.DataFrame.from_dict(r_details)
+        df_details.to_sql(self.args.genome + '_Details', self.engine, if_exists='append')
+
+
+def build_attributes_table(args, tx_dict, engine):
+    """
+    Produces the attributes table. Dumps the contents of the attributes.tsv file in addition to a few other metrics.
+    """
+    r = {}
+    col_template = ['GeneId', 'GeneName', 'GeneType', 'TranscriptId', 'TranscriptType', 'NumberIntrons']
+    with open(args.gencode_attributes) as f:
+        for line in f:
+            gene_id, gene_name, gene_type, transcript_id, transcript_type = line.split()
+            num_introns = len(tx_dict[transcript_id].intron_intervals)
+            d = dict(zip(*(col_template, (gene_id, gene_name, gene_type, transcript_id, transcript_type, num_introns))))
+            r[transcript_id] = d
+    df = pd.DataFrame.from_dict(r)
+    df.to_sql(args.genome, engine, if_exists='append')
 
 
 def chunk_ref_transcripts(target, args, engine, chunk_size=500):
@@ -62,15 +78,12 @@ def chunk_ref_transcripts(target, args, engine, chunk_size=500):
     psl_dict = get_alignment_dict(args.psl)
     aln_dict = build_aln_dict(ref_dict, tx_dict, psl_dict)
     for chunk in grouper(aln_dict.iteritems(), chunk_size):
-        target.addChild(Classify(args, chunk, engine))
+        target.addChildTarget(Classify(args, chunk, engine))
+    target.addChildTargetFn(build_attributes_table, args=(args, psl_dict, tx_dict, engine))
 
 
-def construct_ref_table(target, args):
-    classifiers = classes_in_module(ref_classifiers)
-    d = {x.__class__.__name__: Column(Integer) for x in classifiers}
-    d['__tablename__'] = args.ref_genome
-    d['TranscriptId'] = Column(String, primary_key=True)
-    ref_table = type(args.ref_genome, (Base,), d)()
+def initialize_tables(target, args):
+    ref_classify, ref_details, ref_attributes = construct_ref_tables(args.ref_genome)
     engine = create_engine('sqlite:///' + args.db)
     Base.metadata.create_all(engine)
     target.setFollowOnTargetFn(chunk_ref_transcripts, args=(args, engine))
@@ -80,7 +93,7 @@ def classify_startup(args):
     """
     Entry to start jobTree for classification.
     """
-    target = Target.makeTargetFn(construct_ref_table, args=(args,))
+    target = Target.makeTargetFn(initialize_tables, args=(args,))
     failures = Stack(target).startJobTree(args)
     if failures != 0:
         raise Exception('Error: ' + str(failures) + ' jobs failed')
