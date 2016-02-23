@@ -6,8 +6,8 @@ from collections import Counter
 import pycbio.bio.transcripts as tx_lib
 import pycbio.bio.psl as psl_lib
 import pycbio.bio.bio as bio_lib
-import comparativeAnnotator.lib.annotation_utils as utils
-from comparativeAnnotator.lib.name_conversions import remove_alignment_number
+import comparativeAnnotator.comp_lib.annotation_utils as utils
+from comparativeAnnotator.comp_lib.name_conversions import remove_alignment_number
 
 __author__ = "Ian Fiddes"
 

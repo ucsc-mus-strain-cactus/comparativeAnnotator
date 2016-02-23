@@ -4,7 +4,8 @@ This is the main driver script for comparativeAnnotator in transMap mode.
 import argparse
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
-from comparativeAnnotator.classify_driver import run_ref_classifiers, run_tm_classifiers, run_aug_classifiers
+from comparativeAnnotator.classify_driver import run_ref_classifiers, run_tm_classifiers
+from lib.parsing import HashableNamespace
 
 __author__ = "Ian Fiddes"
 
@@ -41,7 +42,7 @@ def parse_args():
     return args
 
 
-def build_analyses(target, args):
+def comp_ann_driver(target, args):
     """
     Wrapper function that will call all classifiers. Each classifier will dump its results to disk as a pickled dict.
     Calls database_wrapper to load these into a sqlite3 database.
@@ -51,15 +52,15 @@ def build_analyses(target, args):
         run_ref_classifiers(args, target, tmp_dir)
     elif args.mode == "transMap":
         run_tm_classifiers(args, target, tmp_dir)
-    elif args.mode == "augustus":
-        run_aug_classifiers(args, target, tmp_dir)
+    #elif args.mode == "augustus":
+        #run_aug_classifiers(args, target, tmp_dir)
     else:
         raise RuntimeError("Somehow your argparse object does not contain a valid mode.")
 
 
 def main():
     args = parse_args()
-    i = Stack(Target.makeTargetFn(build_analyses, memory=8 * (1024 ** 3), args=[args])).startJobTree(args)
+    i = Stack(Target.makeTargetFn(comp_ann_driver, memory=8 * (1024 ** 3), args=[args])).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
 

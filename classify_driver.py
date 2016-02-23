@@ -153,6 +153,7 @@ def run_ref_classifiers(target, args, db_path, chunk_size=500):
     for chunk in grouper(ref_dict.iteritems(), chunk_size):
         target.addChildTarget(AlignmentClassify(args, chunk, db_path))
     target.addChildTargetFn(build_attributes_table, args=(args, ref_dict, db_path))
+    target.setFollowOnTargetFn()
 
 
 def run_tm_classifiers(target, args, db_path, chunk_size=150):
