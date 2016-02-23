@@ -4,7 +4,7 @@ Classifiers in comparativeAnnotator pipeline. Broken down into 3 categories, Sin
 import re
 import pycbio.bio.transcripts as tx_lib
 import pycbio.bio.bio as bio_lib
-import comparativeAnnotator.lib.annotation_utils as utils
+import comparativeAnnotator.comp_lib.annotation_utils as utils
 
 __author__ = "Ian Fiddes"
 

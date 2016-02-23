@@ -1,7 +1,7 @@
 """
 Alignment attributes for comparativeAnnotator.
 """
-import comparativeAnnotator.lib.annotation_utils as utils
+import comparativeAnnotator.comp_lib.annotation_utils as utils
 from pycbio.sys.mathOps import format_ratio
 
 __author__ = "Ian Fiddes"

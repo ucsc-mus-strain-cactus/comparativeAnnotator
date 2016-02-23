@@ -1,11 +1,11 @@
 """
 This is the main driver script for comparativeAnnotator in transMap mode.
 """
+import sys
 import argparse
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from comparativeAnnotator.classify_driver import run_ref_classifiers, run_tm_classifiers
-from lib.parsing import HashableNamespace
 
 __author__ = "Ian Fiddes"
 
@@ -49,17 +49,16 @@ def comp_ann_driver(target, args):
     """
     tmp_dir = target.getGlobalTempDir()
     if args.mode == "reference":
-        run_ref_classifiers(args, target, tmp_dir)
+        run_ref_classifiers(target, args, tmp_dir)
     elif args.mode == "transMap":
-        run_tm_classifiers(args, target, tmp_dir)
-    #elif args.mode == "augustus":
-        #run_aug_classifiers(args, target, tmp_dir)
+        run_tm_classifiers(target, args, tmp_dir)
+    elif args.mode == "augustus":
+        run_aug_classifiers(target, args, tmp_dir)
     else:
         raise RuntimeError("Somehow your argparse object does not contain a valid mode.")
 
 
-def main():
-    args = parse_args()
+def main(args):
     i = Stack(Target.makeTargetFn(comp_ann_driver, memory=8 * (1024 ** 3), args=[args])).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
@@ -67,4 +66,5 @@ def main():
 
 if __name__ == '__main__':
     from comparativeAnnotator.annotation_pipeline import *
-    main()
+    args = parse_args()
+    main(args)

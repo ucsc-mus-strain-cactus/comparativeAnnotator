@@ -12,7 +12,7 @@ from pycbio.sys.sqliteOps import ExclusiveSqlConnection
 from pycbio.sys.fileOps import ensureDir
 from pycbio.sys.dataOps import grouper
 
-from comparativeAnnotator.lib.name_conversions import remove_alignment_number
+from comparativeAnnotator.comp_lib.name_conversions import remove_alignment_number
 import comparativeAnnotator.classifiers as classifiers
 import comparativeAnnotator.alignment_classifiers as alignment_classifiers
 #import comparativeAnnotator.augustus_classifiers as augustus_classifiers
@@ -128,7 +128,7 @@ class AlignmentAttributes(AbstractClassify):
         self.write_attributes(r_attrs, self.args.genome, primary_key)
 
 
-def build_attributes_table(args, ref_dict, db_path):
+def build_attributes_table(target, args, ref_dict, db_path):
     """
     Produces the reference attributes table.
     Dumps the contents of the attributes.tsv file in addition to reporting the number of introns and reference
@@ -151,9 +151,8 @@ def run_ref_classifiers(target, args, db_path, chunk_size=500):
     """
     ref_dict = get_transcript_dict(args.annotation_gp)
     for chunk in grouper(ref_dict.iteritems(), chunk_size):
-        target.addChildTarget(AlignmentClassify(args, chunk, db_path))
+        target.addChildTarget(Classify(args, chunk, db_path))
     target.addChildTargetFn(build_attributes_table, args=(args, ref_dict, db_path))
-    target.setFollowOnTargetFn()
 
 
 def run_tm_classifiers(target, args, db_path, chunk_size=150):
@@ -176,6 +175,9 @@ def run_tm_classifiers(target, args, db_path, chunk_size=150):
     # we have to do paralogy separately, as it needs all the alignment names
     paralogy_recs = alignment_classifiers.paralogy(tx_dict)
     aln_dict = build_aln_dict(ref_dict, tx_dict, psl_dict, ref_psl_dict, paralogy_recs)
+    # run single-genome classifiers on tm
+    for chunk in grouper(tx_dict.iteritems(), chunk_size):
+        target.addChildTarget(Classify(args, chunk, db_path))
     for chunk in grouper(aln_dict.iteritems(), chunk_size):
         target.addChildTarget(AlignmentClassify(args, chunk, db_path))
         target.addChildTarget(AlignmentAttributes(args, chunk, db_path))
