@@ -1,7 +1,6 @@
 """
 This file contains helper functions for comparativeAnnotator.
 """
-from sqlalchemy import Integer
 from pycbio.bio.transcripts import GenePredTranscript, find_offset
 
 
@@ -12,7 +11,6 @@ short_cds_size = 75
 
 
 class AbstractClassifier(object):
-    dtype = Integer  # default to integer unless specified otherwise
     colors = {'input': '219,220,222',     # grey
               'mutation': '132,35,27',    # red-ish
               'assembly': '167,206,226',  # light blue
@@ -21,6 +19,10 @@ class AbstractClassifier(object):
               'nonsynon': '181,216,139',  # avocado
               'generic': '152,156,45'     # grey-yellow
               }
+
+    @property
+    def name(self):
+        return self.__class__.__name__
 
 
 def short_cds(t):

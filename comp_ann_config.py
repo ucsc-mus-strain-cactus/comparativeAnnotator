@@ -1,6 +1,6 @@
 """
 Main configuration for comparativeAnnotator. Mostly consists of SQL queries that really should be restructured
-into modern SQLAlchemy. TODO: make this into SQLAlchemy
+into modern SQLAlchemy. TODO: make this into SQLAlchemy TODOv2: understanding SQLAlchemy
 """
 
 
@@ -118,18 +118,18 @@ def transMapEval(ref_genome, genome, biotype, passing=False):
         query = ("SELECT AlignmentId FROM attributes.'{2}' JOIN main.'{2}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
                  "(main.'{2}'.BadFrame = 0 AND main.'{0}'.BadFrame > 0) AND NOT (main.'{2}'.BeginStart = 0 "
-                  "AND main.'{0}'.BeginStart > 0) AND NOT (main.'{2}'.EndStop = 0 AND main.'{0}'.EndStop > 0) "
-                  "AND NOT (main.'{2}'.CdsGap = 0 AND main.'{0}'.CdsGap > 0) AND NOT (main.'{2}'.CdsUnknownSplice"
-                  " = 0 AND main.'{0}'.CdsUnknownSplice > 0) AND NOT (main.'{2}'.UtrUnknownSplice = 0 AND "
-                  "main.'{0}'.UtrUnknownSplice > 0) AND NOT (main.'{2}'.StartOutOfFrame = 0 AND "
-                  "main.'{0}'.StartOutOfFrame > 0) AND NOT (main.'{2}'.InFrameStop = 0 AND "
-                  "main.'{0}'.InFrameStop > 0) AND NOT (main.'{2}'.ShortCds = 0 AND main.'{0}'.ShortCds > 0) AND "
-                  "main.'{0}'.CodingInsertions = 0 AND main.'{0}'.CodingDeletions = 0 AND main.'{0}'.FrameShift = 0 "
-                  "AND main.'{0}'.HasOriginalStop = 0 AND attributes.'{0}'.AlignmentCoverage = 100.0 AND "
-                  "attributes.'{0}'.PercentUnknownBases <= 1.0 AND attributes.'{0}'.PercentUnknownCodingBases <= 0.2 "
-                  "AND (main.'{0}'.HasOriginalIntrons <= 0.5 * attributes.'{0}'.NumberIntrons - 0.5 OR "
-                  "attributes.'{0}'.NumberIntrons = 0) AND "
-                  "attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
+                 "AND main.'{0}'.BeginStart > 0) AND NOT (main.'{2}'.EndStop = 0 AND main.'{0}'.EndStop > 0) "
+                 "AND NOT (main.'{2}'.CdsGap = 0 AND main.'{0}'.CdsGap > 0) AND NOT (main.'{2}'.CdsUnknownSplice"
+                 " = 0 AND main.'{0}'.CdsUnknownSplice > 0) AND NOT (main.'{2}'.UtrUnknownSplice = 0 AND "
+                 "main.'{0}'.UtrUnknownSplice > 0) AND NOT (main.'{2}'.StartOutOfFrame = 0 AND "
+                 "main.'{0}'.StartOutOfFrame > 0) AND NOT (main.'{2}'.InFrameStop = 0 AND "
+                 "main.'{0}'.InFrameStop > 0) AND NOT (main.'{2}'.ShortCds = 0 AND main.'{0}'.ShortCds > 0) AND "
+                 "main.'{0}'.CodingInsertions = 0 AND main.'{0}'.CodingDeletions = 0 AND main.'{0}'.FrameShift = 0 "
+                 "AND main.'{0}'.HasOriginalStop = 0 AND attributes.'{0}'.AlignmentCoverage = 100.0 AND "
+                 "attributes.'{0}'.PercentUnknownBases <= 1.0 AND attributes.'{0}'.PercentUnknownCodingBases <= 0.2 "
+                 "AND (main.'{0}'.HasOriginalIntrons <= 0.5 * attributes.'{0}'.NumberIntrons - 0.5 OR "
+                 "attributes.'{0}'.NumberIntrons = 0) AND "
+                 "attributes.'{0}'.TranscriptType = '{1}' AND attributes.'{0}'.GeneType = '{1}'")
     elif biotype == "protein_coding" and passing is True:
         query = ("SELECT AlignmentId FROM attributes.'{2}' JOIN main.'{2}' USING (TranscriptId) JOIN "
                  "attributes.'{0}' USING (TranscriptId) JOIN main.'{0}' USING (AlignmentId) WHERE NOT "
@@ -180,7 +180,7 @@ def augustusEval(genome, ref_genome):
              "OR (attributes.'{0}'.AlignmentCoverage < 95.0 OR main.'{0}'.UtrGap > 3)) AND "
              "(NotSimilarInternalExonBoundaries = 0 OR (main.'{0}'.CdsGap > 3 OR main.'{0}'.UtrGap > 3 OR "
              "main.'{1}'.CdsUnknownSplice > 0 OR main.'{1}'.UtrUnknownSplice > 0))  AND NotSameStrand = 0 AND "
-             "ExonLoss = 0 AND MultipleTranscripts = 0) OR (augustus_attributes.'{0}'.AlignmentCoverage > 99.0 "
+             "ExonLoss = 0 AND MultipleTranscripts = 0) OR (augustus_attributes.'{0}'.AlignmentCoverage > 80.0 "
              "AND augustus_attributes.'{0}'.AlignmentIdentity > 95.0)")
     query = query.format(genome, ref_genome)
     return query

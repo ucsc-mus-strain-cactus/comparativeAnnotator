@@ -2,8 +2,6 @@
 This is the main driver script for comparativeAnnotator in transMap mode.
 """
 import pandas as pd
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from pycbio.sys.dataOps import grouper
@@ -13,11 +11,8 @@ from pycbio.bio.psl import get_alignment_dict
 from pycbio.bio.bio import get_sequence_dict
 from comparativeAnnotator.lib.name_conversions import remove_alignment_number
 import comparativeAnnotator.reference_classifiers as ref_classifiers
-from comparativeAnnotator.database_schema import construct_ref_tables
 
 __author__ = "Ian Fiddes"
-
-Base = declarative_base()
 
 
 class Classify(Target):
