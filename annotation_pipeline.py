@@ -47,19 +47,18 @@ def comp_ann_driver(target, args):
     Wrapper function that will call all classifiers. Each classifier will dump its results to disk as a pickled dict.
     Calls database_wrapper to load these into a sqlite3 database.
     """
-    tmp_dir = target.getGlobalTempDir()
     if args.mode == "reference":
-        run_ref_classifiers(target, args, tmp_dir)
+        run_ref_classifiers(target, args)
     elif args.mode == "transMap":
-        run_tm_classifiers(target, args, tmp_dir)
+        run_tm_classifiers(target, args)
     elif args.mode == "augustus":
-        run_aug_classifiers(target, args, tmp_dir)
+        run_aug_classifiers(target, args)
     else:
         raise RuntimeError("Somehow your argparse object does not contain a valid mode.")
 
 
 def main(args):
-    i = Stack(Target.makeTargetFn(comp_ann_driver, memory=8 * (1024 ** 3), args=[args])).startJobTree(args)
+    i = Stack(Target.makeTargetFn(comp_ann_driver, args=[args])).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
 

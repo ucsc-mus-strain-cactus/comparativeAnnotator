@@ -1,6 +1,7 @@
 """
 Alignment attributes for comparativeAnnotator.
 """
+import peewee
 import comparativeAnnotator.comp_lib.annotation_utils as utils
 from pycbio.sys.mathOps import format_ratio
 
@@ -13,6 +14,8 @@ class AlignmentCoverage(utils.AbstractClassifier):
     (matches + mismatches + repeat matches) / q_size
     Reports the value as a REAL between 0 and 1
     """
+    dtype = peewee.FloatField
+
     def __call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta):
         return aln.coverage
 
@@ -23,6 +26,8 @@ class AlignmentIdentity(utils.AbstractClassifier):
     matches / (matches + mismatches + query_insertions)
     Reports the value as a REAL between 0 and 1
     """
+    dtype = peewee.FloatField
+
     def __call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta):
         return aln.identity
 
@@ -32,6 +37,8 @@ class PercentUnknownBases(utils.AbstractClassifier):
     Calculates the percent of unknown bases in the alignment:
     n_count / q_size
     """
+    dtype = peewee.FloatField
+
     def __call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta):
         return aln.percent_n
 
@@ -40,6 +47,8 @@ class PercentUnknownCodingBases(utils.AbstractClassifier):
     """
     Calculates the percent of coding bases that are Ns in the transcript
     """
+    dtype = peewee.FloatField
+
     def __call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta):
         cds = t.get_cds(tgt_fasta)
         return 100 * format_ratio(cds.count("N"), len(cds))
@@ -49,6 +58,8 @@ class NumberIntrons(utils.AbstractClassifier):
     """
     Reports the number of introns for this alignment
     """
+    dtype = peewee.IntegerField
+
     def __call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta):
         return len(t.intron_intervals)
 
@@ -58,6 +69,8 @@ class NumberMissingOriginalIntrons(utils.AbstractClassifier):
     Does the alignment have all original introns? It can have more (small gaps and such), but it must have all
     original introns. Reports the number of missing introns.
     """
+    dtype = peewee.IntegerField
+
     def __call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta, fuzz_distance=5):
         aln_starts_ends = utils.get_adjusted_starts_ends(t, aln)
         count = 0
@@ -67,11 +80,3 @@ class NumberMissingOriginalIntrons(utils.AbstractClassifier):
             if not any(r):
                 count += 1
         return count
-
-
-class TranscriptId(utils.AbstractClassifier):
-    """
-    Reports the original transcript ID. Used to map between reference tables and target tables.
-    """
-    def __call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta):
-        return a.name

@@ -29,7 +29,7 @@ class AlnExtendsOffContig(utils.AbstractClassifier):
 
     def __call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta):
         if aln.t_start == 0 and aln.q_start != 0 or aln.t_end == aln.t_size and aln.q_end != aln.q_size:
-            return tx_lib.transcript_to_bed(t, self.rgb, self.name)
+            return [tx_lib.transcript_to_bed(t, self.rgb, self.name)]
         else:
             return []
 
@@ -105,7 +105,7 @@ class CodingMult3Insertions(CodingInsertions):
     See CodingInsertions. Reports all cases where there are multiple of 3 insertions.
     """
     def __call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta, mult3=True):
-        CodingInsertions.__call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta, mult3)
+        return CodingInsertions.__call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta, mult3)
 
 
 class CodingDeletions(utils.AbstractClassifier):
@@ -138,7 +138,7 @@ class CodingMult3Deletions(CodingDeletions):
     See CodingDeletions. Reports all cases where there are multiple of 3 insertions.
     """
     def __call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta, mult3=True):
-        CodingDeletions.__call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta, mult3)
+        return CodingDeletions.__call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta, mult3)
 
 
 class FrameShift(utils.AbstractClassifier):
@@ -201,7 +201,7 @@ class AlignmentPartialMap(utils.AbstractClassifier):
 
     def __call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta):
         if aln.q_size != aln.q_end - aln.q_start:
-            return tx_lib.transcript_to_bed(t, self.rgb, self.name)
+            return [tx_lib.transcript_to_bed(t, self.rgb, self.name)]
         return []
 
 
@@ -224,7 +224,7 @@ class HasOriginalStart(utils.AbstractClassifier):
                          for i in xrange(3)]
         if None in cds_positions:
             bed_rec = tx_lib.cds_coordinate_to_bed(t, 0, 3, self.rgb, self.name)
-            return bed_rec
+            return [bed_rec]
         return []
 
 
@@ -247,7 +247,7 @@ class HasOriginalStop(utils.AbstractClassifier):
                          for i in xrange(t.cds_size - 4, t.cds_size - 1)]
         if None in cds_positions:
             bed_rec = tx_lib.cds_coordinate_to_bed(t, 0, 3, self.rgb, self.name)
-            return bed_rec
+            return [bed_rec]
         return []
 
 

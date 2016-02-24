@@ -25,7 +25,7 @@ class StartOutOfFrame(utils.AbstractClassifier):
         # remove all -1 frames because those are UTR exons
         a_frames = [x for x in a.exon_frames if x != -1]
         if a.strand is True and a_frames[0] != 0 or a.strand is False and a_frames[-1] != 0:
-            return tx_lib.cds_coordinate_to_bed(a, 0, 3, self.rgb, self.name)
+            return [tx_lib.cds_coordinate_to_bed(a, 0, 3, self.rgb, self.name)]
         else:
             return []
 
@@ -44,7 +44,7 @@ class BadFrame(utils.AbstractClassifier):
         if utils.short_cds(a):
             return []
         if a.cds_size % 3 != 0:
-            return tx_lib.chromosome_coordinate_to_bed(a, a.thick_start, a.thick_stop, self.rgb, self.name)
+            return [tx_lib.chromosome_coordinate_to_bed(a, a.thick_start, a.thick_stop, self.rgb, self.name)]
         else:
             return []
 
@@ -63,7 +63,7 @@ class BeginStart(utils.AbstractClassifier):
         if utils.short_cds(a):
             return []
         elif a.get_cds(ref_fasta)[:3] != "ATG":
-            return tx_lib.cds_coordinate_to_bed(a, 0, 3, self.rgb, self.name)
+            return [tx_lib.cds_coordinate_to_bed(a, 0, 3, self.rgb, self.name)]
         else:
             return []
 
@@ -83,7 +83,7 @@ class EndStop(utils.AbstractClassifier):
         if utils.short_cds(a):
             return []
         elif a.get_cds(ref_fasta)[-3:] not in stop_codons:
-            return tx_lib.cds_coordinate_to_bed(a, a.cds_size - 3, a.cds_size, self.rgb, self.name)
+            return [tx_lib.cds_coordinate_to_bed(a, a.cds_size - 3, a.cds_size, self.rgb, self.name)]
         else:
             return []
 
@@ -116,7 +116,7 @@ class CdsMult3Gap(CdsGap):
         return self.colors["mutation"]
 
     def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_cds, mult3=True, skip_n=True):
-        CdsGap.__call__(self, a, ref_fasta, cds_filter_fn, mult3, skip_n)
+        return CdsGap.__call__(self, a, ref_fasta, cds_filter_fn, mult3, skip_n)
 
 
 class UtrGap(CdsGap):
@@ -129,7 +129,7 @@ class UtrGap(CdsGap):
         return self.colors["alignment"]
 
     def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_not_cds, mult3=None, skip_n=True):
-        CdsGap.__call__(self, a, ref_fasta, cds_filter_fn, mult3, skip_n)
+        return CdsGap.__call__(self, a, ref_fasta, cds_filter_fn, mult3, skip_n)
 
 
 class UnknownGap(CdsGap):
@@ -141,7 +141,7 @@ class UnknownGap(CdsGap):
         return self.colors["assembly"]
 
     def __call__(self, a, ref_fasta, cds_filter_fn=lambda intron, t: True, mult3=None, skip_n=False):
-        CdsGap.__call__(self, a, ref_fasta, cds_filter_fn, mult3, skip_n)
+        return CdsGap.__call__(self, a, ref_fasta, cds_filter_fn, mult3, skip_n)
 
 
 class CdsNonCanonSplice(utils.AbstractClassifier):
@@ -163,7 +163,7 @@ class CdsNonCanonSplice(utils.AbstractClassifier):
             if splice_is_good is True:
                 bed_rec = tx_lib.splice_intron_interval_to_bed(a, intron, self.rgb, self.name)
                 bed_recs.append(bed_rec)
-            return bed_recs
+        return bed_recs
 
 
 class CdsUnknownSplice(CdsNonCanonSplice):
@@ -175,7 +175,7 @@ class CdsUnknownSplice(CdsNonCanonSplice):
     a minimum intron size.
     """
     def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_cds, splice_dict={"GT": "AG", "GC": "AG", "AT": "AC"}):
-        CdsNonCanonSplice.__call__(self, a, ref_fasta, cds_filter_fn, splice_dict)
+        return CdsNonCanonSplice.__call__(self, a, ref_fasta, cds_filter_fn, splice_dict)
 
 
 class UtrNonCanonSplice(CdsNonCanonSplice):
@@ -187,7 +187,7 @@ class UtrNonCanonSplice(CdsNonCanonSplice):
     a minimum intron size.
     """
     def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_not_cds, splice_dict={"GT": "AG"}):
-        CdsNonCanonSplice.__call__(self, a, ref_fasta, cds_filter_fn, splice_dict)
+        return CdsNonCanonSplice.__call__(self, a, ref_fasta, cds_filter_fn, splice_dict)
 
 
 class UtrUnknownSplice(CdsNonCanonSplice):
@@ -199,7 +199,7 @@ class UtrUnknownSplice(CdsNonCanonSplice):
     a minimum intron size.
     """
     def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_not_cds, splice_dict={"GT": "AG", "GC": "AG", "AT": "AC"}):
-        CdsNonCanonSplice.__call__(self, a, ref_fasta, cds_filter_fn, splice_dict)
+        return CdsNonCanonSplice.__call__(self, a, ref_fasta, cds_filter_fn, splice_dict)
 
 
 class SpliceContainsUnknownBases(utils.AbstractClassifier):
@@ -219,7 +219,7 @@ class SpliceContainsUnknownBases(utils.AbstractClassifier):
                 if "N" in donor or "N" in acceptor:
                     bed_rec = tx_lib.splice_intron_interval_to_bed(a, intron, self.rgb, self.name)
                     bed_recs.append(bed_rec)
-            return bed_recs
+        return bed_recs
 
 
 class InFrameStop(utils.AbstractClassifier):
@@ -257,7 +257,7 @@ class ShortCds(utils.AbstractClassifier):
     def __call__(self, a, ref_fasta):
         if utils.short_cds(a) is True and a.cds_size != 0:
             bed_rec = tx_lib.cds_coordinate_to_bed(a, 0, a.cds_size, self.rgb, self.name)
-            return bed_rec
+            return [bed_rec]
         else:
             return []
 
@@ -283,10 +283,10 @@ class UnknownBases(utils.AbstractClassifier):
         else:
             bed_rec_fn = tx_lib.transcript_coordinate_to_bed
             s = a.get_mrna(ref_fasta)
-        bed_recs = self.make_bed_recs(a, s, bed_rec_fn)
+        bed_recs = list(self.make_bed_recs(a, s, bed_rec_fn))
         return bed_recs
 
 
 class UnknownCdsBases(UnknownBases):
     def __call__(self, a, ref_fasta, cds=True):
-        UnknownBases.__call__(self, a, ref_fasta, cds)
+        return UnknownBases.__call__(self, a, ref_fasta, cds)
