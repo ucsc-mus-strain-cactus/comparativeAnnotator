@@ -1,8 +1,10 @@
 """
 Constructs the database schema for this project.
 """
+import os
 from peewee import *
 from pycbio.sys.introspection import classes_in_module
+from pycbio.sys.fileOps import ensureDir
 import comparativeAnnotator.classifiers as classifiers
 import comparativeAnnotator.alignment_classifiers as alignment_classifiers
 #import comparativeAnnotator.augustus_classifiers as augustus_classifiers
@@ -63,6 +65,20 @@ class GenomeDetails(Base):
     Paralogy = TextField(null=True)
 
 
+class TableHolder(object):
+    """
+    Convenience namespace that holds table definitions. Extended to have a method to return them as a list or as an
+    iterable.
+    """
+    @property
+    def tables(self):
+        return self.__dict__.values()
+
+    def __iter__(self):
+        for t in self.tables:
+            yield t
+
+
 def classify_columns(classifiers, dtype=None):
     """
     Builds a dictionary mapping columns to col_type. If dtype is set, force columns to that type.
@@ -78,6 +94,17 @@ def set_name(model, name):
     Dynamically set the name for a peewee model class.
     """
     setattr(model._meta, 'db_table', name)
+
+
+def build_namespace(attrs, classify, details):
+    """
+    Make a pretty clean namespace for the tree tables for
+    """
+    n = TableHolder()
+    n.attrs = attrs
+    n.classify = classify
+    n.details = details
+    return n
 
 
 def ref_tables(ref_genome):
@@ -99,7 +126,7 @@ def ref_tables(ref_genome):
     ref_details_columns = classify_columns(classes_in_module(classifiers), TextField)
     details = type(details_table_name, (ReferenceGenome,), ref_details_columns)
     set_name(details, details_table_name)
-    return attrs, classify, details
+    return build_namespace(attrs, classify, details)
 
 
 def tgt_tables(genome):
@@ -122,16 +149,18 @@ def tgt_tables(genome):
     ref_details_columns = classify_columns(classes_in_module(classifiers), TextField)
     details = type(details_table_name, (GenomeDetails,), ref_details_columns)
     set_name(details, details_table_name)
-    return attrs, classify, details
+    return build_namespace(attrs, classify, details)
 
 
 def initialize_tables(tables, db_path):
     """
     Initialize tables, dropping if they exist.
     """
+    ensureDir(os.path.dirname(db_path))
     database.init(db_path)
     database.drop_tables(tables, safe=True)
     database.create_tables(tables)
+
 
 def fetch_database():
     """
