@@ -1,6 +1,7 @@
 import os
 import peewee
 import pandas as pd
+import cPickle as pickle
 from collections import defaultdict
 
 from jobTree.scriptTree.target import Target
@@ -10,18 +11,17 @@ from pycbio.bio.transcripts import get_transcript_dict
 from pycbio.bio.psl import get_alignment_dict
 from pycbio.bio.bio import get_sequence_dict
 from pycbio.sys.dataOps import grouper
+from pycbio.sys.fileOps import tmpFileGet, ensureDir
+from pycbio.sys.sqliteOps import ExclusiveSqlConnection
 
 from comparativeAnnotator.comp_lib.name_conversions import remove_alignment_number
-from comparativeAnnotator.database_schema import tgt_tables, ref_tables, initialize_tables
+from comparativeAnnotator.database_schema import tgt_tables, ref_tables, initialize_tables, fetch_database
 import comparativeAnnotator.classifiers as classifiers
 import comparativeAnnotator.alignment_classifiers as alignment_classifiers
 #import comparativeAnnotator.augustus_classifiers as augustus_classifiers
 import comparativeAnnotator.alignment_attributes as alignment_attributes
 
 __author__ = "Ian Fiddes"
-
-recs_per_upsert = 25
-# TODO: why is this value so low? Anything bigger leads to errors.
 
 
 class AbstractClassify(Target):
@@ -31,10 +31,11 @@ class AbstractClassify(Target):
     2) A shared way to instantiate classifiers.
     3) A shared way to write to sql.
     """
-    def __init__(self, args, chunk):
+    def __init__(self, args, chunk, tmp_dir):
         Target.__init__(self)
         self.args = args
         self.chunk = chunk
+        self.tmp_dir = tmp_dir
 
     def _munge_classify_dict(self, r_details):
         """
@@ -63,123 +64,171 @@ class AbstractClassify(Target):
         classifier_list = classes_in_module(classifiers)
         return [c() for c in classifier_list]
 
-    def write_classifications(self, r_details, genome, tables, primary_key):
+    def write_classifications(self, r_details):
         """
-        Write classifications to the database.
+        Write classifications to disk.
         """
         r_classify, r_details_string = self._munge_classify_dict(r_details)
-        for d, table in [[r_classify, tables.classify], [r_details_string, tables.details]]:
-            self.write_to_db(d, table, primary_key)
+        for d, table in [[r_classify, genome + '_Classify'], [r_details_string, genome + '_Details']]:
+            self.write_to_disk(d, table)
 
-    def write_attributes(self, attrs, genome, tables, primary_key):
-        df = self._munge_dict_to_dataframe(attrs, primary_key)
-        self.write_to_db(df, tables.attrs, primary_key)
+    def write_attributes(self, attrs):
+        df = self._munge_dict_to_dataframe(attrs)
+        self.write_to_disk(df, tables.attrs)
 
-    def write_to_db(self, d, table, primary_key):
+    def write_to_disk(self, d, prefix=None):
         """
         Generic database writing function.
         """
-        table._meta.database.init(self.args.db)
-        with table._meta.database.atomic() as txn:
-            for chunk in grouper(d, recs_per_upsert):
-                _ = table.insert_many(chunk).upsert().execute()
+        tmp_file = tmpFileGet(prefix=prefix, tmpDir=self.tmp_dir)
+        with open(tmp_file, 'w') as outf:
+            pickle.dump(d, outf)
 
 
 class Classify(AbstractClassify):
     """
     Main class for single genome classifications.
     """
-    def run(self, primary_key='TranscriptId'):
-        tables = ref_tables(self.args.ref_genome)
+    def run(self):
         fasta = get_sequence_dict(self.args.ref_fasta)
         classifier_fns = self._instantiate_classifiers(classifiers)
         r_details = []
         for tx_id, a in self.chunk:
-            rd = {primary_key: tx_id}
+            rd = {'TranscriptId': tx_id}
             for classify_fn in classifier_fns:
                 rd[classify_fn.name] = classify_fn(a, fasta)
             r_details.append(rd)
-        self.write_classifications(r_details, self.args.ref_genome, tables, primary_key)
+        r_classify, r_details_string = self._munge_classify_dict(r_details)
+        for d, prefix in [[r_classify, 'classify'], [r_details_string, 'details']]:
+            self.write_to_disk(d, prefix=prefix)
 
 
 class AlignmentClassify(AbstractClassify):
     """
     Main class for alignment classifications.
     """
-    def run(self, primary_key='AlignmentId'):
-        tables = tgt_tables(self.args.genome)
+    def run(self):
         ref_fasta = get_sequence_dict(self.args.ref_fasta)
         tgt_fasta = get_sequence_dict(self.args.fasta)
         aln_classifier_fns = self._instantiate_classifiers(alignment_classifiers)
         classifier_fns = self._instantiate_classifiers(classifiers)
         r_details = []
         for aln_id, (a, t, aln, ref_aln, paralogy_rec) in self.chunk:
-            rd = {primary_key: aln_id, 'TranscriptId': a.name, 'Paralogy': paralogy_rec}
+            rd = {'AlignmentId': aln_id, 'TranscriptId': a.name, 'Paralogy': paralogy_rec}
             for aln_classify_fn in aln_classifier_fns:
                 rd[aln_classify_fn.name] = aln_classify_fn(a, t, aln, ref_aln, ref_fasta, tgt_fasta)
             for classify_fn in classifier_fns:
                 rd[classify_fn.name] = classify_fn(t, tgt_fasta)
             r_details.append(rd)
-        self.write_classifications(r_details, self.args.genome, tables, primary_key)
+        r_classify, r_details_string = self._munge_classify_dict(r_details)
+        for d, prefix in [[r_classify, 'classify'], [r_details_string, 'details']]:
+            self.write_to_disk(d, prefix=prefix)
 
 
 class AlignmentAttributes(AbstractClassify):
     """
     Produces alignment attributes table.
     """
-    def run(self, primary_key='AlignmentId'):
+    def run(self):
         tables = tgt_tables(self.args.genome)
         ref_fasta = get_sequence_dict(self.args.ref_fasta)
         tgt_fasta = get_sequence_dict(self.args.fasta)
         attrs = self._instantiate_classifiers(alignment_attributes)
         r_attrs = {}
         for aln_id, (a, t, aln, ref_aln, paralogy_rec) in self.chunk:
-            ra = {primary_key: aln_id, 'TranscriptId': a.name}
+            ra = {'TranscriptId': a.name}
             for attr_fn in attrs:
                 ra[attr_fn.name] = attr_fn(a, t, aln, ref_aln, ref_fasta, tgt_fasta)
             r_attrs[aln_id] = ra
-        self.write_attributes(r_attrs, self.args.genome, tables, primary_key)
+        self.write_to_disk(r_attrs)
 
 
-def build_attributes_table(target, args, ref_dict):
+def build_attributes_table(target, args, ref_dict, tmp_attrs):
     """
     Produces the reference attributes table.
     Dumps the contents of the attributes.tsv file in addition to reporting the number of introns and reference
     chromosome.
     """
     tables = ref_tables(args.ref_genome)
+    attr_table_name = tables.attrs.__name__
     df = pd.read_table(args.gencode_attributes, sep='\t', index_col=3, header=0)
-    assert set(df.columns) == set(['GeneId', 'GeneName', 'GeneType', 'TranscriptId', 'TranscriptType'])
-    more_cols = defaultdict(dict)
+    d = []
     for ens_id, a in ref_dict.iteritems():
-        more_cols['RefChrom'][ens_id] = a.chromosome
-        more_cols['NumberIntrons'][ens_id] = len(a.intron_intervals)
-    more_cols_df = pd.DataFrame.from_dict(more_cols)
-    df_combined = pd.merge(df, more_cols_df, left_index=True, right_index=True)
-    # need a list of dicts for peewee
-    df_back_to_dict = [x[1].to_dict() for x in df.iterrows()]
-    for chunk in grouper(df_back_to_dict, recs_per_upsert):
-        _ = tables.attrs.insert_many(chunk).upsert().execute()
+        row = {'TranscriptId': ens_id}
+        row['RefChrom'] = a.chromosome
+        row['NumberIntrons'] = len(a.intron_intervals)
+        row.update(df.loc[ens_id].to_dict())
+        d.append(row)
+    tmp_file = tmpFileGet(tmpDir=tmp_attrs)
+    with open(tmp_file, 'w') as outf:
+        pickle.dump(d, outf)
 
 
-def run_ref_classifiers(target, args, chunk_size=2000):
+def write_to_db(target, args, tmp_classify, tmp_attrs, primary_key):
+    """
+    Wrapper to find pickled objects and write them to the database.
+    """
+    def peewee_write(table, db, files):
+        """
+        We have to write in chunks to avoid OperationalError: too many SQL variables
+        the limit is 999, and it is really annoying to change.
+        """
+        for f in files:
+            data = pickle.load(open(f))
+            with db.atomic():
+                for idx in range(0, len(data), 50):
+                    table.insert_many(data[idx:idx + 50]).execute()
+    if args.mode == 'reference':
+        tables = ref_tables(args.ref_genome)
+    elif args.mode == 'transMap':
+        tables = tgt_tables(args.genome)
+    initialize_tables(tables, args.db)
+    db = fetch_database()
+    attr_pickle_files = [os.path.join(tmp_attrs, x) for x in os.listdir(tmp_attrs)]
+    peewee_write(tables.attrs, db, attr_pickle_files)
+    details_pickle_files = []
+    classify_pickle_files = []
+    for f in os.listdir(tmp_classify):
+        if 'details' in f:
+            details_pickle_files.append(os.path.join(tmp_classify, f))
+        elif 'classify' in f:
+            classify_pickle_files.append(os.path.join(tmp_classify, f))
+        else:
+            raise Exception("Ian is a bad programmer")
+    assert len(details_pickle_files) == len(classify_pickle_files)
+    for table, files in [[tables.classify, classify_pickle_files], [tables.details, details_pickle_files]]:
+        peewee_write(table, db, files)
+
+
+def construct_tmp_dirs(target):
+    """
+    Shared tmp_dir construction for reference or tm
+    """
+    tmp_dir = target.getGlobalTempDir()
+    tmp_classify = os.path.join(tmp_dir, 'classify')
+    tmp_attrs = os.path.join(tmp_dir, 'attrs')
+    ensureDir(tmp_classify)
+    ensureDir(tmp_attrs)
+    return tmp_classify, tmp_attrs
+
+
+def run_ref_classifiers(target, args, primary_key='TranscriptId', chunk_size=2000):
     """
     Main loop for classification. Produces a classification job for chunk_size alignments.
     """
-    tables = ref_tables(args.ref_genome)
-    initialize_tables(tables, args.db)
+    tmp_classify, tmp_attrs = construct_tmp_dirs(target)
     ref_dict = get_transcript_dict(args.annotation_gp)
     for chunk in grouper(ref_dict.iteritems(), chunk_size):
-        target.addChildTarget(Classify(args, chunk))
-    target.addChildTargetFn(build_attributes_table, args=(args, ref_dict))
+        target.addChildTarget(Classify(args, chunk, tmp_classify))
+    target.addChildTargetFn(build_attributes_table, args=(args, ref_dict, tmp_attrs))
+    target.setFollowOnTargetFn(write_to_db, args=(args, tmp_classify, tmp_attrs, primary_key))
 
 
-def run_tm_classifiers(target, args, chunk_size=150):
+def run_tm_classifiers(target, args, primary_key='AlignmentId', chunk_size=150):
     """
     Main loop for classification. Produces a classification job for chunk_size alignments.
     """
-    tables = tgt_tables(args.genome)
-    initialize_tables(tables, args.db)
+    tmp_classify, tmp_attrs = construct_tmp_dirs(target)
     def build_aln_dict(ref_dict, tx_dict, psl_dict, ref_psl_dict, paralogy_recs):
         """merge different data dicts"""
         r = {}
@@ -201,5 +250,6 @@ def run_tm_classifiers(target, args, chunk_size=150):
     paralogy_recs = alignment_classifiers.paralogy(tx_dict)
     aln_dict = build_aln_dict(ref_dict, tx_dict, psl_dict, ref_psl_dict, paralogy_recs)
     for chunk in grouper(aln_dict.iteritems(), chunk_size):
-        target.addChildTarget(AlignmentClassify(args, chunk))
-        target.addChildTarget(AlignmentAttributes(args, chunk))
+        target.addChildTarget(AlignmentClassify(args, chunk, tmp_classify))
+        target.addChildTarget(AlignmentAttributes(args, chunk, tmp_attrs))
+    target.setFollowOnTargetFn(write_to_db, args=(args, tmp_classify, tmp_attrs, primary_key))
