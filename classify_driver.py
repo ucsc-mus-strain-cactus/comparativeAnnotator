@@ -172,6 +172,7 @@ def write_to_db(target, args, tmp_classify, tmp_attrs, primary_key):
         """
         We have to write in chunks to avoid OperationalError: too many SQL variables
         the limit is 999, and it is really annoying to change.
+        TODO: you could consider producing many small database files in parallel and then merging using CLI
         """
         for f in files:
             data = pickle.load(open(f))
@@ -227,6 +228,37 @@ def run_ref_classifiers(target, args, primary_key='TranscriptId', chunk_size=200
 def run_tm_classifiers(target, args, primary_key='AlignmentId', chunk_size=150):
     """
     Main loop for classification. Produces a classification job for chunk_size alignments.
+    """
+    tmp_classify, tmp_attrs = construct_tmp_dirs(target)
+    def build_aln_dict(ref_dict, tx_dict, psl_dict, ref_psl_dict, paralogy_recs):
+        """merge different data dicts"""
+        r = {}
+        for aln_id, aln in psl_dict.iteritems():
+            if aln_id not in tx_dict:
+                # not all alignments have transcripts
+                continue
+            a = ref_dict[remove_alignment_number(aln_id)]
+            t = tx_dict[aln_id]
+            ref_aln = ref_psl_dict[remove_alignment_number(aln_id)]
+            c = paralogy_recs[aln_id]
+            r[aln_id] = (a, t, aln, ref_aln, c)
+        return r
+    ref_dict = get_transcript_dict(args.annotation_gp)
+    tx_dict = get_transcript_dict(args.target_gp)
+    psl_dict = get_alignment_dict(args.psl)
+    ref_psl_dict = get_alignment_dict(args.ref_psl)
+    # we have to do paralogy separately, as it needs all the alignment names
+    paralogy_recs = alignment_classifiers.paralogy(tx_dict)
+    aln_dict = build_aln_dict(ref_dict, tx_dict, psl_dict, ref_psl_dict, paralogy_recs)
+    for chunk in grouper(aln_dict.iteritems(), chunk_size):
+        target.addChildTarget(AlignmentClassify(args, chunk, tmp_classify))
+        target.addChildTarget(AlignmentAttributes(args, chunk, tmp_attrs))
+    target.setFollowOnTargetFn(write_to_db, args=(args, tmp_classify, tmp_attrs, primary_key))
+
+
+def run_aug_classifiers(target, args, primary_key='AlignmentId', chunk_size=150):
+    """
+    Main loop for augustus classification. Produces a classification job for chunk_size alignments.
     """
     tmp_classify, tmp_attrs = construct_tmp_dirs(target)
     def build_aln_dict(ref_dict, tx_dict, psl_dict, ref_psl_dict, paralogy_recs):
