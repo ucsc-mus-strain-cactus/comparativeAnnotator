@@ -65,6 +65,18 @@ class GenomeDetails(Base):
     Paralogy = TextField(null=True)
 
 
+class AugustusAttributes(Base):
+    """
+    Base table definition for augustus attributes.
+    This table will be filled out separately.
+    """
+    AugustusAlignmentId = TextField(primary_key=True)
+    AlignmentId = TextField()
+    TranscriptId = TextField()
+    AlignmentCoverage = FloatField(null=True)
+    AlignmentIdentity = FloatField(null=True)
+
+
 class AugustusClassify(Base):
     """
     Base table definition for a augustus classify table.
@@ -162,12 +174,14 @@ def tgt_tables(genome):
     attrs = type(attr_table_name, (AlignmentAttributes,), aln_attr_columns)
     set_name(attrs, attr_table_name)
     # construct classify table
-    ref_classify_columns = classify_columns(classes_in_module(classifiers), IntegerField)
-    classify = type(classify_table_name, (GenomeClassify,), ref_classify_columns)
+    tgt_classify_columns = classify_columns(classes_in_module(classifiers) + classes_in_module(alignment_classifiers),
+                                            IntegerField)
+    classify = type(classify_table_name, (GenomeClassify,), tgt_classify_columns)
     set_name(classify, classify_table_name)
     # construct details table
-    ref_details_columns = classify_columns(classes_in_module(classifiers), TextField)
-    details = type(details_table_name, (GenomeDetails,), ref_details_columns)
+    tgt_details_columns = classify_columns(classes_in_module(classifiers) + classes_in_module(alignment_classifiers),
+                                            TextField)
+    details = type(details_table_name, (GenomeDetails,), tgt_details_columns)
     set_name(details, details_table_name)
     return build_namespace(attrs, classify, details)
 
@@ -177,16 +191,17 @@ def aug_tables(genome):
     Constructs  Classify and Details tables for the target genome's AugustusTMR results.
     """
     # define table names
+    aug_attr_table_name = genome = '_AugustusAttributes'
     aug_classify_table_name = genome + '_AugustusClassify'
     aug_details_table_name = genome + '_AugustusDetails'
     # construct classify table
     ref_classify_columns = classify_columns(classes_in_module(augustus_classifiers), IntegerField)
-    classify = type(classify_table_name, (AugustusClassify,), ref_classify_columns)
-    set_name(classify, classify_table_name)
+    classify = type(aug_classify_table_name, (AugustusClassify,), ref_classify_columns)
+    set_name(classify, aug_classify_table_name)
     # construct details table
     ref_details_columns = classify_columns(classes_in_module(augustus_classifiers), TextField)
-    details = type(details_table_name, (AugustusDetails,), ref_details_columns)
-    set_name(details, details_table_name)
+    details = type(aug_details_table_name, (AugustusDetails,), ref_details_columns)
+    set_name(details, aug_details_table_name)
     return build_namespace(attrs, classify, details)
 
 

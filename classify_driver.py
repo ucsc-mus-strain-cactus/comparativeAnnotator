@@ -1,8 +1,6 @@
 import os
-import peewee
 import pandas as pd
 import cPickle as pickle
-from collections import defaultdict
 
 from jobTree.scriptTree.target import Target
 
@@ -12,13 +10,12 @@ from pycbio.bio.psl import get_alignment_dict
 from pycbio.bio.bio import get_sequence_dict
 from pycbio.sys.dataOps import grouper
 from pycbio.sys.fileOps import tmpFileGet, ensureDir
-from pycbio.sys.sqliteOps import ExclusiveSqlConnection
 
-from comparativeAnnotator.comp_lib.name_conversions import remove_alignment_number
-from comparativeAnnotator.database_schema import tgt_tables, ref_tables, initialize_tables, fetch_database
+from comparativeAnnotator.comp_lib.name_conversions import remove_alignment_number, remove_augustus_alignment_number, strip_alignment_numbers
+from comparativeAnnotator.database_schema import tgt_tables, ref_tables, aug_tables, initialize_tables, fetch_database
 import comparativeAnnotator.classifiers as classifiers
 import comparativeAnnotator.alignment_classifiers as alignment_classifiers
-#import comparativeAnnotator.augustus_classifiers as augustus_classifiers
+import comparativeAnnotator.augustus_classifiers as augustus_classifiers
 import comparativeAnnotator.alignment_attributes as alignment_attributes
 
 __author__ = "Ian Fiddes"
@@ -63,18 +60,6 @@ class AbstractClassify(Target):
         """
         classifier_list = classes_in_module(classifiers)
         return [c() for c in classifier_list]
-
-    def write_classifications(self, r_details):
-        """
-        Write classifications to disk.
-        """
-        r_classify, r_details_string = self._munge_classify_dict(r_details)
-        for d, table in [[r_classify, genome + '_Classify'], [r_details_string, genome + '_Details']]:
-            self.write_to_disk(d, table)
-
-    def write_attributes(self, attrs):
-        df = self._munge_dict_to_dataframe(attrs)
-        self.write_to_disk(df, tables.attrs)
 
     def write_to_disk(self, d, prefix=None):
         """
@@ -125,12 +110,29 @@ class AlignmentClassify(AbstractClassify):
             self.write_to_disk(d, prefix=prefix)
 
 
+class AugustusClassify(AbstractClassify):
+    """
+    Main class for single genome classifications.
+    """
+    def run(self):
+        classifier_fns = self._instantiate_classifiers(classifiers)
+        r_details = []
+        for aug_aln_id, (t, aug_t, paralogy_rec) in self.chunk:
+            rd = {'AugustusAlignmentId': aug_aln_id, 'AlignmentId': remove_augustus_alignment_number(aug_aln_id),
+                  'TranscriptId': strip_alignment_numbers(aug_aln_id)}
+            for classify_fn in classifier_fns:
+                rd[classify_fn.name] = classify_fn(t, aug_t)
+            r_details.append(rd)
+        r_classify, r_details_string = self._munge_classify_dict(r_details)
+        for d, prefix in [[r_classify, 'classify'], [r_details_string, 'details']]:
+            self.write_to_disk(d, prefix=prefix)
+
+
 class AlignmentAttributes(AbstractClassify):
     """
     Produces alignment attributes table.
     """
     def run(self):
-        tables = tgt_tables(self.args.genome)
         ref_fasta = get_sequence_dict(self.args.ref_fasta)
         tgt_fasta = get_sequence_dict(self.args.fasta)
         attrs = self._instantiate_classifiers(alignment_attributes)
@@ -149,8 +151,6 @@ def build_attributes_table(target, args, ref_dict, tmp_attrs):
     Dumps the contents of the attributes.tsv file in addition to reporting the number of introns and reference
     chromosome.
     """
-    tables = ref_tables(args.ref_genome)
-    attr_table_name = tables.attrs.__name__
     df = pd.read_table(args.gencode_attributes, sep='\t', index_col=3, header=0)
     d = []
     for ens_id, a in ref_dict.iteritems():
@@ -164,7 +164,7 @@ def build_attributes_table(target, args, ref_dict, tmp_attrs):
         pickle.dump(d, outf)
 
 
-def write_to_db(target, args, tmp_classify, tmp_attrs, primary_key):
+def write_to_db(target, args, tmp_classify, tmp_attrs):
     """
     Wrapper to find pickled objects and write them to the database.
     """
@@ -183,6 +183,10 @@ def write_to_db(target, args, tmp_classify, tmp_attrs, primary_key):
         tables = ref_tables(args.ref_genome)
     elif args.mode == 'transMap':
         tables = tgt_tables(args.genome)
+    elif args.mode == 'augustus':
+        tables = aug_tables(args.genome)
+    else:
+        raise RuntimeError("programmer error")
     initialize_tables(tables, args.db)
     db = fetch_database()
     attr_pickle_files = [os.path.join(tmp_attrs, x) for x in os.listdir(tmp_attrs)]
@@ -213,7 +217,7 @@ def construct_tmp_dirs(target):
     return tmp_classify, tmp_attrs
 
 
-def run_ref_classifiers(target, args, primary_key='TranscriptId', chunk_size=2000):
+def run_ref_classifiers(target, args, chunk_size=2000):
     """
     Main loop for classification. Produces a classification job for chunk_size alignments.
     """
@@ -222,10 +226,10 @@ def run_ref_classifiers(target, args, primary_key='TranscriptId', chunk_size=200
     for chunk in grouper(ref_dict.iteritems(), chunk_size):
         target.addChildTarget(Classify(args, chunk, tmp_classify))
     target.addChildTargetFn(build_attributes_table, args=(args, ref_dict, tmp_attrs))
-    target.setFollowOnTargetFn(write_to_db, args=(args, tmp_classify, tmp_attrs, primary_key))
+    target.setFollowOnTargetFn(write_to_db, args=(args, tmp_classify, tmp_attrs))
 
 
-def run_tm_classifiers(target, args, primary_key='AlignmentId', chunk_size=150):
+def run_tm_classifiers(target, args, chunk_size=100):
     """
     Main loop for classification. Produces a classification job for chunk_size alignments.
     """
@@ -253,35 +257,28 @@ def run_tm_classifiers(target, args, primary_key='AlignmentId', chunk_size=150):
     for chunk in grouper(aln_dict.iteritems(), chunk_size):
         target.addChildTarget(AlignmentClassify(args, chunk, tmp_classify))
         target.addChildTarget(AlignmentAttributes(args, chunk, tmp_attrs))
-    target.setFollowOnTargetFn(write_to_db, args=(args, tmp_classify, tmp_attrs, primary_key))
+    target.setFollowOnTargetFn(write_to_db, args=(args, tmp_classify, tmp_attrs))
 
 
-def run_aug_classifiers(target, args, primary_key='AlignmentId', chunk_size=150):
+def run_aug_classifiers(target, args, primary_key='AugustusAlignmentId', chunk_size=2000):
     """
     Main loop for augustus classification. Produces a classification job for chunk_size alignments.
     """
     tmp_classify, tmp_attrs = construct_tmp_dirs(target)
-    def build_aln_dict(ref_dict, tx_dict, psl_dict, ref_psl_dict, paralogy_recs):
+    def build_aln_dict(tx_dict, aug_tx_dict, paralogy_recs):
         """merge different data dicts"""
         r = {}
-        for aln_id, aln in psl_dict.iteritems():
-            if aln_id not in tx_dict:
-                # not all alignments have transcripts
-                continue
-            a = ref_dict[remove_alignment_number(aln_id)]
-            t = tx_dict[aln_id]
-            ref_aln = ref_psl_dict[remove_alignment_number(aln_id)]
-            c = paralogy_recs[aln_id]
-            r[aln_id] = (a, t, aln, ref_aln, c)
+        for aug_aln_id, aug_t in aug_tx_dict.iteritems():
+            t = tx_dict[remove_augustus_alignment_number(aug_aln_id)]
+            c = paralogy_recs[aug_aln_id]
+            r[aug_aln_id] = (t, aug_t, c)
         return r
-    ref_dict = get_transcript_dict(args.annotation_gp)
     tx_dict = get_transcript_dict(args.target_gp)
-    psl_dict = get_alignment_dict(args.psl)
-    ref_psl_dict = get_alignment_dict(args.ref_psl)
+    aug_tx_dict = get_transcript_dict(args.augustus_gp)
     # we have to do paralogy separately, as it needs all the alignment names
     paralogy_recs = alignment_classifiers.paralogy(tx_dict)
-    aln_dict = build_aln_dict(ref_dict, tx_dict, psl_dict, ref_psl_dict, paralogy_recs)
+    aln_dict = build_aln_dict(tx_dict, aug_tx_dict, paralogy_recs)
     for chunk in grouper(aln_dict.iteritems(), chunk_size):
-        target.addChildTarget(AlignmentClassify(args, chunk, tmp_classify))
-        target.addChildTarget(AlignmentAttributes(args, chunk, tmp_attrs))
-    target.setFollowOnTargetFn(write_to_db, args=(args, tmp_classify, tmp_attrs, primary_key))
+        target.addChildTarget(AugustusClassify(args, chunk, tmp_classify))
+    # tmp_attrs will just be empty
+    target.setFollowOnTargetFn(write_to_db, args=(args, tmp_classify, tmp_attrs))
