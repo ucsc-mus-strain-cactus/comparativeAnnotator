@@ -148,7 +148,7 @@ def multiple_augustus_transcripts(aug_dict):
         if count > 1:
             name = 'MultipleAugustusTranscripts_{}_Copies'.format(count)
             bed_rec = tx_lib.transcript_to_bed(aug_t, '128,0,0', name)
-            results[aug_t.name] = bed_rec
+            results[aug_t.name] = [bed_rec]
         else:
             results[aug_t.name] = []
     return results

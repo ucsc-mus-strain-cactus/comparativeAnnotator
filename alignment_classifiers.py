@@ -284,7 +284,7 @@ class Synonymous(Nonsynonymous):
         return self.colors["synon"]
 
     def __call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta, equality_test=lambda target, query: target == query):
-        Nonsynonymous.__call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta, equality_test)
+        return Nonsynonymous.__call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta, equality_test)
 
 
 def paralogy(tx_dict):
@@ -298,7 +298,7 @@ def paralogy(tx_dict):
         if count > 0:
             name = 'Paralogy_{}_Copies'.format(count)
             bed_rec = tx_lib.transcript_to_bed(t, '128,0,0', name)
-            results[aln_id] = bed_rec
+            results[aln_id] = [bed_rec]
         else:
             results[aln_id] = []
     return results

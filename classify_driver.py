@@ -46,9 +46,9 @@ class AbstractClassify(Target):
             for classify_name, details in rd.iteritems():
                 if isinstance(details, list):
                     rcs[classify_name] = len(details)
-                    rds[classify_name] = '\n'.join(['\t'.join(map(str, bed)) for bed in details if len(bed) > 0])
+                    rds[classify_name] = '\n'.join(['\t'.join(map(str, bed)) for bed in details])
                 else:
-                    assert isinstance(details, str)
+                    assert isinstance(details, str), ("HERE", details, classify_name)
                     rds[classify_name] = rcs[classify_name] = details
             r_details_string.append(rds)
             r_classify.append(rcs)
@@ -229,7 +229,7 @@ def run_ref_classifiers(target, args, chunk_size=2000):
     target.setFollowOnTargetFn(write_to_db, args=(args, tmp_classify, tmp_attrs))
 
 
-def run_tm_classifiers(target, args, chunk_size=100):
+def run_tm_classifiers(target, args, chunk_size=20):
     """
     Main loop for classification. Produces a classification job for chunk_size alignments.
     """
@@ -260,7 +260,7 @@ def run_tm_classifiers(target, args, chunk_size=100):
     target.setFollowOnTargetFn(write_to_db, args=(args, tmp_classify, tmp_attrs))
 
 
-def run_aug_classifiers(target, args, primary_key='AugustusAlignmentId', chunk_size=2000):
+def run_aug_classifiers(target, args, primary_key='AugustusAlignmentId', chunk_size=1000):
     """
     Main loop for augustus classification. Produces a classification job for chunk_size alignments.
     """
