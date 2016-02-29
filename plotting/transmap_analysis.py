@@ -1,24 +1,9 @@
-import os
-import argparse
-from collections import Counter, OrderedDict
+from collections import OrderedDict
 import numpy as np
-import lib.sql_lib as sql_lib
-import lib.psl_lib as psl_lib
-import lib.plot_lib as plot_lib
-from lib.general_lib import mkdir_p
-import etc.config
-
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--genomes", type=str, nargs="+", required=True, help="genomes in this comparison")
-    parser.add_argument("--refGenome", type=str, required=True, help="reference genome")
-    parser.add_argument("--outDir", required=True, help="output directory")
-    parser.add_argument("--comparativeAnnotationDir", required=True, help="directory containing databases")
-    parser.add_argument("--gencode", type=str, required=True, help="current gencode set being analyzed")
-    parser.add_argument("--filterChroms", nargs="+", default=["Y", "chrY"], help="chromosomes to ignore")
-    return parser.parse_args()
-
+from comparativeAnnotator.database_queries import get_fail_pass_excel_ids, paralogy, get_ref_ids, get_column,\
+    get_transcript_gene_map
+import comparativeAnnotator.comp_lib.plot_lib as plot_lib
+from comparativeAnnotator.comp_lib.name_conversions import strip_alignment_numbers
 
 # Hard coded bins used for plots.
 paralogy_bins = [0, 1, 2, 3, 4, float('inf')]
@@ -26,124 +11,89 @@ coverage_bins = [0, 0.0001, 95.0, 98.0, 99.0, 99.999999, 100.0]
 identity_bins = [0, 0.0001, 99.0, 99.5, 99.8, 99.999999, 100.0]
 
 
-def paralogy(cur, genome):
-    """
-    Finds the number of paralogous alignments. This is defined as the number of transcript IDs with more than one
-    alignment.
-    """
-    cmd = """SELECT TranscriptId FROM attributes.'{0}'""".format(genome)
-    return Counter([x[0] for x in cur.execute(cmd)])
-
-
-def make_hist(vals, bins, reverse=False, roll=0):
-    """
-    Makes a histogram out of a value vector given a list of bins. Returns this normalized off the total number.
-    Reverse reverses the output relative to bins, roll determines how far to roll the bins around. Useful for putting
-    the 0 bin on top.
-    """
-    raw = np.histogram(vals, bins)[0]
-    if reverse is True:
-        raw = raw[::-1]
-    raw = np.roll(raw, roll)
-    norm = raw / (0.01 * len(vals))
-    return norm, raw
-
-
-def get_fail_pass_excel_dict(cur, ref_genome, genomes, highest_cov_dict, biotype, filter_chroms):
-    """
-    Wrapper for sql_lib.get_fail_passing_excel_ids that applies to many genomes.
-    """
-    results = OrderedDict()
-    for genome in genomes:
-        results[genome] = sql_lib.get_fail_passing_excel_ids(cur, ref_genome, genome, biotype, best_cov_only=True,
-                                                         filter_chroms=filter_chroms, highest_cov_dict=highest_cov_dict)
-    return results
-
-
-def paralogy_plot(cur, genomes, out_path, biotype, biotype_ids, gencode):
+def paralogy_plot(genomes, ref_genome, biotype, path, db_path):
     results = []
-    file_name = "{}_{}".format(gencode, "paralogy")
+    biotype_ids = get_ref_ids(ref_genome, db_path, biotype)
     for g in genomes:
-        p = paralogy(cur, g)
-        p = [p.get(x, 0) for x in biotype_ids]
+        p = paralogy(g, db_path, biotype)
         # we roll the list backwards one to put 0 on top
-        norm, raw = make_hist(p, paralogy_bins, reverse=False, roll=-1)
+        norm, raw = plot_lib.make_hist(p, paralogy_bins, reverse=False, roll=-1)
         results.append([g, norm])
-    title_string = "Proportion of {:,} {} transcripts in {}\nthat have multiple alignments"
-    title_string = title_string.format(len(biotype_ids), biotype, gencode)
+    title_string = "Proportion of {:,} {} transcripts that have multiple alignments"
+    title_string = title_string.format(len(biotype_ids), biotype.replace("_", " "))
     legend_labels = ["= {}".format(x) for x in paralogy_bins[1:-2]] + [u"\u2265 {}".format(paralogy_bins[-2])] + \
                     ["= {}".format(paralogy_bins[0])]
-    plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
+    plot_lib.stacked_barplot(results, legend_labels, path, title_string)
 
 
-def categorized_plot(cur, highest_cov_dict, genomes, out_path, file_name, biotype, biotype_ids, gencode, query_fn):
+def cov_plot(genomes, ref_genome, biotype, path, db_path):
     results = []
-    for g in genomes:
-        best_ids = set(zip(*highest_cov_dict[g].itervalues())[0])
-        query = query_fn(g, biotype, details=False)
-        categorized_ids = sql_lib.get_query_ids(cur, query)
-        num_categorized = len({x for x in categorized_ids if x in best_ids and 
-                               psl_lib.remove_alignment_number(x) in biotype_ids})
-        norm = num_categorized / (0.01 * len(biotype_ids))
-        results.append([g, norm, num_categorized])
-    title_string = "Proportion of {:,} {} transcripts in {}\ncategorized as {}"
-    title_string = title_string.format(len(biotype_ids), biotype, gencode, query_fn.__name__)
-    plot_lib.barplot(results, out_path, file_name, title_string, adjust_y=False)
+    biotype_ids = get_ref_ids(ref_genome, db_path, biotype)
+    for genome in genomes:
+        r = get_column(genome, ref_genome, db_path, 'tgt.attrs.AlignmentCoverage', biotype, best_cov_only=True)
+        r.extend([0] * (len(biotype_ids) - len(r)))  # add no alignment IDs
+        norm, raw = plot_lib.make_hist(r, coverage_bins, reverse=True, roll=0)
+        results.append([genome, norm])
+    title_string = "transMap alignment coverage breakdown for\n{:,} {} transcripts"
+    title_string = title_string.format(len(biotype_ids), biotype.replace("_", " "))
+    legend_labels = ["= {0:.1f}%".format(coverage_bins[-1])]
+    legend_labels.extend(["< {0:.1f}%".format(x) for x in coverage_bins[2:-1][::-1]])
+    legend_labels.append("= {0:.1f}%".format(coverage_bins[0]))
+    plot_lib.stacked_barplot(results, legend_labels, path, title_string)
 
 
-def cat_plot_wrapper(cur, highest_cov_dict, genomes, out_path, biotype, gencode, biotype_ids):
-    for query_fn in [etc.config.alignmentErrors, etc.config.assemblyErrors]:
-        file_name = "{}_{}".format(gencode, query_fn.__name__)
-        categorized_plot(cur, highest_cov_dict, genomes, out_path, file_name, biotype, biotype_ids, gencode,
-                         query_fn)
-
-
-def metrics_plot(highest_cov_dict, bins, genomes, out_path, file_name, biotype, gencode, biotype_ids, analysis):
+def ident_plot(genomes, ref_genome, biotype, path, db_path):
     results = []
-    for g in genomes:
-        covs = highest_cov_dict[g]
-        vals = [eval(analysis) for tx_id, (aln_id, coverage, identity) in covs.iteritems() if tx_id in biotype_ids]
-        vals.extend([0] * (len(biotype_ids) - len(vals)))  # add all of the unmapped transcripts
-        norm, raw = make_hist(vals, bins, reverse=True, roll=0)
-        results.append([g, norm])
-    title_string = "transMap alignment {} breakdown for\n{:,} {} transcripts in {}"
-    title_string = title_string.format(analysis, len(biotype_ids), biotype, gencode)
-    legend_labels = ["= {0:.1f}%".format(bins[-1])]
-    legend_labels.extend(["< {0:.1f}%".format(x) for x in bins[2:-1][::-1]])
-    legend_labels.append("= {0:.1f}%".format(bins[0]))
-    plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
+    biotype_ids = get_ref_ids(ref_genome, db_path, biotype)
+    for genome in genomes:
+        r = get_column(genome, ref_genome, db_path, 'tgt.attrs.AlignmentIdentity', biotype, best_cov_only=True)
+        r.extend([0] * (len(biotype_ids) - len(r)))  # add no alignment IDs
+        norm, raw = plot_lib.make_hist(r, coverage_bins, reverse=True, roll=0)
+        results.append([genome, norm])
+    title_string = "transMap alignment identity breakdown for\n{:,} {} transcripts"
+    title_string = title_string.format(len(biotype_ids), biotype.replace("_", " "))
+    legend_labels = ["= {0:.1f}%".format(coverage_bins[-1])]
+    legend_labels.extend(["< {0:.1f}%".format(x) for x in coverage_bins[2:-1][::-1]])
+    legend_labels.append("= {0:.1f}%".format(coverage_bins[0]))
+    plot_lib.stacked_barplot(results, legend_labels, path, title_string)
 
 
-def cov_ident_wrapper(highest_cov_dict, genomes, out_path,  biotype, gencode, biotype_ids):
-    for analysis in ["coverage", "identity"]:
-        bins = eval(analysis + "_bins")
-        file_name = "{}_{}".format(gencode, analysis)
-        metrics_plot(highest_cov_dict, bins, genomes, out_path, file_name, biotype, gencode, biotype_ids, analysis)
-
-
-def num_pass_excel(fail_pass_excel_dict, cur, ref_genome, out_path, biotype, gencode, biotype_ids):
-    file_name = "{}_num_pass_excel".format(gencode)
+def num_pass_excel(genomes, ref_genome, biotype, path, db_path, filter_chroms):
+    """
+    Number of transcripts in each category.
+    """
     results = []
-    for genome, (fail_ids, pass_specific_ids, excel_ids) in fail_pass_excel_dict.iteritems():
+    biotype_ids = get_ref_ids(ref_genome, db_path, biotype)
+    for genome in genomes:
+        excel_ids, pass_specific_ids, fail_ids = get_fail_pass_excel_ids(ref_genome, genome, db_path, biotype=biotype,
+                                                                         filter_chroms=filter_chroms,
+                                                                         best_cov_only=True)
         num_no_aln = len(biotype_ids) - sum([len(x) for x in [fail_ids, pass_specific_ids, excel_ids]])
+        assert num_no_aln >= 0
         raw = np.array([len(excel_ids), len(pass_specific_ids), len(fail_ids), num_no_aln])
         assert all([x >= 0 for x in raw])
         norm = raw / (0.01 * len(biotype_ids))
         results.append([genome, norm])
-    title_string = "Proportion of {:,} {} transcripts in {}\ncategorized as Excellent/Pass/Fail"
-    title_string = title_string.format(len(biotype_ids), biotype.replace("_", " "), gencode)
+    title_string = "Proportion of {:,} {} transcripts categorized as Excellent/Pass/Fail"
+    title_string = title_string.format(len(biotype_ids), biotype.replace("_", " "))
     legend_labels = ["Excellent", "Pass", "Fail", "NoAln"]
-    plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
+    plot_lib.stacked_barplot(results, legend_labels, path, title_string)
 
 
-def num_pass_excel_gene_level(fail_pass_excel_dict, cur, ref_genome, out_path, biotype, gencode, transcript_gene_map):
-    file_name = "{}_num_pass_excel_gene_level".format(gencode)
+def num_pass_excel_gene_level(genomes, ref_genome, biotype, path, db_path, filter_chroms):
+    """
+    Number of genes who have at least one transcript in the highest category they have one for.
+    """
     results = []
-    for genome, (fail_ids, pass_specific_ids, excel_ids) in fail_pass_excel_dict.iteritems():
-        excel_genes = {transcript_gene_map[psl_lib.strip_alignment_numbers(x)] for x in excel_ids}
-        pass_specific_genes = {transcript_gene_map[psl_lib.strip_alignment_numbers(x)] for x in pass_specific_ids}
-        fail_genes = {transcript_gene_map[psl_lib.strip_alignment_numbers(x)] for x in fail_ids}
-        num_genes = len(set(transcript_gene_map.values()))
+    transcript_gene_map = get_transcript_gene_map(ref_genome, db_path, biotype=biotype)
+    num_genes = len(set(transcript_gene_map.values()))
+    for genome in genomes:
+        excel_ids, pass_specific_ids, fail_ids = get_fail_pass_excel_ids(ref_genome, genome, db_path, biotype=biotype,
+                                                                         filter_chroms=filter_chroms,
+                                                                         best_cov_only=True)
+        excel_genes = {transcript_gene_map[strip_alignment_numbers(x)] for x in excel_ids}
+        pass_specific_genes = {transcript_gene_map[strip_alignment_numbers(x)] for x in pass_specific_ids}
+        fail_genes = {transcript_gene_map[strip_alignment_numbers(x)] for x in fail_ids}
         num_excel_genes = len(excel_genes)
         num_pass_genes = len(pass_specific_genes - excel_genes)
         num_fail_genes = len(fail_genes - (pass_specific_genes | excel_genes))
@@ -152,30 +102,7 @@ def num_pass_excel_gene_level(fail_pass_excel_dict, cur, ref_genome, out_path, b
         assert all([x >= 0 for x in raw])
         norm = raw / (0.01 * num_genes)
         results.append([genome, norm])
-    title_string = "Proportion of {:,} {} genes in {}\nwith at least one transcript categorized as Excellent/Pass/Fail"
-    title_string = title_string.format(num_genes, biotype.replace("_", " "), gencode)
+    title_string = "Proportion of {:,} {} genes \nwith at least one transcript categorized as Excellent/Pass/Fail"
+    title_string = title_string.format(num_genes, biotype.replace("_", " "))
     legend_labels = ["Excellent", "Pass", "Fail", "NoAln"]
-    plot_lib.stacked_barplot(results, legend_labels, out_path, file_name, title_string)
-
-
-def main():
-    args = parse_args()
-    con, cur = sql_lib.attach_databases(args.comparativeAnnotationDir, mode="transMap")
-    highest_cov_dict = sql_lib.get_highest_cov_alns(cur, args.genomes, args.filterChroms)
-    for biotype in sql_lib.get_all_biotypes(cur, args.refGenome, gene_level=False):
-        biotype_ids = sql_lib.get_biotype_ids(cur, args.refGenome, biotype, filter_chroms=args.filterChroms)
-        transcript_gene_map = sql_lib.get_transcript_gene_map(cur, args.refGenome, biotype, filter_chroms=args.filterChroms)
-        if len(biotype_ids) > 50:  # hardcoded cutoff to avoid issues where this biotype/gencode mix is nearly empty
-            fail_pass_excel_dict = get_fail_pass_excel_dict(cur, args.refGenome, args.genomes, highest_cov_dict, biotype,
-                                                          args.filterChroms)
-            out_path = os.path.join(args.outDir, "transmap_analysis", biotype)
-            mkdir_p(out_path)
-            cov_ident_wrapper(highest_cov_dict, args.genomes, out_path, biotype, args.gencode, biotype_ids)
-            cat_plot_wrapper(cur, highest_cov_dict, args.genomes, out_path, biotype, args.gencode, biotype_ids)
-            paralogy_plot(cur, args.genomes, out_path, biotype, biotype_ids, args.gencode)
-            num_pass_excel(fail_pass_excel_dict, cur, args.refGenome, out_path, biotype, args.gencode, biotype_ids)
-            num_pass_excel_gene_level(fail_pass_excel_dict, cur, args.refGenome, out_path, biotype, args.gencode, 
-                                     transcript_gene_map)
-
-if __name__ == "__main__":
-    main()
+    plot_lib.stacked_barplot(results, legend_labels, path, title_string)

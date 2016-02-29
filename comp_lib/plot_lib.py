@@ -5,6 +5,7 @@ import os
 import itertools
 import math
 import numpy as np
+from pycbio.sys.fileOps import ensureDir
 
 import matplotlib
 matplotlib.use('Agg')
@@ -14,7 +15,6 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import matplotlib.pylab as pylab
 import matplotlib.backends.backend_pdf as plt_back
-from etc.config import *
 
 __author__ = "Ian Fiddes"
 
@@ -23,24 +23,41 @@ height = 6.0
 bar_width = 0.45
 
 
-def find_genome_order(highest_cov_dict, biotype_ids):
-    """
-    Finds the genome order that will be used by all plots. This is deprecated in favor of using a hard coded order
-    based on the pipeline config file.
-    """
-    num_cov = {}
-    for g, covs in highest_cov_dict.iteritems():
-        num_cov[g] = 1.0 * len({tx_id for tx_id in covs.iterkeys() if tx_id in biotype_ids})
-        num_cov[g] /= len(biotype_ids)
-    order = sorted(num_cov.iteritems(), key=lambda x: -x[1])
-    return zip(*order)[0]
+# paired_palette has two parallel color spectrums and black as the outgroup color
+paired_palette = ["#df65b0", "#dd1c77", "#980043",  # reds
+                  "#a1dab4", "#41b6c4", "#2c7fb8",  # blues
+                  "#252525"]  # black
+
+# triple palette is the same as paired palette but with 3 colors
+triple_palette = ['#374a69', '#415e8c', '#4c72b0',  # blues
+                  '#73383a', '#9b4346', '#c44e52',  # reds
+                  '#3b6545', '#488656', '#55a868',  # greens
+                  "#252525"]  # black
+
+# palette is the seaborn colorbind palette
+palette = ["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#f0e442", "#56b4e9"]
 
 
-def init_image(out_folder, comparison_name, width, height):
+def make_hist(vals, bins, reverse=False, roll=0):
+    """
+    Makes a histogram out of a value vector given a list of bins. Returns this normalized off the total number.
+    Reverse reverses the output relative to bins, roll determines how far to roll the bins around. Useful for putting
+    the 0 bin on top.
+    """
+    raw = np.histogram(vals, bins)[0]
+    if reverse is True:
+        raw = raw[::-1]
+    raw = np.roll(raw, roll)
+    norm = raw / (0.01 * len(vals))
+    return norm, raw
+
+
+def init_image(path, width, height):
     """
     Sets up a PDF object.
     """
-    pdf = plt_back.PdfPages(os.path.join(out_folder, comparison_name + ".pdf"))
+    ensureDir(os.path.dirname(path))
+    pdf = plt_back.PdfPages(path)
     # width by height in inches
     fig = plt.figure(figsize=(width, height), dpi=300, facecolor='w')
     return fig, pdf
@@ -99,11 +116,11 @@ def calculate_y_range(max_y_value, breaks):
     return np.arange(0, max_ceil_val + 1, max_ceil_val / breaks)
 
 
-def base_barplot(max_y_value, names, out_path, file_name, title_string, breaks, border=True, has_legend=True):
+def base_barplot(max_y_value, names, path, title_string, breaks, border=True, has_legend=True):
     """
     Used to initialize either a stacked or unstacked barplot.
     """
-    fig, pdf = init_image(out_path, file_name, width, height)
+    fig, pdf = init_image(path, width, height)
     ax = establish_axes(fig, width, height, border, has_legend)
     plt.text(0.5, 1.08, title_string, horizontalalignment='center', fontsize=12, transform=ax.transAxes)
     ax.set_ylabel("Proportion of transcripts")
@@ -118,8 +135,7 @@ def base_barplot(max_y_value, names, out_path, file_name, title_string, breaks, 
     return ax, fig, pdf
 
 
-def barplot(results, out_path, file_name, title_string, color="#0072b2", border=True, add_labels=True, adjust_y=True,
-            breaks=10.0):
+def barplot(results, path, title_string, color="#0072b2", border=True, add_labels=True, adjust_y=True, breaks=10.0):
     """
     Boilerplate code that will produce a unstacked barplot. Expects results to be a list of lists in the form
     [[name1, normalized_value1, value1], [name2, normalized_value2, value2]]. Normalized between 0 and 100.
@@ -130,8 +146,7 @@ def barplot(results, out_path, file_name, title_string, color="#0072b2", border=
         max_y_value = max(values)
     else:
         max_y_value = 100.0
-    ax, fig, pdf = base_barplot(max_y_value, names, out_path, file_name, title_string, breaks, border=border, 
-                                has_legend=False)
+    ax, fig, pdf = base_barplot(max_y_value, names, path, title_string, breaks, border=border, has_legend=False)
     bars = ax.bar(range(len(names)), values, bar_width, color=color)
     if add_labels is True:
         for i, rect in enumerate(bars):
@@ -144,8 +159,7 @@ def barplot(results, out_path, file_name, title_string, color="#0072b2", border=
     pdf.close()
 
 
-def stacked_barplot(results, legend_labels, out_path, file_name, title_string, color_palette=palette, border=True,
-                    breaks=10.0):
+def stacked_barplot(results, legend_labels, path, title_string, color_palette=palette, border=True, breaks=10.0):
     """
     Boilerplate code that will produce a stacked barplot. Expects results to be a list of lists of lists in the form
     [[name1, [value1a, value1b]], [name2, [value2a, value2b]]. The values should be normalized between 0 and 100.
@@ -153,7 +167,7 @@ def stacked_barplot(results, legend_labels, out_path, file_name, title_string, c
     Assumes that all bars have the same denominator, and so are normalizable.
     """
     names, values = zip(*results)
-    ax, fig, pdf = base_barplot(100.0, names, out_path, file_name, title_string, breaks, border=border, has_legend=True)
+    ax, fig, pdf = base_barplot(100.0, names, path, title_string, breaks, border=border, has_legend=True)
     bars = []
     cumulative = np.zeros(len(values))
     for i, d in enumerate(np.asarray(values).transpose()):
@@ -170,9 +184,8 @@ def stacked_barplot(results, legend_labels, out_path, file_name, title_string, c
     pdf.close()
 
 
-def base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks, border=True,
-                         has_legend=True):
-    fig, pdf = init_image(out_path, file_name, width, height)
+def base_unequal_barplot(max_y_value, names, path, title_string, ylabel, breaks, border=True, has_legend=True):
+    fig, pdf = init_image(path, width, height)
     ax = establish_axes(fig, width, height, border, has_legend)
     plt.text(0.5, 1.08, title_string, horizontalalignment='center', fontsize=12, transform=ax.transAxes)
     ax.set_ylabel(ylabel)
@@ -185,7 +198,7 @@ def base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, 
     return ax, fig, pdf
 
 
-def unequal_barplot(results, out_path, file_name, title_string, color_palette=palette, breaks=10.0, border=False, 
+def unequal_barplot(results, path, title_string, color_palette=palette, breaks=10.0, border=False,
                     ylabel="Number of transcripts"):
     """
     Boilerplate code that will produce a barplot. Expects results to be a list of lists of lists in the form
@@ -193,9 +206,9 @@ def unequal_barplot(results, out_path, file_name, title_string, color_palette=pa
     Should be in the same order as legend_labels or your legend will be wrong.
     """
     names, values = zip(*results)
-    max_y_value =  max(values)
-    ax, fig, pdf = base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks,
-                                        border=border, has_legend=True)
+    max_y_value = max(values)
+    ax, fig, pdf = base_unequal_barplot(max_y_value, names, path, title_string, ylabel, breaks, border=border,
+                                        has_legend=True)
     bars = ax.bar(range(len(names)), values, bar_width, color=palette[0])
     if max(len(x) for x in names) > 15:
         adjust_x_labels(ax, names)
@@ -204,8 +217,8 @@ def unequal_barplot(results, out_path, file_name, title_string, color_palette=pa
     pdf.close()
 
 
-def stacked_unequal_barplot(results, legend_labels, out_path, file_name, title_string, color_palette=palette,
-                            breaks=10.0, border=True, ylabel="Number of transcripts"):
+def stacked_unequal_barplot(results, legend_labels, path, title_string, color_palette=palette, breaks=10.0, border=True,
+                            ylabel="Number of transcripts"):
     """
     Boilerplate code that will produce a stacked barplot. Expects results to be a list of lists of lists in the form
     [[name1, [value1a, value1b]], [name2, [value2a, value2b]].
@@ -213,8 +226,8 @@ def stacked_unequal_barplot(results, legend_labels, out_path, file_name, title_s
     """
     names, values = zip(*results)
     max_y_value = max(sum(x) for x in values)
-    ax, fig, pdf = base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks,
-                                        border=border, has_legend=True)
+    ax, fig, pdf = base_unequal_barplot(max_y_value, names, path, title_string, ylabel, breaks, border=border,
+                                        has_legend=True)
     bars = []
     cumulative = np.zeros(len(values))
     for i, d in enumerate(np.asarray(values).transpose()):
@@ -231,8 +244,8 @@ def stacked_unequal_barplot(results, legend_labels, out_path, file_name, title_s
     pdf.close()
 
 
-def side_by_side_unequal_barplot(results, legend_labels, out_path, file_name, title_string, color_palette=palette,
-                                 breaks=10.0, border=True, ylabel="Number of transcripts"):
+def side_by_side_unequal_barplot(results, legend_labels, path, title_string, color_palette=palette, breaks=10.0,
+                                 border=True, ylabel="Number of transcripts"):
     """
     Boilerplate code that will produce a side by side barplot. Expects results to be a list of lists of lists in the form
     [[name1, [value1a, value1b]], [name2, [value2a, value2b]].
@@ -241,8 +254,8 @@ def side_by_side_unequal_barplot(results, legend_labels, out_path, file_name, ti
     names, values = zip(*results)
     shorter_bar_width = bar_width / len(values[0])
     max_y_value = max(sum(x) for x in values)
-    ax, fig, pdf = base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks,
-                                        border=border, has_legend=True)
+    ax, fig, pdf = base_unequal_barplot(max_y_value, names, path, title_string, ylabel, breaks, border=border,
+                                        has_legend=True)
     bars = []
     for i, d in enumerate(np.asarray(values).transpose()):
         bars.append(ax.bar(np.arange(len(values)) + shorter_bar_width * i, d, shorter_bar_width, 
@@ -256,7 +269,7 @@ def side_by_side_unequal_barplot(results, legend_labels, out_path, file_name, ti
     pdf.close()
 
 
-def stacked_side_by_side_unequal_barplot(results, legend_labels, out_path, file_name, title_string, num_columns=2,
+def stacked_side_by_side_unequal_barplot(results, legend_labels, path, title_string, num_columns=2,
                                          color_palette=palette, breaks=10.0, border=True,
                                          ylabel="Number of transcripts"):
     """
@@ -274,8 +287,8 @@ def stacked_side_by_side_unequal_barplot(results, legend_labels, out_path, file_
     names = [" ".join(x) for x in names]
     shorter_bar_width = bar_width / len(values[0])
     max_y_value = max(sum(x) for x in values)
-    ax, fig, pdf = base_unequal_barplot(max_y_value, names, out_path, file_name, title_string, ylabel, breaks,
-                                        border=border, has_legend=True)
+    ax, fig, pdf = base_unequal_barplot(max_y_value, names, path, title_string, ylabel, breaks, border=border,
+                                        has_legend=True)
     rowvals = zip(*values)
     artists = []
     for i, row in enumerate(rowvals):

@@ -2,12 +2,11 @@
 Classifiers in comparativeAnnotator pipeline. Broken down into 3 categories, Single Genome/Comparative/Augustus
 """
 import itertools
-from collections import Counter
 import pycbio.bio.transcripts as tx_lib
 import pycbio.bio.psl as psl_lib
 import pycbio.bio.bio as bio_lib
 import comparativeAnnotator.comp_lib.annotation_utils as utils
-from comparativeAnnotator.comp_lib.name_conversions import remove_alignment_number
+
 
 __author__ = "Ian Fiddes"
 
@@ -285,20 +284,3 @@ class Synonymous(Nonsynonymous):
 
     def __call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta, equality_test=lambda target, query: target == query):
         return Nonsynonymous.__call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta, equality_test)
-
-
-def paralogy(tx_dict):
-    """
-    This special non-classifier function takes the entire transcript dict and produces counts of paralogy.
-    """
-    counts = Counter(remove_alignment_number(aln_id) for aln_id in tx_dict.iterkeys())
-    results = {}
-    for aln_id, t in tx_dict.iteritems():
-        count = counts[remove_alignment_number(aln_id)] - 1
-        if count > 0:
-            name = 'Paralogy_{}_Copies'.format(count)
-            bed_rec = tx_lib.transcript_to_bed(t, '128,0,0', name)
-            results[aln_id] = [bed_rec]
-        else:
-            results[aln_id] = []
-    return results

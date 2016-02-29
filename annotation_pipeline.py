@@ -5,7 +5,7 @@ import sys
 import argparse
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
-from comparativeAnnotator.classify_driver import run_ref_classifiers, run_tm_classifiers
+from comparativeAnnotator.classify_driver import run_ref_classifiers, run_tm_classifiers, run_aug_classifiers
 
 __author__ = "Ian Fiddes"
 
