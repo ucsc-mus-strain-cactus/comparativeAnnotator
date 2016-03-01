@@ -111,19 +111,23 @@ def adjust_x_labels(ax, names, cutoff1=12, cutoff2=18, cutoff3=26):
 
 
 def calculate_y_range(max_y_value, breaks):
-    pn = 1.0 * breaks ** math.ceil(math.log10(max_y_value) - 1)
-    max_ceil_val = math.ceil(max_y_value / pn) * pn
+    try:
+        pn = 1.0 * breaks ** math.ceil(math.log10(max_y_value) - 1)
+        max_ceil_val = math.ceil(max_y_value / pn) * pn
+    except ValueError:
+        max_ceil_val = 1
     return np.arange(0, max_ceil_val + 1, max_ceil_val / breaks)
 
 
-def base_barplot(max_y_value, names, path, title_string, breaks, border=True, has_legend=True):
+def base_barplot(max_y_value, names, path, title_string, breaks, border=True, has_legend=True,
+                 ylabel="Proportion of transcripts"):
     """
     Used to initialize either a stacked or unstacked barplot.
     """
     fig, pdf = init_image(path, width, height)
     ax = establish_axes(fig, width, height, border, has_legend)
     plt.text(0.5, 1.08, title_string, horizontalalignment='center', fontsize=12, transform=ax.transAxes)
-    ax.set_ylabel("Proportion of transcripts")
+    ax.set_ylabel(ylabel)
     ax.set_ylim([0, max_y_value])
     plt.tick_params(axis='y', labelsize=9)
     plt.tick_params(axis='x', labelsize=9)

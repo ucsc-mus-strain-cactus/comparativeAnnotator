@@ -258,16 +258,10 @@ def evaluate_gene(categories):
         assert False, "Should not be able to get here."
 
 
-def evaluate_best_for_gene(tx_ids):
-    return "NoTransMap" if tx_ids is None else "Fail"
-
-
 def evaluate_coding_consensus(binned_transcripts, stats, gps, mode):
     """
     Evaluates the coding consensus for plots. Reproduces a lot of code from find_consensus()
     TODO: split out duplicated code.
-    TODO: Assigning s to FailTM is a hack in cases where we filter out all transcripts due to coverage. This really
-    needs to be addressed, primarily by re-writing this code to actually happen simultaneously with find_consensus.
     Ideally, we also generate a new specific plot showing how often we only report longest-per-gene as well as how often
     the short_transcript filter gets hit.
     """
@@ -287,20 +281,20 @@ def evaluate_coding_consensus(binned_transcripts, stats, gps, mode):
             if best_id is not None:
                 s = evaluate_transcript(best_id, category, tie) if mode == "augustus" else category
             else:
-                s = "FailTM" if mode == 'augustus' else 'Fail'
+                s = "NoTransMap"
             transcript_evaluation[s] += 1
         s = evaluate_gene(categories)
         gene_evaluation[s] += 1
         if s == "Fail":
             best_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps)
-            s = evaluate_best_for_gene(best_for_gene)
+            s = "NoTransMap" if best_for_gene is None else "Fail"
             gene_fail_evaluation[s] += 1
     r = {"transcript": transcript_evaluation, "gene": gene_evaluation, "gene_fail": gene_fail_evaluation}
     return r
 
 
 def evaluate_noncoding_consensus(binned_transcripts, stats, gps):
-    transcript_evaluation = OrderedDict((x, 0) for x in ["ExcellentTM", "PassTM", "FailTM", "NoTransMap"])
+    transcript_evaluation = OrderedDict((x, 0) for x in ["Excellent", "Pass", "Fail", "NoTransMap"])
     gene_evaluation = OrderedDict((x, 0) for x in ["Excellent", "Pass", "Fail", "NoTransMap"])
     gene_fail_evaluation = OrderedDict((x, 0) for x in ["Fail", "NoTransMap"])
     for gene_id in binned_transcripts:
@@ -308,16 +302,13 @@ def evaluate_noncoding_consensus(binned_transcripts, stats, gps):
         for ens_id in binned_transcripts[gene_id]:
             best_id, category, tie = binned_transcripts[gene_id][ens_id]
             categories.add(category)
-            if best_id is not None:
-                s = evaluate_transcript(best_id, category, tie)
-            else:
-                s = "FailTM"
+            s = "NoTransMap" if best_id is None else category
             transcript_evaluation[s] += 1
         s = evaluate_gene(categories)
         gene_evaluation[s] += 1
         if s == "Fail":
             best_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps)
-            s = evaluate_best_for_gene(best_for_gene)
+            s = "NoTransMap" if best_for_gene is None else "Fail"
             gene_fail_evaluation[s] += 1
     r = {"transcript": transcript_evaluation, "gene": gene_evaluation, "gene_fail": gene_fail_evaluation}
     return r

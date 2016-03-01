@@ -6,8 +6,8 @@ import cPickle as pickle
 from collections import OrderedDict, defaultdict
 import comparativeAnnotator.comp_lib.plot_lib as plot_lib
 from pycbio.sys.dataOps import convert_dicts_to_dataframe
+from pycbio.sys.fileOps import touch
 from pycbio.sys.defaultOrderedDict import DefaultOrderedDict
-import etc.config
 
 __author__ = "Ian Fiddes"
 
@@ -29,7 +29,7 @@ def load_evaluations(work_dir, genomes, biotypes):
             d['tx_dup_rate'][genome] = r[biotype]["duplication_rate"]
             d['tx_counts'][genome] = r[biotype]["tx_counts"]
             d['gene_counts'][genome] = r[biotype]["gene_counts"]
-        yield biotype, d
+            yield biotype, d
 
 
 def find_total(data_dict):
@@ -43,7 +43,7 @@ def transcript_gene_plot(evals, out_path, mode, biotype):
     total = find_total(evals)
     base_title = "Breakdown of {:,} {} {} categorized by consensus finding"
     title = base_title.format(total, biotype, mode)
-    palette = etc.config.palette if mode == "genes" or biotype != "protein_coding" else etc.config.triple_palette
+    palette = plot_lib.palette if mode == "genes" or biotype != "protein_coding" else plot_lib.triple_palette
     plot_lib.stacked_barplot(results, categories, out_path, title, color_palette=palette)
 
 
@@ -78,25 +78,27 @@ def collapse_evals(tx_evals):
 
 def biotype_stacked_plot(counter, out_path, mode):
     results, categories = convert_dicts_to_dataframe(counter)
-    base_title = "Biotype breakdown in final {} set derived"
+    base_title = "Biotype breakdown in final {} set"
     title = base_title.format(mode.lower())
     plot_lib.stacked_unequal_barplot(results, categories, out_path, title, ylabel="Number of {}s".format(mode.lower()))
 
 
 def gene_set_plots(args):
-    biotype_plot_map = {b: p for b, p in zip(*[args.biotypes, args.tm_gene_set_plots.plots])}
     biotype_tx_counter = DefaultOrderedDict(lambda: defaultdict(int))
     biotype_gene_counter = DefaultOrderedDict(lambda: defaultdict(int))
     for biotype, d in load_evaluations(args.pickle_dir, args.target_genomes, args.biotypes):
-        plot_path = biotype_plot_map[biotype]
-        for mode, evals, counts in [['transcripts', d['tx_evals'], d['tx_counts']],
-                                    ['genes', d['gene_evals'], d['gene_counts']]]:
-            transcript_gene_plot(evals, plot_path, mode, biotype)
-            size_plot(counts, plot_path, mode, biotype)
+        plot_cfg = args.tm_gene_set_plots[biotype]
+        transcript_gene_plot(d['tx_evals'], plot_cfg.tx_plot, 'transcripts', biotype)
+        transcript_gene_plot(d['gene_evals'], plot_cfg.gene_plot, 'genes', biotype)
+        size_plot(d['tx_counts'], plot_cfg.size_plot, 'transcripts', biotype)
+        size_plot(d['gene_counts'], plot_cfg.gene_size_plot, 'genes', biotype)
+        dup_rate_plot(d['tx_dup_rate'], plot_cfg.dup_rate_plot, biotype)
+        gene_fail_plot(d['gene_fail_evals'], plot_cfg.fail_plot, biotype)
         tx_evals_collapsed = collapse_evals(d['tx_evals'])
         gene_evals_collapsed = collapse_evals(d['gene_evals'])
         for genome, tx_count in tx_evals_collapsed.iteritems():
             biotype_tx_counter[genome][biotype] += tx_count
             biotype_gene_counter[genome][biotype] += gene_evals_collapsed[genome]
-    for mode, counter in [['transcript', biotype_tx_counter], ['gene', biotype_gene_counter]]:
-        biotype_stacked_plot(counter, args.biotype_stacked_plot, mode)
+    for mode, counter, p in [['transcript', biotype_tx_counter, args.transcript_biotype_plot],
+                             ['gene', biotype_gene_counter, args.gene_biotype_plot]]:
+        biotype_stacked_plot(counter, p, mode)
