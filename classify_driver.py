@@ -5,7 +5,7 @@ import cPickle as pickle
 from jobTree.scriptTree.target import Target
 
 from pycbio.sys.introspection import classes_in_module
-from pycbio.bio.transcripts import get_transcript_dict
+from pycbio.bio.transcripts import get_transcript_dict, convert_strand
 from pycbio.bio.psl import get_alignment_dict
 from pycbio.bio.bio import get_sequence_dict
 from pycbio.sys.dataOps import grouper
@@ -155,8 +155,11 @@ def build_attributes_table(target, args, ref_dict, tmp_attrs):
     d = {}
     for ens_id, a in ref_dict.iteritems():
         row = {}
-        row['RefChrom'] = a.chromosome
         row['NumberIntrons'] = len(a.intron_intervals)
+        row['SourceChrom'] = a.chromosome
+        row['SourceStart'] = a.start
+        row['SourceStop'] = a.stop
+        row['SourceStrand'] = convert_strand(a.strand)
         row.update(df.loc[ens_id].to_dict())
         d[ens_id] = row
     tmp_file = tmpFileGet(tmpDir=tmp_attrs)

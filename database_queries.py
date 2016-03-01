@@ -2,7 +2,7 @@
 Uses the database schema to produce queries.
 """
 from collections import Counter, defaultdict
-from comparativeAnnotator.database_schema import ref_tables, tgt_tables, fetch_database
+from comparativeAnnotator.database_schema import ref_tables, tgt_tables, aug_tables, fetch_database
 
 
 ########################################################################################################################
@@ -11,6 +11,18 @@ from comparativeAnnotator.database_schema import ref_tables, tgt_tables, fetch_d
 
 
 def initialize_full_session(ref_genome, genome, db_path):
+    """
+    Returns all tables and establishes a session.
+    """
+    db = fetch_database()
+    db.init(db_path)
+    ref = ref_tables(ref_genome)
+    tgt = tgt_tables(genome)
+    aug = aug_tables(genome)
+    return aug, tgt, ref
+
+
+def initialize_tm_session(ref_genome, genome, db_path):
     """
     Returns all tables and establishes a session.
     """
@@ -41,6 +53,20 @@ def tgt_ref_join_aln_id(tgt, ref):
     return r
 
 
+def aug_tgt_ref_join(aug, tgt, ref):
+    """
+    Produces a base joined table joining aug_attrs, aug_classify, ref_attrs, tgt_attrs, ref_classify, tg_classify,
+    returning a combined object with all
+    """
+    r = aug.attrs.select(aug.attrs, aug.classify, tgt.attrs, tgt.classify, ref.attrs, ref.classify).\
+        join(aug.classify, on=(aug.attrs.AugustusAlignmentId == aug.classify.AugustusAlignmentId)).\
+        join(tgt.classify, on=(aug.attrs.AlignmentId == tgt.classify.AlignmentId)).\
+        join(tgt.attrs, on=(tgt.classify.AlignmentId == tgt.attrs.AlignmentId)).\
+        join(ref.attrs, on=(ref.attrs.TranscriptId == tgt.classify.TranscriptId)).\
+        join(ref.classify, on=(tgt.classify.TranscriptId == ref.classify.TranscriptId)).naive()
+    return r
+
+
 def tgt_ref_join(tgt, ref):
     """
     Produces a base joined table joining ref_attrs, tgt_attrs, ref_classify, tg_classify, returning a combined
@@ -62,13 +88,16 @@ def add_biotype(r, ref, biotype):
 
 def intron_inequality(r, tgt, ref):
     """
-    Adds the missing original intron inequality to a select statement
+    Adds the original intron inequality to a select statement
     """
     return r.where(((2.0 * tgt.attrs.NumberMissingOriginalIntrons) <= (tgt.attrs.NumberIntrons - 1))
-                    | (ref.attrs.NumberIntrons == 0))
+                   | (ref.attrs.NumberIntrons == 0))
 
 
 def coding_classify(r, tgt, ref, passing):
+    """
+    Query that defines passing/excellent for coding genes, adding on to the noncoding classifiers.
+    """
     r = r.where(((ref.classify.CdsUnknownSplice != 0) | (tgt.classify.CdsUnknownSplice == 0)),
                 (tgt.classify.FrameShift == 0),
                 (tgt.classify.CodingInsertions == 0),
@@ -97,12 +126,33 @@ def noncoding_classify(r, tgt, ref, coverage, percent_unknown):
     return r
 
 
+def augustus_classify(r, aug, tgt, ref):
+    """
+    Constructs a query for augustus passing. Generally, allows Augustus to change things if things are wrong in
+    the transMap or the reference to begin with. Also has a catch-all that allows any transcript with >95% coverage
+    and >97% identity.
+    TODO: don't hardcode the identity/coverage cutoffs.
+    """
+    # repeated requirements for both types of boundary movements
+    boundaries = (tgt.classify.AlignmentCoverage < 95.0) | (tgt.classify.CdsUnknownSplice > 0) | (tgt.classify.UtrUnknownSplice > 0)
+    r = r.where((((aug.classify.NotSameStart == 0) | ((tgt.classify.HasOriginalStart != 0) |
+                                                      (tgt.classify.StartOutOfFrame != 0) | (tgt.classify.BadFrame != 0) |
+                                                      (ref.classify.BeginStart != 0))),
+                ((aug.classify.NotSameStop == 0) | ((tgt.classify.HasOriginalStop != 0) | (tgt.classify.BadFrame != 0) |
+                                                    (ref.classify.EndStop != 0))),
+                ((aug.classify.NotSimilarTerminalExonBoundaries == 0) | (boundaries | (tgt.classify.UtrGap > 1))),
+                ((aug.classify.NotSimilarInteralExonBoundaries == 0) | (boundaries | (tgt.classify.CdsGap + tgt.classify.UtrGap > 2))),
+                ((aug.classify.ExonLoss < 2), (aug.classify.MultipleTranscripts == 0))) |
+                ((aug.attrs.AlignmentCoverage >= 95.0) & (aug.attrs.AlignmentIdentity >= 97.0)))
+    return r
+
+
 def add_filter_chroms(r, ref, filter_chroms):
     """
     Take a list of chromosomes to filter out and add those to the query.
     """
     for c in filter_chroms:
-        r = r.where(ref.attrs.RefChrom != c)
+        r = r.where(ref.attrs.SourceChrom != c)
     return r
 
 
@@ -134,7 +184,7 @@ def trans_map_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None
     """
     Returns the set of AlignmentIds that pass the classifiers.
     """
-    tgt, ref = initialize_full_session(ref_genome, genome, db_path)
+    tgt, ref = initialize_tm_session(ref_genome, genome, db_path)
     r = tgt_ref_join_aln_id(tgt, ref)
     r = intron_inequality(r, tgt, ref)
     if passing is True:
@@ -152,11 +202,25 @@ def trans_map_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None
     return set([x[0] for x in r.tuples().execute()])
 
 
+def augustus_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None):
+    """
+    Returns the set of AlignmentIds that pass the classifiers.
+    """
+    aug, tgt, ref = initialize_full_session(ref_genome, genome, db_path)
+    r = aug_tgt_ref_join(aug, tgt, ref)
+    r = augustus_classify(r, aug, tgt, ref)
+    if biotype is not None:
+        r = add_biotype(r, ref, biotype)
+    if filter_chroms is not None:
+        r = add_filter_chroms(r, ref, filter_chroms)
+    return set([x[0] for x in r.tuples().execute()])
+
+
 def get_aln_ids(ref_genome, genome, db_path, biotype=None, best_cov_only=False):
     """
     Gets the alignment IDs in the database. Filters on biotype if set.
     """
-    tgt, ref = initialize_full_session(ref_genome, genome, db_path)
+    tgt, ref = initialize_tm_session(ref_genome, genome, db_path)
     r = tgt_ref_join_aln_id(tgt, ref)
     if biotype is not None:
         r = add_biotype(r, ref, biotype)
@@ -174,7 +238,7 @@ def get_ref_ids(ref_genome, db_path, biotype=None):
 
 
 def get_column(genome, ref_genome, db_path, col, biotype=None, best_cov_only=True):
-    tgt, ref = initialize_full_session(ref_genome, genome, db_path)
+    tgt, ref = initialize_tm_session(ref_genome, genome, db_path)
     r = tgt_ref_join(tgt, ref)
     r = r.select(eval(col))
     if biotype is not None:
@@ -228,6 +292,34 @@ def get_biotypes(ref_genome, db_path):
     ref = initialize_session(ref_genome, db_path, ref_tables)
     r = ref.attrs.select(ref.attrs.TranscriptType)
     return set(x[0] for x in r.tuples().execute())
+
+
+def get_rows(ref_genome, genome, db_path, mode='transMap', biotype=None):
+    """
+    Returns a combined iterable of all rows in the classify-ref table set.
+    """
+    if mode == 'transMap':
+        tgt, ref = initialize_tm_session(ref_genome, genome, db_path)
+        r = tgt_ref_join(tgt, ref)
+    elif mode == 'augustus':
+        aug, tgt, ref = initialize_full_session(ref_genome, genome, db_path)
+        r = aug_tgt_ref_join(aug, tgt, ref)
+    else:
+        raise Exception("bad programmer")
+    if biotype is not None:
+        r = add_biotype(r, ref, biotype)
+    try:
+        return r.naive().execute()
+    except:
+        assert False, (mode, r)
+
+
+def get_row_dict(ref_genome, genome, db_path, mode, biotype=None):
+    """
+    Wraps get_rows, returning a dictionary mapping the unique ID to the row.
+    """
+    return {x.AlignmentId: x for x in get_rows(ref_genome, genome, db_path, mode, biotype)}
+
 
 # this is how peewee can select items from multiple databases at once
 #q=a.select(a, c).join(c, on=(a.TranscriptId == c.TranscriptId)).naive().execute()

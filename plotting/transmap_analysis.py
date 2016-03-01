@@ -1,4 +1,3 @@
-from collections import OrderedDict
 import numpy as np
 from comparativeAnnotator.database_queries import get_fail_pass_excel_ids, paralogy, get_ref_ids, get_column,\
     get_transcript_gene_map

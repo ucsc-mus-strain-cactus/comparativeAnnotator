@@ -7,7 +7,7 @@ from pycbio.sys.introspection import classes_in_module
 from pycbio.sys.fileOps import ensureDir
 import comparativeAnnotator.classifiers as ref_classifiers
 import comparativeAnnotator.alignment_classifiers as alignment_classifiers
-#import comparativeAnnotator.augustus_classifiers as augustus_classifiers
+import comparativeAnnotator.augustus_classifiers as augustus_classifiers
 import comparativeAnnotator.alignment_attributes as alignment_attributes
 
 
@@ -28,8 +28,11 @@ class ReferenceAttributes(Base):
     GeneId = TextField()
     GeneName = TextField()
     GeneType = TextField()
-    RefChrom = TextField()
     NumberIntrons = IntegerField()
+    SourceChrom = TextField()
+    SourceStart = IntegerField()
+    SourceStop = IntegerField()
+    SourceStrand = TextField()
 
 
 class ReferenceGenome(Base):
@@ -63,7 +66,36 @@ class GenomeDetails(Base):
     """
     AlignmentId = TextField(primary_key=True)
     TranscriptId = TextField()
-    Paralogy = TextField(null=True)
+
+
+class AugustusAttributes(Base):
+    """
+    Base class for alignment attributes for a aligned genome.
+    """
+    AugustusAlignmentId = TextField(primary_key=True)
+    AlignmentId = TextField()
+    TranscriptId = TextField()
+    Paralogy = IntegerField(null=True)
+    AlignmentCoverage = FloatField(null=True)
+    AlignmentIdentity = FloatField(null=True)
+
+
+class AugustusClassify(Base):
+    """
+    Base table definition for a classify table.
+    """
+    AugustusAlignmentId = TextField(primary_key=True)
+    AlignmentId = TextField()
+    TranscriptId = TextField()
+
+
+class AugustusDetails(Base):
+    """
+    Base table definition for a details table.
+    """
+    AugustusAlignmentId = TextField(primary_key=True)
+    AlignmentId = TextField()
+    TranscriptId = TextField()
 
 
 class TableHolder(object):
@@ -150,6 +182,29 @@ def tgt_tables(genome):
     # construct details table
     ref_details_columns = classify_columns(classifiers, TextField)
     details = type(details_table_name, (GenomeDetails,), ref_details_columns)
+    set_name(details, details_table_name)
+    return build_namespace(attrs, classify, details)
+
+
+def aug_tables(genome):
+    """
+    Constructs Attributes, Classify and Details tables for the reference genome.
+    """
+    # define table names
+    attr_table_name = genome + '_AugustusAttributes'
+    classify_table_name = genome + '_AugustusClassify'
+    details_table_name = genome + '_AugustusDetails'
+    # construct attributes table
+    attrs = type(attr_table_name, (AugustusAttributes,), {})
+    set_name(attrs, attr_table_name)
+    # construct classify table
+    classifiers = classes_in_module(augustus_classifiers)
+    ref_classify_columns = classify_columns(classifiers, IntegerField)
+    classify = type(classify_table_name, (AugustusClassify,), ref_classify_columns)
+    set_name(classify, classify_table_name)
+    # construct details table
+    ref_details_columns = classify_columns(classifiers, TextField)
+    details = type(details_table_name, (AugustusDetails,), ref_details_columns)
     set_name(details, details_table_name)
     return build_namespace(attrs, classify, details)
 
