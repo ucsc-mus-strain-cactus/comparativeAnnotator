@@ -1,19 +1,33 @@
 """
 This program takes a series of BAM files and converts them to a Augustus hints database.
 """
-
 import sys
 import time
 import os
 import pysam
+os.environ['PYTHONPATH'] = './:./submodules:./submodules/pycbio:./submodules/comparativeAnnotator'
+sys.path.extend(['./', './submodules', './submodules/pycbio', './submodules/comparativeAnnotator'])
 import argparse
 import itertools
 import subprocess
-from pyfaidx import Fasta
-from lib.general_lib import format_ratio, get_tmp, mkdir_p
+from pyfasta import Fasta
+from pycbio.sys.mathOps import format_ratio
+from pycbio.sys.fileOps import tmpFileGet, ensureDir
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, popenCatch, getRandomAlphaNumericString, catFiles, TempFileTree
+
+
+def get_tmp(target, global_dir=False, name=None):
+    """
+    Wrapper functionality for getting temp dirs from jobTree.
+    """
+    prefix = getRandomAlphaNumericString(10)
+    name = "".join([prefix, name]) if name is not None else prefix
+    if global_dir is False:
+        return os.path.join(target.getLocalTempDir(), name)
+    else:
+        return os.path.join(target.getGlobalTempDir(), name)
 
 
 def bam_is_paired(path, num_reads=100000, paired_cutoff=0.75):
@@ -92,6 +106,8 @@ def build_hints(target, filtered_bam_tree, genome, db_path, genome_fasta, hints_
     Driver function for hint building. Builts intron and exon hints, then calls cat_hints to do final concatenation
     and sorting.
     """
+    if hints_dir is None:
+        hints_dir = target.getGlobalTempDir()
     bam_files = [x for x in filtered_bam_tree.listFiles() if x.endswith("bam")]
     intron_hints_tree = TempFileTree(get_tmp(target, global_dir=True, name="intron_hints_tree"))
     exon_hints_tree = TempFileTree(get_tmp(target, global_dir=True, name="exon_hints_tree"))
@@ -166,19 +182,25 @@ def load_db(target, hints, db_path, genome, genome_fasta, timeout=30000, interva
             handle_concurrency(cmd, timeout, intervals, start_time)
         else:
             raise RuntimeError(ret)
-    mkdir_p(os.path.dirname(db_path))
+    ensureDir(os.path.dirname(db_path))
     for cmd in [fa_cmd, hints_cmd]:
         ret = handle_concurrency(cmd, timeout, intervals)
+
+
+def external_main(args):
+    s = Stack(Target.makeTargetFn(main_hints_fn, memory=8 * 1024 ** 3,
+                                  args=[args.bams, args.database, args.genome, args.fasta, args.hintsDir]))
+    i = s.startJobTree(args)
+    if i != 0:
+        raise RuntimeError("Got failed jobs")
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--genome", required=True)
     parser.add_argument("--database", required=True)
-    parser.add_argument("--hintsDir", required=True)
+    parser.add_argument("--hintsDir", default=None)
     parser.add_argument("--fasta", required=True)
-    parser.add_argument("--filterTissues", nargs="+")
-    parser.add_argument("--filterCenters", nargs="+")
     bamfiles = parser.add_mutually_exclusive_group(required=True)
     bamfiles.add_argument("--bamFiles", nargs="+", help="bamfiles being used", dest="bams")
     bamfiles.add_argument("--bamFofn", help="File containing list of bamfiles", dest="bams")
@@ -192,14 +214,6 @@ def main():
         args.bams = bams
     else:
         args.bams = set(args.bams)
-    for to_remove_list in [args.filterTissues, args.filterCenters]:
-        if isinstance(to_remove_list, list):
-            to_remove = set()
-            for x in to_remove_list:
-                for b in args.bams:
-                    if x in b:
-                        to_remove.add(b)
-            args.bams -= to_remove
     s = Stack(Target.makeTargetFn(main_hints_fn, memory=8 * 1024 ** 3,
                                   args=[args.bams, args.database, args.genome, args.fasta, args.hintsDir]))
     i = s.startJobTree(args)
@@ -208,5 +222,5 @@ def main():
 
 
 if __name__ == '__main__':
-    from augustus.build_hints_db import *
+    from comparativeAnnotator.augustus.build_hints_db import *
     main()

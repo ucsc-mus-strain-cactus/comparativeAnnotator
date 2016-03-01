@@ -181,6 +181,7 @@ def write_to_db(target, args, genome, tmp_classify, tmp_attrs, index_label, mode
         if len(dataframes) > 0:
             df = pd.concat(dataframes)
             df = df.sort_index()
+            ensureDir(os.path.dirname(db))
             with ExclusiveSqlConnection(db) as con:
                 df.to_sql(table, con, if_exists='replace', index_label=index_label)
     attr_pickle_files = [os.path.join(tmp_attrs, x) for x in os.listdir(tmp_attrs)]
@@ -200,7 +201,6 @@ def write_to_db(target, args, genome, tmp_classify, tmp_attrs, index_label, mode
     details_db = genome + '_AugustusDetails' if mode == 'augustus' else genome + '_Details'
     for table, files in [[classify_db, classify_pickle_files],
                          [details_db, details_pickle_files]]:
-        ensureDir(os.path.dirname(args.db))
         db_write(args.db, table, index_label, files)
 
 
