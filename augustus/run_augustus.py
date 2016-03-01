@@ -1,28 +1,23 @@
 """
 jobTree wrapper for AugustusTMR.
+TODO: remove sonLib, use pycbio
+TODO: re-write to analyze chunks of transcripts, and merge in each of those jobs.
 """
 
 import os
-import argparse
-import itertools
+import shutil
 import sqlite3 as sql
 from pyfasta import Fasta
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, popenCatch, getRandomAlphaNumericString, catFiles, TempFileTree
-from lib.seq_lib import GenePredTranscript
-from lib.general_lib import mkdir_p
+from pycbio.bio.transcripts import GenePredTranscript
+from pycbio.sys.fileOps import tmpFileGet, ensureDir
 
 
 #####
 # Below are hard coded commands and paths to run Augustus and related scripts.
 #####
-padding = 20000
-max_gene_size = 2000000
-tm_2_hints_params = ("--ep_cutoff=0 --ep_margin=12 --min_intron_len=40 --start_stop_radius=5 --tss_tts_radius=5 "
-                    "--utrend_cutoff=6 --in=/dev/stdin --out=/dev/stdout")
-tm_2_hints_script = "augustus/transMap2hints.pl"
-tm_2_hints_cmd = " ".join([tm_2_hints_script, tm_2_hints_params])
 
 hints_db_query = '''select source,typename,start,end,score,strand,frame,priority,grp,mult,esource
       FROM hints,featuretypes
@@ -30,12 +25,10 @@ hints_db_query = '''select source,typename,start,end,score,strand,frame,priority
              AND seqnr IN (SELECT seqnr FROM seqnames WHERE speciesid IN (SELECT speciesid FROM speciesnames WHERE speciesname="{genome}") AND seqname="{chrom}")
              AND start >= {start} AND end <= {stop} AND typeid=type'''
 
-augustus_cmd = ("augustus {fasta} --predictionStart=-{start} --predictionEnd=-{start} --extrinsicCfgFile={cfg} "
+augustus_cmd = ("{augustus} {fasta} --predictionStart=-{start} --predictionEnd=-{start} --extrinsicCfgFile={cfg} "
                 "--hintsfile={hints} --UTR=on --alternatives-from-evidence=0 --species=human "
                 "--allow_hinted_splicesites=atac --protein=0 --/augustus/verbosity=1 --softmasking=1 "
                 "--outfile=/dev/stdout")
-
-cfgs = {1: "etc/extrinsic.ETM1.cfg", 2: "etc/extrinsic.ETM2.cfg"}
 
 
 def attach_database(path):
@@ -44,7 +37,7 @@ def attach_database(path):
     return con, cur
 
 
-def get_transmap_hints(gp_string):
+def get_transmap_hints(gp_string, tm_2_hints_cmd):
     """
     Uses transMap2hints.pl to create a hints file from a genePred
     """
@@ -118,11 +111,11 @@ def write_augustus(r, name_map, out_path):
                     outf.write("\t".join(map(str, x)) + "\n")
 
 
-def run_augustus(hint_f, seq_f, name, start, stop, cfg_version, cfg_path, out_file_tree, gp):
+def run_augustus(hint_f, seq_f, name, start, cfg_version, cfg_path, out_file_tree, gp, augustus_bin):
     """
     Runs Augustus for each cfg/gp_string pair.
     """
-    cmd = augustus_cmd.format(fasta=seq_f, start=start, cfg=cfg_path, hints=hint_f)
+    cmd = augustus_cmd.format(fasta=seq_f, start=start, cfg=cfg_path, hints=hint_f, augustus=augustus_bin)
     r = popenCatch(cmd)
     r = r.split("\n")
     # extract only the transcript lines
@@ -138,25 +131,28 @@ def run_augustus(hint_f, seq_f, name, start, stop, cfg_version, cfg_path, out_fi
         write_augustus(r, name_map, out_path)
 
 
-def transmap_2_aug(target, gp_string, genome, sizes_path, fasta_path, out_file_tree, hints_db):
+def transmap_2_aug(target, gp_string, args, out_file_tree, augustus_bin):
     """
     Runs Augustus on one individual genePred string. Augustus is ran with each cfg file in cfgs
     """
-    fasta = Fasta(fasta_path)
-    chrom_sizes = {x.split()[0]: x.split()[1] for x in open(sizes_path)}
+    fasta = Fasta(args.fasta)
+    chrom_sizes = {x.split()[0]: x.split()[1] for x in open(args.chrom_sizes)}
     gp = GenePredTranscript(gp_string.rstrip().split("\t"))
     # ignore genes with no coding region or longer than max_gene_size
-    if not (gp.thick_start >= gp.thick_stop or gp.stop - gp.start > max_gene_size):
+    if not (gp.thick_start >= gp.thick_stop or gp.stop - gp.start > args.max_gene_size):
         chrom = gp.chromosome
-        start = max(gp.start - padding, 0)
-        stop = min(gp.stop + padding, chrom_sizes[chrom])
-        tm_hint = get_transmap_hints(gp_string)
-        rnaseq_hint = get_rnaseq_hints(genome, chrom, start, stop, hints_db)
-        hint = "".join([tm_hint, rnaseq_hint])
+        start = max(gp.start - args.padding, 0)
+        stop = min(gp.stop + args.padding, chrom_sizes[chrom])
+        tm_hint = get_transmap_hints(gp_string, args.tm_2_hints_cmd)
+        if args.hints_db is not None:
+            rnaseq_hint = get_rnaseq_hints(args.genome, chrom, start, stop, args.hints_db)
+            hint = "".join([tm_hint, rnaseq_hint])
+        else:
+            hint = tm_hint
         seq = fasta[chrom][start:stop]
         hint_f, seq_f = write_hint_fasta(hint, seq, chrom, target.getGlobalTempDir())
-        for cfg_version, cfg_path in cfgs.iteritems():
-            run_augustus(hint_f, seq_f, gp.name, start, stop, cfg_version, cfg_path, out_file_tree, gp)
+        for cfg_version, cfg_path in args.cfgs.iteritems():
+            run_augustus(hint_f, seq_f, gp.name, start, cfg_version, cfg_path, out_file_tree, gp, augustus_bin)
         # delete the seq and hint file. This makes the final tree cleanup not take so long.
         os.remove(hint_f)
         os.remove(seq_f)
@@ -167,10 +163,17 @@ def cat(target, output_gtf, unsorted_tmp_file, out_file_tree):
     Concatenates all of the results into one big GTF, and sorts it by chromosome/pos
     """
     catFiles(out_file_tree.listFiles(), unsorted_tmp_file)
-    system("sort -k1,1 -k4,4n {} > {}".format(unsorted_tmp_file, output_gtf))
+    tmp = tmpFileGet()
+    system("sort -k1,1 -k4,4n {} > {}".format(unsorted_tmp_file, tmp))
+    ensureDir(os.path.dirname(output_gtf))
+    try:
+        os.rename(tmp, output_gtf)
+    except OSError:
+        shutil.copy(tmp, output_gtf)
+        os.remove(tmp)
 
 
-def wrapper(target, input_gp, output_gtf, genome, sizes_path, fasta_path, hints_db):
+def augustus_tmr_wrapper(target, args):
     """
     Produces one jobTree target per genePred entry.
     """
@@ -178,29 +181,13 @@ def wrapper(target, input_gp, output_gtf, genome, sizes_path, fasta_path, hints_
     out_file_tree = TempFileTree(target.getGlobalTempDir())
     # this file will be where we reduce the final results to before sorting
     unsorted_tmp_file = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString(10))
-    for line in open(input_gp):
+    for line in (open(args.input_gp)):
         target.addChildTargetFn(transmap_2_aug, memory=8 * (1024 ** 3),
-                                args=[line, genome, sizes_path, fasta_path, out_file_tree, hints_db])
-    target.setFollowOnTargetFn(cat, args=[output_gtf, unsorted_tmp_file, out_file_tree])
+                                args=[line, args, out_file_tree, args.augustus_bin])
+    target.setFollowOnTargetFn(cat, args=[args.out_gtf, unsorted_tmp_file, out_file_tree])
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--inputGp", required=True)
-    parser.add_argument("--outputGtf", required=True)
-    parser.add_argument("--genome", required=True)
-    parser.add_argument("--chromSizes", required=True)
-    parser.add_argument("--fasta", required=True)
-    parser.add_argument("--hintsDb", required=True)
-    Stack.addJobTreeOptions(parser)
-    args = parser.parse_args()
-    i = Stack(Target.makeTargetFn(wrapper, memory=8 * (1024 ** 3),
-                                  args=[args.inputGp, args.outputGtf, args.genome,
-                                        args.chromSizes, args.fasta, args.hintsDb])).startJobTree(args)
+def augustus_tmr(args):
+    i = Stack(Target.makeTargetFn(augustus_tmr_wrapper, args=[args])).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
-
-
-if __name__ == '__main__':
-    from augustus.run_augustus import *
-    main()

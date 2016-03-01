@@ -75,7 +75,6 @@ class AugustusAttributes(Base):
     AugustusAlignmentId = TextField(primary_key=True)
     AlignmentId = TextField()
     TranscriptId = TextField()
-    Paralogy = IntegerField(null=True)
     AlignmentCoverage = FloatField(null=True)
     AlignmentIdentity = FloatField(null=True)
 
@@ -87,6 +86,7 @@ class AugustusClassify(Base):
     AugustusAlignmentId = TextField(primary_key=True)
     AlignmentId = TextField()
     TranscriptId = TextField()
+    Paralogy = IntegerField(null=True)
 
 
 class AugustusDetails(Base):

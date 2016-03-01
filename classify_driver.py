@@ -132,7 +132,7 @@ class AugustusClassify(AbstractClassify):
     Main class for single genome classifications.
     """
     def run(self):
-        classifier_fns = self._instantiate_classifiers(classifiers)
+        classifier_fns = self._instantiate_classifiers(augustus_classifiers)
         r_details = {}
         for aug_aln_id, (t, aug_t, paralogy_count) in self.chunk:
             rd = {'AlignmentId': remove_augustus_alignment_number(aug_aln_id),
@@ -167,7 +167,7 @@ def build_attributes_table(target, args, ref_dict, tmp_attrs):
         pickle.dump(d, outf)
 
 
-def write_to_db(target, args, genome, tmp_classify, tmp_attrs, index_label):
+def write_to_db(target, args, genome, tmp_classify, tmp_attrs, index_label, mode=None):
     """
     Wrapper to find pickled objects and write them to the database.
     """
@@ -180,10 +180,12 @@ def write_to_db(target, args, genome, tmp_classify, tmp_attrs, index_label):
         dataframes = [pd.DataFrame.from_dict(d).transpose() for d in datadicts]
         if len(dataframes) > 0:
             df = pd.concat(dataframes)
+            df = df.sort_index()
             with ExclusiveSqlConnection(db) as con:
                 df.to_sql(table, con, if_exists='replace', index_label=index_label)
     attr_pickle_files = [os.path.join(tmp_attrs, x) for x in os.listdir(tmp_attrs)]
-    db_write(args.db, genome + '_Attributes', index_label, attr_pickle_files)
+    attr_db = genome + '_AugustusAttributes' if mode == 'augustus' else genome + '_Attributes'
+    db_write(args.db, attr_db, index_label, attr_pickle_files)
     details_pickle_files = []
     classify_pickle_files = []
     for f in os.listdir(tmp_classify):
@@ -194,8 +196,11 @@ def write_to_db(target, args, genome, tmp_classify, tmp_attrs, index_label):
         else:
             raise Exception("Ian is a bad programmer")
     assert len(details_pickle_files) == len(classify_pickle_files)
-    for table, files in [[genome + '_Classify', classify_pickle_files],
-                         [genome + '_Details', details_pickle_files]]:
+    classify_db = genome + '_AugustusClassify' if mode == 'augustus' else genome + '_Classify'
+    details_db = genome + '_AugustusDetails' if mode == 'augustus' else genome + '_Details'
+    for table, files in [[classify_db, classify_pickle_files],
+                         [details_db, details_pickle_files]]:
+        ensureDir(os.path.dirname(args.db))
         db_write(args.db, table, index_label, files)
 
 
@@ -211,7 +216,7 @@ def construct_tmp_dirs(target):
     return tmp_classify, tmp_attrs
 
 
-def run_ref_classifiers(target, args, chunk_size=2000):
+def run_ref_classifiers(target, args, chunk_size=1000):
     """
     Main loop for classification. Produces a classification job for chunk_size alignments.
     """
@@ -223,7 +228,7 @@ def run_ref_classifiers(target, args, chunk_size=2000):
     target.setFollowOnTargetFn(write_to_db, args=(args, args.ref_genome, tmp_classify, tmp_attrs, 'TranscriptId'))
 
 
-def run_tm_classifiers(target, args, chunk_size=20):
+def run_tm_classifiers(target, args, chunk_size=15):
     """
     Main loop for classification. Produces a classification job for chunk_size alignments.
     """
@@ -269,9 +274,10 @@ def run_aug_classifiers(target, args, chunk_size=1000):
     tx_dict = get_transcript_dict(args.target_gp)
     aug_tx_dict = get_transcript_dict(args.augustus_gp)
     # we have to do paralogy separately, as it needs all the alignment names
-    paralogy_counts = alignment_attributes.paralogy(tx_dict)
+    paralogy_counts = augustus_classifiers.multiple_augustus_transcripts(aug_tx_dict)
     aln_dict = build_aln_dict(tx_dict, aug_tx_dict, paralogy_counts)
     for chunk in grouper(aln_dict.iteritems(), chunk_size):
         target.addChildTarget(AugustusClassify(args, chunk, tmp_classify))
     # tmp_attrs will just be empty
-    target.setFollowOnTargetFn(write_to_db, args=(args, args.genome, tmp_classify, tmp_attrs, 'AugustusAlignmentId'))
+    target.setFollowOnTargetFn(write_to_db, args=(args, args.genome, tmp_classify, tmp_attrs, 'AugustusAlignmentId',
+                                                  'augustus'))

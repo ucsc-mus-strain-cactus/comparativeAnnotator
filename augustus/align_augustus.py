@@ -4,17 +4,18 @@ metrics in a sqlite database. This is used for building consensus gene sets.
 """
 
 import os
-import argparse
 import pandas as pd
 from collections import defaultdict
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
-from lib.psl_lib import PslRow, remove_augustus_alignment_number, remove_alignment_number
-from lib.general_lib import tokenize_stream, grouper
+from pycbio.bio.psl import PslRow
+from comparativeAnnotator.comp_lib.name_conversions import remove_alignment_number, remove_augustus_alignment_number, \
+    strip_alignment_numbers
+from pycbio.sys.dataOps import grouper
+from pycbio.sys.fileOps import tokenizeStream as tokenize_stream
 from sonLib.bioio import fastaWrite, popenCatch, system, TempFileTree, catFiles
 from pyfasta import Fasta
-from lib.general_lib import format_ratio
-from lib.sql_lib import ExclusiveSqlConnection
+from pycbio.sys.sqliteOps import ExclusiveSqlConnection
 
 
 def align(target, target_fasta, chunk, ref_fasta, file_tree):
@@ -27,6 +28,7 @@ def align(target, target_fasta, chunk, ref_fasta, file_tree):
     with open(tmp_aug, "w") as tmp_aug_h, open(tmp_gencode, "w") as tmp_gencode_h:
         for tgt_id in chunk:
             query_id = remove_augustus_alignment_number(tgt_id)
+            tx_id = strip_alignment_numbers(tgt_id)
             gencode_id = remove_alignment_number(query_id)
             gencode_seq = str(r_f[gencode_id])
             aug_seq = str(g_f[tgt_id])
@@ -42,22 +44,22 @@ def align(target, target_fasta, chunk, ref_fasta, file_tree):
     assert len(r_d.viewkeys() & set(chunk)) > 0, (r_d.viewkeys(), set(chunk))
     for tgt_id in chunk:
         if tgt_id not in r_d:
-            results.append([tgt_id, query_id, "0", "0"])
+            results.append([tgt_id, query_id, tx_id, "0", "0"])
         else:
             p_list = [[min(x.coverage, x.target_coverage), x.identity] for x in r_d[tgt_id]]
             best_cov, best_ident = sorted(p_list, key=lambda x: x[0])[-1]
-            results.append(map(str, [tgt_id, query_id, best_cov, best_ident]))
+            results.append(map(str, [tgt_id, query_id, tx_id, best_cov, best_ident]))
     with open(file_tree.getTempFile(), "w") as outf:
         for x in results:
             outf.write("".join([",".join(x), "\n"]))
 
 
-def align_augustus(target, genome, ref_fasta, target_fasta, target_fasta_index, out_db):
+def align_augustus_wrapper(target, args):
     file_tree = TempFileTree(target.getGlobalTempDir())
-    tgt_ids = [x.split()[0] for x in open(target_fasta_index)]
+    tgt_ids = Fasta(args.fasta).keys()
     for chunk in grouper(tgt_ids, 250):
-        target.addChildTargetFn(align, args=[target_fasta, chunk, ref_fasta, file_tree])
-    target.setFollowOnTargetFn(cat, args=(genome, file_tree, out_db))
+        target.addChildTargetFn(align, args=[args.fasta, chunk, args.ref_fasta, file_tree])
+    target.setFollowOnTargetFn(cat, args=(args.genome, file_tree, args.db))
 
 
 def cat(target, genome, file_tree, out_db):
@@ -67,32 +69,15 @@ def cat(target, genome, file_tree, out_db):
 
 
 def load_db(target, genome, tmp_file, out_db):
-    df = pd.read_csv(tmp_file, index_col=0, names=["AugustusAlignmentId", "AlignmentId",
+    df = pd.read_csv(tmp_file, index_col=0, names=["AugustusAlignmentId", "AlignmentId", "TranscriptId",
                                                    "AlignmentCoverage", "AlignmentIdentity"])
     df = df.convert_objects(convert_numeric=True)  # have to convert to float because pandas lacks a good dtype function
     df = df.sort_index()
     with ExclusiveSqlConnection(out_db) as con:
-        df.to_sql(genome, con, if_exists="replace", index=True)
+        df.to_sql(genome, con, if_exists="replace", index_label='AugustusAlignmentId')
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--genome", required=True)
-    parser.add_argument("--refTranscriptFasta", required=True)
-    parser.add_argument("--targetTranscriptFasta", required=True)
-    parser.add_argument("--targetTranscriptFastaIndex", required=True)
-    parser.add_argument("--outDir", required=True)
-    parser.add_argument("--outDb", default="augustus_attributes.db")
-    Stack.addJobTreeOptions(parser)
-    args = parser.parse_args()
-    out_db = os.path.join(args.outDir, args.outDb)
-    i = Stack(Target.makeTargetFn(align_augustus, args=[args.genome, args.refTranscriptFasta,
-                                                        args.targetTranscriptFasta, args.targetTranscriptFastaIndex,
-                                                        out_db])).startJobTree(args)
+def align_augustus(args):
+    i = Stack(Target.makeTargetFn(align_augustus_wrapper, args=[args])).startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
-
-
-if __name__ == '__main__':
-    from augustus.align_augustus import *
-    main()

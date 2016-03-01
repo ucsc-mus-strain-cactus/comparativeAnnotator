@@ -140,9 +140,9 @@ def multiple_augustus_transcripts(aug_dict):
     This special non-classifier function takes the entire transcript dict and produces counts of paralogy.
     """
     r = re.compile("-[0-9]+-")
-    counts = Counter("-".join(r.split(aug_t.name)) for aug_t in aug_dict)
+    counts = Counter("-".join(r.split(aug_t.name)) for aug_t in aug_dict.itervalues())
     results = {}
-    for aug_t.name, aug_t in aug_dict.iteritems():
+    for aug_t in aug_dict.itervalues():
         aug_base_id = "-".join(r.split(aug_t.name))
         count = counts[aug_base_id] - 1
         if count > 1:
