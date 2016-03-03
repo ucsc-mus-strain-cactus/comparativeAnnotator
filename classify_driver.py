@@ -222,7 +222,7 @@ def construct_tmp_dirs(target):
     return tmp_classify, tmp_attrs
 
 
-def run_ref_classifiers(target, args, chunk_size=1000):
+def run_ref_classifiers(target, args, chunk_size=2000):
     """
     Main loop for classification. Produces a classification job for chunk_size alignments.
     """
@@ -234,7 +234,7 @@ def run_ref_classifiers(target, args, chunk_size=1000):
     target.setFollowOnTargetFn(write_to_db, args=(args, args.ref_genome, tmp_classify, tmp_attrs, 'TranscriptId'))
 
 
-def run_tm_classifiers(target, args, chunk_size=15):
+def run_tm_classifiers(target, args, chunk_size=100):
     """
     Main loop for classification. Produces a classification job for chunk_size alignments.
     """
@@ -264,7 +264,7 @@ def run_tm_classifiers(target, args, chunk_size=15):
     target.setFollowOnTargetFn(write_to_db, args=(args, args.genome, tmp_classify, tmp_attrs, 'AlignmentId'))
 
 
-def run_aug_classifiers(target, args, chunk_size=1000):
+def run_aug_classifiers(target, args, chunk_size=2000):
     """
     Main loop for augustus classification. Produces a classification job for chunk_size alignments.
     """
