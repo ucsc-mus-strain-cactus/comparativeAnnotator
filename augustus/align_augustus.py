@@ -30,8 +30,8 @@ def align(target, target_fasta, chunk, ref_fasta, file_tree):
             query_id = remove_augustus_alignment_number(tgt_id)
             tx_id = strip_alignment_numbers(tgt_id)
             gencode_id = remove_alignment_number(query_id)
-            gencode_seq = str(r_f[gencode_id])
-            aug_seq = str(g_f[tgt_id])
+            gencode_seq = r_f[gencode_id][:]
+            aug_seq = g_f[tgt_id][:]
             fastaWrite(tmp_aug_h, tgt_id, aug_seq)
             fastaWrite(tmp_gencode_h, gencode_id, gencode_seq)
     system("blat {} {} -out=psl -noHead {}".format(tmp_aug, tmp_gencode, tmp_psl))
@@ -41,7 +41,6 @@ def align(target, target_fasta, chunk, ref_fasta, file_tree):
     for p in tokenize_stream(r):
         psl = PslRow(p)
         r_d[psl.t_name].append(psl)
-    assert len(r_d.viewkeys() & set(chunk)) > 0, (r_d.viewkeys(), set(chunk))
     for tgt_id in chunk:
         if tgt_id not in r_d:
             results.append([tgt_id, query_id, tx_id, "0", "0"])
@@ -74,7 +73,7 @@ def load_db(target, genome, tmp_file, out_db):
     df = df.convert_objects(convert_numeric=True)  # have to convert to float because pandas lacks a good dtype function
     df = df.sort_index()
     with ExclusiveSqlConnection(out_db) as con:
-        df.to_sql(genome, con, if_exists="replace", index_label='AugustusAlignmentId')
+        df.to_sql(genome + '_AugustusAttributes', con, if_exists="replace", index_label='AugustusAlignmentId')
 
 
 def align_augustus(args):

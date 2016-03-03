@@ -12,7 +12,7 @@ import itertools
 import subprocess
 from pyfasta import Fasta
 from pycbio.sys.mathOps import format_ratio
-from pycbio.sys.fileOps import tmpFileGet, ensureDir
+from pycbio.sys.fileOps import tmpFileGet, ensureDir, atomicInstall
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, popenCatch, getRandomAlphaNumericString, catFiles, TempFileTree
@@ -70,7 +70,7 @@ def group_references(sam_handle, num_bases=20 ** 7, max_seqs=100):
             this_bin.append(name)
 
 
-def main_hints_fn(target, bam_paths, db_path, genome, genome_fasta, hints_dir):
+def main_hints_fn(target, bam_paths, db, genome, genome_fasta, hints_file):
     """
     Main driver function. Loops over each BAM, inferring paired-ness, then passing each BAM with one chromosome name
     for filtering. Each BAM will remain separated until the final concatenation and sorting of the hint gffs.
@@ -83,7 +83,7 @@ def main_hints_fn(target, bam_paths, db_path, genome, genome_fasta, hints_dir):
             out_filter = filtered_bam_tree.getTempFile(suffix=".bam")
             target.addChildTargetFn(sort_by_name, memory=8 * 1024 ** 3, cpu=2, 
                                     args=[bam_path, references, out_filter, paired])
-    target.setFollowOnTargetFn(build_hints, args=[filtered_bam_tree, genome, db_path, genome_fasta, hints_dir])
+    target.setFollowOnTargetFn(build_hints, args=[filtered_bam_tree, genome, db, genome_fasta, hints_file])
 
 
 def sort_by_name(target, bam_path, references, out_filter, paired):
@@ -101,13 +101,13 @@ def sort_by_name(target, bam_path, references, out_filter, paired):
     system("samtools index {}".format(out_filter))
 
 
-def build_hints(target, filtered_bam_tree, genome, db_path, genome_fasta, hints_dir):
+def build_hints(target, filtered_bam_tree, genome, db, genome_fasta, hints_file):
     """
     Driver function for hint building. Builts intron and exon hints, then calls cat_hints to do final concatenation
     and sorting.
     """
-    if hints_dir is None:
-        hints_dir = target.getGlobalTempDir()
+    if hints_file is None:
+        hints_file = target.getGlobalTempDir()
     bam_files = [x for x in filtered_bam_tree.listFiles() if x.endswith("bam")]
     intron_hints_tree = TempFileTree(get_tmp(target, global_dir=True, name="intron_hints_tree"))
     exon_hints_tree = TempFileTree(get_tmp(target, global_dir=True, name="exon_hints_tree"))
@@ -116,8 +116,8 @@ def build_hints(target, filtered_bam_tree, genome, db_path, genome_fasta, hints_
         target.addChildTargetFn(build_intron_hints, memory=8 * 1024 ** 3, cpu=2, args=[bam_file, intron_hints_path])
         exon_hints_path = exon_hints_tree.getTempFile(suffix=".exon.gff")
         target.addChildTargetFn(build_exon_hints, memory=8 * 1024 ** 3, cpu=2, args=[bam_file, exon_hints_path])
-    target.setFollowOnTargetFn(cat_hints, args=[intron_hints_tree, exon_hints_tree, genome, db_path, genome_fasta,
-                                                hints_dir])
+    target.setFollowOnTargetFn(cat_hints, args=[intron_hints_tree, exon_hints_tree, genome, db, genome_fasta,
+                                                hints_file])
 
 
 def build_exon_hints(target, bam_file, exon_gff_path):
@@ -139,10 +139,12 @@ def build_intron_hints(target, bam_file, intron_hints_path):
     system(cmd)
 
 
-def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db_path, genome_fasta, hints_dir):
+def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db, genome_fasta, hints_file):
     """
     All intron and exon hint gff files are concatenated and then sorted.
     """
+    if os.path.dirname(hints_file) != '':
+        ensureDir(os.path.dirname(hints_file))
     all_gffs = intron_hints_tree.listFiles() + exon_hints_tree.listFiles()
     # we use a fofn to side-step cat's inability to handle long input strings
     gff_fofn = get_tmp(target, name="gff_fofn")
@@ -152,22 +154,23 @@ def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db_path, genom
     concat_hints = get_tmp(target, name="concat_hints")
     cat_cmd = "cat {} | xargs -n 50 cat >> {}".format(gff_fofn, concat_hints)
     system(cat_cmd)
-    hints = os.path.join(hints_dir, genome + ".reduced_hints.gff")
+    hints_tmp = tmpFileGet()
     # TODO: this takes forever. Surely this can be merged into one better sort command
     cmd = "cat {} | sort -n -k4,4 | sort -s -n -k5,5 | sort -s -n -k3,3 | sort -s -k1,1 | join_mult_hints.pl > {}"
-    cmd = cmd.format(concat_hints, hints)
+    cmd = cmd.format(concat_hints, hints_tmp)
     system(cmd)
-    target.setFollowOnTargetFn(load_db, args=[hints, db_path, genome, genome_fasta])
+    atomicInstall(hints_tmp, hints_file)
+    target.setFollowOnTargetFn(load_db, args=[hints_file, db, genome, genome_fasta])
 
 
-def load_db(target, hints, db_path, genome, genome_fasta, timeout=30000, intervals=120):
+def load_db(target, hints_file, db, genome, genome_fasta, timeout=6000, intervals=30):
     """
     Final database loading.
     NOTE: Once done on all genomes, you want to run load2sqlitedb --makeIdx --dbaccess ${db}
     """
     cmd = "load2sqlitedb --noIdx --species={} --dbaccess={} {}"
-    fa_cmd = cmd.format(genome, db_path, genome_fasta)
-    hints_cmd = cmd.format(genome, db_path, hints)
+    fa_cmd = cmd.format(genome, db, genome_fasta)
+    hints_cmd = cmd.format(genome, db, hints_file)
     def handle_concurrency(cmd, timeout, intervals, start_time=None):
         if start_time is None:
             start_time = time.time()
@@ -182,14 +185,17 @@ def load_db(target, hints, db_path, genome, genome_fasta, timeout=30000, interva
             handle_concurrency(cmd, timeout, intervals, start_time)
         else:
             raise RuntimeError(ret)
-    ensureDir(os.path.dirname(db_path))
+    if os.path.dirname(db) != '':
+        ensureDir(os.path.dirname(db))
     for cmd in [fa_cmd, hints_cmd]:
         ret = handle_concurrency(cmd, timeout, intervals)
 
 
 def external_main(args):
+    assert os.path.exists(args.fasta)
+    assert all([os.path.exists(x) for x in args.bams])
     s = Stack(Target.makeTargetFn(main_hints_fn, memory=8 * 1024 ** 3,
-                                  args=[args.bams, args.database, args.genome, args.fasta, args.hintsDir]))
+                                  args=[args.bams, args.database, args.genome, args.fasta, args.hintsFile]))
     i = s.startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
@@ -199,7 +205,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--genome", required=True)
     parser.add_argument("--database", required=True)
-    parser.add_argument("--hintsDir", default=None)
+    parser.add_argument("--hintsFile", default=None)
     parser.add_argument("--fasta", required=True)
     bamfiles = parser.add_mutually_exclusive_group(required=True)
     bamfiles.add_argument("--bamFiles", nargs="+", help="bamfiles being used", dest="bams")
@@ -207,6 +213,7 @@ def main():
     Stack.addJobTreeOptions(parser)
     args = parser.parse_args()
     # below is an ugly hack to filter out tissues/centers by checking for the words in the file path
+    assert os.path.exists(args.fasta)
     if not isinstance(args.bams, list):
         if not os.path.exists(args.bams):
             raise RuntimeError("ERROR: bamFofn does not exist.")
@@ -215,7 +222,7 @@ def main():
     else:
         args.bams = set(args.bams)
     s = Stack(Target.makeTargetFn(main_hints_fn, memory=8 * 1024 ** 3,
-                                  args=[args.bams, args.database, args.genome, args.fasta, args.hintsDir]))
+                                  args=[args.bams, args.database, args.genome, args.fasta, args.hintsFile]))
     i = s.startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")

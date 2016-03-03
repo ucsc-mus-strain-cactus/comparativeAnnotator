@@ -130,7 +130,10 @@ class NotSameStop(utils.AbstractClassifier):
         bed_recs = []
         if t.thick_stop != aug_t.thick_stop:
             s = aug_t.cds_size
-            bed_rec = tx_lib.cds_coordinate_to_bed(aug_t, s - 3, s, self.rgb, self.name)
+            try:
+                bed_rec = tx_lib.cds_coordinate_to_bed(aug_t, s - 3, s, self.rgb, self.name)
+            except:
+                assert False, aug_t.get_bed()
             bed_recs.append(bed_rec)
         return bed_recs
 

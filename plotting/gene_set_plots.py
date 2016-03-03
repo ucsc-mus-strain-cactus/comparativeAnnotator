@@ -17,7 +17,7 @@ def load_evaluations(work_dir, genomes, biotypes):
         d = {'tx_evals': OrderedDict(), 'gene_evals': OrderedDict(), 'gene_fail_evals': OrderedDict(),
              'tx_dup_rate': OrderedDict(), 'tx_counts': OrderedDict(), 'gene_counts': OrderedDict()}
         for genome in genomes:
-            p = os.path.join(work_dir, genome + '.metrics.pickle')
+            p = os.path.join(work_dir, genome + '.pickle')
             try:
                 with open(p) as inf:
                     r = pickle.load(inf)
@@ -86,8 +86,8 @@ def biotype_stacked_plot(counter, out_path, mode):
 def gene_set_plots(args):
     biotype_tx_counter = DefaultOrderedDict(lambda: defaultdict(int))
     biotype_gene_counter = DefaultOrderedDict(lambda: defaultdict(int))
-    for biotype, d in load_evaluations(args.pickle_dir, args.target_genomes, args.biotypes):
-        plot_cfg = args.tm_gene_set_plots[biotype]
+    for biotype, d in load_evaluations(args.metrics_dir, args.target_genomes, args.biotypes):
+        plot_cfg = args.biotype_plots[biotype]
         transcript_gene_plot(d['tx_evals'], plot_cfg.tx_plot, 'transcripts', biotype)
         transcript_gene_plot(d['gene_evals'], plot_cfg.gene_plot, 'genes', biotype)
         size_plot(d['tx_counts'], plot_cfg.size_plot, 'transcripts', biotype)

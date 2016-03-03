@@ -209,12 +209,12 @@ def aug_tables(genome):
     return build_namespace(attrs, classify, details)
 
 
-def initialize_tables(tables, db_path):
+def initialize_tables(tables, db):
     """
     Initialize tables, dropping if they exist.
     """
-    ensureDir(os.path.dirname(db_path))
-    database.init(db_path)
+    ensureDir(os.path.dirname(db))
+    database.init(db)
     database.drop_tables(tables, safe=True)
     database.create_tables(tables)
 

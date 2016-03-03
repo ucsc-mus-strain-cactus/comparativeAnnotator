@@ -1,7 +1,6 @@
 """
 Produces a gene set from transMap alignments, or from a combination of transMap and AugustusTM/TMR.
 """
-import os
 import cPickle as pickle
 from collections import defaultdict, OrderedDict
 from comparativeAnnotator.database_queries import get_row_dict, get_fail_pass_excel_ids, augustus_eval
@@ -9,10 +8,10 @@ from pycbio.sys.dataOps import merge_dicts
 from pycbio.sys.mathOps import format_ratio
 from pycbio.bio.transcripts import GenePredTranscript
 from pycbio.bio.intervals import ChromosomeInterval
-from comparativeAnnotator.comp_lib.name_conversions import strip_alignment_numbers, remove_alignment_number, \
-    remove_augustus_alignment_number, aln_id_is_augustus, aln_id_is_transmap
+from comparativeAnnotator.comp_lib.name_conversions import strip_alignment_numbers, remove_augustus_alignment_number, \
+    aln_id_is_augustus, aln_id_is_transmap
 from comparativeAnnotator.database_queries import initialize_session, get_gene_transcript_map, get_transcript_gene_map
-from comparativeAnnotator.database_schema import ref_tables, tgt_tables, aug_tables
+from comparativeAnnotator.database_schema import ref_tables
 
 __author__ = "Ian Fiddes"
 
@@ -25,13 +24,13 @@ def load_gps(gp_paths):
     return {l.split()[0]: l for p in gp_paths for l in open(p)}
 
 
-def get_db_rows(ref_genome, genome, db_path, biotype, mode):
+def get_db_rows(ref_genome, genome, db, biotype, mode):
     """
     Adapter function to return the combination of the database rows produced for augustus and transMap
     """
-    tm_stats = get_row_dict(ref_genome, genome, db_path, mode, biotype)
+    tm_stats = get_row_dict(ref_genome, genome, db, 'transMap', biotype)
     if mode == "augustus":
-        aug_stats = get_row_dict(ref_genome, genome, db_path, biotype)
+        aug_stats = get_row_dict(ref_genome, genome, db, mode, biotype)
         return merge_dicts([tm_stats, aug_stats])
     else:
         return tm_stats
@@ -57,13 +56,12 @@ def build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
     return data_dict
 
 
-def find_best_alns(stats, ids, cov_cutoff=80.0):
+def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff=80.0, aug_cov_cutoff=50.0):
     """
     Takes the list of transcript Ids and finds the best alignment(s) by highest percent identity and coverage
     We sort by ID to favor Augustus transcripts going to the consensus set in the case of ties
     """
-    s = []
-    for aln_id in ids:
+    def get_cov_ident(stats, aln_id):
         cov = stats[aln_id].AlignmentCoverage
         ident = stats[aln_id].AlignmentIdentity
         # round to avoid floating point issues when finding ties
@@ -75,12 +73,16 @@ def find_best_alns(stats, ids, cov_cutoff=80.0):
             ident = 0.0
         else:
             ident = round(ident, 6)
-        s.append([aln_id, cov, ident])
-    # put aug names first
-    s = sorted(s, key=lambda (aln_id, cov, ident): aln_id, reverse=True)
-    # first we see if any transcripts pass cov_cutoff
-    cov_s = filter(lambda (aln_id, cov, ident): cov >= cov_cutoff, s)
-    # if no transcripts
+        return cov, ident
+    def analyze_ids(ids, cutoff, stats):
+        s = []
+        for aln_id in ids:
+            cov, ident = get_cov_ident(stats, aln_id)
+            s.append([aln_id, cov, ident])
+        return filter(lambda (aln_id, cov, ident): cov >= cutoff, s)
+    aug_cov = analyze_ids(aug_ids, aug_cov_cutoff, stats)
+    tm_cov = analyze_ids(tm_ids, tm_cov_cutoff, stats)
+    cov_s = aug_cov + tm_cov
     if len(cov_s) == 0:
         return None
     else:
@@ -95,13 +97,13 @@ def evaluate_ids(fail_ids, pass_specific_ids, excel_ids, aug_ids, stats):
     return the best transcript in the highest category with a transMap transcript.
     """
     if len(excel_ids) > 0:
-        best_alns = find_best_alns(stats, excel_ids + aug_ids)
+        best_alns = find_best_alns(stats, excel_ids, aug_ids)
         return best_alns, "Excellent"
     elif len(pass_specific_ids) > 0:
-        best_alns = find_best_alns(stats, pass_specific_ids + aug_ids)
+        best_alns = find_best_alns(stats, pass_specific_ids, aug_ids)
         return best_alns, "Pass"
     elif len(fail_ids) > 0:
-        best_alns = find_best_alns(stats, fail_ids + aug_ids)
+        best_alns = find_best_alns(stats, fail_ids, aug_ids)
         return best_alns, "Fail"
     else:
         return None, "NoTransMap"
@@ -144,7 +146,7 @@ def find_best_transcripts(data_dict, stats, mode, biotype):
     return binned_transcripts
 
 
-def find_longest_for_gene(bins, stats, gps, cov_cutoff=60.0, ident_cutoff=80.0):
+def find_longest_for_gene(bins, stats, gps, cov_cutoff=33.3, ident_cutoff=90.0):
     """
     Finds the longest transcript(s) for a gene. This is used when all transcripts failed, and has more relaxed cutoffs.
     """
@@ -165,7 +167,7 @@ def find_longest_for_gene(bins, stats, gps, cov_cutoff=60.0, ident_cutoff=80.0):
         return None
 
 
-def has_only_short(bins, ids_included, ref_interval, tgt_intervals, percentage_of_ref=60.0):
+def has_only_short(bins, ids_included, ref_interval, tgt_intervals, percentage_of_ref=50.0):
     """
     Are all of the consensus transcripts we found for this gene too short?
     """
@@ -189,16 +191,16 @@ def find_consensus(binned_transcripts, stats, gps, ref_intervals, tgt_intervals)
                 ids_included.add(best_id)
                 gene_in_consensus = True
         if gene_id not in ref_intervals:
-            # we really have none, no transMap here. TODO; fix this, see how we generate ref_intervals
+            # we really have none, no transMap here.
             has_only_short_txs = True
         else:
             has_only_short_txs = has_only_short(binned_transcripts[gene_id], ids_included, ref_intervals[gene_id],
                                                 tgt_intervals)
         if gene_in_consensus is False or has_only_short_txs is True:
             # find the single longest transcript for this gene
-            best_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps)
-            if best_for_gene is not None:
-                consensus.append(best_for_gene[0])
+            longest_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps)
+            if longest_for_gene is not None:
+                consensus.append(longest_for_gene[0])
     return consensus
 
 
@@ -378,7 +380,6 @@ def write_gps(consensus, gps, gp_path, transcript_gene_map):
 def build_ref_intervals(ref, ref_genome, db_path):
     """
     Build ChromosomeInterval objects for each source transcript, finding a max per-gene.
-    TODO: add refStart, refEnd to reference comparative annotator to avoid hacks used here.
     """
     def largest(intervals):
         intervals = [ChromosomeInterval(*x) for x in intervals]
@@ -409,19 +410,19 @@ def build_tgt_intervals(gps):
 
 def generate_consensus(args):
     assert args.mode in ['augustus', 'transMap']
-    ref = initialize_session(args.ref_genome, args.db_path, ref_tables)
+    ref = initialize_session(args.query_genome, args.db, ref_tables)
     if args.mode == 'augustus':
-        gps = load_gps([args.target_gp, args.aug_gp])
+        gps = load_gps([args.gp, args.augustus_gp])
     else:
-        gps = load_gps([args.target_gp])
-    transcript_gene_map = get_transcript_gene_map(args.ref_genome, args.db_path)
-    ref_gene_intervals = build_ref_intervals(ref, args.ref_genome, args.db_path)
+        gps = load_gps([args.gp])
+    transcript_gene_map = get_transcript_gene_map(args.query_genome, args.db)
+    ref_gene_intervals = build_ref_intervals(ref, args.query_genome, args.db)
     tgt_intervals = build_tgt_intervals(gps)
     biotype_evals = {}
-    for biotype, gp_path in args.out_gps.iteritems():
-        gene_transcript_map = get_gene_transcript_map(args.ref_genome, args.db_path, biotype)
-        stats = get_db_rows(args.ref_genome, args.genome, args.db_path, biotype, args.mode)
-        binned_transcripts, consensus = consensus_by_biotype(args.db_path, args.ref_genome, args.genome, biotype, gps,
+    for biotype, gp_path in args.geneset_gps.iteritems():
+        gene_transcript_map = get_gene_transcript_map(args.query_genome, args.db, biotype)
+        stats = get_db_rows(args.query_genome, args.target_genome, args.db, biotype, args.mode)
+        binned_transcripts, consensus = consensus_by_biotype(args.db, args.query_genome, args.target_genome, biotype, gps,
                                                              transcript_gene_map, gene_transcript_map, stats, args.mode,
                                                              ref_gene_intervals, tgt_intervals, args.filter_chroms)
         deduplicated_consensus, dup_count = deduplicate_consensus(consensus, gps, stats)
@@ -434,5 +435,5 @@ def generate_consensus(args):
         gene_transcript_evals["gene_counts"] = num_genes
         gene_transcript_evals["tx_counts"] = num_txs
         biotype_evals[biotype] = gene_transcript_evals
-    with open(args.tmp_pickle, 'w') as outf:
+    with open(args.pickled_metrics, 'w') as outf:
         pickle.dump(biotype_evals, outf)

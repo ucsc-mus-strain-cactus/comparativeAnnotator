@@ -21,9 +21,9 @@ def build_intron_vector(aln, ref_aln, t, fuzz_distance):
 
 
 def find_intron_vector(args, fuzz_distance=10):
-    aln_dict = get_alignment_dict(args.transmap.psl)
-    ref_aln_dict = get_alignment_dict(args.annot_files.psl)
-    tx_dict = get_transcript_dict(args.transmap.gp)
+    aln_dict = get_alignment_dict(args.psl)
+    ref_aln_dict = get_alignment_dict(args.ref_psl)
+    tx_dict = get_transcript_dict(args.gp)
     for aln_id, aln in sorted(aln_dict.iteritems(), key=lambda x: x[0]):
         ref_aln = ref_aln_dict[remove_alignment_number(aln_id)]
         t = tx_dict[aln_id]

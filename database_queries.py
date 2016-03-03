@@ -1,6 +1,7 @@
 """
 Uses the database schema to produce queries.
 """
+from peewee import OperationalError
 from collections import Counter, defaultdict
 from comparativeAnnotator.database_schema import ref_tables, tgt_tables, aug_tables, fetch_database
 
@@ -134,15 +135,15 @@ def augustus_classify(r, aug, tgt, ref):
     TODO: don't hardcode the identity/coverage cutoffs.
     """
     # repeated requirements for both types of boundary movements
-    boundaries = (tgt.classify.AlignmentCoverage < 95.0) | (tgt.classify.CdsUnknownSplice > 0) | (tgt.classify.UtrUnknownSplice > 0)
+    boundaries = (tgt.attrs.AlignmentCoverage < 95.0) | (tgt.classify.CdsUnknownSplice > 0) | (tgt.classify.UtrUnknownSplice > 0)
     r = r.where((((aug.classify.NotSameStart == 0) | ((tgt.classify.HasOriginalStart != 0) |
                                                       (tgt.classify.StartOutOfFrame != 0) | (tgt.classify.BadFrame != 0) |
-                                                      (ref.classify.BeginStart != 0))),
+                                                      (ref.classify.BeginStart != 0))) &
                 ((aug.classify.NotSameStop == 0) | ((tgt.classify.HasOriginalStop != 0) | (tgt.classify.BadFrame != 0) |
-                                                    (ref.classify.EndStop != 0))),
-                ((aug.classify.NotSimilarTerminalExonBoundaries == 0) | (boundaries | (tgt.classify.UtrGap > 1))),
-                ((aug.classify.NotSimilarInteralExonBoundaries == 0) | (boundaries | (tgt.classify.CdsGap + tgt.classify.UtrGap > 2))),
-                ((aug.classify.ExonLoss < 2), (aug.classify.MultipleTranscripts == 0))) |
+                                                    (ref.classify.EndStop != 0))) &
+                ((aug.classify.NotSimilarTerminalExonBoundaries == 0) | (boundaries | (tgt.classify.UtrGap > 1))) &
+                ((aug.classify.NotSimilarInternalExonBoundaries == 0) | (boundaries | (tgt.classify.CdsGap + tgt.classify.UtrGap > 2))) &
+                ((aug.classify.ExonLoss < 2) & (aug.classify.Paralogy == 0))) |
                 ((aug.attrs.AlignmentCoverage >= 95.0) & (aug.attrs.AlignmentIdentity >= 97.0)))
     return r
 
@@ -161,6 +162,16 @@ def add_best_cov(r, tgt):
     Adds the bestcoverage requirement to a query.
     """
     return r.where(tgt.attrs.HighestCovAln == True)
+
+def execute_query(query):
+    """
+    Handle exceptions to be more informative
+    """
+    try:
+        for x in query.execute():
+            yield x
+    except OperationalError, e:
+        raise OperationalError('Error. Original message: {}'.format(e))
 
 
 ########################################################################################################################
@@ -199,7 +210,7 @@ def trans_map_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None
         r = add_filter_chroms(r, ref, filter_chroms)
     if best_cov_only is True:
         r = add_best_cov(r, tgt)
-    return set([x[0] for x in r.tuples().execute()])
+    return set([x[0] for x in execute_query(r.tuples())])
 
 
 def augustus_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None):
@@ -213,7 +224,7 @@ def augustus_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None)
         r = add_biotype(r, ref, biotype)
     if filter_chroms is not None:
         r = add_filter_chroms(r, ref, filter_chroms)
-    return set([x[0] for x in r.tuples().execute()])
+    return set([x[0] for x in execute_query(r.tuples())])
 
 
 def get_aln_ids(ref_genome, genome, db_path, biotype=None, best_cov_only=False):
@@ -226,7 +237,7 @@ def get_aln_ids(ref_genome, genome, db_path, biotype=None, best_cov_only=False):
         r = add_biotype(r, ref, biotype)
     if best_cov_only is True:
         r = add_best_cov(r, tgt)
-    return set([x[0] for x in r.tuples().execute()])
+    return set([x[0] for x in execute_query(r.tuples())])
 
 
 def get_ref_ids(ref_genome, db_path, biotype=None):
@@ -234,7 +245,7 @@ def get_ref_ids(ref_genome, db_path, biotype=None):
     r = ref.attrs.select(ref.attrs.TranscriptId)
     if biotype is not None:
         r = add_biotype(r, ref, biotype)
-    return set([x[0] for x in r.tuples().execute()])
+    return set([x[0] for x in execute_query(r.tuples())])
 
 
 def get_column(genome, ref_genome, db_path, col, biotype=None, best_cov_only=True):
@@ -245,7 +256,7 @@ def get_column(genome, ref_genome, db_path, col, biotype=None, best_cov_only=Tru
         r = add_biotype(r, ref, biotype)
     if best_cov_only is True:
         r = add_best_cov(r, tgt)
-    return [x[0] for x in r.tuples().execute()]
+    return [x[0] for x in execute_query(r.tuples())]
 
 
 def paralogy(genome, db_path, biotype=None):
@@ -253,8 +264,8 @@ def paralogy(genome, db_path, biotype=None):
     Returns a counter of paralogy.
     """
     tgt = initialize_session(genome, db_path, tgt_tables)
-    r = tgt.attrs.select(tgt.attrs.Paralogy).tuples().execute()
-    return [x[0] + 1 for x in r]
+    r = tgt.attrs.select(tgt.attrs.Paralogy)
+    return [x[0] + 1 for x in execute_query(r.tuples())]
 
 
 def get_transcript_gene_map(ref_genome, db_path, biotype=None):
@@ -266,7 +277,7 @@ def get_transcript_gene_map(ref_genome, db_path, biotype=None):
     if biotype is not None:
         r = add_biotype(r, ref, biotype)
     result = {}
-    for tx_id, gene_id in r.tuples().execute():
+    for tx_id, gene_id in execute_query(r.tuples()):
         result[tx_id] = gene_id
     return result
 
@@ -280,7 +291,7 @@ def get_gene_transcript_map(ref_genome, db_path, biotype=None):
     if biotype is not None:
         r = add_biotype(r, ref, biotype)
     result = defaultdict(list)
-    for tx_id, gene_id in r.tuples().execute():
+    for tx_id, gene_id in execute_query(r.tuples()):
         result[gene_id].append(tx_id)
     return result
 
@@ -291,7 +302,7 @@ def get_biotypes(ref_genome, db_path):
     """
     ref = initialize_session(ref_genome, db_path, ref_tables)
     r = ref.attrs.select(ref.attrs.TranscriptType)
-    return set(x[0] for x in r.tuples().execute())
+    return set(x[0] for x in execute_query(r.tuples()))
 
 
 def get_rows(ref_genome, genome, db_path, mode='transMap', biotype=None):
@@ -309,17 +320,20 @@ def get_rows(ref_genome, genome, db_path, mode='transMap', biotype=None):
     if biotype is not None:
         r = add_biotype(r, ref, biotype)
     try:
-        return r.naive().execute()
-    except:
-        assert False, (mode, r)
+        return execute_query(r.naive())
+    except Exception, e:
+        assert False, (mode, r, e)
 
 
 def get_row_dict(ref_genome, genome, db_path, mode, biotype=None):
     """
     Wraps get_rows, returning a dictionary mapping the unique ID to the row.
     """
-    return {x.AlignmentId: x for x in get_rows(ref_genome, genome, db_path, mode, biotype)}
+    col = 'x.AlignmentId' if mode == 'transMap' else 'x.AugustusAlignmentId'
+    return {eval(col): x for x in get_rows(ref_genome, genome, db_path, mode, biotype)}
 
 
 # this is how peewee can select items from multiple databases at once
 #q=a.select(a, c).join(c, on=(a.TranscriptId == c.TranscriptId)).naive().execute()
+
+

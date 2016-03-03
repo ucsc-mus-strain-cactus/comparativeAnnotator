@@ -21,22 +21,22 @@ def parse_args():
     aug_parser = subparsers.add_parser('augustus')
     # common arguments
     for parser in [ref_parser, aug_parser, tm_parser]:
-        parser.add_argument('--outDir', type=str, required=True)
-        parser.add_argument('--refGenome', type=str, required=True)
-        parser.add_argument('--refFasta', type=str, required=True)
+        parser.add_argument('--db', type=str, required=True)
+        parser.add_argument('--ref_genome', type=str, required=True)
+        parser.add_argument('--ref_fasta', type=str, required=True)
         parser.add_argument('--sizes', required=True)
-        parser.add_argument('--annotationGp', required=True)
-        parser.add_argument('--gencodeAttributes', required=True)
+        parser.add_argument('--annotation_gp', required=True)
+        parser.add_argument('--gencode_attributes', required=True)
         Stack.addJobTreeOptions(parser)  # add jobTree options
     # transMap specific options
     for parser in [aug_parser, tm_parser]:
         parser.add_argument('--genome', required=True)
         parser.add_argument('--psl', required=True)
-        parser.add_argument('--refPsl', required=True)
-        parser.add_argument('--targetGp', required=True)
+        parser.add_argument('--ref_psl', required=True)
+        parser.add_argument('--target_gp', required=True)
         parser.add_argument('--fasta', required=True)
     # Augustus specific options
-    aug_parser.add_argument('--augustusGp', required=True)
+    aug_parser.add_argument('--augustus_gp', required=True)
     args = parent_parser.parse_args()
     assert args.mode in ["transMap", "reference", "augustus"]
     return args
