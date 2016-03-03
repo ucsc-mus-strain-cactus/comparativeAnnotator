@@ -152,7 +152,7 @@ def build_attributes_table(target, args, ref_dict, tmp_attrs):
     Dumps the contents of the attributes.tsv file in addition to reporting the number of introns and reference
     chromosome.
     """
-    df = pd.read_table(args.gencode_attributes, sep='\t', index_col=3, header=0)
+    df = pd.read_table(args.gencode_attributes, sep='\t', index_col=3)
     d = {}
     for ens_id, a in ref_dict.iteritems():
         row = {}
@@ -161,8 +161,13 @@ def build_attributes_table(target, args, ref_dict, tmp_attrs):
         row['SourceStart'] = a.start
         row['SourceStop'] = a.stop
         row['SourceStrand'] = convert_strand(a.strand)
-        row.update(df.loc[ens_id].to_dict())
+        try:
+            row.update(df.loc[ens_id].to_dict())
+        # attributes table may have more things than the gene set
+        except KeyError:
+            continue
         d[ens_id] = row
+    assert len(d) == len(ref_dict)
     tmp_file = tmpFileGet(tmpDir=tmp_attrs)
     with open(tmp_file, 'w') as outf:
         pickle.dump(d, outf)

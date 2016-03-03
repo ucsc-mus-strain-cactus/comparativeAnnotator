@@ -12,7 +12,7 @@ from pycbio.bio.psl import PslRow
 from comparativeAnnotator.comp_lib.name_conversions import remove_alignment_number, remove_augustus_alignment_number, \
     strip_alignment_numbers
 from pycbio.sys.dataOps import grouper
-from pycbio.sys.fileOps import tokenizeStream as tokenize_stream
+from pycbio.sys.fileOps import iterRows
 from sonLib.bioio import fastaWrite, popenCatch, system, TempFileTree, catFiles
 from pyfasta import Fasta
 from pycbio.sys.sqliteOps import ExclusiveSqlConnection
@@ -38,7 +38,7 @@ def align(target, target_fasta, chunk, ref_fasta, file_tree):
     r = popenCatch("simpleChain -outPsl {} /dev/stdout".format(tmp_psl))
     r = r.split("\n")[:-1]
     r_d = defaultdict(list)
-    for p in tokenize_stream(r):
+    for p in iterRows(r):
         psl = PslRow(p)
         r_d[psl.t_name].append(psl)
     for tgt_id in chunk:
