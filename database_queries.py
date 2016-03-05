@@ -2,6 +2,7 @@
 Uses the database schema to produce queries.
 """
 from peewee import OperationalError
+import time
 from collections import Counter, defaultdict
 from comparativeAnnotator.database_schema import ref_tables, tgt_tables, aug_tables, fetch_database
 
@@ -143,8 +144,8 @@ def augustus_classify(r, aug, tgt, ref):
                                                     (ref.classify.EndStop != 0))) &
                 ((aug.classify.NotSimilarTerminalExonBoundaries == 0) | (boundaries | (tgt.classify.UtrGap > 1))) &
                 ((aug.classify.NotSimilarInternalExonBoundaries == 0) | (boundaries | (tgt.classify.CdsGap + tgt.classify.UtrGap > 2))) &
-                ((aug.classify.ExonLoss < 2) & (aug.classify.Paralogy == 0))) |
-                ((aug.attrs.AlignmentCoverage >= 95.0) & (aug.attrs.AlignmentIdentity >= 97.0)))
+                ((aug.classify.ExonLoss < 2) & (aug.classify.AugustusParalogy == 0))) |
+                ((aug.attrs.AugustusAlignmentCoverage >= 50.0) & (aug.attrs.AugustusAlignmentIdentity >= 95.0)))
     return r
 
 
@@ -163,20 +164,26 @@ def add_best_cov(r, tgt):
     """
     return r.where(tgt.attrs.HighestCovAln == True)
 
-def execute_query(query):
-    """
-    Handle exceptions to be more informative
-    """
-    try:
-        for x in query.execute():
-            yield x
-    except OperationalError, e:
-        raise OperationalError('Error. Original message: {}'.format(e))
-
 
 ########################################################################################################################
 ## Queries
 ########################################################################################################################
+
+
+def execute_query(query, timeout=6000, interval=10):
+    """
+    Handle exceptions to be more informative, as well as handles database timeouts. Will try again every interval
+    """
+    start_time = time.time()
+    while time.time() - start_time <= timeout:
+        try:
+            return list(query.execute())
+        except OperationalError, e:
+            if 'locked' in e:
+                time.sleep(interval)
+            else:
+                raise OperationalError('Error. Original message: {}'.format(e))
+    raise OperationalError('Error: database still locked after {} seconds'.format(timeout))
 
 
 def get_fail_pass_excel_ids(ref_genome, genome, db_path, biotype=None, filter_chroms=None, best_cov_only=False):
@@ -312,7 +319,7 @@ def get_rows(ref_genome, genome, db_path, mode='transMap', biotype=None):
     if mode == 'transMap':
         tgt, ref = initialize_tm_session(ref_genome, genome, db_path)
         r = tgt_ref_join(tgt, ref)
-    elif mode == 'augustus':
+    elif mode == 'AugustusTMR' or mode == 'AugustusTM':
         aug, tgt, ref = initialize_full_session(ref_genome, genome, db_path)
         r = aug_tgt_ref_join(aug, tgt, ref)
     else:
@@ -331,9 +338,3 @@ def get_row_dict(ref_genome, genome, db_path, mode, biotype=None):
     """
     col = 'x.AlignmentId' if mode == 'transMap' else 'x.AugustusAlignmentId'
     return {eval(col): x for x in get_rows(ref_genome, genome, db_path, mode, biotype)}
-
-
-# this is how peewee can select items from multiple databases at once
-#q=a.select(a, c).join(c, on=(a.TranscriptId == c.TranscriptId)).naive().execute()
-
-

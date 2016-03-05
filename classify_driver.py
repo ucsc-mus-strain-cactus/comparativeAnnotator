@@ -137,7 +137,7 @@ class AugustusClassify(AbstractClassify):
         for aug_aln_id, (t, aug_t, paralogy_count) in self.chunk:
             rd = {'AlignmentId': remove_augustus_alignment_number(aug_aln_id),
                   'TranscriptId': strip_alignment_numbers(aug_aln_id),
-                  'Paralogy': paralogy_count}
+                  'AugustusParalogy': paralogy_count}
             for classify_fn in classifier_fns:
                 rd[classify_fn.name] = classify_fn(aug_t, t)
             r_details[aug_aln_id] = rd

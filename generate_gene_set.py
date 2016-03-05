@@ -29,7 +29,7 @@ def get_db_rows(ref_genome, genome, db, biotype, mode):
     Adapter function to return the combination of the database rows produced for augustus and transMap
     """
     tm_stats = get_row_dict(ref_genome, genome, db, 'transMap', biotype)
-    if mode == "augustus":
+    if 'augustus' in mode.lower():
         aug_stats = get_row_dict(ref_genome, genome, db, mode, biotype)
         return merge_dicts([tm_stats, aug_stats])
     else:
@@ -47,9 +47,6 @@ def build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
     for ids, n in zip(*[id_list, id_names]):
         for aln_id in ids:
             ens_id = strip_alignment_numbers(aln_id)
-            if ens_id not in transcript_gene_map:
-                # Augustus was fed chrY transcripts
-                continue
             gene_id = transcript_gene_map[ens_id]
             if gene_id in data_dict and ens_id in data_dict[gene_id]:
                 data_dict[gene_id][ens_id][n].append(aln_id)
@@ -61,9 +58,14 @@ def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff=80.0, aug_cov_cutoff=50
     Takes the list of transcript Ids and finds the best alignment(s) by highest percent identity and coverage
     We sort by ID to favor Augustus transcripts going to the consensus set in the case of ties
     """
-    def get_cov_ident(stats, aln_id):
-        cov = stats[aln_id].AlignmentCoverage
-        ident = stats[aln_id].AlignmentIdentity
+    def get_cov_ident(stats, aln_id, mode):
+        """extract coverage and identity from stats, round them"""
+        if mode == 'transMap':
+            cov = stats[aln_id].AlignmentCoverage
+            ident = stats[aln_id].AlignmentIdentity
+        else:
+            cov = stats[aln_id].AugustusAlignmentCoverage
+            ident = stats[aln_id].AugustusAlignmentIdentity
         # round to avoid floating point issues when finding ties
         if cov is None:
             cov = 0.0
@@ -74,14 +76,15 @@ def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff=80.0, aug_cov_cutoff=50
         else:
             ident = round(ident, 6)
         return cov, ident
-    def analyze_ids(ids, cutoff, stats):
+    def analyze_ids(ids, cutoff, stats, mode):
+        """return all ids which pass coverage cutoff"""
         s = []
         for aln_id in ids:
-            cov, ident = get_cov_ident(stats, aln_id)
+            cov, ident = get_cov_ident(stats, aln_id, mode)
             s.append([aln_id, cov, ident])
         return filter(lambda (aln_id, cov, ident): cov >= cutoff, s)
-    aug_cov = analyze_ids(aug_ids, aug_cov_cutoff, stats)
-    tm_cov = analyze_ids(tm_ids, tm_cov_cutoff, stats)
+    aug_cov = analyze_ids(aug_ids, aug_cov_cutoff, stats, mode='augustus')
+    tm_cov = analyze_ids(tm_ids, tm_cov_cutoff, stats, mode='transMap')
     cov_s = aug_cov + tm_cov
     if len(cov_s) == 0:
         return None
@@ -93,7 +96,7 @@ def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff=80.0, aug_cov_cutoff=50
 
 def evaluate_ids(fail_ids, pass_specific_ids, excel_ids, aug_ids, stats):
     """
-    For a given ensembl ID, we have augustus/transMap ids in 4 categories. Based on the hierarchy Excellent>Pass>Fail,
+    For a given ensembl ID, we have augustus/transMap ids in 3 categories. Based on the hierarchy Excellent>Pass>Fail,
     return the best transcript in the highest category with a transMap transcript.
     """
     if len(excel_ids) > 0:
@@ -146,7 +149,7 @@ def find_best_transcripts(data_dict, stats, mode, biotype):
     return binned_transcripts
 
 
-def find_longest_for_gene(bins, stats, gps, cov_cutoff=33.3, ident_cutoff=90.0):
+def find_longest_for_gene(bins, stats, gps, cov_cutoff=33.3, ident_cutoff=80.0):
     """
     Finds the longest transcript(s) for a gene. This is used when all transcripts failed, and has more relaxed cutoffs.
     """
@@ -409,9 +412,9 @@ def build_tgt_intervals(gps):
 
 
 def generate_consensus(args):
-    assert args.mode in ['augustus', 'transMap']
+    assert args.mode in ['AugustusTMR', 'AugustusTM', 'transMap']
     ref = initialize_session(args.query_genome, args.db, ref_tables)
-    if args.mode == 'augustus':
+    if args.mode == 'AugustusTMR' or args.mode == 'AugustusTM':
         gps = load_gps([args.gp, args.augustus_gp])
     else:
         gps = load_gps([args.gp])

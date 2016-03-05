@@ -69,7 +69,7 @@ def cat(target, genome, file_tree, out_db):
 
 def load_db(target, genome, tmp_file, out_db):
     df = pd.read_csv(tmp_file, index_col=0, names=["AugustusAlignmentId", "AlignmentId", "TranscriptId",
-                                                   "AlignmentCoverage", "AlignmentIdentity"])
+                                                   "AugustusAlignmentCoverage", "AugustusAlignmentIdentity"])
     df = df.convert_objects(convert_numeric=True)  # have to convert to float because pandas lacks a good dtype function
     df = df.sort_index()
     with ExclusiveSqlConnection(out_db) as con:

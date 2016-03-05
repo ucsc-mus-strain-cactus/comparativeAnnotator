@@ -6,10 +6,34 @@ import cPickle as pickle
 from collections import OrderedDict, defaultdict
 import comparativeAnnotator.comp_lib.plot_lib as plot_lib
 from pycbio.sys.dataOps import convert_dicts_to_dataframe
-from pycbio.sys.fileOps import touch
 from pycbio.sys.defaultOrderedDict import DefaultOrderedDict
 
 __author__ = "Ian Fiddes"
+
+
+def gencode_combinations(geneset):
+    """
+    hard coded combinations of biotypes to make plots more sane.
+    """
+    gencode = dict([('snoRNA', 'Small RNAs'), ('snRNA', 'Small RNAs'), ('scaRNA', 'Small RNAs'),
+                    ('miRNA', 'Small RNAs'), ('misc_RNA', 'Small RNAs'), ('protein_coding', 'Protein Coding'),
+                    ('lincRNA', 'lncRNA'), ('macro_lncRNA', 'lncRNA'), ('bidirectional_promoter_lncrna', 'lncRNA')])
+    gencode_pseudo = dict([('processed_pseudogene', 'Processed Pseudogenes'),
+                           ('translated_processed_pseudogene', 'Processed Pseudogenes'),
+                           ('transcribed_processed_pseudogene', 'Processed Pseudogenes'),
+                           ('unprocessed_pseudogene', 'Unprocessed Pseudogenes'),
+                           ('translated_unprocessed_pseudogene', 'Unprocessed Pseudogenes'),
+                           ('transcribed_unprocessed_pseudogene', 'Unprocessed Pseudogenes')])
+    ensembl = dict([('snoRNA', 'Small RNAs'), ('misc_RNA', 'Small RNAs'), ('miRNA', 'miRNA'),
+                     ('rRNA', 'rRNA'), ('Mt_rRNA', 'rRNA'), ('protein_coding', 'Protein Coding'),
+                     ('Mt_tRNA', 'Small RNAs'), ('snRNA', 'Small RNAs'),
+                     ('processed_pseudogene', 'Pseudogene'), ('pseudogene', 'Pseudogene')])
+    if geneset.lower() == 'ensembl':
+        return ensembl
+    elif 'pseudo' in geneset.lower():
+        return gencode_pseudo
+    else:
+        return gencode
 
 
 def load_evaluations(work_dir, genomes, biotypes):
@@ -84,21 +108,23 @@ def biotype_stacked_plot(counter, out_path, mode):
 
 
 def gene_set_plots(args):
+    biotype_map = gencode_combinations(args.gene_set.geneSet)
     biotype_tx_counter = DefaultOrderedDict(lambda: defaultdict(int))
     biotype_gene_counter = DefaultOrderedDict(lambda: defaultdict(int))
     for biotype, d in load_evaluations(args.metrics_dir, args.ordered_target_genomes, args.biotypes):
         plot_cfg = args.biotype_plots[biotype]
-        transcript_gene_plot(d['tx_evals'], plot_cfg.tx_plot, 'transcripts', biotype)
-        transcript_gene_plot(d['gene_evals'], plot_cfg.gene_plot, 'genes', biotype)
-        size_plot(d['tx_counts'], plot_cfg.size_plot, 'transcripts', biotype)
-        size_plot(d['gene_counts'], plot_cfg.gene_size_plot, 'genes', biotype)
-        dup_rate_plot(d['tx_dup_rate'], plot_cfg.dup_rate_plot, biotype)
-        gene_fail_plot(d['gene_fail_evals'], plot_cfg.fail_plot, biotype)
+        biotype_bin = biotype_map.get(biotype, 'Other')
+        transcript_gene_plot(d['tx_evals'], plot_cfg.tx_plot, 'transcripts', biotype_bin)
+        transcript_gene_plot(d['gene_evals'], plot_cfg.gene_plot, 'genes', biotype_bin)
+        size_plot(d['tx_counts'], plot_cfg.size_plot, 'transcripts', biotype_bin)
+        size_plot(d['gene_counts'], plot_cfg.gene_size_plot, 'genes', biotype_bin)
+        dup_rate_plot(d['tx_dup_rate'], plot_cfg.dup_rate_plot, biotype_bin)
+        gene_fail_plot(d['gene_fail_evals'], plot_cfg.fail_plot, biotype_bin)
         tx_evals_collapsed = collapse_evals(d['tx_evals'])
         gene_evals_collapsed = collapse_evals(d['gene_evals'])
         for genome, tx_count in tx_evals_collapsed.iteritems():
-            biotype_tx_counter[genome][biotype] += tx_count
-            biotype_gene_counter[genome][biotype] += gene_evals_collapsed[genome]
+            biotype_tx_counter[genome][biotype_bin] += tx_count
+            biotype_gene_counter[genome][biotype_bin] += gene_evals_collapsed[genome]
     for mode, counter, p in [['transcript', biotype_tx_counter, args.transcript_biotype_plot],
                              ['gene', biotype_gene_counter, args.gene_biotype_plot]]:
         biotype_stacked_plot(counter, p, mode)
