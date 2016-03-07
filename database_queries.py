@@ -3,7 +3,11 @@ Uses the database schema to produce queries.
 """
 from peewee import OperationalError
 import time
+<<<<<<< HEAD
 from collections import Counter, defaultdict, namedtuple
+=======
+from collections import Counter, defaultdict
+>>>>>>> b88c6cb32218ec19db17fca1087fecf0acfb3d91
 from comparativeAnnotator.database_schema import ref_tables, tgt_tables, aug_tables, fetch_database
 
 
@@ -338,29 +342,3 @@ def get_row_dict(ref_genome, genome, db_path, mode, biotype=None):
     """
     col = 'x.AlignmentId' if mode == 'transMap' else 'x.AugustusAlignmentId'
     return {eval(col): x for x in get_rows(ref_genome, genome, db_path, mode, biotype)}
-
-
-def get_aln_stats(ref_genome, genome, mode, db, biotype, filter_chroms):
-    """
-    Constructs a query to return metrics.
-    """
-    d = defaultdict(lambda: defaultdict(list))
-    if mode == 'AugustusTMR' or mode == 'AugustusTM':
-        aug, tgt, ref = initialize_full_session(ref_genome, genome, db)
-        r = aug.attrs.select(aug.attrs.AugustusAlignmentId, aug.attrs.AugustusAlignmentCoverage,
-                             aug.attrs.AugustusAlignmentIdentity, ref.attrs.GeneId, ref.attrs.TranscriptId).\
-            join(ref.attrs, on=(aug.attrs.TranscriptId == ref.attrs.TranscriptId))
-        r = add_biotype(r, ref, biotype)
-        r = add_filter_chroms(r, ref, filter_chroms)
-        for entry in r.naive().execute():
-            d[entry.GeneId][entry.TranscriptId].append([r.AugustusAlignmentId,
-                                                        r.AugustusAlignmentCoverage, r.AugustusAlignmentIdentity])
-    tgt, ref = initialize_tm_session(ref_genome, genome, db)
-    r = tgt.attrs.select(tgt.attrs.AlignmentId, tgt.attrs.AlignmentCoverage, tgt.attrs.AlignmentIdentity,
-                         ref.attrs.GeneId, ref.attrs.TranscriptId).\
-        join(ref.attrs, on=(tgt.attrs.TranscriptId == ref.attrs.TranscriptId))
-    r = add_biotype(r, ref, biotype)
-    r = add_filter_chroms(r, ref, filter_chroms)
-    for entry in r.naive().execute():
-        d[entry.GeneId][entry.TranscriptId].append([r.AlignmentId, r.AlignmentCoverage, r.AlignmentIdentity])
-    return d
