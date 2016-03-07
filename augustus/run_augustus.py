@@ -13,6 +13,7 @@ from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, popenCatch, getRandomAlphaNumericString, catFiles, TempFileTree
 from pycbio.bio.transcripts import GenePredTranscript
 from pycbio.sys.fileOps import tmpFileGet, ensureDir
+from pycbio.sys.dataOps import grouper
 
 
 #####
@@ -90,28 +91,27 @@ def rename_transcripts(transcripts, cfg_version, name):
     return name_map
 
 
-def write_augustus(r, name_map, out_path):
+def write_augustus(r, name_map, outf_h):
     """
     Writes the results of AugustusTMR to a file.
     """
-    with open(out_path, "w") as outf:
-        for x in r:
-            if x.startswith("#"):
-                continue
-            if "AUGUSTUS" in x:
-                x = x.split("\t")
-                if x[2] in ["exon", "CDS", "start_codon", "stop_codon", "tts", "tss"]:
-                    t = x[-1].split()
-                    n = t[-3].split('"')[1]
-                    if n not in name_map:
-                        continue  # skip transcripts filtered out previously
-                    t[-1] = t[-3] = '"{}";'.format(name_map[n])
-                    t = " ".join(t)
-                    x[-1] = t
-                    outf.write("\t".join(map(str, x)) + "\n")
+    for x in r:
+        if x.startswith("#"):
+            continue
+        if "AUGUSTUS" in x:
+            x = x.split("\t")
+            if x[2] in ["exon", "CDS", "start_codon", "stop_codon", "tts", "tss"]:
+                t = x[-1].split()
+                n = t[-3].split('"')[1]
+                if n not in name_map:
+                    continue  # skip transcripts filtered out previously
+                t[-1] = t[-3] = '"{}";'.format(name_map[n])
+                t = " ".join(t)
+                x[-1] = t
+                outf_h.write("\t".join(map(str, x)) + "\n")
 
 
-def run_augustus(hint_f, seq_f, name, start, cfg_version, cfg_path, out_file_tree, gp, augustus_bin):
+def run_augustus(hint_f, seq_f, name, start, cfg_version, cfg_path, outf_h, gp, augustus_bin):
     """
     Runs Augustus for each cfg/gp_string pair.
     """
@@ -127,35 +127,36 @@ def run_augustus(hint_f, seq_f, name, start, cfg_version, cfg_path, out_file_tre
         # rename transcript based on cfg version, and make names unique
         name_map = rename_transcripts(transcripts, cfg_version, name)
         # write this to a shared location where we will combine later
-        out_path = out_file_tree.getTempFile()
-        write_augustus(r, name_map, out_path)
+        write_augustus(r, name_map, outf_h)
 
 
-def transmap_2_aug(target, gp_string, args, out_file_tree, augustus_bin):
+def transmap_2_aug(target, gp_strings, args, outf, augustus_bin):
     """
     Runs Augustus on one individual genePred string. Augustus is ran with each cfg file in cfgs
     """
     fasta = Fasta(args.fasta)
     chrom_sizes = {x.split()[0]: x.split()[1] for x in open(args.chrom_sizes)}
-    gp = GenePredTranscript(gp_string.rstrip().split("\t"))
-    # ignore genes with no coding region or longer than max_gene_size
-    if not (gp.thick_start >= gp.thick_stop or gp.stop - gp.start > args.max_gene_size):
-        chrom = gp.chromosome
-        start = max(gp.start - args.padding, 0)
-        stop = min(gp.stop + args.padding, chrom_sizes[chrom])
-        tm_hint = get_transmap_hints(gp_string, args.tm_2_hints_cmd)
-        if args.hints_db is not None:
-            rnaseq_hint = get_rnaseq_hints(args.genome, chrom, start, stop, args.hints_db)
-            hint = "".join([tm_hint, rnaseq_hint])
-        else:
-            hint = tm_hint
-        seq = fasta[chrom][start:stop]
-        hint_f, seq_f = write_hint_fasta(hint, seq, chrom, target.getGlobalTempDir())
-        for cfg_version, cfg_path in args.cfgs.iteritems():
-            run_augustus(hint_f, seq_f, gp.name, start, cfg_version, cfg_path, out_file_tree, gp, augustus_bin)
-        # delete the seq and hint file. This makes the final tree cleanup not take so long.
-        os.remove(hint_f)
-        os.remove(seq_f)
+    with open(outf, 'w') as outf_h:
+        for gp_string in gp_strings:
+            gp = GenePredTranscript(gp_string.rstrip().split("\t"))
+            # ignore genes with no coding region or longer than max_gene_size
+            if not (gp.thick_start >= gp.thick_stop or gp.stop - gp.start > args.max_gene_size):
+                chrom = gp.chromosome
+                start = max(gp.start - args.padding, 0)
+                stop = min(gp.stop + args.padding, chrom_sizes[chrom])
+                tm_hint = get_transmap_hints(gp_string, args.tm_2_hints_cmd)
+                if args.hints_db is not None:
+                    rnaseq_hint = get_rnaseq_hints(args.genome, chrom, start, stop, args.hints_db)
+                    hint = "".join([tm_hint, rnaseq_hint])
+                else:
+                    hint = tm_hint
+                seq = fasta[chrom][start:stop]
+                hint_f, seq_f = write_hint_fasta(hint, seq, chrom, target.getGlobalTempDir())
+                for cfg_version, cfg_path in args.cfgs.iteritems():
+                    run_augustus(hint_f, seq_f, gp.name, start, cfg_version, cfg_path, outf_h, gp, augustus_bin)
+                # delete the seq and hint file. This makes the final tree cleanup not take so long.
+                os.remove(hint_f)
+                os.remove(seq_f)
 
 
 def cat(target, output_gtf, unsorted_tmp_file, out_file_tree):
@@ -181,9 +182,10 @@ def augustus_tmr_wrapper(target, args):
     out_file_tree = TempFileTree(target.getGlobalTempDir())
     # this file will be where we reduce the final results to before sorting
     unsorted_tmp_file = os.path.join(target.getGlobalTempDir(), getRandomAlphaNumericString(10))
-    for line in (open(args.input_gp)):
+    for line in grouper(open(args.input_gp), 10):
+        outf = out_file_tree.getTempFile()
         target.addChildTargetFn(transmap_2_aug, memory=8 * (1024 ** 3),
-                                args=[line, args, out_file_tree, args.augustus_bin])
+                                args=[line, args, outf, args.augustus_bin])
     target.setFollowOnTargetFn(cat, args=[args.out_gtf, unsorted_tmp_file, out_file_tree])
 
 

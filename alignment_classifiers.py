@@ -43,7 +43,7 @@ class AlnAbutsUnknownBases(utils.AbstractClassifier):
 
     def __call__(self, a, t, aln, ref_aln, ref_fasta, tgt_fasta):
         bed_recs = []
-        if tgt_fasta[t.chromosome][t.start - 1] == "N":
+        if aln.t_start != 0 and tgt_fasta[t.chromosome][t.start - 1] == "N":
             left_bed_rec = t.exon_intervals[0].get_bed(self.rgb, self.name)
             bed_recs.append(left_bed_rec)
         if len(t.exon_intervals) > 1 and tgt_fasta[t.chromosome][t.stop] == "N":
