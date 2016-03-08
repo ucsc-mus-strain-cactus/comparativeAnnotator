@@ -1,7 +1,7 @@
 import numpy as np
 from comparativeAnnotator.database_queries import get_fail_pass_excel_ids, paralogy, get_ref_ids, get_column,\
     get_transcript_gene_map
-import comparativeAnnotator.comp_lib.plot_lib as plot_lib
+import pycbio.plotting.plotting as plot_lib
 from comparativeAnnotator.comp_lib.name_conversions import strip_alignment_numbers
 
 # Hard coded bins used for plots.

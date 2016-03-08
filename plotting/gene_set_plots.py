@@ -2,13 +2,13 @@
 Produces plots of the protein coding consensus found by consensus.py
 """
 import os
+import pandas as pd
 import cPickle as pickle
 from collections import OrderedDict, defaultdict
-import comparativeAnnotator.comp_lib.plot_lib as plot_lib
+import pycbio.plotting.plotting as plot_lib
 from comparativeAnnotator.generate_gene_set import mode_is_aug
-from pycbio.sys.dataOps import convert_dicts_to_dataframe
+from pycbio.sys.dataOps import munge_nested_dicts_for_plotting, flatten_list_of_lists
 from pycbio.sys.defaultOrderedDict import DefaultOrderedDict
-
 __author__ = "Ian Fiddes"
 
 
@@ -53,7 +53,8 @@ def gencode_combinations(geneset):
 
 def load_evaluations(work_dir, genomes, biotypes):
     for biotype in biotypes:
-        d = {'tx_evals': OrderedDict(), 'gene_evals': OrderedDict(), 'tx_dup_rate': OrderedDict()}
+        d = {'tx_evals': OrderedDict(), 'gene_evals': OrderedDict(), 'tx_dup_rate': OrderedDict(),
+             'longest_evals': OrderedDict()}
         for genome in genomes:
             p = os.path.join(work_dir, genome + '.pickle')
             try:
@@ -64,16 +65,17 @@ def load_evaluations(work_dir, genomes, biotypes):
             d['tx_evals'][genome] = r[biotype]["transcript"]
             d['gene_evals'][genome] = r[biotype]["gene"]
             d['tx_dup_rate'][genome] = r[biotype]["duplication_rate"]
+            d['longest_evals'][genome] =r[biotype]['longest']
         yield biotype, d
 
 
 def transcript_gene_plot(evals, out_path, mode, biotype, is_consensus):
-    results, categories = convert_dicts_to_dataframe(evals)
+    results, categories = munge_nested_dicts_for_plotting(evals)
     palette = plot_lib.palette
     if is_consensus:
         base_title = "Breakdown of {} {} categorized by consensus finding"
-        if biotype == 'protein coding' and mode == 'transcript':
-            palette = plot_lib.triple_palette
+        if biotype == 'protein coding' and mode == 'transcripts':
+            palette = plot_lib.paired_palette
     else:
         base_title = "Breakdown of {} {} categorized in transMap gene set"
     title = base_title.format(biotype, mode)
@@ -90,6 +92,19 @@ def dup_rate_plot(tx_dup_rate, out_path, biotype, is_consensus):
     plot_lib.unequal_barplot(results, out_path, title)
 
 
+def longest_plot(longest_rate, out_path, biotype, is_consensus):
+    r1, c1 = munge_nested_dicts_for_plotting(OrderedDict([[x, y['Longest']] for x, y in longest_rate.iteritems()]))
+    r2, c2 = munge_nested_dicts_for_plotting(OrderedDict([[x, y['Rescue']] for x, y in longest_rate.iteritems()]))
+    results = [r1, r2]
+    categories = flatten_list_of_lists([c1, c2])
+    if is_consensus:
+        base_title = "Rate of longest transcript inclusion/collapsed gene rescue in consensus geneset"
+    else:
+        base_title = "Rate of longest transcript inclusion/collapsed gene rescue in transMap geneset"
+    title = base_title.format(biotype)
+    plot_lib.stacked_side_by_side_unequal_barplot(results, categories, out_path, title)
+
+
 def collapse_evals(tx_evals):
     result = OrderedDict()
     for genome, vals in tx_evals.iteritems():
@@ -99,7 +114,7 @@ def collapse_evals(tx_evals):
 
 
 def biotype_stacked_plot(counter, out_path, mode, is_consensus):
-    results, categories = convert_dicts_to_dataframe(counter)
+    results, categories = munge_nested_dicts_for_plotting(counter)
     if is_consensus is True:
         base_title = "Biotype breakdown in {} consensus set"
     else:
@@ -119,6 +134,7 @@ def gene_set_plots(args):
         transcript_gene_plot(d['tx_evals'], plot_cfg.tx_plot, 'transcripts', biotype_bin, is_consensus)
         transcript_gene_plot(d['gene_evals'], plot_cfg.gene_plot, 'genes', biotype_bin, is_consensus)
         dup_rate_plot(d['tx_dup_rate'], plot_cfg.dup_rate_plot, biotype_bin, is_consensus)
+        longest_plot(d['longest_evals'], plot_cfg.longest_rate_plot, biotype_bin, is_consensus)
         tx_evals_collapsed = collapse_evals(d['tx_evals'])
         gene_evals_collapsed = collapse_evals(d['gene_evals'])
         for genome, tx_count in tx_evals_collapsed.iteritems():

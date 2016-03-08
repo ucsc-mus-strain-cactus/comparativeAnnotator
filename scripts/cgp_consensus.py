@@ -13,9 +13,10 @@ import argparse
 import os
 import cPickle as pickle
 from collections import defaultdict, OrderedDict
-import lib.sql_lib as sql_lib
-import lib.psl_lib as psl_lib
-import lib.seq_lib as seq_lib
+from pycbio.sys.sqliteOps import attach_databases, open_database, get_multi_index_query_dict, get_query_dict
+from comparativeAnnotator.database_queries import get_gene_transcript_map, get_transcript_gene_map
+from pycbio.bio.transcripts import get_transcript_dict
+
 
 __author__ = "Ian Fiddes"
 
@@ -106,7 +107,7 @@ def determine_if_split_gene_is_supported(consensus_dict, cgp_tx, ens_ids, intron
     return False
 
 
-def determine_if_new_introns(cgp_id, cgp_tx, ens_ids, consensus_dict, intron_vector):
+def determine_if_new_introns(cgp_tx, ens_ids, consensus_dict, intron_vector):
     """
     Use intron bit information to build a set of CGP introns, and compare this set to all consensus introns
     for a given set of genes.
@@ -208,8 +209,8 @@ def build_final_consensus(consensus_dict, replace_map, new_isoforms, final_conse
         final_consensus[cgp_tx.name] = cgp_tx
 
 
-def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, transcript_gene_map, intron_dict, 
-                       final_consensus, metrics, cgp_stats_dict, consensus_stats_dict):
+def update_transcripts(cgp_dict, consensus_dict, transcript_gene_map, intron_dict, final_consensus, metrics,
+                       cgp_stats_dict, consensus_stats_dict):
     """
     Main transcript replacement/inclusion algorithm.
     For every cgp transcript, determine if it should replace one or more consensus transcripts.
@@ -231,7 +232,7 @@ def update_transcripts(cgp_dict, consensus_dict, genome, gene_transcript_map, tr
             for to_replace_id in to_replace_ids:
                 gene_id = transcript_gene_map[to_replace_id]
                 replace_map[to_replace_id] = [cgp_tx, gene_id]
-        elif determine_if_new_introns(cgp_id, cgp_tx, ens_ids, consensus_dict, intron_vector) is True:
+        elif determine_if_new_introns(cgp_tx, ens_ids, consensus_dict, intron_vector) is True:
             # make sure this isn't joining two genes in an unsupported way
             if len(gene_ids) == 1:
                 new_isoforms.append(cgp_tx)
@@ -270,21 +271,21 @@ def evaluate_cgp_consensus(consensus_dict, metrics):
 def main():
     args = parse_args()
     # attach regular comparativeAnnotator reference databases in order to build gene-transcript map
-    con, cur = sql_lib.attach_databases(args.compAnnPath, mode="reference")
-    gene_transcript_map = sql_lib.get_gene_transcript_map(cur, args.refGenome, biotype="protein_coding")
-    transcript_gene_map = sql_lib.get_transcript_gene_map(cur, args.refGenome, biotype="protein_coding")
+    con, cur = attach_databases(args.compAnnPath, mode="reference")
+    gene_transcript_map = get_gene_transcript_map(cur, args.refGenome, biotype="protein_coding")
+    transcript_gene_map = get_transcript_gene_map(cur, args.refGenome, biotype="protein_coding")
     # open CGP database -- we don't need comparativeAnnotator databases anymore
     cgp_db = os.path.join(args.compAnnPath, args.cgpDb)
-    con, cur = sql_lib.open_database(cgp_db)
+    con, cur = open_database(cgp_db)
     # load both consensus and CGP into dictionaries
-    consensus_dict = seq_lib.get_transcript_dict(args.consensusGp)
-    cgp_dict = seq_lib.get_transcript_dict(args.cgpGp)
+    consensus_dict = get_transcript_dict(args.consensusGp)
+    cgp_dict = get_transcript_dict(args.cgpGp)
     # load the BLAT results from the sqlite database
     cgp_stats_query = "SELECT CgpId,EnsId,AlignmentCoverage,AlignmentIdentity FROM '{}_cgp'".format(args.genome)
-    cgp_stats_dict = sql_lib.get_multi_index_query_dict(cur, cgp_stats_query, num_indices=2)
+    cgp_stats_dict = get_multi_index_query_dict(cur, cgp_stats_query, num_indices=2)
     consensus_stats_query = ("SELECT EnsId,AlignmentCoverage,AlignmentIdentity FROM "
                              "'{}_consensus'".format(args.genome))
-    consensus_stats_dict = sql_lib.get_query_dict(cur, consensus_stats_query)
+    consensus_stats_dict = get_query_dict(cur, consensus_stats_query)
     # load the intron bits
     intron_dict = load_intron_bits(args.intronBitsPath)
     # final dictionaries
@@ -298,8 +299,8 @@ def main():
                              gene_transcript_map)
     # remove all such transcripts from the cgp dict before we evaluate for updating
     cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in final_consensus}
-    update_transcripts(cgp_dict, consensus_dict, args.genome, gene_transcript_map, transcript_gene_map, intron_dict, 
-                       final_consensus, metrics, cgp_stats_dict, consensus_stats_dict)
+    update_transcripts(cgp_dict, consensus_dict, transcript_gene_map, intron_dict, final_consensus, metrics,
+                       cgp_stats_dict, consensus_stats_dict)
     evaluate_cgp_consensus(final_consensus, metrics)
     # write results out to disk
     with open(os.path.join(args.metricsOutDir, args.genome + ".metrics.pickle"), "w") as outf:
