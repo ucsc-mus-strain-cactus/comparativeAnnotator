@@ -103,17 +103,20 @@ def coding_classify(r, tgt, ref, passing):
     r = r.where(((ref.classify.CdsUnknownSplice != 0) | (tgt.classify.CdsUnknownSplice == 0)),
                 (tgt.classify.FrameShift == 0),
                 (tgt.classify.CodingInsertions == 0),
-                tgt.classify.CodingDeletions == 0)
+                (tgt.classify.CodingDeletions == 0),
+                (ref.classify.CdsGap != 0) | (tgt.classify.CdsGap == 0))
+
     if passing is False:
-        r = r.where(((ref.classify.CdsGap != 0) | (ref.classify.CdsGap == 0)),
-                    ((ref.classify.BeginStart != 0) | (ref.classify.BeginStart == 0)),
-                    ((ref.classify.EndStop != 0) | (ref.classify.EndStop == 0)),
-                    ((ref.classify.InFrameStop != 0) | (ref.classify.InFrameStop == 0)),
-                    ((ref.classify.StartOutOfFrame != 0) | (ref.classify.StartOutOfFrame == 0)),
-                    ((ref.classify.ShortCds != 0) | (ref.classify.ShortCds == 0)),
-                    ((ref.classify.BadFrame != 0) | (ref.classify.BadFrame == 0)),
+        r = r.where(((ref.classify.UtrGap != 0) | (tgt.classify.UtrGap == 0)),
+                    ((ref.classify.BeginStart != 0) | (tgt.classify.BeginStart == 0)),
+                    ((ref.classify.EndStop != 0) | (tgt.classify.EndStop == 0)),
+                    ((ref.classify.InFrameStop != 0) | (tgt.classify.InFrameStop == 0)),
+                    ((ref.classify.StartOutOfFrame != 0) | (tgt.classify.StartOutOfFrame == 0)),
+                    ((ref.classify.ShortCds != 0) | (tgt.classify.ShortCds == 0)),
+                    ((ref.classify.BadFrame != 0) | (tgt.classify.BadFrame == 0)),
                     (tgt.classify.HasOriginalStop == 0),
-                    (tgt.classify.HasOriginalStart == 0))
+                    (tgt.classify.HasOriginalStart == 0),
+                    (tgt.classify.UnknownGap == 0))
     return r
 
 

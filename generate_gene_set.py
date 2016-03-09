@@ -6,8 +6,7 @@ from collections import defaultdict, OrderedDict
 from comparativeAnnotator.database_queries import get_row_dict, get_fail_pass_excel_ids, augustus_eval
 from pycbio.sys.dataOps import merge_dicts
 from pycbio.sys.mathOps import format_ratio
-from pycbio.bio.transcripts import GenePredTranscript, get_transcript_dict
-from pycbio.bio.intervals import ChromosomeInterval
+from pycbio.bio.transcripts import get_transcript_dict
 from comparativeAnnotator.comp_lib.name_conversions import strip_alignment_numbers, remove_augustus_alignment_number, \
     aln_id_is_augustus, aln_id_is_transmap
 from comparativeAnnotator.database_queries import get_gene_transcript_map, get_transcript_gene_map, \
@@ -17,6 +16,9 @@ __author__ = "Ian Fiddes"
 
 
 def mode_is_aug(mode):
+    """
+    Simple test to check if we are in AugusutsTM/TMR mode or in transMap mode.
+    """
     assert mode in ['AugustusTMR', 'AugustusTM', 'transMap', 'augustus']
     return mode == 'AugustusTMR' or mode == 'AugustusTM' or mode == 'augustus'
 
@@ -67,13 +69,20 @@ def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff, aug_cov_cutoff):
     We sort by ID to favor Augustus transcripts going to the consensus set in the case of ties
     """
     def get_cov_ident(stats, aln_id, mode):
-        """extract coverage and identity from stats, round them"""
+        """
+        Extract coverage and identity from stats, round them. Also evaluates whether a transMap transcript has
+        any short introns. If they do, they will not be allowed to be evaluated, but that does not necessarily mean
+        that we need to collapse alternative isoforms in this gene.
+        """
         if mode == 'transMap':
-            cov = stats[aln_id].AlignmentCoverage
-            ident = stats[aln_id].AlignmentIdentity
+            tm_stats = stats[aln_id]
+            cov = tm_stats.AlignmentCoverage
+            ident = tm_stats.AlignmentIdentity
+            has_gap = tm_stats.UtrGap + tm_stats.CdsGap + tm_stats.UnknownGap + tm_stats.CdsMult3Gap != 0
         elif mode_is_aug(mode):
             cov = stats[aln_id].AugustusAlignmentCoverage
             ident = stats[aln_id].AugustusAlignmentIdentity
+            has_gap = False  # augustus transcripts cannot have short gaps
         else:
             raise NotImplementedError
         # round to avoid floating point issues when finding ties
@@ -85,14 +94,17 @@ def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff, aug_cov_cutoff):
             ident = 0.0
         else:
             ident = round(ident, 6)
-        return cov, ident
+        return cov, ident, has_gap
+
     def analyze_ids(ids, cutoff, stats, mode):
         """return all ids which pass coverage cutoff"""
         s = []
         for aln_id in ids:
-            cov, ident = get_cov_ident(stats, aln_id, mode)
-            s.append([aln_id, cov, ident])
+            cov, ident, has_gap = get_cov_ident(stats, aln_id, mode)
+            if has_gap is False:
+                s.append([aln_id, cov, ident])
         return filter(lambda (aln_id, cov, ident): cov >= cutoff, s)
+
     aug_cov = analyze_ids(aug_ids, aug_cov_cutoff, stats, mode='augustus')
     tm_cov = analyze_ids(tm_ids, tm_cov_cutoff, stats, mode='transMap')
     cov_s = aug_cov + tm_cov
@@ -136,7 +148,7 @@ def is_tie(best_alns):
     return False
 
 
-def find_best_transcripts(data_dict, stats, mode, biotype, tm_cov_cutoff=80.0, aug_cov_cutoff=50.0):
+def find_best_transcripts(data_dict, stats, mode, biotype, tm_cov_cutoff=80.0, aug_cov_cutoff=40.0):
     """
     For all of the transcripts categorized in data_dict, evaluate them and bin them.
     """
@@ -164,17 +176,12 @@ def find_longest_for_gene(bins, stats, gps, cov_cutoff=33.3, ident_cutoff=80.0):
     """
     Finds the longest transcript(s) for a gene. This is used when all transcripts failed, and has more relaxed cutoffs.
     """
-    def tm_has_gaps(tm_stats):
-        return tm_stats.UtrGap + tm_stats.CdsGap + tm_stats.UnknownGap + tm_stats.CdsMult3Gap != 0
     aln_ids = zip(*bins.itervalues())[0]
     keep_ids = []
     for aln_id in aln_ids:
         if aln_id is None:
             continue
         elif aln_id_is_transmap(aln_id):
-            # we don't allow transMap transcripts through with short introns
-            if tm_has_gaps(stats[aln_id]):
-                continue
             cov = stats[aln_id].AlignmentCoverage
             ident = stats[aln_id].AlignmentIdentity
         elif aln_id_is_augustus(aln_id):
@@ -260,7 +267,8 @@ def generate_gene_set(binned_transcripts, stats, gps, transcript_biotype_map, re
             # evaluate each transcript for a gene
             best_id, category, tie = binned_transcripts[gene_id][ens_id]
             categories.add(category)
-            if category in ["Excellent", "Pass"]:
+            # best_id could be None based on coverage filters
+            if category in ["Excellent", "Pass"] and best_id is not None:
                 # if a transcript is of high quality, include it
                 consensus.append(best_id)
                 ids_included.add(best_id)
