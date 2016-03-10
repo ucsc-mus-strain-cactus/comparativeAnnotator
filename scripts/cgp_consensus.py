@@ -13,10 +13,10 @@ import argparse
 import os
 import cPickle as pickle
 from collections import defaultdict, OrderedDict
-from pycbio.sys.sqliteOps import attach_databases, open_database, get_multi_index_query_dict, get_query_dict
+from pycbio.sys.sqliteOps import open_database, get_multi_index_query_dict, get_query_dict
+from pycbio.sys.fileOps import ensureFileDir
 from comparativeAnnotator.database_queries import get_gene_transcript_map, get_transcript_gene_map
 from pycbio.bio.transcripts import get_transcript_dict
-
 
 __author__ = "Ian Fiddes"
 
@@ -268,18 +268,14 @@ def evaluate_cgp_consensus(consensus_dict, metrics):
     metrics["ConsensusStats"] = {"Transcript": transcript_stats, "Gene": gene_stats}
 
 
-def main():
-    args = parse_args()
-    # attach regular comparativeAnnotator reference databases in order to build gene-transcript map
-    con, cur = attach_databases(args.compAnnPath, mode="reference")
-    gene_transcript_map = get_gene_transcript_map(cur, args.refGenome, biotype="protein_coding")
-    transcript_gene_map = get_transcript_gene_map(cur, args.refGenome, biotype="protein_coding")
+def cgp_consensus(args):
+    gene_transcript_map = get_gene_transcript_map(args.ref_genome, args.comp_db, biotype="protein_coding")
+    transcript_gene_map = get_transcript_gene_map(args.ref_genome, args.comp_db, biotype="protein_coding")
     # open CGP database -- we don't need comparativeAnnotator databases anymore
-    cgp_db = os.path.join(args.compAnnPath, args.cgpDb)
-    con, cur = open_database(cgp_db)
+    con, cur = open_database(args.cgp_db)
     # load both consensus and CGP into dictionaries
-    consensus_dict = get_transcript_dict(args.consensusGp)
-    cgp_dict = get_transcript_dict(args.cgpGp)
+    consensus_dict = get_transcript_dict(args.consensus_gp)
+    cgp_dict = get_transcript_dict(args.cgp_gp)
     # load the BLAT results from the sqlite database
     cgp_stats_query = "SELECT CgpId,EnsId,AlignmentCoverage,AlignmentIdentity FROM '{}_cgp'".format(args.genome)
     cgp_stats_dict = get_multi_index_query_dict(cur, cgp_stats_query, num_indices=2)
@@ -287,7 +283,7 @@ def main():
                              "'{}_consensus'".format(args.genome))
     consensus_stats_dict = get_query_dict(cur, consensus_stats_query)
     # load the intron bits
-    intron_dict = load_intron_bits(args.intronBitsPath)
+    intron_dict = load_intron_bits(args.cgp_intron_bits)
     # final dictionaries
     final_consensus = {}
     metrics = {}
@@ -303,12 +299,8 @@ def main():
                        cgp_stats_dict, consensus_stats_dict)
     evaluate_cgp_consensus(final_consensus, metrics)
     # write results out to disk
-    with open(os.path.join(args.metricsOutDir, args.genome + ".metrics.pickle"), "w") as outf:
+    ensureFileDir(args.metrics_dir)
+    with open(os.path.join(args.metrics_dir, args.genome + ".metrics.pickle"), "w") as outf:
         pickle.dump(metrics, outf)
-    with open(args.outGp, "w") as outf:
-        for tx_id, tx in sorted(final_consensus.iteritems(), key=lambda x: [x[1].chromosome, x[1].start]):
-            outf.write("\t".join(map(str, tx.get_gene_pred())) + "\n")
-
-
-if __name__ == "__main__":
-    main()
+    s = sorted(final_consensus.itervalues(), key=lambda tx: (tx.chromosome, tx.start))
+    return ['\t'.join(map(str, x.get_gene_pred())) + '\n' for x in s]

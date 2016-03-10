@@ -182,14 +182,17 @@ def find_longest_for_gene(bins, stats, gps, cov_cutoff=33.3, ident_cutoff=80.0):
         if aln_id is None:
             continue
         elif aln_id_is_transmap(aln_id):
-            cov = stats[aln_id].AlignmentCoverage
-            ident = stats[aln_id].AlignmentIdentity
+            tm_stats = stats[aln_id]
+            cov = tm_stats.AlignmentCoverage
+            ident = tm_stats.AlignmentIdentity
+            has_gap = tm_stats.UtrGap + tm_stats.CdsGap + tm_stats.UnknownGap + tm_stats.CdsMult3Gap != 0
         elif aln_id_is_augustus(aln_id):
             cov = stats[aln_id].AugustusAlignmentCoverage
             ident = stats[aln_id].AugustusAlignmentIdentity
+            has_gap = False
         else:
             raise NotImplementedError
-        if cov >= cov_cutoff and ident >= ident_cutoff:
+        if cov >= cov_cutoff and ident >= ident_cutoff and has_gap is False:
             keep_ids.append(aln_id)
     if len(keep_ids) > 0:
         sizes = [[x, len(gps[x])] for x in keep_ids]

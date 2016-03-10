@@ -1,7 +1,6 @@
 """
 Produces plots of the protein coding consensus that includes comparative Augustus predictions found by cgp_consensus.py
 """
-import argparse
 import os
 import cPickle as pickle
 from collections import OrderedDict
@@ -11,16 +10,6 @@ from pycbio.sys.fileOps import ensureDir
 
 
 __author__ = "Ian Fiddes"
-
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--compAnnPath", required=True)
-    parser.add_argument("--genomes", nargs="+", required=True)
-    parser.add_argument("--workDir", required=True)
-    parser.add_argument("--outDir", required=True)
-    parser.add_argument("--gencode", required=True)
-    return parser.parse_args()
 
 
 def load_evaluations(work_dir, genomes):
@@ -43,52 +32,37 @@ def load_evaluations(work_dir, genomes):
     return cgp_additions, cgp_replace, new_isoforms, cgp_missing, cgp_join_genes, consensus_stats
 
 
-def addition_plot(cgp_additions, out_path, gencode):
+def addition_plot(cgp_additions, out_path):
     results, categories = munge_nested_dicts_for_plotting(cgp_additions, norm=False)
-    base_title = ("Breakdown of the number of new genes/transcripts introduced by Comparative Augustus\n"
-                  "to the consensus gene set derived from the annotation set {}")
-    title = base_title.format(gencode)
-    out_name = "{}_{}_cgp_consensus".format(gencode, "gene_addition")
-    plot_lib.side_by_side_unequal_barplot(results, categories, out_path, out_name, title, ylabel="Count")
+    title = "Breakdown of the number of new genes/transcripts introduced by Comparative Augustus"
+    plot_lib.side_by_side_unequal_barplot(results, categories, out_path, title, ylabel="Count")
 
 
-def replace_plot(cgp_replace, out_path, gencode):
+def replace_plot(cgp_replace, out_path):
     results, categories = munge_nested_dicts_for_plotting(cgp_replace, norm=False)
-    base_title = ("Breakdown of the number of transMap/augustusTMR consensus transcripts replaced by augustusCGP\n"
-                  "from the consensus gene set derived from the annotation set {}")
-    title = base_title.format(gencode)
-    out_name = "{}_{}_cgp_consensus".format(gencode, "transcript_replacement")
-    plot_lib.side_by_side_unequal_barplot(results, categories, out_path, out_name, title, ylabel="Count")
+    title = "Breakdown of the number of transMap/augustusTMR consensus transcripts replaced by augustusCGP"
+    plot_lib.side_by_side_unequal_barplot(results, categories, out_path, title, ylabel="Count")
 
 
-def new_isoforms_plot(new_isoforms, out_path, gencode):
+def new_isoforms_plot(new_isoforms, out_path):
     results = list(new_isoforms.iteritems())
-    base_title = ("Breakdown of the number of new isoforms added by Comparative Augustus\n"
-                  "to the consensus gene set derived from the annotation set {}")
-    title = base_title.format(gencode)
-    out_name = "{}_{}_cgp_consensus".format(gencode, "new_isoforms")
-    plot_lib.unequal_barplot(results, out_path, out_name, title)
+    title = "Breakdown of the number of new isoforms added by Comparative Augustus"
+    plot_lib.unequal_barplot(results, out_path, title)
 
 
-def missing_plot(cgp_missing, out_path, gencode):
+def missing_plot(cgp_missing, out_path,):
     results, categories = munge_nested_dicts_for_plotting(cgp_missing, norm=False)
-    base_title = ("Breakdown of the number of missing genes/transcripts rescued by Comparative Augustus\n"
-                  "to the consensus gene set derived from the annotation set {}")
-    title = base_title.format(gencode)
-    out_name = "{}_{}_cgp_consensus".format(gencode, "missing_genes")
-    plot_lib.side_by_side_unequal_barplot(results, categories, out_path, out_name, title)
+    title = "Breakdown of the number of missing genes/transcripts rescued by Comparative Augustus"
+    plot_lib.side_by_side_unequal_barplot(results, categories, out_path, title)
 
 
-def join_genes_plot(cgp_join_genes, out_path, gencode):
+def join_genes_plot(cgp_join_genes, out_path):
     results, categories = munge_nested_dicts_for_plotting(cgp_join_genes, norm=False)
-    base_title = ("How many CGP consensus transcripts join TMR transcripts in a supported fashion\n"
-                  "to the consensus gene set derived from the annotation set {}")
-    title = base_title.format(gencode)
-    out_name = "{}_{}_cgp_consensus".format(gencode, "join_genes")
-    plot_lib.side_by_side_unequal_barplot(results, categories, out_path, out_name, title)
+    title = "How many CGP consensus transcripts join TMR transcripts in a supported fashion"
+    plot_lib.side_by_side_unequal_barplot(results, categories, out_path, title)
 
 
-def consensus_stats_plot(consensus_stats, out_path, gencode):
+def consensus_stats_plot(consensus_stats, out_path):
     # make this pandas-multi-indexable. TODO: do everything in pandas.
     #reform = {(outer_key, inner_key): values for outer_key, inner_dict in consensus_stats.iteritems() for 
     #          inner_key, values in inner_dict.iteritems()}
@@ -96,25 +70,17 @@ def consensus_stats_plot(consensus_stats, out_path, gencode):
     for cat in categories:
         data = OrderedDict((x, y[cat]) for x, y in consensus_stats.iteritems())
         results, categories = munge_nested_dicts_for_plotting(data, norm=False)
-        base_title = ("Breakdown of the origins of the final consensus {} set\n"
-                      "to the consensus gene set derived from the annotation set {}")
-        title = base_title.format(cat, gencode)
-        out_name = "{}_{}_{}_cgp_consensus".format(cat, gencode, "consensus_overall_metrics")
-        plot_lib.stacked_unequal_barplot(results, categories, out_path, out_name, title, ylabel="Number of {}".format(cat))
+        base_title = "Breakdown of the origins of the final CGP/TMR consensus set"
+        plot_lib.stacked_unequal_barplot(results, categories, out_path, ylabel="Number of {}".format(cat))
 
 
-
-def main():
-    args = parse_args()
-    ensureDir(args.outDir)
-    cgp_additions, cgp_replace, new_isoforms, cgp_missing, cgp_join_genes, consensus_stats = load_evaluations(args.workDir, args.genomes)
-    addition_plot(cgp_additions, args.outDir, args.gencode)
-    replace_plot(cgp_replace, args.outDir, args.gencode)
-    new_isoforms_plot(new_isoforms, args.outDir, args.gencode)
-    missing_plot(cgp_missing, args.outDir, args.gencode)
-    join_genes_plot(cgp_join_genes, args.outDir, args.gencode)
-    consensus_stats_plot(consensus_stats, args.outDir, args.gencode)
-
-
-if __name__ == "__main__":
-    main()
+def generate_consensus_plots(args):
+    ensureDir(args.plot_dir)
+    cgp_additions, cgp_replace, new_isoforms, cgp_missing, cgp_join_genes, consensus_stats = load_evaluations(args.args_holder,
+                                                                                                              args.genomes)
+    addition_plot(cgp_additions, args.addition_plot)
+    replace_plot(cgp_replace, args.replace_plot)
+    new_isoforms_plot(new_isoforms, args.new_isoform_plot)
+    missing_plot(cgp_missing, args.missing_plot)
+    join_genes_plot(cgp_join_genes, args.join_genes_plot)
+    consensus_stats_plot(consensus_stats, args.consensus_stats_plot)

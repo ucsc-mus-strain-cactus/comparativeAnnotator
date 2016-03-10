@@ -7,17 +7,17 @@ the CDS of TM/TMR transcripts.
 """
 
 import os
-import argparse
 import pandas as pd
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
-from lib.psl_lib import PslRow, remove_augustus_alignment_number, remove_alignment_number
-from lib.sql_lib import ExclusiveSqlConnection, get_gene_transcript_map, attach_databases
-from lib.seq_lib import GenePredTranscript
-from lib.general_lib import tokenize_stream, grouper
+from pycbio.bio.psl import PslRow
+from pycbio.bio.transcripts import GenePredTranscript
+from pycbio.sys.sqliteOps import ExclusiveSqlConnection, execute_query
+from pycbio.sys.fileOps import iterRows, ensureFileDir
+from pycbio.sys.dataOps import grouper
+from comparativeAnnotator.database_queries import get_gene_transcript_map
 from sonLib.bioio import fastaWrite, popenCatch, system, TempFileTree, catFiles
 from pyfasta import Fasta
-from lib.general_lib import format_ratio
 
 __author__ = "Ian Fiddes"
 
@@ -42,27 +42,14 @@ def evaluate_blat_results(r):
     if len(r) == 0:
         return 0, 0
     else:
-        p_list = [PslRow(x) for x in tokenize_stream(r)]
+        p_list = [PslRow(x) for x in iterRows(r)]
         # we take the smallest coverage value to account for Augustus adding bases
         p_list = [[min(x.coverage, x.target_coverage), x.identity] for x in p_list]
         best_cov, best_ident = sorted(p_list, key=lambda x: x[0])[-1]
         return best_cov, best_ident
 
 
-def align_gp(target, genome, ref_genome, ref_tx_fasta, target_genome_fasta, gp, mode, out_db, comp_ann_path,
-             chunk_size):
-    """
-    Initial wrapper job. Constructs a file tree and starts alignment job batches in groups of chunk_size.
-    Follow on: concatenates file tree.
-    """
-    file_tree = TempFileTree(target.getGlobalTempDir())
-    for recs in grouper(open(gp), chunk_size):
-        target.addChildTargetFn(align_wrapper, args=[recs, file_tree, ref_tx_fasta, target_genome_fasta, comp_ann_path,
-                                                     ref_genome, mode])
-    target.setFollowOnTargetFn(cat, args=[genome, file_tree, out_db, mode])
-
-
-def align_wrapper(target, recs, file_tree, ref_tx_fasta, target_genome_fasta, comp_ann_path, ref_genome, mode):
+def align_wrapper(target, recs, file_tree, ref_tx_fasta, target_genome_fasta, comp_db_path, ref_genome, mode):
     """
     Alignment wrapper for grouped CGP records or grouped consensus records.
     For CGP mode, pulls down a gene -> transcript map and uses this to determine alignment targets, if they exist.
@@ -70,8 +57,7 @@ def align_wrapper(target, recs, file_tree, ref_tx_fasta, target_genome_fasta, co
     tmp_dir = target.getGlobalTempDir()
     results = []
     if mode == "cgp":
-        con, cur = attach_databases(comp_ann_path, mode="reference")
-        gene_transcript_map = get_gene_transcript_map(cur, ref_genome, biotype="protein_coding")
+        gene_transcript_map = get_gene_transcript_map(ref_genome, comp_db_path, biotype="protein_coding")
     for rec in recs:
         gp = GenePredTranscript(rec.rstrip().split("\t"))
         gene_names = gp.name2.split(",")
@@ -124,16 +110,16 @@ def align_consensus(tmp_dir, gp, target_genome_fasta, ref_tx_fasta):
     return map(str, [gp.id, gp.name, best_cov, best_ident])
 
 
-def cat(target, genome, file_tree, out_db, mode):
+def cat(target, file_tree, out_db, mode, table):
     """
     Concatenates the final resulting file tree before database construction.
     """
     tmp_file = os.path.join(target.getGlobalTempDir(), "tmp.txt")
     catFiles(file_tree.listFiles(), tmp_file)
-    target.setFollowOnTargetFn(load_db, args=[genome, tmp_file, out_db, mode])
+    target.setFollowOnTargetFn(load_db, args=[tmp_file, out_db, mode, table])
 
 
-def load_db(target, genome, tmp_file, out_db, mode):
+def load_db(target, tmp_file, out_db, mode, table):
     """
     Loads the data into a sqlite database.
     """
@@ -145,41 +131,35 @@ def load_db(target, genome, tmp_file, out_db, mode):
         df = pd.read_csv(tmp_file, index_col=0, names=names)
     df = df.convert_objects(convert_numeric=True)  # have to convert to float because pandas lacks a good dtype function
     df = df.sort_index()
-    table = "_".join([genome, mode])
+    ensureFileDir(out_db)
     with ExclusiveSqlConnection(out_db) as con:
         df.to_sql(table, con, if_exists="replace", index=True)
+        cur = con.cursor()
+        cmd = 'CREATE TABLE IF NOT EXISTS completionFlags (aln_table TEXT)'
+        execute_query(cur, cmd)
+        cmd = 'INSERT INTO completionFlags (aln_table) VALUES ("{}")'.format(table)
+        execute_query(cur, cmd)
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--genome", required=True)
-    parser.add_argument("--refGenome", required=True)
-    parser.add_argument("--refTranscriptFasta", required=True)
-    parser.add_argument("--targetGenomeFasta", required=True)
-    parser.add_argument("--outDb", default="cgp_cds_metrics.db")
-    parser.add_argument("--compAnnPath", required=True)
-    gp_group = parser.add_mutually_exclusive_group(required=True)
-    gp_group.add_argument("--cgpGp")
-    gp_group.add_argument("--consensusGp")
-    Stack.addJobTreeOptions(parser)
-    args = parser.parse_args()
-    out_db = os.path.join(args.compAnnPath, args.outDb)
-    if args.cgpGp is not None:
-        gp = args.cgpGp
-        mode = "cgp"
-        chunk_size = 15  # smaller chunk size because we will do more alignments per transcript
-    else:
-        gp = args.consensusGp
-        mode = "consensus"
-        chunk_size = 40
-    s = Stack(Target.makeTargetFn(align_gp, args=[args.genome, args.refGenome, args.refTranscriptFasta, 
-                                                  args.targetGenomeFasta, gp, mode, out_db, args.compAnnPath,
-                                                  chunk_size]))
+def align_gp(target, ref_genome, ref_tx_fasta, target_genome_fasta, gp, mode, out_db, comp_db_path,
+             table, chunk_size):
+    """
+    Initial wrapper job. Constructs a file tree and starts alignment job batches in groups of chunk_size.
+    Follow on: concatenates file tree.
+    """
+    file_tree = TempFileTree(target.getGlobalTempDir())
+    for recs in grouper(open(gp), chunk_size):
+        target.addChildTargetFn(align_wrapper, args=[recs, file_tree, ref_tx_fasta, target_genome_fasta, comp_db_path,
+                                                     ref_genome, mode])
+    target.setFollowOnTargetFn(cat, args=[file_tree, out_db, mode, table])
+
+
+def align_cgp_cds(args):
+    assert args.mode in ['cgp', 'consensus']
+    chunk_size = 20 if args.mode == 'cgp' else 75
+    s = Stack(Target.makeTargetFn(align_gp, args=[args.refGenome, args.refTranscriptFasta,
+                                                  args.targetGenomeFasta, args.gp, args.mode, args.cgpDb,
+                                                  args.compDb, args.table, chunk_size]))
     i = s.startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
-
-
-if __name__ == '__main__':
-    from scripts.align_cgp_cds import *
-    main()

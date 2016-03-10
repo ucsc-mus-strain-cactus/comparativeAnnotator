@@ -50,8 +50,8 @@ def is_not_cds(intron, t):
 def analyze_intron_gap(t, intron, seq_dict, cds_fn, skip_n, mult3):
     if skip_n is True and "N" in intron.get_sequence(seq_dict):
         return False
-    elif skip_n is False and "N" not in intron.get_sequence(seq_dict):
-        return False
+    elif skip_n is False and "N" in intron.get_sequence(seq_dict):
+        return True
     elif cds_fn(intron, t) is True:
         return False
     elif mult3 is True and len(intron) % 3 != 0:
@@ -193,8 +193,8 @@ def codon_pair_iterator(a, t, aln, target_seq_dict, query_seq_dict):
 
     Order is (target_cds_pos, target, query)
     """
-    target_cds = t.get_cds(target_seq_dict).upper()
-    query_cds = a.get_cds(query_seq_dict).upper()
+    target_cds = t.get_cds(target_seq_dict, in_frame=False)  # OOF creates coordinate problems
+    query_cds = a.get_cds(query_seq_dict, in_frame=False)
     a_frames = [x for x in a.exon_frames if x != -1]
     a_offset = find_offset(a_frames, a.strand)
     for i in xrange(a_offset, a.cds_size - a.cds_size % 3, 3):

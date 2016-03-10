@@ -60,7 +60,7 @@ def aug_tgt_ref_join(aug, tgt, ref):
     Produces a base joined table joining aug_attrs, aug_classify, ref_attrs, tgt_attrs, ref_classify, tg_classify,
     returning a combined object with all
     """
-    r = aug.attrs.select(aug.attrs, aug.classify, tgt.attrs, tgt.classify, ref.attrs, ref.classify).\
+    r = aug.attrs.select(aug.attrs, aug.classify, tgt.attrs, tgt.classify).\
         join(aug.classify, on=(aug.attrs.AugustusAlignmentId == aug.classify.AugustusAlignmentId)).\
         join(tgt.classify, on=(aug.attrs.AlignmentId == tgt.classify.AlignmentId)).\
         join(tgt.attrs, on=(tgt.classify.AlignmentId == tgt.attrs.AlignmentId)).\
@@ -74,7 +74,7 @@ def tgt_ref_join(tgt, ref):
     Produces a base joined table joining ref_attrs, tgt_attrs, ref_classify, tg_classify, returning a combined
     object with all
     """
-    r = tgt.attrs.select(tgt.attrs, tgt.classify, ref.attrs, ref.classify).\
+    r = tgt.attrs.select(tgt.attrs, tgt.classify).\
         join(tgt.classify, on=(tgt.attrs.AlignmentId == tgt.classify.AlignmentId)).\
         join(ref.attrs, on=(ref.attrs.TranscriptId == tgt.classify.TranscriptId)).\
         join(ref.classify, on=(tgt.classify.TranscriptId == ref.classify.TranscriptId)).naive()
@@ -135,7 +135,7 @@ def augustus_classify(r, aug, tgt, ref):
     """
     Constructs a query for augustus passing. Generally, allows Augustus to change things if things are wrong in
     the transMap or the reference to begin with. Also has a catch-all that allows any transcript with >95% coverage
-    and >97% identity.
+    and >95% identity.
     TODO: don't hardcode the identity/coverage cutoffs.
     """
     # repeated requirements for both types of boundary movements
