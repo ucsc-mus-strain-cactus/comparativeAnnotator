@@ -92,7 +92,7 @@ def intron_inequality(r, tgt, ref):
     """
     Adds the original intron inequality to a select statement
     """
-    return r.where(((2.0 * tgt.attrs.NumberMissingOriginalIntrons) <= (tgt.attrs.NumberIntrons - 1))
+    return r.where(((1.5 * tgt.attrs.NumberMissingOriginalIntrons) <= (ref.attrs.NumberIntrons - 0.5))
                    | (ref.attrs.NumberIntrons == 0))
 
 
@@ -100,15 +100,15 @@ def coding_classify(r, tgt, ref, passing):
     """
     Query that defines passing/excellent for coding genes, adding on to the noncoding classifiers.
     """
-    r = r.where(((ref.classify.CdsUnknownSplice != 0) | (tgt.classify.CdsUnknownSplice == 0)),
-                (tgt.classify.FrameShift == 0),
-                (tgt.classify.CodingInsertions == 0),
-                (tgt.classify.CodingDeletions == 0),
-                (ref.classify.CdsGap != 0) | (tgt.classify.CdsGap == 0))
+    coverage = 99.0 if passing is False else 95.0
+    percent_unknown = 1.0 if passing is False else 5.0
+
+    r = r.where((tgt.attrs.PercentUnknownBases <= percent_unknown),
+                (tgt.attrs.AlignmentCoverage >= coverage))
+    r = r.where((ref.classify.CdsUnknownSplice != 0) | (tgt.classify.CdsUnknownSplice == 0))
 
     if passing is False:
-        r = r.where(((ref.classify.UtrGap != 0) | (tgt.classify.UtrGap == 0)),
-                    ((ref.classify.BeginStart != 0) | (tgt.classify.BeginStart == 0)),
+        r = r.where(((ref.classify.BeginStart != 0) | (tgt.classify.BeginStart == 0)),
                     ((ref.classify.EndStop != 0) | (tgt.classify.EndStop == 0)),
                     ((ref.classify.InFrameStop != 0) | (tgt.classify.InFrameStop == 0)),
                     ((ref.classify.StartOutOfFrame != 0) | (tgt.classify.StartOutOfFrame == 0)),
@@ -120,11 +120,13 @@ def coding_classify(r, tgt, ref, passing):
     return r
 
 
-def noncoding_classify(r, tgt, ref, coverage, percent_unknown):
+def noncoding_classify(r, tgt, ref, passing):
     """
     Constructs a query for noncoding classifiers. Adjust coverage and percent_unknown to adjust the amount of coverage
     and unknown bases allowed.
     """
+    coverage = 95.0 if passing is False else 90.0
+    percent_unknown = 1.0 if passing is False else 5.0
     r = r.where(((ref.classify.UtrUnknownSplice != 0) | (tgt.classify.UtrUnknownSplice == 0)),
                 (tgt.attrs.PercentUnknownBases <= percent_unknown),
                 (tgt.attrs.AlignmentCoverage >= coverage))
@@ -209,11 +211,13 @@ def trans_map_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None
     r = tgt_ref_join_aln_id(tgt, ref)
     r = intron_inequality(r, tgt, ref)
     if passing is True:
-        r = noncoding_classify(r, tgt, ref, coverage=90.0, percent_unknown=5.0)
+        r = noncoding_classify(r, tgt, ref, passing)
     else:
-        r = noncoding_classify(r, tgt, ref, coverage=99.0, percent_unknown=1.0)
+        r = noncoding_classify(r, tgt, ref, passing)
     if biotype == 'protein_coding':
         r = coding_classify(r, tgt, ref, passing)
+    else:
+        noncoding_classify(r, tgt, ref, passing)
     if biotype is not None:
         r = add_biotype(r, ref, biotype)
     if filter_chroms is not None:

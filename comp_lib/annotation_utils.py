@@ -44,24 +44,7 @@ def is_cds(intron, t):
 
 
 def is_not_cds(intron, t):
-    return intron.start >= t.thick_start and intron.stop < t.thick_stop
-
-
-def analyze_intron_gap(t, intron, seq_dict, cds_fn, skip_n, mult3):
-    if skip_n is True and "N" in intron.get_sequence(seq_dict):
-        return False
-    elif skip_n is False and "N" in intron.get_sequence(seq_dict):
-        return True
-    elif cds_fn(intron, t) is True:
-        return False
-    elif mult3 is True and len(intron) % 3 != 0:
-        return False
-    elif mult3 is False and len(intron) % 3 == 0:
-        return False
-    elif short_intron(intron):
-        return True
-    else:
-        return False
+    return not is_cds(intron, t)
 
 
 def analyze_splice(intron, t, seq_dict, cds_fn, splice_sites):

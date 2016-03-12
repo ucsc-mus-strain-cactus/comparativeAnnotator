@@ -131,10 +131,10 @@ def gene_set_plots(args):
     for biotype, d in load_evaluations(args.metrics_dir, args.ordered_target_genomes, args.biotypes):
         plot_cfg = args.biotype_plots[biotype]
         biotype_bin = biotype_map.get(biotype, 'other')
-        transcript_gene_plot(d['tx_evals'], plot_cfg.tx_plot, 'transcripts', biotype_bin, is_consensus)
-        transcript_gene_plot(d['gene_evals'], plot_cfg.gene_plot, 'genes', biotype_bin, is_consensus)
-        dup_rate_plot(d['tx_dup_rate'], plot_cfg.dup_rate_plot, biotype_bin, is_consensus)
-        longest_plot(d['longest_evals'], plot_cfg.longest_rate_plot, biotype_bin, is_consensus)
+        transcript_gene_plot(d['tx_evals'], plot_cfg.tx_plot, 'transcripts', biotype, is_consensus)
+        transcript_gene_plot(d['gene_evals'], plot_cfg.gene_plot, 'genes', biotype, is_consensus)
+        dup_rate_plot(d['tx_dup_rate'], plot_cfg.dup_rate_plot, biotype, is_consensus)
+        longest_plot(d['longest_evals'], plot_cfg.longest_rate_plot, biotype, is_consensus)
         tx_evals_collapsed = collapse_evals(d['tx_evals'])
         gene_evals_collapsed = collapse_evals(d['gene_evals'])
         for genome, tx_count in tx_evals_collapsed.iteritems():

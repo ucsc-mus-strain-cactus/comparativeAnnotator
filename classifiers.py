@@ -97,13 +97,13 @@ class CdsGap(utils.AbstractClassifier):
     def rgb(self):
         return self.colors["alignment"]
 
-    def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_cds, mult3=False, skip_n=True):
+    def __call__(self, a, ref_fasta):
         bed_recs = []
         for intron in a.intron_intervals:
-            is_gap = utils.analyze_intron_gap(a, intron, ref_fasta, cds_filter_fn, skip_n, mult3)
-            if is_gap is True:
-                bed_rec = tx_lib.interval_to_bed(a, intron, self.rgb, self.name)
-                bed_recs.append(bed_rec)
+            if len(intron) <= utils.short_intron_size:
+                if len(intron) % 3 != 0 and utils.is_cds(intron, a) is True:
+                    bed_rec = tx_lib.interval_to_bed(a, intron, self.rgb, self.name)
+                    bed_recs.append(bed_rec)
         return bed_recs
 
 
@@ -115,8 +115,14 @@ class CdsMult3Gap(CdsGap):
     def rgb(self):
         return self.colors["mutation"]
 
-    def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_cds, mult3=True, skip_n=True):
-        return CdsGap.__call__(self, a, ref_fasta, cds_filter_fn, mult3, skip_n)
+    def __call__(self, a, ref_fasta):
+        bed_recs = []
+        for intron in a.intron_intervals:
+            if utils.short_intron(intron):
+                if len(intron) % 3 == 0 and utils.is_cds(intron, a) is True:
+                    bed_rec = tx_lib.interval_to_bed(a, intron, self.rgb, self.name)
+                    bed_recs.append(bed_rec)
+        return bed_recs
 
 
 class UtrGap(CdsGap):
@@ -128,8 +134,13 @@ class UtrGap(CdsGap):
     def rgb(self):
         return self.colors["alignment"]
 
-    def __call__(self, a, ref_fasta, cds_filter_fn=utils.is_not_cds, mult3=None, skip_n=True):
-        return CdsGap.__call__(self, a, ref_fasta, cds_filter_fn, mult3, skip_n)
+    def __call__(self, a, ref_fasta):
+        bed_recs = []
+        for intron in a.intron_intervals:
+            if utils.short_intron(intron) and utils.is_cds(intron, a) is False:
+                bed_rec = tx_lib.interval_to_bed(a, intron, self.rgb, self.name)
+                bed_recs.append(bed_rec)
+        return bed_recs
 
 
 class UnknownGap(CdsGap):
@@ -140,8 +151,14 @@ class UnknownGap(CdsGap):
     def rgb(self):
         return self.colors["assembly"]
 
-    def __call__(self, a, ref_fasta, cds_filter_fn=lambda intron, t: True, mult3=None, skip_n=False):
-        return CdsGap.__call__(self, a, ref_fasta, cds_filter_fn, mult3, skip_n)
+    def __call__(self, a, ref_fasta):
+        bed_recs = []
+        for intron in a.intron_intervals:
+            if utils.short_intron(intron):
+                if "N" in intron.get_sequence(ref_fasta):
+                    bed_rec = tx_lib.interval_to_bed(a, intron, self.rgb, self.name)
+                    bed_recs.append(bed_rec)
+        return bed_recs
 
 
 class CdsNonCanonSplice(utils.AbstractClassifier):
