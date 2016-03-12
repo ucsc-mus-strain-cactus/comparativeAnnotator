@@ -74,7 +74,7 @@ def transcript_gene_plot(evals, out_path, mode, biotype, is_consensus):
     palette = plot_lib.palette
     if is_consensus:
         base_title = "Breakdown of {} {} categorized by consensus finding"
-        if biotype == 'protein coding' and mode == 'transcripts':
+        if 'protein' in biotype.lower() and mode == 'transcripts':
             palette = plot_lib.paired_palette
     else:
         base_title = "Breakdown of {} {} categorized in transMap gene set"

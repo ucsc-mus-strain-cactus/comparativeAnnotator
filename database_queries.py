@@ -88,24 +88,19 @@ def add_biotype(r, ref, biotype):
     return r.where(ref.attrs.GeneType == biotype)
 
 
-def intron_inequality(r, tgt, ref):
-    """
-    Adds the original intron inequality to a select statement
-    """
-    return r.where(((1.5 * tgt.attrs.NumberMissingOriginalIntrons) <= (ref.attrs.NumberIntrons - 0.5))
-                   | (ref.attrs.NumberIntrons == 0))
-
-
 def coding_classify(r, tgt, ref, passing):
     """
     Query that defines passing/excellent for coding genes, adding on to the noncoding classifiers.
     """
+    # coverage/percent unknown hard coded cutoffs
     coverage = 99.0 if passing is False else 95.0
     percent_unknown = 1.0 if passing is False else 5.0
-
     r = r.where((tgt.attrs.PercentUnknownBases <= percent_unknown),
                 (tgt.attrs.AlignmentCoverage >= coverage))
-    r = r.where((ref.classify.CdsUnknownSplice != 0) | (tgt.classify.CdsUnknownSplice == 0))
+
+    # intron inequality
+    r = r.where(((2 * tgt.attrs.NumberMissingOriginalIntrons) <= (ref.attrs.NumberIntrons - 1))
+                   | (ref.attrs.NumberIntrons < 2))
 
     if passing is False:
         r = r.where(((ref.classify.BeginStart != 0) | (tgt.classify.BeginStart == 0)),
@@ -116,7 +111,9 @@ def coding_classify(r, tgt, ref, passing):
                     ((ref.classify.BadFrame != 0) | (tgt.classify.BadFrame == 0)),
                     (tgt.classify.HasOriginalStop == 0),
                     (tgt.classify.HasOriginalStart == 0),
-                    (tgt.classify.UnknownGap == 0))
+                    (tgt.classify.UnknownGap == 0),
+                    ((ref.classify.CdsUnknownSplice != 0) | (tgt.classify.CdsUnknownSplice == 0)),
+                    ((ref.classify.UtrUnknownSplice != 0) | (tgt.classify.UtrUnknownSplice == 0)))
     return r
 
 
@@ -130,6 +127,11 @@ def noncoding_classify(r, tgt, ref, passing):
     r = r.where(((ref.classify.UtrUnknownSplice != 0) | (tgt.classify.UtrUnknownSplice == 0)),
                 (tgt.attrs.PercentUnknownBases <= percent_unknown),
                 (tgt.attrs.AlignmentCoverage >= coverage))
+    # intron inequality
+    r = r.where(((2 * tgt.attrs.NumberMissingOriginalIntrons) <= (ref.attrs.NumberIntrons - 1))
+                   | (ref.attrs.NumberIntrons < 2))
+    if passing is False:
+        r = r.where((ref.classify.UtrUnknownSplice != 0) | (tgt.classify.UtrUnknownSplice == 0))
     return r
 
 
@@ -209,15 +211,10 @@ def trans_map_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None
     """
     tgt, ref = initialize_tm_session(ref_genome, genome, db_path)
     r = tgt_ref_join_aln_id(tgt, ref)
-    r = intron_inequality(r, tgt, ref)
-    if passing is True:
-        r = noncoding_classify(r, tgt, ref, passing)
-    else:
-        r = noncoding_classify(r, tgt, ref, passing)
     if biotype == 'protein_coding':
         r = coding_classify(r, tgt, ref, passing)
     else:
-        noncoding_classify(r, tgt, ref, passing)
+        r = noncoding_classify(r, tgt, ref, passing)
     if biotype is not None:
         r = add_biotype(r, ref, biotype)
     if filter_chroms is not None:
