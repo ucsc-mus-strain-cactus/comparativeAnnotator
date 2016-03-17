@@ -40,7 +40,7 @@ def short_intron(intron):
 
 
 def is_cds(intron, t):
-    return not (intron.start >= t.thick_start and intron.stop < t.thick_stop)
+    return intron.start >= t.thick_start and intron.stop < t.thick_stop
 
 
 def is_not_cds(intron, t):
@@ -204,7 +204,7 @@ def get_adjusted_starts_ends(t, aln):
             for intron in t.intron_intervals]
 
 
-def is_fuzzy_intron(intron, aln, ref_starts, fuzz_distance=5):
+def is_fuzzy_intron(intron, aln, ref_starts, fuzz_distance=8):
     """
     Determines if a intron is within fuzz distance of its aligned partner.
     """
