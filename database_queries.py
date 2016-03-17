@@ -259,6 +259,15 @@ def get_ref_ids(ref_genome, db_path, biotype=None):
     return set([x[0] for x in execute_query(r.tuples())])
 
 
+def get_ref_records(ref_genome, db_path, biotype=None):
+    ref = initialize_session(ref_genome, db_path, ref_tables)
+    r = ref.attrs.select(ref.attrs, ref.classify).\
+        join(ref.classify, on=(ref.attrs.TranscriptId == ref.classify.TranscriptId))
+    if biotype is not None:
+        r = add_biotype(r, ref, biotype)
+    return {x.TranscriptId: x for x in execute_query(r.naive())}
+
+
 def get_column(genome, ref_genome, db_path, col, biotype=None, best_cov_only=True):
     tgt, ref = initialize_tm_session(ref_genome, genome, db_path)
     r = tgt_ref_join(tgt, ref)

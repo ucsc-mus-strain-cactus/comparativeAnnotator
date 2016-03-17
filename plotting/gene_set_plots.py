@@ -2,7 +2,6 @@
 Produces plots of the protein coding consensus found by consensus.py
 """
 import os
-import pandas as pd
 import cPickle as pickle
 from collections import OrderedDict, defaultdict
 import pycbio.plotting.plotting as plot_lib

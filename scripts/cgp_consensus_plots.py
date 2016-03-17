@@ -17,7 +17,6 @@ def load_evaluations(work_dir, genomes):
     cgp_replace = OrderedDict()
     new_isoforms = OrderedDict()
     cgp_missing = OrderedDict()
-    cgp_join_genes = OrderedDict()
     consensus_stats = OrderedDict()
     for genome in genomes:
         p = os.path.join(work_dir, genome + ".metrics.pickle")
@@ -27,9 +26,8 @@ def load_evaluations(work_dir, genomes):
         cgp_replace[genome] = r["CgpReplace"]
         new_isoforms[genome] = r["NewIsoforms"]
         cgp_missing[genome] = r["CgpAddMissing"]
-        cgp_join_genes[genome] = r["JoinGeneSupported"]
         consensus_stats[genome] = r["ConsensusStats"]
-    return cgp_additions, cgp_replace, new_isoforms, cgp_missing, cgp_join_genes, consensus_stats
+    return cgp_additions, cgp_replace, new_isoforms, cgp_missing, consensus_stats
 
 
 def addition_plot(cgp_additions, out_path):
@@ -56,31 +54,22 @@ def missing_plot(cgp_missing, out_path,):
     plot_lib.side_by_side_unequal_barplot(results, categories, out_path, title)
 
 
-def join_genes_plot(cgp_join_genes, out_path):
-    results, categories = munge_nested_dicts_for_plotting(cgp_join_genes, norm=False)
-    title = "How many CGP consensus transcripts join TMR transcripts in a supported fashion"
-    plot_lib.side_by_side_unequal_barplot(results, categories, out_path, title)
-
-
-def consensus_stats_plot(consensus_stats, out_path):
-    # make this pandas-multi-indexable. TODO: do everything in pandas.
-    #reform = {(outer_key, inner_key): values for outer_key, inner_dict in consensus_stats.iteritems() for 
-    #          inner_key, values in inner_dict.iteritems()}
-    categories = ["Transcript", "Gene"]
-    for cat in categories:
-        data = OrderedDict((x, y[cat]) for x, y in consensus_stats.iteritems())
+def consensus_stats_plot(consensus_stats, out_tx, out_gene):
+    plot_types = ["Transcript", "Gene"]
+    for t, out_path in zip(*[plot_types, [out_tx, out_gene]]):
+        data = OrderedDict((x, y[t]) for x, y in consensus_stats.iteritems())
         results, categories = munge_nested_dicts_for_plotting(data, norm=False)
-        base_title = "Breakdown of the origins of the final CGP/TMR consensus set"
-        plot_lib.stacked_unequal_barplot(results, categories, out_path, ylabel="Number of {}".format(cat))
+        title = "Breakdown of the origins of the final CGP/TMR consensus {} set".format(t.lower())
+        ylabel = "Number of {}s".format(t.lower())
+        plot_lib.stacked_unequal_barplot(results, categories, out_path, title, ylabel=ylabel)
 
 
 def generate_consensus_plots(args):
     ensureDir(args.plot_dir)
-    cgp_additions, cgp_replace, new_isoforms, cgp_missing, cgp_join_genes, consensus_stats = load_evaluations(args.args_holder,
-                                                                                                              args.genomes)
+    cgp_additions, cgp_replace, new_isoforms, cgp_missing, consensus_stats = load_evaluations(args.metrics_dir,
+                                                                                              args.genomes)
     addition_plot(cgp_additions, args.addition_plot)
     replace_plot(cgp_replace, args.replace_plot)
     new_isoforms_plot(new_isoforms, args.new_isoform_plot)
     missing_plot(cgp_missing, args.missing_plot)
-    join_genes_plot(cgp_join_genes, args.join_genes_plot)
-    consensus_stats_plot(consensus_stats, args.consensus_stats_plot)
+    consensus_stats_plot(consensus_stats, args.consensus_tx_plot, args.consensus_gene_plot)

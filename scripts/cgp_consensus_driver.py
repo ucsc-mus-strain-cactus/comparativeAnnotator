@@ -67,16 +67,17 @@ class CgpConsensus(luigi.WrapperTask):
         plot_args = HashableNamespace()
         args_holder = self.create_args()
         plot_args.args_holder = frozendict(args_holder)
+        plot_args.genomes = self.params.targetGenomes
         plot_args.metrics_dir = os.path.join(self.params.workDir, 'CGP_consensus_metrics')
         plot_args.plot_dir = os.path.join(self.params.outputDir, 'CGP_consensus_plots')
         plot_args.addition_plot = os.path.join(plot_args.plot_dir, 'cgp_addtion.pdf')
         plot_args.replace_plot = os.path.join(plot_args.plot_dir, 'cgp_replace_rate.pdf')
         plot_args.new_isoform_plot = os.path.join(plot_args.plot_dir, 'new_isoform_rate.pdf')
         plot_args.missing_plot = os.path.join(plot_args.plot_dir, 'missing_genes_rescued.pdf')
-        plot_args.join_genes_plot = os.path.join(plot_args.plot_dir, 'join_genes_plot.pdf')
-        plot_args.consensus_stats_plot = os.path.join(plot_args.plot_dir, 'consensus_stats_plot.pdf')
+        plot_args.consensus_gene_plot = os.path.join(plot_args.plot_dir, 'consensus_gene_plot.pdf')
+        plot_args.consensus_tx_plot = os.path.join(plot_args.plot_dir, 'consensus_tx_plot.pdf')
         plot_args.plots = (plot_args.addition_plot, plot_args.replace_plot, plot_args.new_isoform_plot,
-                           plot_args.missing_plot, plot_args.join_genes_plot, plot_args.consensus_stats_plot)
+                           plot_args.missing_plot, plot_args.consensus_gene_plot, plot_args.consensus_tx_plot)
         return plot_args, args_holder
 
     def requires(self):
@@ -119,7 +120,7 @@ class ConvertGpToGtf(AbstractAtomicFileTask):
 
     def run(self):
         cmd = [['bin/fixGenePredScore', self.cfg.output_gp],
-               ['genePredToGtf', '-honorCdsStat', '-utr', 'file', '/dev/tsdin', '/dev/stdout']]
+               ['genePredToGtf', '-honorCdsStat', '-utr', 'file', '/dev/stdin', '/dev/stdout']]
         self.run_cmd(cmd)
 
 
@@ -150,6 +151,7 @@ def parse_args():
                                                                     'cgpGenePred, genomeFasta, cgpIntronBits')
     parser.add_argument('--refGenome', required=True, help='Reference genome')
     parser.add_argument('--refTranscriptFasta', required=True, help='Reference gene set transcript FASTA')
+    parser.add_argument('--targetGenomes', nargs='+', required=True, help='Ordered target genomes.')
     parser.add_argument_with_check('--compDb', required=True, metavar='FILE', help='comparativeAnnotator database.')
     parser.add_argument_with_mkdir_p('--jobTreeDir', default='jobTrees', metavar='DIR',
                                      help='Work directory. Will contain intermediate files that may be useful.')
@@ -171,6 +173,7 @@ def parse_args():
     jobtree_parser = argparse.ArgumentParser(add_help=False)
     Stack.addJobTreeOptions(jobtree_parser)
     args = parser.parse_args(namespace=HashableNamespace())
+    args.targetGenomes = tuple(args.targetGenomes)
     args.jobTreeOptions = jobtree_parser.parse_known_args(namespace=HashableNamespace())[0]
     args.jobTreeOptions.jobTree = None
     args.jobTreeOptions.__dict__.update({x: y for x, y in vars(args).iteritems() if x in args.jobTreeOptions})

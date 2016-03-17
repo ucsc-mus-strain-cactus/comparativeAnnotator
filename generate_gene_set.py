@@ -405,7 +405,12 @@ def build_gene_sizes(tx_dict, gene_transcript_map, biotype, transcript_biotype_m
     """
     r = {}
     for gene_id, tx_ids in gene_transcript_map.iteritems():
-        r[gene_id] = max([len(tx_dict[x]) for x in tx_ids if transcript_biotype_map[x] == biotype])
+        sizes = [len(tx_dict[x]) for x in tx_ids if transcript_biotype_map[x] == biotype]
+        if len(sizes) == 0:
+            # bad annotation - gene biotype does not match any transcript biotypes
+            # we instead fall back to just the longest. Maybe we should ignore retained intron specifically?
+            sizes = [len(tx_dict[x]) for x in tx_ids]
+        r[gene_id] = max(sizes)
     return r
 
 
