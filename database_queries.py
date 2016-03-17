@@ -93,7 +93,7 @@ def coding_classify(r, tgt, ref, passing):
     Query that defines passing/excellent for coding genes, adding on to the noncoding classifiers.
     """
     # coverage/percent unknown hard coded cutoffs
-    coverage = 99.0 if passing is False else 95.0
+    coverage = 75.0 if passing is False else 50.0
     percent_unknown = 1.0 if passing is False else 5.0
     r = r.where((tgt.attrs.PercentUnknownBases <= percent_unknown),
                 (tgt.attrs.AlignmentCoverage >= coverage))
@@ -122,7 +122,7 @@ def noncoding_classify(r, tgt, ref, passing):
     Constructs a query for noncoding classifiers. Adjust coverage and percent_unknown to adjust the amount of coverage
     and unknown bases allowed.
     """
-    coverage = 95.0 if passing is False else 90.0
+    coverage = 75.0 if passing is False else 50.0
     percent_unknown = 1.0 if passing is False else 5.0
     r = r.where(((ref.classify.UtrUnknownSplice != 0) | (tgt.classify.UtrUnknownSplice == 0)),
                 (tgt.attrs.PercentUnknownBases <= percent_unknown),
@@ -143,7 +143,7 @@ def augustus_classify(r, aug, tgt, ref):
     TODO: don't hardcode the identity/coverage cutoffs.
     """
     # repeated requirements for both types of boundary movements
-    boundaries = (tgt.attrs.AlignmentCoverage < 95.0) | (tgt.classify.CdsUnknownSplice > 0) | (tgt.classify.UtrUnknownSplice > 0)
+    boundaries = (tgt.attrs.AlignmentCoverage < 50.0) | (tgt.classify.CdsUnknownSplice > 0) | (tgt.classify.UtrUnknownSplice > 0)
     r = r.where((((aug.classify.NotSameStart == 0) | ((tgt.classify.HasOriginalStart != 0) |
                                                       (tgt.classify.StartOutOfFrame != 0) | (tgt.classify.BadFrame != 0) |
                                                       (ref.classify.BeginStart != 0))) &
@@ -152,7 +152,7 @@ def augustus_classify(r, aug, tgt, ref):
                 ((aug.classify.NotSimilarTerminalExonBoundaries == 0) | (boundaries | (tgt.classify.UtrGap > 1))) &
                 ((aug.classify.NotSimilarInternalExonBoundaries == 0) | (boundaries | (tgt.classify.CdsGap + tgt.classify.UtrGap > 2))) &
                 ((aug.classify.ExonLoss < 2) & (aug.classify.AugustusParalogy == 0))) |
-                ((aug.attrs.AugustusAlignmentCoverage >= 50.0) & (aug.attrs.AugustusAlignmentIdentity >= 95.0)))
+                ((aug.attrs.AugustusAlignmentCoverage >= 35.0) & (aug.attrs.AugustusAlignmentIdentity >= 80.0)))
     return r
 
 

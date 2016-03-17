@@ -6,8 +6,8 @@ from comparativeAnnotator.comp_lib.name_conversions import strip_alignment_numbe
 
 # Hard coded bins used for plots.
 paralogy_bins = [0, 1, 2, 3, 4, float('inf')]
-coverage_bins = [0, 0.0001, 95.0, 98.0, 99.0, 99.999999, 100.0]
-identity_bins = [0, 0.0001, 99.0, 99.5, 99.8, 99.999999, 100.0]
+coverage_bins = [0, 0.0001, 50.0, 80.0, 90.0, 100.0]
+identity_bins = [0, 0.0001, 85.0, 90.0, 95.0, 100.0]
 
 
 def paralogy_plot(genomes, ref_genome, biotype, path, db_path):
@@ -35,9 +35,9 @@ def cov_plot(genomes, ref_genome, biotype, path, db_path):
         results.append([genome, norm])
     title_string = "transMap alignment coverage breakdown for\n{:,} {} transcripts"
     title_string = title_string.format(len(biotype_ids), biotype.replace("_", " "))
-    legend_labels = ["= {0:.1f}%".format(coverage_bins[-1])]
+    legend_labels = [u"\u2264 {0:.1f}%".format(coverage_bins[-1])]
     legend_labels.extend(["< {0:.1f}%".format(x) for x in coverage_bins[2:-1][::-1]])
-    legend_labels.append("= {0:.1f}%".format(coverage_bins[0]))
+    legend_labels.append('= 0%')
     plot_lib.stacked_barplot(results, legend_labels, path, title_string)
 
 
@@ -51,9 +51,9 @@ def ident_plot(genomes, ref_genome, biotype, path, db_path):
         results.append([genome, norm])
     title_string = "transMap alignment identity breakdown for\n{:,} {} transcripts"
     title_string = title_string.format(len(biotype_ids), biotype.replace("_", " "))
-    legend_labels = ["= {0:.1f}%".format(coverage_bins[-1])]
-    legend_labels.extend(["< {0:.1f}%".format(x) for x in coverage_bins[2:-1][::-1]])
-    legend_labels.append("= {0:.1f}%".format(coverage_bins[0]))
+    legend_labels = [u"\u2264 {0:.1f}%".format(identity_bins[-1])]
+    legend_labels.extend(["< {0:.1f}%".format(x) for x in identity_bins[2:-1][::-1]])
+    legend_labels.append('= 0%')
     plot_lib.stacked_barplot(results, legend_labels, path, title_string)
 
 

@@ -151,7 +151,7 @@ def is_tie(best_alns):
     return False
 
 
-def find_best_transcripts(data_dict, stats, mode, biotype, tm_cov_cutoff=80.0, aug_cov_cutoff=40.0):
+def find_best_transcripts(data_dict, stats, mode, biotype, tm_cov_cutoff=40.0, aug_cov_cutoff=25.0):
     """
     For all of the transcripts categorized in data_dict, evaluate them and bin them.
     """
@@ -175,7 +175,7 @@ def find_best_transcripts(data_dict, stats, mode, biotype, tm_cov_cutoff=80.0, a
     return binned_transcripts
 
 
-def find_longest_for_gene(bins, stats, gps, biotype, cov_cutoff=33.3, ident_cutoff=80.0):
+def find_longest_for_gene(bins, stats, gps, biotype, cov_cutoff=15.0, ident_cutoff=70.0):
     """
     Finds the longest transcript(s) for a gene. This is used when all transcripts failed, and has more relaxed cutoffs.
     """
@@ -209,7 +209,7 @@ def find_longest_for_gene(bins, stats, gps, biotype, cov_cutoff=33.3, ident_cuto
         return None, None
 
 
-def has_only_short(ids_included, ref_size, gps, percentage_of_ref=50.0):
+def has_only_short(ids_included, ref_size, gps, percentage_of_ref=30.0):
     """
     Are all of the consensus transcripts we found for this gene too short?
     """
