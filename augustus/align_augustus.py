@@ -20,16 +20,16 @@ def align(target, target_fasta, chunk, ref_fasta, file_tree):
     g_f = Fasta(target_fasta)
     r_f = Fasta(ref_fasta)
     results = []
+    tmp_aug = os.path.join(target.getGlobalTempDir(), "tmp_aug")
+    tmp_gencode = os.path.join(target.getGlobalTempDir(), "tmp_gencode")
+    tmp_psl = os.path.join(target.getGlobalTempDir(), 'tmp_psl')
     for tgt_id in chunk:
         query_id = remove_augustus_alignment_number(tgt_id)
         gencode_id = remove_alignment_number(query_id)
         gencode_seq = str(r_f[gencode_id])
         aug_seq = str(g_f[tgt_id])
-        tmp_aug = os.path.join(target.getLocalTempDir(), "tmp_aug")
-        tmp_gencode = os.path.join(target.getLocalTempDir(), "tmp_gencode")
         fastaWrite(tmp_aug, tgt_id, aug_seq)
         fastaWrite(tmp_gencode, gencode_id, gencode_seq)
-        tmp_psl = os.path.join(target.getLocalTempDir(), 'tmp_psl')
         system("blat {} {} -out=psl -noHead {}".format(tmp_aug, tmp_gencode, tmp_psl))
         r = popenCatch("simpleChain -outPsl {} /dev/stdout".format(tmp_psl))
         r = r.split("\n")[:-1]
