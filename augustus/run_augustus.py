@@ -17,7 +17,7 @@ from pycbio.sys.dataOps import grouper
 
 
 #####
-# Below are hard coded commands and paths to run Augustus and related scripts.
+# Below are hard coded commands and SQL queries to run Augustus
 #####
 
 hints_db_query = '''select source,typename,start,end,score,strand,frame,priority,grp,mult,esource
