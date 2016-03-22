@@ -49,7 +49,7 @@ def align(target, target_fasta, chunk, ref_fasta, file_tree):
 def align_augustus_wrapper(target, args):
     file_tree = TempFileTree(target.getGlobalTempDir())
     tgt_ids = Fasta(args.fasta).keys()
-    for chunk in grouper(tgt_ids, 50):
+    for chunk in grouper(tgt_ids, 200):
         target.addChildTargetFn(align, args=[args.fasta, chunk, args.ref_fasta, file_tree])
     target.setFollowOnTargetFn(cat, args=(args.genome, file_tree, args.db))
 

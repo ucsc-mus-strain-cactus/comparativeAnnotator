@@ -251,11 +251,13 @@ def get_aln_ids(ref_genome, genome, db_path, biotype=None, best_cov_only=False):
     return set([x[0] for x in execute_query(r.tuples())])
 
 
-def get_ref_ids(ref_genome, db_path, biotype=None):
+def get_ref_ids(ref_genome, db_path, biotype=None, filter_chroms=None):
     ref = initialize_session(ref_genome, db_path, ref_tables)
     r = ref.attrs.select(ref.attrs.TranscriptId)
     if biotype is not None:
         r = add_biotype(r, ref, biotype)
+    if filter_chroms is not None:
+        r = add_filter_chroms(r, ref, filter_chroms)
     return set([x[0] for x in execute_query(r.tuples())])
 
 
