@@ -287,7 +287,7 @@ def paralogy(genome, db_path, biotype=None):
     """
     tgt = initialize_session(genome, db_path, tgt_tables)
     r = tgt.attrs.select(tgt.attrs.Paralogy)
-    return [x[0] + 1 for x in execute_query(r.tuples())]
+    return [x[0] for x in execute_query(r.tuples())]
 
 
 def get_transcript_gene_map(ref_genome, db_path, biotype=None):
