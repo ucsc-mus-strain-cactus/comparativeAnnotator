@@ -22,7 +22,10 @@ def paralogy_plot(genomes, ref_genome, biotype, path, db_path):
     title_string = title_string.format(len(biotype_ids), biotype.replace("_", " "))
     legend_labels = ["= {}".format(x) for x in paralogy_bins[1:-2]] + [u"\u2265 {}".format(paralogy_bins[-2])] + \
                     ["= {}".format(paralogy_bins[0])]
-    plot_lib.stacked_barplot(results, legend_labels, path, title_string)
+    if len(results) > 5:
+        plot_lib.stacked_barplot(results, legend_labels, path, title_string)
+    else:
+        plot_lib.side_by_side_unequal_barplot(results, legend_labels, path, title_string, ylabel='Percentage of transcripts')
 
 
 def cov_plot(genomes, ref_genome, biotype, path, db_path):
@@ -37,8 +40,11 @@ def cov_plot(genomes, ref_genome, biotype, path, db_path):
     title_string = title_string.format(len(biotype_ids), biotype.replace("_", " "))
     legend_labels = [u"\u2264 {0:.1f}%".format(coverage_bins[-1])]
     legend_labels.extend(["< {0:.1f}%".format(x) for x in coverage_bins[2:-1][::-1]])
-    legend_labels.append('= 0%')
-    plot_lib.stacked_barplot(results, legend_labels, path, title_string)
+    legend_labels.append("= {0:.1f}%".format(coverage_bins[0]))
+    if len(results) > 5:
+        plot_lib.stacked_barplot(results, legend_labels, path, title_string)
+    else:
+        plot_lib.side_by_side_unequal_barplot(results, legend_labels, path, title_string, ylabel='Percentage of transcripts')
 
 
 def ident_plot(genomes, ref_genome, biotype, path, db_path):
@@ -51,10 +57,13 @@ def ident_plot(genomes, ref_genome, biotype, path, db_path):
         results.append([genome, norm])
     title_string = "transMap alignment identity breakdown for\n{:,} {} transcripts"
     title_string = title_string.format(len(biotype_ids), biotype.replace("_", " "))
-    legend_labels = [u"\u2264 {0:.1f}%".format(identity_bins[-1])]
-    legend_labels.extend(["< {0:.1f}%".format(x) for x in identity_bins[2:-1][::-1]])
-    legend_labels.append('= 0%')
-    plot_lib.stacked_barplot(results, legend_labels, path, title_string)
+    legend_labels = ["= {0:.1f}%".format(coverage_bins[-1])]
+    legend_labels.extend(["< {0:.1f}%".format(x) for x in coverage_bins[2:-1][::-1]])
+    legend_labels.append("= {0:.1f}%".format(coverage_bins[0]))
+    if len(results) > 5:
+        plot_lib.stacked_barplot(results, legend_labels, path, title_string)
+    else:
+        plot_lib.side_by_side_unequal_barplot(results, legend_labels, path, title_string, ylabel='Percentage of transcripts')
 
 
 def num_pass_excel(genomes, ref_genome, biotype, path, db_path, filter_chroms):
@@ -76,7 +85,10 @@ def num_pass_excel(genomes, ref_genome, biotype, path, db_path, filter_chroms):
     title_string = "Proportion of {:,} {} transcripts categorized as Excellent/Pass/Fail"
     title_string = title_string.format(len(biotype_ids), biotype.replace("_", " "))
     legend_labels = ["Excellent", "Pass", "Fail", "NoAln"]
-    plot_lib.stacked_barplot(results, legend_labels, path, title_string)
+    if len(results) > 5:
+        plot_lib.stacked_barplot(results, legend_labels, path, title_string)
+    else:
+        plot_lib.side_by_side_unequal_barplot(results, legend_labels, path, title_string, ylabel='Percentage of transcripts')
 
 
 def num_pass_excel_gene_level(genomes, ref_genome, biotype, path, db_path, filter_chroms):
@@ -104,4 +116,7 @@ def num_pass_excel_gene_level(genomes, ref_genome, biotype, path, db_path, filte
     title_string = "Proportion of {:,} {} genes \nwith at least one transcript categorized as Excellent/Pass/Fail"
     title_string = title_string.format(num_genes, biotype.replace("_", " "))
     legend_labels = ["Excellent", "Pass", "Fail", "NoAln"]
-    plot_lib.stacked_barplot(results, legend_labels, path, title_string)
+    if len(results) > 5:
+        plot_lib.stacked_barplot(results, legend_labels, path, title_string)
+    else:
+        plot_lib.side_by_side_unequal_barplot(results, legend_labels, path, title_string, ylabel='Percentage of transcripts')
