@@ -307,3 +307,18 @@ class UnknownBases(utils.AbstractClassifier):
 class UnknownCdsBases(UnknownBases):
     def __call__(self, a, ref_fasta, cds=True):
         return UnknownBases.__call__(self, a, ref_fasta, cds)
+
+
+class LongTranscript(utils.AbstractClassifier):
+    """
+    Is this transcript unbelievably long? Filters out poor alignments.
+    """
+    @property
+    def rgb(self):
+        return self.colors["alignment"]
+
+    def __call__(self, a, ref_fasta, size_cutoff=1.5 * 10 ** 6):
+        if len(a) >= size_cutoff:
+            return [tx_lib.transcript_to_bed(a, self.rgb, self.name)]
+        else:
+            return []

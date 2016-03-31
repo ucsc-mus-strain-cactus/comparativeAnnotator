@@ -102,6 +102,9 @@ def coding_classify(r, tgt, ref, passing):
     r = r.where(((2 * tgt.attrs.NumberMissingOriginalIntrons) <= (ref.attrs.NumberIntrons - 1))
                    | (ref.attrs.NumberIntrons < 2))
 
+    # no insanely long transcripts
+    r = r.where(tgt.classify.LongTranscript == 0)
+
     if passing is False:
         r = r.where(((ref.classify.BeginStart != 0) | (tgt.classify.BeginStart == 0)),
                     ((ref.classify.EndStop != 0) | (tgt.classify.EndStop == 0)),
@@ -127,9 +130,14 @@ def noncoding_classify(r, tgt, ref, passing):
     r = r.where(((ref.classify.UtrUnknownSplice != 0) | (tgt.classify.UtrUnknownSplice == 0)),
                 (tgt.attrs.PercentUnknownBases <= percent_unknown),
                 (tgt.attrs.AlignmentCoverage >= coverage))
+
     # intron inequality
     r = r.where(((2 * tgt.attrs.NumberMissingOriginalIntrons) <= (ref.attrs.NumberIntrons - 1))
                    | (ref.attrs.NumberIntrons < 2))
+
+    # no insanely long transcripts
+    r = r.where(tgt.classify.LongTranscript == 0)
+
     if passing is False:
         r = r.where((ref.classify.UtrUnknownSplice != 0) | (tgt.classify.UtrUnknownSplice == 0))
     return r
@@ -281,7 +289,7 @@ def get_column(genome, ref_genome, db_path, col, biotype=None, best_cov_only=Tru
     return [x[0] for x in execute_query(r.tuples())]
 
 
-def paralogy(genome, db_path, biotype=None):
+def paralogy(genome, db_path):
     """
     Returns a counter of paralogy.
     """
