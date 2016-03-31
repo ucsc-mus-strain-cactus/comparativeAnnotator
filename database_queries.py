@@ -161,6 +161,8 @@ def augustus_classify(r, aug, tgt, ref):
                 ((aug.classify.NotSimilarInternalExonBoundaries == 0) | (boundaries | (tgt.classify.CdsGap + tgt.classify.UtrGap > 2))) &
                 ((aug.classify.ExonLoss < 2) & (aug.classify.AugustusParalogy == 0))) |
                 ((aug.attrs.AugustusAlignmentCoverage >= 50.0) & (aug.attrs.AugustusAlignmentIdentity >= 95.0)))
+    # no insanely long transcripts
+    r = r.where(aug.classify.AugustusLongTranscript == 0)
     return r
 
 

@@ -317,7 +317,7 @@ class LongTranscript(utils.AbstractClassifier):
     def rgb(self):
         return self.colors["alignment"]
 
-    def __call__(self, a, ref_fasta, size_cutoff=1.5 * 10 ** 6):
+    def __call__(self, a, ref_fasta, size_cutoff=1 * 10 ** 6):
         if len(a) >= size_cutoff:
             return [tx_lib.transcript_to_bed(a, self.rgb, self.name)]
         else:

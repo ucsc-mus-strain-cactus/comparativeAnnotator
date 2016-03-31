@@ -135,6 +135,21 @@ class NotSameStop(utils.AbstractClassifier):
         return bed_recs
 
 
+class AugustusLongTranscript(utils.AbstractClassifier):
+    """
+    Is this transcript unbelievably long? Filters out poor alignments.
+    """
+    @property
+    def rgb(self):
+        return self.colors["alignment"]
+
+    def __call__(self, aug_t, t, size_cutoff=1 * 10 ** 6):
+        if len(aug_t) >= size_cutoff:
+            return [tx_lib.transcript_to_bed(aug_t, self.rgb, self.name)]
+        else:
+            return []
+
+
 def multiple_augustus_transcripts(aug_dict):
     """
     This special non-classifier function takes the entire transcript dict and produces counts of paralogy.
