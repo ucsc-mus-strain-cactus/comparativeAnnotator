@@ -78,10 +78,11 @@ def transcript_gene_plot(evals, out_path, mode, biotype, is_consensus):
     else:
         base_title = "Breakdown of {} {} categorized in transMap gene set"
     title = base_title.format(biotype, mode)
+    ylabel = 'Number of {}s'.format(mode)
     if len(results) > 5:
-        plot_lib.stacked_unequal_barplot(results, categories, out_path, title, color_palette=palette)
+        plot_lib.stacked_unequal_barplot(results, categories, out_path, title, color_palette=palette, ylabel=ylabel)
     else:
-        plot_lib.side_by_side_unequal_barplot(results, categories, out_path, title, color_palette=palette)
+        plot_lib.side_by_side_unequal_barplot(results, categories, out_path, title, color_palette=palette, ylabel=ylabel)
 
 
 def dup_rate_plot(tx_dup_rate, out_path, biotype, is_consensus):
