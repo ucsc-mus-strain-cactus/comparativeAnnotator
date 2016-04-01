@@ -17,7 +17,7 @@ from pycbio.sys.sqliteOps import open_database, get_multi_index_query_dict, get_
 from pycbio.sys.fileOps import ensureDir
 from comparativeAnnotator.database_queries import get_gene_transcript_map, get_transcript_gene_map,\
     get_transcript_biotype_map
-from pycbio.bio.transcripts import get_transcript_dict
+from pycbio.bio.transcripts import get_transcript_dict, Transcript
 
 __author__ = "Ian Fiddes"
 
@@ -173,7 +173,7 @@ def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, final_conse
 
 def build_final_consensus(consensus_dict, replace_map, new_isoforms, final_consensus):
     """
-    Builds the final consensus gene set given the replace map as well as the new isoforms. Deduplicates.
+    Builds the final consensus gene set given the replace map as well as the new isoforms. Deduplicates based on id.
     """
     seen_ids = set()  # used to deduplicate the results
     for consensus_id, consensus_tx in consensus_dict.iteritems():
@@ -219,10 +219,40 @@ def update_transcripts(cgp_dict, consensus_dict, transcript_gene_map, intron_dic
     build_final_consensus(consensus_dict, replace_map, new_isoforms, final_consensus)
 
 
-def evaluate_cgp_consensus(consensus_dict, metrics):
+def deduplicate_cgp_consensus(consensus_dict, metrics):
+    """
+    In the process of consensus building, we may find that we have ended up with more than one transcript for a gene
+    that are actually identical. Remove these, picking the non-CGP gene in these cases.
+    """
+    duplicates = defaultdict(list)
+    for tx in consensus_dict.itervalues():
+        # ignore small CDS to prevent removing noncoding transcripts
+        if tx.thick_stop - tx.thick_start <= 25:
+            continue
+        # generate a BED of only CDS coordinates
+        tx_cds_bed = tx.get_bed(start_offset=tx.thick_start, stop_offset=tx.thick_stop)
+        # create a new transcript object out of this
+        tx_cds = Transcript(tx_cds_bed)
+        duplicates[frozenset(tx_cds.exon_intervals)].append(tx)
+    deduplicated_consensus = []
+    dup_count = 0
+    for tx_list in duplicates.itervalues():
+        if len(tx_list) > 1:
+            dup_count += 1
+            non_cgp = [tx for tx in tx_list if 'jg' not in tx.id]
+            assert len(non_cgp) == 1
+            best = non_cgp[0]
+            deduplicated_consensus.append(best)
+        else:
+            deduplicated_consensus.append(tx_list[0])
+    metrics['CgpEqualsTMR'] = dup_count
+    return deduplicated_consensus
+
+
+def evaluate_cgp_consensus(consensus, metrics):
     tx_names = OrderedDict((("transMap",  set()), ("AugustusTMR", set()), ("CGP", set())))
     gene_names = OrderedDict((("Gencode", set()), ("CGP", set())))
-    for cgp_tx in consensus_dict.itervalues():
+    for cgp_tx in consensus:
         if "jg" in cgp_tx.name:
             tx_names["CGP"].add(cgp_tx.name)
             gene_names["CGP"].update([x for x in cgp_tx.name2.split(",") if 'jg' in x])
@@ -270,10 +300,11 @@ def cgp_consensus(args):
     cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in final_consensus}
     update_transcripts(cgp_dict, consensus_dict, transcript_gene_map, intron_dict, final_consensus, metrics,
                        cgp_stats_dict, consensus_stats_dict, transcript_biotype_map)
-    evaluate_cgp_consensus(final_consensus, metrics)
+    deduplicated_consensus = deduplicate_cgp_consensus(final_consensus, metrics)
+    evaluate_cgp_consensus(deduplicated_consensus, metrics)
     # write results out to disk
     ensureDir(args.metrics_dir)
     with open(os.path.join(args.metrics_dir, args.genome + ".metrics.pickle"), "w") as outf:
         pickle.dump(metrics, outf)
-    s = sorted(final_consensus.itervalues(), key=lambda tx: (tx.chromosome, tx.start))
+    s = sorted(final_consensus, key=lambda tx: (tx.chromosome, tx.start))
     return ['\t'.join(map(str, x.get_gene_pred())) + '\n' for x in s]

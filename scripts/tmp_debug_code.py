@@ -24,7 +24,7 @@ def build_aln_dict(tx_dict, aug_tx_dict, paralogy_counts):
 
 
 args = loadp("mouse_args.pickle")
-genome = 'CAST_EiJ'
+genome = '129S1_SvImJ'
 ref_genome = 'C57B6J'
 from pipeline.config import PipelineConfiguration
 cfg = PipelineConfiguration(args, args.geneSets[0])

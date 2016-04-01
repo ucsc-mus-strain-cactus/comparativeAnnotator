@@ -76,8 +76,10 @@ class CgpConsensus(luigi.WrapperTask):
         plot_args.missing_plot = os.path.join(plot_args.plot_dir, 'missing_genes_rescued.pdf')
         plot_args.consensus_gene_plot = os.path.join(plot_args.plot_dir, 'consensus_gene_plot.pdf')
         plot_args.consensus_tx_plot = os.path.join(plot_args.plot_dir, 'consensus_tx_plot.pdf')
+        plot_args.consensus_tx_plot = os.path.join(plot_args.plot_dir, 'consensus_cgp_match_removed.pdf')
         plot_args.plots = (plot_args.addition_plot, plot_args.replace_plot, plot_args.new_isoform_plot,
-                           plot_args.missing_plot, plot_args.consensus_gene_plot, plot_args.consensus_tx_plot)
+                           plot_args.missing_plot, plot_args.consensus_gene_plot, plot_args.consensus_tx_plot,
+                           plot_args.consensus_tx_plot)
         return plot_args, args_holder
 
     def requires(self):
