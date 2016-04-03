@@ -108,3 +108,34 @@ def highest_cov_aln(psl_dict):
         best = sorted(vals, key=lambda (aln_id, cov): -cov)[0][0]
         best_cov.add(best)
     return {aln_id: True if aln_id in best_cov else False for aln_id in psl_dict.iterkeys()}
+
+
+def highest_ident_aln(psl_dict):
+    """
+    This special classifier reports whether a given alignment is the highest identity alignment for that source tx.
+    """
+    combined_idents = defaultdict(list)
+    for aln_id, psl in psl_dict.iteritems():
+        tx_id = remove_alignment_number(aln_id)
+        combined_idents[tx_id].append([aln_id, psl.identity])
+    best_ident = set()
+    for tx_id, vals in combined_idents.iteritems():
+        best = sorted(vals, key=lambda (aln_id, ident): -ident)[0][0]
+        best_ident.add(best)
+    return {aln_id: True if aln_id in best_ident else False for aln_id in psl_dict.iterkeys()}
+
+
+def best_overall_aln(psl_dict, cov_weight=0.25, ident_weight=0.75):
+    """
+    This special classifier reports whether a given alignment has the highest sum of coverage + ident, weighted
+    """
+    assert cov_weight + ident_weight == 1.0
+    combined_stats = defaultdict(list)
+    for aln_id, psl in psl_dict.iteritems():
+        tx_id = remove_alignment_number(aln_id)
+        combined_stats[tx_id].append([aln_id, ident_weight * psl.identity + cov_weight * psl.coverage])
+    best_ident = set()
+    for tx_id, vals in combined_stats.iteritems():
+        best = sorted(vals, key=lambda (aln_id, s): -s)[0][0]
+        best_ident.add(best)
+    return {aln_id: True if aln_id in best_ident else False for aln_id in psl_dict.iterkeys()}

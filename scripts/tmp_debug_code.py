@@ -23,7 +23,7 @@ def build_aln_dict(tx_dict, aug_tx_dict, paralogy_counts):
     return r
 
 
-args = loadp("mouse_args.pickle")
+args = loadp("v3_args.pickle")
 genome = '129S1_SvImJ'
 ref_genome = 'C57B6J'
 from pipeline.config import PipelineConfiguration
@@ -52,7 +52,7 @@ id_names = ["fail_ids", "pass_specific_ids", "excel_ids", "aug_ids"]
 id_list = [fail_ids, pass_specific_ids, excel_ids, aug_ids]
 data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
 mode = args.mode
-binned_transcripts = find_best_transcripts(data_dict, stats, mode, biotype)
+binned_transcripts = find_best_transcripts(data_dict, stats, mode, biotype, gps)
 
 
 if mode_is_aug(mode) and biotype == "protein_coding":
@@ -232,7 +232,7 @@ import comparativeAnnotator.augustus_classifiers as augustus_classifiers
 import comparativeAnnotator.alignment_attributes as alignment_attributes
 
 args = loadp("mouse_args.pickle")
-genome = 'BALB_cJ'
+genome = '129S1_SvImJ'
 ref_genome = 'C57B6J'
 from pipeline.config import PipelineConfiguration
 cfg = PipelineConfiguration(args, args.geneSets[0])
@@ -262,15 +262,15 @@ paralogy_counts = alignment_attributes.paralogy(psl_dict)
 coverage_recs = alignment_attributes.highest_cov_aln(psl_dict)
 aln_dict = build_aln_dict(ref_dict, tx_dict, psl_dict, ref_psl_dict, paralogy_counts, coverage_recs)
 
-ref_fasta = get_sequence_dict(args.ref_fasta)
-tgt_fasta = get_sequence_dict(args.fasta)
+ref_fasta = query_seq_dict = get_sequence_dict(args.ref_fasta)
+tgt_fasta = ref_seq_dict = get_sequence_dict(args.fasta)
 aln_classifier_fns = [x() for x in classes_in_module(alignment_classifiers)]
 classifier_fns = [x() for x in  classes_in_module(classifiers)]
 r_details = {}
 
 
-tx_id = 'ENSMUST00000117592.1'
-aln_id = 'ENSMUST00000117592.1-1'
+tx_id = 'ENSMUST00000034934.14'
+aln_id = 'ENSMUST00000034934.14-1'
 
 cds_filter_fn=lambda intron, t: True
 mult3=None
@@ -323,7 +323,7 @@ from pycbio.sys.fileOps import ensureFileDir
 from comparativeAnnotator.database_queries import get_gene_transcript_map, get_transcript_gene_map, get_transcript_biotype_map
 from pycbio.bio.transcripts import get_transcript_dict
 from comparativeAnnotator.scripts.cgp_consensus import *
-genome = 'C57BL_6NJ'
+genome = '129S1_SvImJ'
 ref_genome = 'C57B6J'
 plot_args, args_holder = loadp('cgp_args.pickle')
 args = args_holder[genome]

@@ -14,7 +14,7 @@ def paralogy_plot(genomes, ref_genome, biotype, path, db_path):
     results = []
     biotype_ids = get_ref_ids(ref_genome, db_path, biotype)
     for g in genomes:
-        p = paralogy(g, db_path, biotype)
+        p = paralogy(g, ref_genome, db_path, biotype)
         # we roll the list backwards one to put 0 on top
         norm, raw = plot_lib.make_hist(p, paralogy_bins, reverse=False, roll=-1)
         results.append([g, norm])

@@ -2,7 +2,8 @@
 Produces a gene set from transMap alignments, or from a combination of transMap and AugustusTM/TMR.
 """
 import cPickle as pickle
-from collections import defaultdict, OrderedDict
+import numpy as np
+from collections import defaultdict, OrderedDict, Counter
 from comparativeAnnotator.database_queries import get_row_dict, get_fail_pass_excel_ids, augustus_eval
 from pycbio.sys.dataOps import merge_dicts
 from pycbio.sys.mathOps import format_ratio
@@ -151,7 +152,42 @@ def is_tie(best_alns):
     return False
 
 
-def find_best_transcripts(data_dict, stats, mode, biotype, tm_cov_cutoff=80.0, aug_cov_cutoff=40.0):
+def remove_multiple_chromosomes(binned_transcripts, gps, stats):
+    """
+    If the flag is set by the user, this will filter out all transcripts for a gene not present on the most common
+    chromosome/contig.
+    """
+    to_remove = set()
+    for gene_id in binned_transcripts:
+        tx_ids = zip(*binned_transcripts[gene_id].values())[0]
+        tx_ids = [x for x in tx_ids if x is not None]
+        if len(tx_ids) == 0:
+            continue
+        tx_chrom_map = {x: gps[x].chromosome for x in tx_ids}
+        tx_chroms = set(tx_chrom_map.values())
+        if len(tx_chroms) == 1:
+            continue
+        # ambiguous - first, try and resolve based on transcript consensus
+        tx_counter = Counter(tx_chrom_map.values())
+        tx_most_common = tx_counter.most_common()
+        if tx_most_common[0][1] != tx_most_common[1][1]:
+            # remove anything without that chromosome
+            to_remove.update([x for x in tx_ids if tx_chrom_map[x] != tx_most_common[0][0]])
+            continue
+        # try resolving by picking whichever chromosome has the highest average identity
+        tx_ident_map = {x: stats[x].AlignmentIdentity for x in tx_ids}
+        ident_per_chrom = defaultdict(list)
+        for tx, ident in tx_ident_map.iteritems():
+            ident_per_chrom[tx_chrom_map[tx]].append(ident)
+        avg_ident_per_chrom = {x: np.mean(y) for x, y in ident_per_chrom.iteritems()}
+        best_chrom = sorted(avg_ident_per_chrom.iteritems(), key=lambda (chrom, ident): ident, reverse=True)[0][0]
+        to_remove.update([x for x in tx_ids if tx_chrom_map[x] != best_chrom])
+    # now, remove everything
+    for gene_id in binned_transcripts:
+        binned_transcripts[gene_id] = {x: y for x, y in binned_transcripts[gene_id].iteritems() if y[0] not in to_remove}
+
+
+def find_best_transcripts(data_dict, stats, mode, biotype, gps, tm_cov_cutoff=80.0, aug_cov_cutoff=40.0):
     """
     For all of the transcripts categorized in data_dict, evaluate them and bin them.
     """
@@ -172,6 +208,7 @@ def find_best_transcripts(data_dict, stats, mode, biotype, tm_cov_cutoff=80.0, a
             else:
                 tie = is_tie(best_alns)
                 binned_transcripts[gene_id][ens_id] = [best_alns[0], category, tie]
+    remove_multiple_chromosomes(binned_transcripts, gps, stats)
     return binned_transcripts
 
 
@@ -326,7 +363,7 @@ def consensus_by_biotype(db_path, ref_genome, genome, biotype, gps, transcript_g
     Main consensus finding function.
     """
     excel_ids, pass_specific_ids, fail_ids = get_fail_pass_excel_ids(ref_genome, genome, db_path, biotype,
-                                                                     filter_chroms, best_cov_only=False)
+                                                                     filter_chroms, best_cov_only=True)
     # hacky way to avoid duplicating code in consensus finding - we will always have an aug_id set, it just may be empty
     if mode_is_aug(mode) and biotype == "protein_coding":
         aug_ids = augustus_eval(ref_genome, genome, db_path, biotype, filter_chroms)
@@ -336,7 +373,7 @@ def consensus_by_biotype(db_path, ref_genome, genome, biotype, gps, transcript_g
         id_names = ["fail_ids", "pass_specific_ids", "excel_ids"]
         id_list = [fail_ids, pass_specific_ids, excel_ids]
     data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
-    binned_transcripts = find_best_transcripts(data_dict, stats, mode, biotype)
+    binned_transcripts = find_best_transcripts(data_dict, stats, mode, biotype, gps)
     consensus, metrics = generate_gene_set(binned_transcripts, stats, gps, transcript_biotype_map, ref_gene_sizes, 
                                            mode, biotype)
     return consensus, metrics

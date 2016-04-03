@@ -105,6 +105,9 @@ def coding_classify(r, tgt, ref, passing):
     # no insanely long transcripts
     r = r.where(tgt.classify.LongTranscript == 0)
 
+    # only best overall aln
+    r = r.where(tgt.attrs.BestOverallAln == 1)
+
     if passing is False:
         r = r.where(((ref.classify.BeginStart != 0) | (tgt.classify.BeginStart == 0)),
                     ((ref.classify.EndStop != 0) | (tgt.classify.EndStop == 0)),
@@ -138,6 +141,9 @@ def noncoding_classify(r, tgt, ref, passing):
     # no insanely long transcripts
     r = r.where(tgt.classify.LongTranscript == 0)
 
+    # only best overall aln
+    r = r.where(tgt.attrs.BestOverallAln == 1)
+
     if passing is False:
         r = r.where((ref.classify.UtrUnknownSplice != 0) | (tgt.classify.UtrUnknownSplice == 0))
     return r
@@ -161,8 +167,17 @@ def augustus_classify(r, aug, tgt, ref):
                 ((aug.classify.NotSimilarInternalExonBoundaries == 0) | (boundaries | (tgt.classify.CdsGap + tgt.classify.UtrGap > 2))) &
                 ((aug.classify.ExonLoss < 2) & (aug.classify.AugustusParalogy == 0))) |
                 ((aug.attrs.AugustusAlignmentCoverage >= 50.0) & (aug.attrs.AugustusAlignmentIdentity >= 95.0)))
+
     # no insanely long transcripts
     r = r.where(aug.classify.AugustusLongTranscript == 0)
+
+    # only best overall aln
+    r = r.where(tgt.attrs.BestOverallAln == 1)
+
+    # prevent pseudogenes by disallowing very few introns if parent gene had introns
+    #r = r.where((ref.attrs.NumberIntrons - 3 < aug.attrs.AugustusNumberIntrons)
+    #            & (aug.attrs.AugustusNumberIntrons < ref.attrs.NumberIntrons + 3)
+    #            | (ref.attrs.NumberIntrons < 2))
     return r
 
 
@@ -291,12 +306,15 @@ def get_column(genome, ref_genome, db_path, col, biotype=None, best_cov_only=Tru
     return [x[0] for x in execute_query(r.tuples())]
 
 
-def paralogy(genome, db_path):
+def paralogy(genome, ref_genome, db_path, biotype=None):
     """
     Returns a counter of paralogy.
     """
-    tgt = initialize_session(genome, db_path, tgt_tables)
-    r = tgt.attrs.select(tgt.attrs.Paralogy)
+    tgt, ref = initialize_tm_session(ref_genome, genome, db_path)
+    r = tgt_ref_join(tgt, ref)
+    r = r.select(tgt.attrs.Paralogy)
+    if biotype is not None:
+        r = add_biotype(r, ref, biotype)
     return [x[0] for x in execute_query(r.tuples())]
 
 
