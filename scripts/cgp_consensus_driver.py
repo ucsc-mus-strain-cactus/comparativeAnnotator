@@ -32,7 +32,7 @@ class CgpConsensus(luigi.WrapperTask):
             args.ref_genome = self.params.refGenome
             args.norestart = self.params.norestart
             args.comp_db = self.params.compDb
-            args.cgp_db = os.path.join(self.params.workDir,'comparativeAnnotator', 'cgp_stats.db')
+            args.cgp_db = os.path.join(self.params.workDir, 'comparativeAnnotator', 'cgp_stats.db')
             args.consensus_gp = consensus_gp
             args.cgp_gp = cgp_gp
             args.cgp_intron_bits = cgp_intron_bits
@@ -59,7 +59,7 @@ class CgpConsensus(luigi.WrapperTask):
             args.align_cds.table = '_'.join([genome, args.align_cds.mode])
             # output
             args.output_gp = os.path.join(self.params.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gp')
-            args.output_gtf = os.path.join(self.params.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gff')
+            args.output_gtf = os.path.join(self.params.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gtf')
             args_holder[genome] = args
         return args_holder
 

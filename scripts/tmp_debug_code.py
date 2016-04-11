@@ -24,7 +24,7 @@ def build_aln_dict(tx_dict, aug_tx_dict, paralogy_counts):
 
 
 args = loadp("v3_args.pickle")
-genome = '129S1_SvImJ'
+genome = 'PWK_PhJ'
 ref_genome = 'C57B6J'
 from pipeline.config import PipelineConfiguration
 cfg = PipelineConfiguration(args, args.geneSets[0])
@@ -323,18 +323,17 @@ from pycbio.sys.fileOps import ensureFileDir
 from comparativeAnnotator.database_queries import get_gene_transcript_map, get_transcript_gene_map, get_transcript_biotype_map
 from pycbio.bio.transcripts import get_transcript_dict
 from comparativeAnnotator.scripts.cgp_consensus import *
-genome = '129S1_SvImJ'
+genome = 'PWK_PhJ'
 ref_genome = 'C57B6J'
 plot_args, args_holder = loadp('cgp_args.pickle')
 args = args_holder[genome]
 
+transcript_biotype_map = get_transcript_biotype_map(args.ref_genome, args.comp_db)
 gene_transcript_map = get_gene_transcript_map(args.ref_genome, args.comp_db, biotype="protein_coding")
 transcript_gene_map = get_transcript_gene_map(args.ref_genome, args.comp_db, biotype="protein_coding")
-ref_dict = get_ref_records(args.ref_genome, args.comp_db, biotype='protein_coding')
-# open CGP database -- we don't need comparativeAnnotator databases anymore
 con, cur = open_database(args.cgp_db)
 # load both consensus and CGP into dictionaries
-consensus_dict = get_transcript_dict(args.consensus_gp)
+tmr_consensus_dict = get_transcript_dict(args.consensus_gp)
 cgp_dict = get_transcript_dict(args.cgp_gp)
 # load the BLAT results from the sqlite database
 cgp_stats_query = "SELECT CgpId,EnsId,AlignmentCoverage,AlignmentIdentity FROM '{}_cgp'".format(args.genome)
@@ -345,30 +344,20 @@ consensus_stats_dict = get_query_dict(cur, consensus_stats_query)
 # load the intron bits
 intron_dict = load_intron_bits(args.cgp_intron_bits)
 # final dictionaries
-final_consensus = {}
+cgp_consensus = {}
 metrics = {}
-find_new_transcripts(cgp_dict, final_consensus, metrics)
+# save all CGP transcripts which have no associated genes
+find_new_transcripts(cgp_dict, cgp_consensus, metrics)
 # save all CGP transcripts whose associated genes are not in the consensus
-consensus_genes = {x.name2 for x in consensus_dict.itervalues()}
-find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, final_consensus, metrics, consensus_dict,
-                             gene_transcript_map)
-cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in final_consensus}
-
-replace_map = {}  # will store a mapping between consensus IDs and the CGP transcripts that will replace them
-new_isoforms = []  # will store cgp transcripts which represent new potential isoforms of a gene
-for cgp_id, cgp_tx in cgp_dict.iteritems():
-    cgp_stats = cgp_stats_dict[cgp_id]
-    ens_ids = {x for x in cgp_stats.keys() if transcript_biotype_map[x] == 'protein_coding'}
-    consensus_stats = {x: consensus_stats_dict[x] for x in ens_ids if x in consensus_stats_dict}
-    to_replace_ids = determine_if_better(cgp_stats, consensus_stats)
-    intron_vector = intron_dict[cgp_id]
-    if len(to_replace_ids) > 0:
-        for to_replace_id in to_replace_ids:
-            gene_id = transcript_gene_map[to_replace_id]
-            replace_map[to_replace_id] = [cgp_tx, gene_id]
-    elif determine_if_new_introns(cgp_tx, ens_ids, consensus_dict, intron_vector) is True:
-        new_isoforms.append(cgp_tx)
-
+consensus_genes = {x.name2 for x in tmr_consensus_dict.itervalues()}
+find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, cgp_consensus, metrics, tmr_consensus_dict,
+                         gene_transcript_map)
+# remove all such transcripts from the cgp dict before we evaluate for updating
+cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in cgp_consensus}
+update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron_dict, cgp_consensus, metrics,
+                   cgp_stats_dict, consensus_stats_dict, transcript_biotype_map)
+deduplicated_consensus = deduplicate_cgp_consensus(cgp_consensus, metrics)
+evaluate_cgp_consensus(deduplicated_consensus, metrics)
 
 
 from pyfasta import Fasta
