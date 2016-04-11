@@ -80,6 +80,7 @@ class AugustusAttributes(Base):
     AugustusAlignmentCoverage = FloatField(null=True)
     AugustusAlignmentIdentity = FloatField(null=True)
     AugustusNumberIntrons = IntegerField(null=True)
+    AugustusBestOverallAln = BooleanField(null=True)
 
 
 class AugustusClassify(Base):

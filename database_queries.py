@@ -175,9 +175,9 @@ def augustus_classify(r, aug, tgt, ref):
     r = r.where(tgt.attrs.BestOverallAln == 1)
 
     # prevent pseudogenes by disallowing very few introns if parent gene had introns
-    #r = r.where((ref.attrs.NumberIntrons - 3 < aug.attrs.AugustusNumberIntrons)
-    #            & (aug.attrs.AugustusNumberIntrons < ref.attrs.NumberIntrons + 3)
-    #            | (ref.attrs.NumberIntrons < 2))
+    r = r.where((ref.attrs.NumberIntrons - 3 < aug.attrs.AugustusNumberIntrons)
+                & (aug.attrs.AugustusNumberIntrons < ref.attrs.NumberIntrons + 3)
+                | (ref.attrs.NumberIntrons < 2))
     return r
 
 
