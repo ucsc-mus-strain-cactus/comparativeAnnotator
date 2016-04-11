@@ -3,7 +3,7 @@ Takes a comparative Augustus transcript set with the name2 field set to the best
 Produces a new consensus from this transcript set, following these rules:
 
 1) Align every CGP transcript to the consensus transcript's reference transcript. If one or more CGP transcript 
-fufills the coverage/identity heuristics above, replace the consensus transcript with the best CGP by % identity.
+fulfills the coverage/identity heuristics above, replace the consensus transcript with the best CGP by % identity.
 2) If there are any remaining CGP transcripts that have not been moved into the consensus set, we look for RNAseq 
 supported splice junctions not present in any of the transcripts for this gene. If so, we include it. 
 3) If any augustus CGP transcripts do not overlap any existing transcripts, include them

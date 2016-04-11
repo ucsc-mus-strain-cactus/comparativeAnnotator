@@ -24,7 +24,7 @@ def build_aln_dict(tx_dict, aug_tx_dict, paralogy_counts):
 
 
 args = loadp("v3_args.pickle")
-genome = 'PWK_PhJ'
+genome = 'C57BL_6NJ'
 ref_genome = 'C57B6J'
 from pipeline.config import PipelineConfiguration
 cfg = PipelineConfiguration(args, args.geneSets[0])
@@ -65,8 +65,6 @@ else:
     transcript_evaluation = OrderedDict((x, 0) for x in ["Excellent", "Pass", "Fail"])
 
 
-
-interesting_ids = defaultdict(list)
 gene_evaluation = OrderedDict((x, 0) for x in ["Excellent", "Pass", "Fail", "NoTransMap"])
 longest_rate = OrderedDict((('Longest', OrderedDict((('AddLongest', 0), ('FailAddLongest', 0)))),
                             ('Rescue', OrderedDict((('GeneRescue', 0), ('FailGeneRescue', 0))))))
@@ -88,18 +86,21 @@ for gene_id in binned_transcripts:
     # have we included this gene yet? only count if the transcripts included match the gene biotype.
     # this prevents good mappings of retained introns and such being the only transcript.
     biotype_ids_included = {x for x in ids_included if transcript_biotype_map[strip_alignment_numbers(x)] == biotype}
-    gene_in_consensus = True if len(biotype_ids_included) > 0 else False
+    # there exists Gencode genes where no transcripts have the parent biotype
+    gene_in_consensus = True if len(biotype_ids_included) > 0 or \
+                                len(ids_included) == len(binned_transcripts[gene_id]) else False
     # if we have, have we included only short transcripts?
     has_only_short_txs = has_only_short(ids_included, ref_gene_sizes[gene_id], gps)
     if has_only_short_txs is True and gene_in_consensus is True:
         # add the single longest transcript for this gene if it passes filters
-        longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, biotype)
-        if longest_id is not None and longest_id not in consensus:
+        longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, biotype, ids_included)
+        if longest_id in consensus:
+            continue
+        elif longest_id is not None:
             consensus.append(longest_id)
             transcript_evaluation['Fail'] += 1
             longest_rate['Longest']["AddLongest"] += 1
         else:
-            interesting_ids['failaddlongest'].append(gene_id)
             longest_rate['Longest']["FailAddLongest"] += 1
     if gene_in_consensus is True:
         # gene is in consensus, evaluate and move on
@@ -107,9 +108,8 @@ for gene_id in binned_transcripts:
         gene_evaluation[s] += 1
     else:
         # attempt to add one longest transcript for this failing gene
-        longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, biotype)
+        longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, biotype, ids_included)
         if longest_id is None:
-            interesting_ids['failrescue'].append(gene_id)
             gene_evaluation['NoTransMap'] += 1
             longest_rate['Rescue']["FailGeneRescue"] += 1
         else:
@@ -119,16 +119,6 @@ for gene_id in binned_transcripts:
             gene_evaluation[category] += 1
             longest_rate['Rescue']["GeneRescue"] += 1
 
-
-import random
-failrescue = [random.choice(interesting_ids['failrescue']) for _ in range(10)]
-gene_id = failrescue[9]
-bins = binned_transcripts[gene_id]
-
-
-failadd = [random.choice(interesting_ids['failaddlongest']) for _ in range(10)]
-gene_id = failadd[0]
-bins = binned_transcripts[gene_id]
 
 
 select AlignmentId,AlignmentCoverage,AlignmentIdentity from CAROLI_EiJ_Attributes where TranscriptId = 'ENSMUST00000165289.7';

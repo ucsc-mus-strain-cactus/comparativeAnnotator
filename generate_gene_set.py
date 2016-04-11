@@ -212,11 +212,12 @@ def find_best_transcripts(data_dict, stats, mode, biotype, gps, tm_cov_cutoff=80
     return binned_transcripts
 
 
-def find_longest_for_gene(bins, stats, gps, biotype, cov_cutoff=33.3, ident_cutoff=80.0):
+def find_longest_for_gene(bins, stats, gps, biotype, ids_included, cov_cutoff=33.3, ident_cutoff=80.0):
     """
     Finds the longest transcript(s) for a gene. This is used when all transcripts failed, and has more relaxed cutoffs.
     """
     aln_ids = zip(*bins.itervalues())[0]
+    aln_ids = set(aln_ids) - ids_included
     keep_ids = []
     for aln_id in aln_ids:
         if aln_id is None:
@@ -323,12 +324,14 @@ def generate_gene_set(binned_transcripts, stats, gps, transcript_biotype_map, re
         # have we included this gene yet? only count if the transcripts included match the gene biotype.
         # this prevents good mappings of retained introns and such being the only transcript.
         biotype_ids_included = {x for x in ids_included if transcript_biotype_map[strip_alignment_numbers(x)] == biotype}
-        gene_in_consensus = True if len(biotype_ids_included) > 0 else False
+        # there exists Gencode genes where no transcripts have the parent biotype
+        gene_in_consensus = True if len(biotype_ids_included) > 0 or \
+                                    len(ids_included) == len(binned_transcripts[gene_id]) else False
         # if we have, have we included only short transcripts?
         has_only_short_txs = has_only_short(ids_included, ref_gene_sizes[gene_id], gps)
         if has_only_short_txs is True and gene_in_consensus is True:
             # add the single longest transcript for this gene if it passes filters
-            longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, biotype)
+            longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, biotype, ids_included)
             if longest_id in consensus:
                 continue
             elif longest_id is not None:
@@ -343,7 +346,7 @@ def generate_gene_set(binned_transcripts, stats, gps, transcript_biotype_map, re
             gene_evaluation[s] += 1
         else:
             # attempt to add one longest transcript for this failing gene
-            longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, biotype)
+            longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, biotype, ids_included)
             if longest_id is None:
                 gene_evaluation['NoTransMap'] += 1
                 longest_rate['Rescue']["FailGeneRescue"] += 1
@@ -353,6 +356,7 @@ def generate_gene_set(binned_transcripts, stats, gps, transcript_biotype_map, re
                 transcript_evaluation[category] += 1
                 gene_evaluation[category] += 1
                 longest_rate['Rescue']["GeneRescue"] += 1
+    assert len(consensus) == len(set(consensus))
     metrics = {"transcript": transcript_evaluation, "gene": gene_evaluation, "longest": longest_rate}
     return consensus, metrics
 
