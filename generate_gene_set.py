@@ -465,6 +465,7 @@ def generate_gene_set_wrapper(args):
     transcript_biotype_map = get_transcript_biotype_map(args.query_genome, args.db)
     ref_gps = get_transcript_dict(args.annotation_gp)
     biotype_evals = {}
+    overall_consensus = []
     for biotype, gp_path in args.geneset_gps.iteritems():
         gene_transcript_map = get_gene_transcript_map(args.query_genome, args.db, biotype)
         ref_gene_sizes = build_gene_sizes(ref_gps, gene_transcript_map, biotype, transcript_biotype_map)
@@ -473,8 +474,10 @@ def generate_gene_set_wrapper(args):
                                                   transcript_gene_map, gene_transcript_map, transcript_biotype_map,
                                                   stats, args.mode, ref_gene_sizes, args.filter_chroms)
         deduplicated_consensus, dup_count = deduplicate_consensus(consensus, gps, stats)
-        write_gps(consensus, gps, gp_path, transcript_gene_map)
+        write_gps(deduplicated_consensus, gps, gp_path, transcript_gene_map)
+        overall_consensus.extend(deduplicate_consensus)
         metrics["duplication_rate"] = dup_count
         biotype_evals[biotype] = metrics
+    write_gps(overall_consensus, gps, args.combined_gp, transcript_biotype_map)
     with open(args.pickled_metrics, 'w') as outf:
         pickle.dump(biotype_evals, outf)

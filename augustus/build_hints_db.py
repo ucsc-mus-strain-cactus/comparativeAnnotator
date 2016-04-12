@@ -2,15 +2,16 @@
 This program takes a series of BAM files and converts them to a Augustus hints database.
 """
 import sys
-import time
 import os
 import pysam
-os.environ['PYTHONPATH'] = './:./submodules:./submodules/pycbio:./submodules/comparativeAnnotator'
-sys.path.extend(['./', './submodules', './submodules/pycbio', './submodules/comparativeAnnotator'])
+import time
 import argparse
 import itertools
 import subprocess
+from collections import defaultdict
 from pyfasta import Fasta
+os.environ['PYTHONPATH'] = './:./submodules:./submodules/pycbio:./submodules/comparativeAnnotator'
+sys.path.extend(['./', './submodules', './submodules/pycbio', './submodules/comparativeAnnotator'])
 from pycbio.sys.mathOps import format_ratio
 from pycbio.sys.fileOps import tmpFileGet, ensureDir, atomicInstall
 from jobTree.scriptTree.target import Target
@@ -49,7 +50,7 @@ def bam_is_paired(path, num_reads=100000, paired_cutoff=0.75):
         raise RuntimeError("Unable to infer pairing from bamfile {}".format(path))
 
 
-def group_references(sam_handle, num_bases=20 ** 7, max_seqs=100):
+def group_references(sam_handle, num_bases=10 ** 6, max_seqs=100):
     """
     Group up references by num_bases, unless that exceeds max_seqs.
     """
@@ -73,17 +74,19 @@ def group_references(sam_handle, num_bases=20 ** 7, max_seqs=100):
 def main_hints_fn(target, bam_paths, db, genome, genome_fasta, hints_file):
     """
     Main driver function. Loops over each BAM, inferring paired-ness, then passing each BAM with one chromosome name
-    for filtering. Each BAM will remain separated until the final concatenation and sorting of the hint gffs.
+    for filtering. Maintains a chromosome based map of bams so that they can be merged prior to hint construction.
     """
     filtered_bam_tree = TempFileTree(get_tmp(target, global_dir=True, name="filter_file_tree"))
+    chrom_file_map = defaultdict(list)
+    sam_handle = pysam.Samfile(bam_paths[0])
+    references = list(group_references(sam_handle))
     for bam_path in bam_paths:
         paired = "--paired --pairwiseAlignments" if bam_is_paired(bam_path) is True else ""
-        sam_handle = pysam.Samfile(bam_path)
-        for references in group_references(sam_handle):
+        for group in references:
             out_filter = filtered_bam_tree.getTempFile(suffix=".bam")
-            target.addChildTargetFn(sort_by_name, memory=8 * 1024 ** 3, cpu=2, 
-                                    args=[bam_path, references, out_filter, paired])
-    target.setFollowOnTargetFn(build_hints, args=[filtered_bam_tree, genome, db, genome_fasta, hints_file])
+            chrom_file_map[tuple(group)].append(out_filter)
+            target.addChildTargetFn(sort_by_name, args=[bam_path, group, out_filter, paired])
+    target.setFollowOnTargetFn(build_hints, args=[chrom_file_map, genome, db, genome_fasta, hints_file])
 
 
 def sort_by_name(target, bam_path, references, out_filter, paired):
@@ -101,21 +104,32 @@ def sort_by_name(target, bam_path, references, out_filter, paired):
     system("samtools index {}".format(out_filter))
 
 
-def build_hints(target, filtered_bam_tree, genome, db, genome_fasta, hints_file):
+def merge_bams(bam_files, target):
+    bam_file = get_tmp(target, global_dir=True, name='.combined.bam')
+    fofn = get_tmp(target)
+    with open(fofn, 'w') as outf:
+        for x in bam_files:
+            outf.write(x + "\n")
+    cmd = 'samtools merge -b {} {}'.format(fofn, bam_file)
+    system(cmd)
+    return bam_file
+
+
+def build_hints(target, chrom_file_map, genome, db, genome_fasta, hints_file):
     """
     Driver function for hint building. Builts intron and exon hints, then calls cat_hints to do final concatenation
     and sorting.
     """
     if hints_file is None:
         hints_file = target.getGlobalTempDir()
-    bam_files = [x for x in filtered_bam_tree.listFiles() if x.endswith("bam")]
     intron_hints_tree = TempFileTree(get_tmp(target, global_dir=True, name="intron_hints_tree"))
     exon_hints_tree = TempFileTree(get_tmp(target, global_dir=True, name="exon_hints_tree"))
-    for bam_file in bam_files:
+    for bam_files in chrom_file_map.itervalues():
+        bam_file = merge_bams(bam_files, target)
         intron_hints_path = intron_hints_tree.getTempFile(suffix=".intron.gff")
-        target.addChildTargetFn(build_intron_hints, memory=8 * 1024 ** 3, cpu=2, args=[bam_file, intron_hints_path])
+        target.addChildTargetFn(build_intron_hints, memory=8 * 1024 ** 3, args=[bam_file, intron_hints_path])
         exon_hints_path = exon_hints_tree.getTempFile(suffix=".exon.gff")
-        target.addChildTargetFn(build_exon_hints, memory=8 * 1024 ** 3, cpu=2, args=[bam_file, exon_hints_path])
+        target.addChildTargetFn(build_exon_hints, memory=8 * 1024 ** 3, args=[bam_file, exon_hints_path])
     target.setFollowOnTargetFn(cat_hints, args=[intron_hints_tree, exon_hints_tree, genome, db, genome_fasta,
                                                 hints_file])
 
@@ -194,8 +208,9 @@ def load_db(target, hints_file, db, genome, genome_fasta, timeout=6000, interval
 def external_main(args):
     assert os.path.exists(args.fasta)
     assert all([os.path.exists(x) for x in args.bams])
-    s = Stack(Target.makeTargetFn(main_hints_fn, memory=8 * 1024 ** 3,
-                                  args=[args.bams, args.database, args.genome, args.fasta, args.hintsFile]))
+    args.defaultMemory = 8 * 1024 ** 3
+    s = Stack(Target.makeTargetFn(main_hints_fn, args=[args.bams, args.database, args.genome, args.fasta,
+                                                       args.hintsFile]))
     i = s.startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
@@ -221,8 +236,9 @@ def main():
         args.bams = bams
     else:
         args.bams = set(args.bams)
-    s = Stack(Target.makeTargetFn(main_hints_fn, memory=8 * 1024 ** 3,
-                                  args=[args.bams, args.database, args.genome, args.fasta, args.hintsFile]))
+    args.defaultMemory = 8 * 1024 ** 3
+    s = Stack(Target.makeTargetFn(main_hints_fn, args=[args.bams, args.database, args.genome, args.fasta,
+                                                       args.hintsFile]))
     i = s.startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")

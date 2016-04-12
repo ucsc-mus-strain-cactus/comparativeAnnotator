@@ -344,6 +344,18 @@ def get_transcript_biotype_map(ref_genome, db_path):
     return result
 
 
+def get_gene_biotype_map(ref_genome, db_path):
+    """
+    Returns a dictionary mapping gene IDs to gene biotypes.
+    """
+    ref = initialize_session(ref_genome, db_path, ref_tables)
+    r = ref.attrs.select(ref.attrs.GeneId, ref.attrs.GeneType)
+    result = {}
+    for tx_id, biotype in execute_query(r.tuples()):
+        result[tx_id] = biotype
+    return result
+
+
 def get_gene_transcript_map(ref_genome, db_path, biotype=None):
     """
     Returns a dict mapping transcript names to gene names.
