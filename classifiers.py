@@ -231,7 +231,7 @@ class SpliceContainsUnknownBases(utils.AbstractClassifier):
         bed_recs = []
         for intron in a.intron_intervals:
             if utils.short_intron(intron) is False:
-                seq = intron.get_sequence(ref_fasta, strand=True)
+                seq = intron.get_sequence(ref_fasta, stranded=True)
                 donor, acceptor = seq[:2], seq[-2:]
                 if "N" in donor or "N" in acceptor:
                     bed_rec = tx_lib.splice_intron_interval_to_bed(a, intron, self.rgb, self.name)

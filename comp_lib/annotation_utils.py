@@ -50,7 +50,7 @@ def is_not_cds(intron, t):
 def analyze_splice(intron, t, seq_dict, cds_fn, splice_sites):
     if short_intron(intron) is True:
         return False
-    seq = intron.get_sequence(seq_dict, strand=True)
+    seq = intron.get_sequence(seq_dict, stranded=True)
     donor, acceptor = seq[:2], seq[-2:]
     if cds_fn(intron, t) is True:
         return False

@@ -32,7 +32,7 @@ def cov_plot(genomes, ref_genome, biotype, path, db_path):
     results = []
     biotype_ids = get_ref_ids(ref_genome, db_path, biotype)
     for genome in genomes:
-        r = get_column(genome, ref_genome, db_path, 'tgt.attrs.AlignmentCoverage', biotype, best_cov_only=True)
+        r = get_column(genome, ref_genome, db_path, 'tgt.attrs.AlignmentCoverage', biotype, best_only=True)
         r.extend([0] * (len(biotype_ids) - len(r)))  # add no alignment IDs
         norm, raw = plot_lib.make_hist(r, coverage_bins, reverse=True, roll=0)
         results.append([genome, norm])
@@ -51,7 +51,7 @@ def ident_plot(genomes, ref_genome, biotype, path, db_path):
     results = []
     biotype_ids = get_ref_ids(ref_genome, db_path, biotype)
     for genome in genomes:
-        r = get_column(genome, ref_genome, db_path, 'tgt.attrs.AlignmentIdentity', biotype, best_cov_only=True)
+        r = get_column(genome, ref_genome, db_path, 'tgt.attrs.AlignmentIdentity', biotype, best_only=True)
         r.extend([0] * (len(biotype_ids) - len(r)))  # add no alignment IDs
         norm, raw = plot_lib.make_hist(r, coverage_bins, reverse=True, roll=0)
         results.append([genome, norm])

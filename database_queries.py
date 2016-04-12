@@ -190,13 +190,6 @@ def add_filter_chroms(r, ref, filter_chroms):
     return r
 
 
-def add_best_cov(r, tgt):
-    """
-    Adds the bestcoverage requirement to a query.
-    """
-    return r.where(tgt.attrs.HighestCovAln == True)
-
-
 ########################################################################################################################
 ## Queries
 ########################################################################################################################
@@ -218,19 +211,18 @@ def execute_query(query, timeout=6000, interval=10):
     raise OperationalError('Error: database still locked after {} seconds'.format(timeout))
 
 
-def get_fail_pass_excel_ids(ref_genome, genome, db_path, biotype=None, filter_chroms=None, best_cov_only=False):
-    all_ids = get_aln_ids(ref_genome, genome, db_path, biotype, best_cov_only)
-    pass_ids = trans_map_eval(ref_genome, genome, db_path, biotype=biotype, filter_chroms=filter_chroms, passing=True,
-                              best_cov_only=best_cov_only)
-    excel_ids = trans_map_eval(ref_genome, genome, db_path, biotype=biotype, filter_chroms=filter_chroms, passing=False,
-                               best_cov_only=best_cov_only)
+def get_fail_pass_excel_ids(ref_genome, genome, db_path, biotype=None, filter_chroms=None):
+    all_ids = get_aln_ids(ref_genome, genome, db_path, biotype)
+    pass_ids = trans_map_eval(ref_genome, genome, db_path, biotype=biotype, filter_chroms=filter_chroms, passing=True)
+    excel_ids = trans_map_eval(ref_genome, genome, db_path, biotype=biotype, filter_chroms=filter_chroms,
+                               passing=False)
     pass_specific_ids = pass_ids - excel_ids
     fail_ids = all_ids - pass_ids
     assert len(fail_ids) + len(pass_specific_ids) + len(excel_ids) == len(all_ids)
     return excel_ids, pass_specific_ids, fail_ids
 
 
-def trans_map_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None, passing=False, best_cov_only=False):
+def trans_map_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None, passing=False):
     """
     Returns the set of AlignmentIds that pass the classifiers.
     """
@@ -244,8 +236,6 @@ def trans_map_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None
         r = add_biotype(r, ref, biotype)
     if filter_chroms is not None:
         r = add_filter_chroms(r, ref, filter_chroms)
-    if best_cov_only is True:
-        r = add_best_cov(r, tgt)
     return set([x[0] for x in execute_query(r.tuples())])
 
 
@@ -263,16 +253,16 @@ def augustus_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None)
     return set([x[0] for x in execute_query(r.tuples())])
 
 
-def get_aln_ids(ref_genome, genome, db_path, biotype=None, best_cov_only=False):
+def get_aln_ids(ref_genome, genome, db_path, biotype=None, best_only=True):
     """
-    Gets the alignment IDs in the database. Filters on biotype if set.
+    Gets the best alignment IDs in the database. Filters on biotype if set.
     """
     tgt, ref = initialize_tm_session(ref_genome, genome, db_path)
     r = tgt_ref_join_aln_id(tgt, ref)
     if biotype is not None:
         r = add_biotype(r, ref, biotype)
-    if best_cov_only is True:
-        r = add_best_cov(r, tgt)
+    if best_only is True:
+        r = r.where(tgt.attrs.BestOverallAln == 1)
     return set([x[0] for x in execute_query(r.tuples())])
 
 
@@ -295,14 +285,14 @@ def get_ref_records(ref_genome, db_path, biotype=None):
     return {x.TranscriptId: x for x in execute_query(r.naive())}
 
 
-def get_column(genome, ref_genome, db_path, col, biotype=None, best_cov_only=True):
+def get_column(genome, ref_genome, db_path, col, biotype=None, best_only=True):
     tgt, ref = initialize_tm_session(ref_genome, genome, db_path)
     r = tgt_ref_join(tgt, ref)
     r = r.select(eval(col))
     if biotype is not None:
         r = add_biotype(r, ref, biotype)
-    if best_cov_only is True:
-        r = add_best_cov(r, tgt)
+    if best_only is True:
+        r = r.where(tgt.attrs.BestOverallAln == 1)
     return [x[0] for x in execute_query(r.tuples())]
 
 

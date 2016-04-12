@@ -86,7 +86,7 @@ def main_hints_fn(target, bam_paths, db, genome, genome_fasta, hints_file):
             out_filter = filtered_bam_tree.getTempFile(suffix=".bam")
             chrom_file_map[tuple(group)].append(out_filter)
             target.addChildTargetFn(sort_by_name, args=[bam_path, group, out_filter, paired])
-    target.setFollowOnTargetFn(build_hints, args=[chrom_file_map, genome, db, genome_fasta, hints_file])
+    target.setFollowOnTargetFn(merge_bam_wrapper, args=[chrom_file_map, genome, db, genome_fasta, hints_file])
 
 
 def sort_by_name(target, bam_path, references, out_filter, paired):
@@ -104,18 +104,28 @@ def sort_by_name(target, bam_path, references, out_filter, paired):
     system("samtools index {}".format(out_filter))
 
 
-def merge_bams(bam_files, target):
-    bam_file = get_tmp(target, global_dir=True, name='.combined.bam')
+def merge_bam_wrapper(target, chrom_file_map, genome, db, genome_fasta, hints_file):
+    """
+    Wrapper to parallelize merging of bams by chromosome.
+    """
+    merged_bams = []
+    for chrom, bam_files in chrom_file_map.iteritems():
+        merged_path = get_tmp(target, global_dir=True, name='.{}.combined.bam'.format(chrom))
+        target.addChildTargetFn(merge_bams, args=(bam_files, merged_path))
+        merged_bams.append(merged_path)
+    target.setFollowOnTargetFn(build_hints, args=[merged_bams, genome, db, genome_fasta, hints_file])
+
+
+def merge_bams(target, bam_files, merged_path):
     fofn = get_tmp(target)
     with open(fofn, 'w') as outf:
         for x in bam_files:
             outf.write(x + "\n")
-    cmd = 'samtools merge -b {} {}'.format(fofn, bam_file)
+    cmd = 'samtools merge -b {} {}'.format(fofn, merged_path)
     system(cmd)
-    return bam_file
 
 
-def build_hints(target, chrom_file_map, genome, db, genome_fasta, hints_file):
+def build_hints(target, merged_bams, genome, db, genome_fasta, hints_file):
     """
     Driver function for hint building. Builts intron and exon hints, then calls cat_hints to do final concatenation
     and sorting.
@@ -124,12 +134,11 @@ def build_hints(target, chrom_file_map, genome, db, genome_fasta, hints_file):
         hints_file = target.getGlobalTempDir()
     intron_hints_tree = TempFileTree(get_tmp(target, global_dir=True, name="intron_hints_tree"))
     exon_hints_tree = TempFileTree(get_tmp(target, global_dir=True, name="exon_hints_tree"))
-    for bam_files in chrom_file_map.itervalues():
-        bam_file = merge_bams(bam_files, target)
+    for merged_bam in merged_bams:
         intron_hints_path = intron_hints_tree.getTempFile(suffix=".intron.gff")
-        target.addChildTargetFn(build_intron_hints, memory=8 * 1024 ** 3, args=[bam_file, intron_hints_path])
+        target.addChildTargetFn(build_intron_hints, memory=8 * 1024 ** 3, args=[merged_bam, intron_hints_path])
         exon_hints_path = exon_hints_tree.getTempFile(suffix=".exon.gff")
-        target.addChildTargetFn(build_exon_hints, memory=8 * 1024 ** 3, args=[bam_file, exon_hints_path])
+        target.addChildTargetFn(build_exon_hints, memory=8 * 1024 ** 3, args=[merged_bam, exon_hints_path])
     target.setFollowOnTargetFn(cat_hints, args=[intron_hints_tree, exon_hints_tree, genome, db, genome_fasta,
                                                 hints_file])
 

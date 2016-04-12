@@ -475,7 +475,7 @@ def generate_gene_set_wrapper(args):
                                                   stats, args.mode, ref_gene_sizes, args.filter_chroms)
         deduplicated_consensus, dup_count = deduplicate_consensus(consensus, gps, stats)
         write_gps(deduplicated_consensus, gps, gp_path, transcript_gene_map)
-        overall_consensus.extend(deduplicate_consensus)
+        overall_consensus.extend(deduplicated_consensus)
         metrics["duplication_rate"] = dup_count
         biotype_evals[biotype] = metrics
     write_gps(overall_consensus, gps, args.combined_gp, transcript_biotype_map)
