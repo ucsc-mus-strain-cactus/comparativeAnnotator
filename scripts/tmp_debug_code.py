@@ -24,7 +24,8 @@ def build_aln_dict(tx_dict, aug_tx_dict, paralogy_counts):
 
 
 args = loadp("v3_args.pickle")
-genome = 'C57BL_6NJ'
+genome = 'PWK_PhJ'
+args.mode = 'transMap'
 ref_genome = 'C57B6J'
 from pipeline.config import PipelineConfiguration
 cfg = PipelineConfiguration(args, args.geneSets[0])
@@ -39,23 +40,22 @@ transcript_gene_map = get_transcript_gene_map(args.query_genome, args.db)
 transcript_biotype_map = get_transcript_biotype_map(args.query_genome, args.db)
 ref_gps = get_transcript_dict(args.annotation_gp)
 biotype_evals = {}
-biotype = 'protein_coding'
+biotype = 'miRNA'
 gp_path = args.geneset_gps[biotype]
 
 gene_transcript_map = get_gene_transcript_map(args.query_genome, args.db, biotype)
 ref_gene_sizes = build_gene_sizes(ref_gps, gene_transcript_map, biotype, transcript_biotype_map)
 stats = get_db_rows(args.query_genome, args.target_genome, args.db, biotype, args.mode)
 excel_ids, pass_specific_ids, fail_ids = get_fail_pass_excel_ids(ref_genome, genome, args.db, biotype,
-                                                                     args.filter_chroms, best_cov_only=True)
+                                                                     args.filter_chroms)
 aug_ids = augustus_eval(ref_genome, genome, args.db, biotype, args.filter_chroms)
-id_names = ["fail_ids", "pass_specific_ids", "excel_ids", "aug_ids"]
-id_list = [fail_ids, pass_specific_ids, excel_ids, aug_ids]
+id_names = ["fail_ids", "pass_specific_ids", "excel_ids"]#, "aug_ids"]
+id_list = [fail_ids, pass_specific_ids, excel_ids]#, aug_ids]
 data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
-mode = args.mode
-binned_transcripts = find_best_transcripts(data_dict, stats, mode, biotype, gps)
+binned_transcripts = find_best_transcripts(data_dict, stats, args.mode, biotype, gps)
 
 
-if mode_is_aug(mode) and biotype == "protein_coding":
+if mode_is_aug(args.mode) and biotype == "protein_coding":
     is_consensus = True
     transcript_evaluation = OrderedDict((x, 0) for x in ["ExcellentTM", "ExcellentAug", "ExcellentTie",
                                                          "PassTM", "PassAug", "PassTie",
@@ -356,3 +356,33 @@ ref_transcript_fasta = Fasta(args.align_cds.refTranscriptFasta)
 target_genome_fasta = Fasta(args.align_cds.targetGenomeFasta)
 gp = consensus_dict[aln_id]
 cds = gp.get_cds(target_genome_fasta)
+
+
+args = args.tmr
+from comparativeAnnotator.augustus.run_augustus import *
+ens_id = 'ENSMUST00000074051.5-10'
+args.hints_db = 'test.db'
+
+fasta = Fasta(args.fasta)
+chrom_sizes = {x.split()[0]: x.split()[1] for x in open(args.chrom_sizes)}
+
+for gp_string in open(args.input_gp):
+    assert ens_id not in gp_string
+
+
+gp = GenePredTranscript(gp_string.rstrip().split("\t"))
+chrom = gp.chromosome
+start = max(gp.start - args.padding, 0)
+stop = min(gp.stop + args.padding, chrom_sizes[chrom])
+tm_hint = get_transmap_hints(gp_string, args.tm_2_hints_cmd)
+
+rnaseq_hint = get_rnaseq_hints(args.genome, chrom, start, stop, args.hints_db)
+hint = "".join([tm_hint, rnaseq_hint])
+
+seq = fasta[chrom][start:stop]
+hint_f, seq_f = write_hint_fasta(hint, seq, chrom, './')
+cfg_version, cfg_path = args.cfgs.items()[0]
+outf_h = open('test.out', 'w')
+run_augustus(hint_f, seq_f, gp.name, start, cfg_version, cfg_path, outf_h, gp, args.augustus_bin)
+outf_h.close()
+

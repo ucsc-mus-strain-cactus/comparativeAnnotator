@@ -110,7 +110,7 @@ def merge_bam_wrapper(target, chrom_file_map, genome, db, genome_fasta, hints_fi
     """
     merged_bams = []
     for chrom, bam_files in chrom_file_map.iteritems():
-        merged_path = get_tmp(target, global_dir=True, name='.{}.combined.bam'.format(chrom))
+        merged_path = get_tmp(target, global_dir=True, name='.combined.bam')
         target.addChildTargetFn(merge_bams, args=(bam_files, merged_path))
         merged_bams.append(merged_path)
     target.setFollowOnTargetFn(build_hints, args=[merged_bams, genome, db, genome_fasta, hints_file])

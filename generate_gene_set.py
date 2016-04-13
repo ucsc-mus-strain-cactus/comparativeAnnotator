@@ -83,10 +83,12 @@ def find_best_alns(stats, tm_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutof
                 has_gap = tm_stats.UtrGap + tm_stats.CdsGap + tm_stats.CdsMult3Gap != 0
             else:
                 has_gap = False
+            too_long = bool(tm_stats.LongTranscript)
         elif mode_is_aug(mode):
             cov = stats[aln_id].AugustusAlignmentCoverage
             ident = stats[aln_id].AugustusAlignmentIdentity
             has_gap = False  # augustus transcripts cannot have short gaps
+            too_long = False
         else:
             raise NotImplementedError
         # round to avoid floating point issues when finding ties
@@ -98,14 +100,14 @@ def find_best_alns(stats, tm_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutof
             ident = 0.0
         else:
             ident = round(ident, 6)
-        return cov, ident, has_gap
+        return cov, ident, has_gap, too_long
 
     def analyze_ids(ids, cutoff, stats, biotype, mode):
         """return all ids which pass coverage cutoff"""
         s = []
         for aln_id in ids:
-            cov, ident, has_gap = get_cov_ident(stats, aln_id, biotype, mode)
-            if has_gap is False:
+            cov, ident, has_gap, too_long = get_cov_ident(stats, aln_id, biotype, mode)
+            if has_gap is False and too_long is False:
                 s.append([aln_id, cov, ident])
         return filter(lambda (aln_id, cov, ident): cov >= cutoff, s)
 
@@ -367,7 +369,7 @@ def consensus_by_biotype(db_path, ref_genome, genome, biotype, gps, transcript_g
     Main consensus finding function.
     """
     excel_ids, pass_specific_ids, fail_ids = get_fail_pass_excel_ids(ref_genome, genome, db_path, biotype,
-                                                                     filter_chroms, best_cov_only=True)
+                                                                     filter_chroms)
     # hacky way to avoid duplicating code in consensus finding - we will always have an aug_id set, it just may be empty
     if mode_is_aug(mode) and biotype == "protein_coding":
         aug_ids = augustus_eval(ref_genome, genome, db_path, biotype, filter_chroms)
