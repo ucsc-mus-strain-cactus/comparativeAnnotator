@@ -361,7 +361,8 @@ cds = gp.get_cds(target_genome_fasta)
 args = args.tmr
 from comparativeAnnotator.augustus.run_augustus import *
 ens_id = 'ENSMUST00000074051.5-10'
-args.hints_db = 'test.db'
+ens_id = 'ENSMUST00000179314.2-1'
+args.hints_db = 'mouse_v3.db'
 
 fasta = Fasta(args.fasta)
 chrom_sizes = {x.split()[0]: x.split()[1] for x in open(args.chrom_sizes)}
