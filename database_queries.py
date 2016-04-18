@@ -3,7 +3,7 @@ Uses the database schema to produce queries.
 """
 from peewee import OperationalError
 import time
-from collections import Counter, defaultdict
+from collections import defaultdict
 from comparativeAnnotator.database_schema import ref_tables, tgt_tables, aug_tables, fetch_database
 
 

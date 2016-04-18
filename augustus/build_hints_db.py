@@ -14,6 +14,7 @@ os.environ['PYTHONPATH'] = './:./submodules:./submodules/pycbio:./submodules/com
 sys.path.extend(['./', './submodules', './submodules/pycbio', './submodules/comparativeAnnotator'])
 from pycbio.sys.mathOps import format_ratio
 from pycbio.sys.fileOps import tmpFileGet, ensureDir, atomicInstall
+from pycbio.sys.procOps import runProcCode
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, popenCatch, getRandomAlphaNumericString, catFiles, TempFileTree
@@ -190,6 +191,7 @@ def load_db(target, hints_file, db, genome, genome_fasta, timeout=6000, interval
     """
     Final database loading.
     NOTE: Once done on all genomes, you want to run load2sqlitedb --makeIdx --dbaccess ${db}
+    TODO: this times out sometimes. Rewrite to not be recursive.
     """
     cmd = "load2sqlitedb --noIdx --species={} --dbaccess={} {}"
     fa_cmd = cmd.format(genome, db, genome_fasta)
