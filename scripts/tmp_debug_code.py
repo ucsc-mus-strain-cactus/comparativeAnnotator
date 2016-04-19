@@ -24,7 +24,7 @@ def build_aln_dict(tx_dict, aug_tx_dict, paralogy_counts):
 
 
 args = loadp("v3_args.pickle")
-genome = 'PWK_PhJ'
+genome = 'C57BL_6NJ'
 args.mode = 'transMap'
 ref_genome = 'C57B6J'
 from pipeline.config import PipelineConfiguration
