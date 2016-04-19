@@ -5,7 +5,7 @@ import os
 import cPickle as pickle
 from collections import OrderedDict
 import pycbio.plotting.plotting as plot_lib
-from pycbio.sys.dataOps import munge_nested_dicts_for_plotting
+from pycbio.sys.dataOps import munge_nested_dicts_for_plotting, flatten_list_of_lists
 from pycbio.sys.fileOps import ensureDir
 
 
@@ -32,28 +32,36 @@ def load_evaluations(work_dir, genomes):
     return cgp_additions, cgp_replace, new_isoforms, cgp_missing, consensus_stats, removed_cgp
 
 
+def split_side_by_side(data):
+    r1, c1 = munge_nested_dicts_for_plotting(OrderedDict([[x, y['CGP']] for x, y in data.iteritems()]))
+    r2, c2 = munge_nested_dicts_for_plotting(OrderedDict([[x, y['PacBio']] for x, y in data.iteritems()]))
+    results = [r1, r2]
+    categories = flatten_list_of_lists([c1, c2])
+    return results, categories
+
+
 def addition_plot(cgp_additions, out_path):
-    results, categories = munge_nested_dicts_for_plotting(cgp_additions, norm=False)
-    title = "Breakdown of the number of new genes/transcripts introduced by Comparative Augustus"
-    plot_lib.side_by_side_unequal_barplot(results, categories, out_path, title, ylabel="Count")
+    results, categories = split_side_by_side(cgp_additions)
+    title = "Breakdown of the number of new genes/transcripts introduced by Comparative Augustus / PacBio Augustus"
+    plot_lib.stacked_side_by_side_unequal_barplot(results, categories, out_path, title, ylabel="Count")
 
 
 def replace_plot(cgp_replace, out_path):
-    results, categories = munge_nested_dicts_for_plotting(cgp_replace, norm=False)
-    title = "Breakdown of the number of transMap/augustusTMR consensus transcripts replaced by augustusCGP"
-    plot_lib.side_by_side_unequal_barplot(results, categories, out_path, title, ylabel="Count")
+    results, categories = split_side_by_side(cgp_replace)
+    title = "Breakdown of the number of transMap/augustusTMR consensus transcripts replaced by augustusCGP / PacBio Augustus"
+    plot_lib.stacked_side_by_side_unequal_barplot(results, categories, out_path, title, ylabel="Count")
 
 
 def new_isoforms_plot(new_isoforms, out_path):
-    results = list(new_isoforms.iteritems())
-    title = "Breakdown of the number of new isoforms added by Comparative Augustus"
-    plot_lib.unequal_barplot(results, out_path, title)
-
-
-def missing_plot(cgp_missing, out_path,):
-    results, categories = munge_nested_dicts_for_plotting(cgp_missing, norm=False)
-    title = "Breakdown of the number of missing genes/transcripts rescued by Comparative Augustus"
+    results, categories = munge_nested_dicts_for_plotting(new_isoforms, norm=False)
+    title = "Breakdown of the number of new isoforms added by Comparative Augustus / PacBio Augustus"
     plot_lib.side_by_side_unequal_barplot(results, categories, out_path, title)
+
+
+def missing_plot(cgp_missing, out_path):
+    results, categories = split_side_by_side(cgp_missing)
+    title = "Breakdown of the number of missing genes/transcripts rescued by Comparative Augustus / PacBio Augustus"
+    plot_lib.stacked_side_by_side_unequal_barplot(results, categories, out_path, title)
 
 
 def consensus_stats_plot(consensus_stats, out_tx, out_gene):
@@ -61,15 +69,15 @@ def consensus_stats_plot(consensus_stats, out_tx, out_gene):
     for t, out_path in zip(*[plot_types, [out_tx, out_gene]]):
         data = OrderedDict((x, y[t]) for x, y in consensus_stats.iteritems())
         results, categories = munge_nested_dicts_for_plotting(data, norm=False)
-        title = "Breakdown of the origins of the final CGP/TMR consensus {} set".format(t.lower())
+        title = "Breakdown of the origins of the final CGP/TMR/PacBio consensus {} set".format(t.lower())
         ylabel = "Number of {}s".format(t.lower())
         plot_lib.stacked_unequal_barplot(results, categories, out_path, title, ylabel=ylabel)
 
 
 def match_tmr_plot(removedcgp, out_path):
-    results = list(removedcgp.iteritems())
-    title = 'Number of CGP predictions which end up having identical CDS to a TMR and are filtered out'
-    plot_lib.unequal_barplot(results, out_path, title)
+    results, categories = munge_nested_dicts_for_plotting(removedcgp, norm=False)
+    title = 'Number of CGP / PacBio predictions which end up having identical CDS to a TMR and are filtered out'
+    plot_lib.side_by_side_unequal_barplot(results, categories, out_path, title)
 
 
 def generate_consensus_plots(args):

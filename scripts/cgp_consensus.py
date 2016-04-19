@@ -9,7 +9,6 @@ supported splice junctions not present in any of the transcripts for this gene. 
 3) If any augustus CGP transcripts do not overlap any existing transcripts, include them
 
 """
-import argparse
 import os
 import cPickle as pickle
 from collections import OrderedDict, defaultdict
@@ -22,21 +21,7 @@ from pycbio.bio.transcripts import get_transcript_dict, Transcript
 __author__ = "Ian Fiddes"
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--cgpDb", default="cgp_cds_metrics.db")
-    parser.add_argument("--cgpGp", required=True)
-    parser.add_argument("--consensusGp", required=True)
-    parser.add_argument("--compAnnPath", required=True)
-    parser.add_argument("--intronBitsPath", required=True)
-    parser.add_argument("--genome", required=True)
-    parser.add_argument("--refGenome", required=True)
-    parser.add_argument("--outGp", required=True)
-    parser.add_argument("--metricsOutDir", required=True)
-    return parser.parse_args()
-
-
-def load_intron_bits(intron_bits_path):
+def load_intron_bits(intron_bits_path, cgp_dict):
     """
     Load the intron bit vector files into a dictionary, properly handling cases where there are no introns
     """
@@ -47,6 +32,9 @@ def load_intron_bits(intron_bits_path):
             intron_dict[l[0]] = []
         else:
             intron_dict[l[0]] = map(int, l[1].split(","))
+    for cgp_id, cgp_tx in cgp_dict.iteritems():
+        if cgp_id not in intron_dict:
+            intron_dict[cgp_id] = [1] * len(cgp_tx.intron_intervals)
     return intron_dict
 
 
@@ -119,11 +107,22 @@ def find_new_transcripts(cgp_dict, consensus, metrics):
     Include any transcripts which were not assigned any gene IDs
     """
     jg_genes = set()
+    g_genes = set()
+    jg_txs = {}
+    g_txs = {}
     for cgp_id, cgp_tx in cgp_dict.iteritems():
         if 'jg' in cgp_tx.name2:
-            consensus[cgp_id] = cgp_tx
+            jg_txs[cgp_id] = cgp_tx
             jg_genes.add(cgp_id.split(".")[0])
-    metrics["CgpAdditions"] = {"CgpNewGenes": len(jg_genes), "CgpNewTranscripts": len(consensus)}
+        elif cgp_tx.name2.startswith('g'):
+            g_txs[cgp_id] = cgp_tx
+            g_genes.add(cgp_id.split(".")[0])
+    metrics['CgpAdditions'] = OrderedDict((('CGP', OrderedDict((('CgpNewGenes', len(jg_genes)),
+                                                                ('CgpNewTranscripts', len(jg_txs))))),
+                                           ('PacBio', OrderedDict((('PacBioNewGenes', len(g_genes)),
+                                                                   ('PacBioNewTranscripts', len(g_txs)))))))
+    consensus.update(jg_txs)
+    consensus.update(g_txs)
 
 
 def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, consensus, metrics, tmr_consensus_dict,
@@ -135,9 +134,12 @@ def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, consensus, 
     assigned. If this is true, also re-include it. This is generally the result of transMap mapping two places.
     """
     jg_genes = set()
+    g_genes = set()
+    jg_txs = {}
+    g_txs = {}
     to_remove = set()
     for cgp_id, cgp_tx in cgp_dict.iteritems():
-        if 'jg' in cgp_tx.name2:
+        if 'jg' in cgp_tx.name2 or cgp_tx.name2.startswith('g'):
             continue
         cgp_genes = set(cgp_tx.name2.split(","))
         if len(cgp_genes & consensus_genes) == 0:
@@ -161,11 +163,20 @@ def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, consensus, 
         if not any([cgp_interval.overlap(x) for x in full_intervals]):
             percent_support = 100.0 * sum(intron_dict[cgp_id]) / len(intron_dict[cgp_id])
             if percent_support >= support_cutoff:
-                consensus[cgp_id] = cgp_tx
-                jg_genes.add(cgp_id.split(".")[0])
+                if cgp_id.startswith('g'):
+                    g_genes.add(cgp_id.split(".")[0])
+                    g_txs[cgp_id] = cgp_tx
+                else:
+                    jg_genes.add(cgp_id.split(".")[0])
+                    jg_txs[cgp_id] = cgp_tx
             else:
                 to_remove.add(cgp_id)
-    metrics["CgpAddMissing"] = {"CgpMissingGenes": len(jg_genes), "CgpMissingTranscripts": len(consensus)}
+    metrics['CgpAddMissing'] = OrderedDict((('CGP', OrderedDict((('CgpMissingGenes', len(jg_genes)),
+                                                                ('CgpMissingTranscripts', len(jg_txs))))),
+                                           ('PacBio', OrderedDict((('PacBioMissingGenes', len(g_genes)),
+                                                                   ('PacBioMissingTranscripts', len(g_txs)))))))
+    consensus.update(jg_txs)
+    consensus.update(g_txs)
     # hacking this in here
     for cgp_id in to_remove:
         del cgp_dict[cgp_id]
@@ -197,8 +208,10 @@ def update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron
     For every cgp transcript, determine if it should replace one or more consensus transcripts.
     If it should not, then determine if it should be kept because it adds new splice junctions.
     """
-    replace_map = {}  # will store a mapping between consensus IDs and the CGP transcripts that will replace them
-    new_isoforms = []  # will store cgp transcripts which represent new potential isoforms of a gene
+    cgp_replace_map = {}  # will store a mapping between consensus IDs and the CGP transcripts that will replace them
+    g_replace_map = {}
+    cgp_new_isoforms = []  # will store cgp transcripts which represent new potential isoforms of a gene'
+    g_new_isoforms = []
     for cgp_id, cgp_tx in cgp_dict.iteritems():
         cgp_stats = cgp_stats_dict[cgp_id]
         # we don't want to try and replace non-coding transcripts with CGP predictions
@@ -209,14 +222,26 @@ def update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron
         if len(to_replace_ids) > 0:
             for to_replace_id in to_replace_ids:
                 gene_id = transcript_gene_map[to_replace_id]
-                replace_map[to_replace_id] = [cgp_tx, gene_id]
+                if 'jg' in cgp_id:
+                    cgp_replace_map[to_replace_id] = [cgp_tx, gene_id]
+                else:
+                    g_replace_map[to_replace_id] = [cgp_tx, gene_id]
         elif determine_if_new_introns(cgp_tx, ens_ids, tmr_consensus_dict, intron_vector) is True:
-            new_isoforms.append(cgp_tx)
+            if 'jg' in cgp_id:
+                cgp_new_isoforms.append(cgp_tx)
+            else:
+                g_new_isoforms.append(cgp_tx)
     # calculate some metrics for plots once all genomes are analyzed
-    collapse_rate = len(set(zip(*replace_map.values())[0]))
-    metrics["CgpReplace"] = {"CgpReplaceRate": len(replace_map), "CgpCollapseRate": collapse_rate}
-    metrics["NewIsoforms"] = len(new_isoforms)
-    build_consensus(tmr_consensus_dict, replace_map, new_isoforms, consensus)
+    cgp_collapse_rate = len(set(zip(*cgp_replace_map.values())[0]))
+    g_collapse_rate = len(set(zip(*g_replace_map.values())[0]))
+    metrics['CgpReplace'] = OrderedDict((('CGP', OrderedDict((('CgpReplaceRate', len(cgp_replace_map)),
+                                                              ('CgpCollapseRate', (cgp_collapse_rate)))))),
+                                        ('PacBio', OrderedDict((('PacBioReplaceRate', len(g_replace_map)),
+                                                                ('PacBioCollapseRate', (g_collapse_rate))))))
+    metrics["NewIsoforms"] = OrderedDict(('CGP', len(cgp_new_isoforms)), ('PacBio', len(g_new_isoforms)))
+    cgp_replace_map.update(g_replace_map)
+    new_isoforms = g_new_isoforms + cgp_new_isoforms
+    build_consensus(tmr_consensus_dict, cgp_replace_map, new_isoforms, consensus)
 
 
 def deduplicate_cgp_consensus(cgp_consensus, metrics):
@@ -235,26 +260,34 @@ def deduplicate_cgp_consensus(cgp_consensus, metrics):
             # create a new transcript object out of this
             tx_cds = Transcript(tx_cds_bed)
             duplicates[tx.name2][frozenset(tx_cds.exon_intervals)].append(tx)
-    dup_count = 0
+    cgp_dup_count = 0
+    g_dup_count = 0
     for gene in duplicates:
         for cds_interval, tx_list in duplicates[gene].iteritems():
             cgp_txs = [tx for tx in tx_list if 'jg' in tx.id]
+            g_txs = [tx for tx in tx_list if tx.id.startswith('g')]
             if len(cgp_txs) > 0:
-                dup_count += 1
+                cgp_dup_count += 1
+            elif len(g_txs) > 0:
+                g_dup_count += 1
             else:
                 deduplicated_consensus.extend(tx_list)
-    metrics['CgpEqualsTMR'] = dup_count
+    metrics['CgpEqualsTMR'] = OrderedDict(('CgpEqualsTMR', cgp_dup_count), ('PacBioEqualsTMR', g_dup_count))
     return deduplicated_consensus
 
 
 def evaluate_cgp_consensus(consensus, metrics):
-    tx_names = OrderedDict((("transMap",  set()), ("AugustusTMR", set()), ("CGP", set())))
-    gene_names = OrderedDict((("Gencode", set()), ("CGP", set())))
+    tx_names = OrderedDict((("transMap",  set()), ("AugustusTMR", set()), ("CGP", set()), ("PacBio", set())))
+    gene_names = OrderedDict((("Gencode", set()), ("CGP", set()), ("PacBio", set())))
     for cgp_tx in consensus:
         if "jg" in cgp_tx.name:
             tx_names["CGP"].add(cgp_tx.name)
             gene_names["CGP"].update([x for x in cgp_tx.name2.split(",") if 'jg' in x])
             gene_names["Gencode"].update([x for x in cgp_tx.name2.split(",") if 'jg' not in x])
+        elif cgp_tx.name.startswith('g'):
+            tx_names["PacBio"].add(cgp_tx.name)
+            gene_names["PacBio"].update([x for x in cgp_tx.name2.split(",") if 'g' in x])
+            gene_names["Gencode"].update([x for x in cgp_tx.name2.split(",") if 'g' not in x])
         elif "aug" in cgp_tx.id:
             tx_names["AugustusTMR"].add(cgp_tx.id)
             gene_names["Gencode"].add(cgp_tx.name2)
@@ -263,9 +296,9 @@ def evaluate_cgp_consensus(consensus, metrics):
             gene_names["Gencode"].add(cgp_tx.name2)
     transcript_stats = OrderedDict([[x, len(y)] for x, y in tx_names.iteritems()])
     gene_stats = OrderedDict()
-    gene_stats['Gencode'] = len(gene_names['Gencode'] - gene_names['CGP'])
-    gene_stats['Both'] = len(gene_names['Gencode'] & gene_names['CGP'])
-    gene_stats['CGP'] = len(gene_names['CGP'] - gene_names['Gencode'])
+    gene_stats['Gencode'] = len(gene_names['Gencode'] - (gene_names['CGP'] | gene_names['PacBio']))
+    gene_stats['CGP'] = len(gene_names['CGP'] - (gene_names['PacBio'] | gene_names['Gencode']))
+    gene_stats['PacBio'] = len(gene_names['PacBio'] - (gene_names['CGP'] | gene_names['Gencode']))
     metrics["ConsensusStats"] = {"Transcript": transcript_stats, "Gene": gene_stats}
 
 
@@ -284,7 +317,11 @@ def cgp_consensus(args):
                              "'{}_consensus'".format(args.genome))
     consensus_stats_dict = get_query_dict(cur, consensus_stats_query)
     # load the intron bits
-    intron_dict = load_intron_bits(args.cgp_intron_bits)
+    if args.cgp_intron_bits is not None:
+        intron_dict = load_intron_bits(args.cgp_intron_bits, cgp_dict)
+    else:
+        # assume all introns are supported
+        intron_dict = {cgp_id: [1] * len(cgp_tx.intron_intervals) for cgp_id, cgp_tx in cgp_dict.iteritems()}
     # final dictionaries
     cgp_consensus = {}
     metrics = {}

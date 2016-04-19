@@ -89,6 +89,7 @@ class CgpConsensus(luigi.WrapperTask):
             args.align_cds.mode = 'consensus'
             args.align_cds.gp = consensus_gp
             args.align_cds.table = '_'.join([genome, args.align_cds.mode])
+            args.align_cds.genome = args.align_cgp.genome = genome
             # output
             args.output_gp = os.path.join(self.params.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gp')
             args.output_gtf = os.path.join(self.params.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gtf')
@@ -181,8 +182,9 @@ def parse_args():
     """
     parser = FileArgumentParser(description=__doc__)
     parser.add_argument_with_check('--config', metavar='FILE', help='TSV file containing all inputs. Each line should '
-                                                                    'have the columns genome, consensusGenePred,'
-                                                                    'cgpGenePred, genomeFasta, cgpIntronBits')
+                                                                    'have the columns genome, consensusGenePred, '
+                                                                    'cgpGenePred, genomeFasta. cgpIntronBits is an '
+                                                                    'optional field if you have it.')
     parser.add_argument('--refGenome', required=True, help='Reference genome')
     parser.add_argument('--refTranscriptFasta', required=True, help='Reference gene set transcript FASTA')
     parser.add_argument('--targetGenomes', nargs='+', required=True, help='Ordered target genomes.')
@@ -215,7 +217,7 @@ def parse_args():
     file_map = {}
     for rec in csv.DictReader(open(args.config), delimiter='\t'):
         file_map[rec['genome']] = (rec['consensusGenePred'], rec['cgpGenePred'], rec['genomeFasta'],
-                                   rec['cgpIntronBits'])
+                                   rec.get('cgpIntronBits', None))
     args.file_map = frozendict(file_map)
     return args
 

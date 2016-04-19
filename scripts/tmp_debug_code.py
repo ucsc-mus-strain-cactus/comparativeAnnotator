@@ -24,7 +24,7 @@ def build_aln_dict(tx_dict, aug_tx_dict, paralogy_counts):
 
 
 args = loadp("v3_args.pickle")
-genome = 'PWK_PhJ'
+genome = 'SPRET_EiJ'
 args.mode = 'transMap'
 ref_genome = 'C57B6J'
 from pipeline.config import PipelineConfiguration
@@ -40,7 +40,7 @@ transcript_gene_map = get_transcript_gene_map(args.query_genome, args.db)
 transcript_biotype_map = get_transcript_biotype_map(args.query_genome, args.db)
 ref_gps = get_transcript_dict(args.annotation_gp)
 biotype_evals = {}
-biotype = 'miRNA'
+biotype = 'protein_coding'
 gp_path = args.geneset_gps[biotype]
 
 gene_transcript_map = get_gene_transcript_map(args.query_genome, args.db, biotype)
@@ -49,8 +49,8 @@ stats = get_db_rows(args.query_genome, args.target_genome, args.db, biotype, arg
 excel_ids, pass_specific_ids, fail_ids = get_fail_pass_excel_ids(ref_genome, genome, args.db, biotype,
                                                                      args.filter_chroms)
 aug_ids = augustus_eval(ref_genome, genome, args.db, biotype, args.filter_chroms)
-id_names = ["fail_ids", "pass_specific_ids", "excel_ids"]#, "aug_ids"]
-id_list = [fail_ids, pass_specific_ids, excel_ids]#, aug_ids]
+id_names = ["fail_ids", "pass_specific_ids", "excel_ids", "aug_ids"]
+id_list = [fail_ids, pass_specific_ids, excel_ids, aug_ids]
 data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
 binned_transcripts = find_best_transcripts(data_dict, stats, args.mode, biotype, gps)
 
@@ -222,7 +222,7 @@ import comparativeAnnotator.augustus_classifiers as augustus_classifiers
 import comparativeAnnotator.alignment_attributes as alignment_attributes
 
 args = loadp("mouse_args.pickle")
-genome = '129S1_SvImJ'
+genome = 'C57BL_6NJ'
 ref_genome = 'C57B6J'
 from pipeline.config import PipelineConfiguration
 cfg = PipelineConfiguration(args, args.geneSets[0])
@@ -247,6 +247,8 @@ ref_dict = get_transcript_dict(args.annotation_gp)
 tx_dict = get_transcript_dict(args.target_gp)
 psl_dict = get_alignment_dict(args.psl)
 ref_psl_dict = get_alignment_dict(args.ref_psl)
+seq_dict = get_sequence_dict(args.fasta)
+ref_seq_dict = get_sequence_dict(args.ref_fasta)
 
 paralogy_counts = alignment_attributes.paralogy(psl_dict)
 coverage_recs = alignment_attributes.highest_cov_aln(psl_dict)
@@ -261,6 +263,15 @@ r_details = {}
 
 tx_id = 'ENSMUST00000034934.14'
 aln_id = 'ENSMUST00000034934.14-1'
+
+recs = []
+for aln_id in names_set:
+    a = ref_dict[strip_alignment_numbers(aln_id)]
+    t = tx_dict[aln_id]
+    aln = psl_dict[aln_id]
+    if a.thick_start == a.start and find_offset(a.exon_frames, a.strand) == 0 and t.strand is True:
+        recs.append([a, t, aln])
+
 
 cds_filter_fn=lambda intron, t: True
 mult3=None
