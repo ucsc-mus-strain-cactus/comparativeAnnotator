@@ -103,7 +103,7 @@ class CgpConsensus(luigi.WrapperTask):
         plot_args.genomes = self.params.targetGenomes
         plot_args.metrics_dir = os.path.join(self.params.workDir, 'CGP_consensus_metrics')
         plot_args.plot_dir = os.path.join(self.params.outputDir, 'CGP_consensus_plots')
-        plot_args.addition_plot = os.path.join(plot_args.plot_dir, 'cgp_addtion.pdf')
+        plot_args.addition_plot = os.path.join(plot_args.plot_dir, 'cgp_addition.pdf')
         plot_args.replace_plot = os.path.join(plot_args.plot_dir, 'cgp_replace_rate.pdf')
         plot_args.new_isoform_plot = os.path.join(plot_args.plot_dir, 'new_isoform_rate.pdf')
         plot_args.missing_plot = os.path.join(plot_args.plot_dir, 'missing_genes_rescued.pdf')

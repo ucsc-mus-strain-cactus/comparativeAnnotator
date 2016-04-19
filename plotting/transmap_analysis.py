@@ -74,8 +74,7 @@ def num_pass_excel(genomes, ref_genome, biotype, path, db_path, filter_chroms):
     biotype_ids = get_ref_ids(ref_genome, db_path, biotype)
     for genome in genomes:
         excel_ids, pass_specific_ids, fail_ids = get_fail_pass_excel_ids(ref_genome, genome, db_path, biotype=biotype,
-                                                                         filter_chroms=filter_chroms,
-                                                                         best_cov_only=True)
+                                                                         filter_chroms=filter_chroms)
         num_no_aln = len(biotype_ids) - sum([len(x) for x in [fail_ids, pass_specific_ids, excel_ids]])
         assert num_no_aln >= 0
         raw = np.array([len(excel_ids), len(pass_specific_ids), len(fail_ids), num_no_aln])
@@ -100,8 +99,7 @@ def num_pass_excel_gene_level(genomes, ref_genome, biotype, path, db_path, filte
     num_genes = len(set(transcript_gene_map.values()))
     for genome in genomes:
         excel_ids, pass_specific_ids, fail_ids = get_fail_pass_excel_ids(ref_genome, genome, db_path, biotype=biotype,
-                                                                         filter_chroms=filter_chroms,
-                                                                         best_cov_only=True)
+                                                                         filter_chroms=filter_chroms)
         excel_genes = {transcript_gene_map[strip_alignment_numbers(x)] for x in excel_ids}
         pass_specific_genes = {transcript_gene_map[strip_alignment_numbers(x)] for x in pass_specific_ids}
         fail_genes = {transcript_gene_map[strip_alignment_numbers(x)] for x in fail_ids}

@@ -118,9 +118,9 @@ def find_new_transcripts(cgp_dict, consensus, metrics):
             g_txs[cgp_id] = cgp_tx
             g_genes.add(cgp_id.split(".")[0])
     metrics['CgpAdditions'] = OrderedDict((('CGP', OrderedDict((('CgpNewGenes', len(jg_genes)),
-                                                                ('CgpNewTranscripts', len(jg_txs))))),
+                                                                ('CgpNewTranscripts', len(jg_txs) - len(jg_genes))))),
                                            ('PacBio', OrderedDict((('PacBioNewGenes', len(g_genes)),
-                                                                   ('PacBioNewTranscripts', len(g_txs)))))))
+                                                                   ('PacBioNewTranscripts', len(g_txs) - len(g_genes)))))))
     consensus.update(jg_txs)
     consensus.update(g_txs)
 
@@ -157,7 +157,7 @@ def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, consensus, 
             # gene may not be in gene_transcript map if it is listed as protein_coding but none of its transcripts are
             if gene_id not in gene_transcript_map:
                 continue
-            gps.extend([tmr_consensus_dict[x] for x in gene_transcript_map[gene_id] if x in tmr_consensus_dict])  
+            gps.extend([tmr_consensus_dict[x] for x in gene_transcript_map[gene_id] if x in tmr_consensus_dict])
         full_intervals = build_full_gene_intervals(gps)
         cgp_interval = cgp_tx.get_interval()
         if not any([cgp_interval.overlap(x) for x in full_intervals]):
@@ -171,10 +171,10 @@ def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, consensus, 
                     jg_txs[cgp_id] = cgp_tx
             else:
                 to_remove.add(cgp_id)
-    metrics['CgpAddMissing'] = OrderedDict((('CGP', OrderedDict((('CgpMissingGenes', len(jg_genes)),
+    metrics['CgpAddMissing'] = OrderedDict(((('CGP', OrderedDict((('CgpMissingGenes', len(jg_genes)),
                                                                 ('CgpMissingTranscripts', len(jg_txs))))),
                                            ('PacBio', OrderedDict((('PacBioMissingGenes', len(g_genes)),
-                                                                   ('PacBioMissingTranscripts', len(g_txs)))))))
+                                                                   ('PacBioMissingTranscripts', len(g_txs))))))))
     consensus.update(jg_txs)
     consensus.update(g_txs)
     # hacking this in here
@@ -210,7 +210,7 @@ def update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron
     """
     cgp_replace_map = {}  # will store a mapping between consensus IDs and the CGP transcripts that will replace them
     g_replace_map = {}
-    cgp_new_isoforms = []  # will store cgp transcripts which represent new potential isoforms of a gene'
+    cgp_new_isoforms = []  # will store cgp transcripts which represent new potential isoforms of a gene
     g_new_isoforms = []
     for cgp_id, cgp_tx in cgp_dict.iteritems():
         cgp_stats = cgp_stats_dict[cgp_id]
@@ -234,11 +234,11 @@ def update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron
     # calculate some metrics for plots once all genomes are analyzed
     cgp_collapse_rate = len(set(zip(*cgp_replace_map.values())[0]))
     g_collapse_rate = len(set(zip(*g_replace_map.values())[0]))
-    metrics['CgpReplace'] = OrderedDict((('CGP', OrderedDict((('CgpReplaceRate', len(cgp_replace_map)),
-                                                              ('CgpCollapseRate', (cgp_collapse_rate)))))),
-                                        ('PacBio', OrderedDict((('PacBioReplaceRate', len(g_replace_map)),
-                                                                ('PacBioCollapseRate', (g_collapse_rate))))))
-    metrics["NewIsoforms"] = OrderedDict(('CGP', len(cgp_new_isoforms)), ('PacBio', len(g_new_isoforms)))
+    metrics['CgpReplace'] = OrderedDict(((('CGP', OrderedDict((('CgpCollapseRate', cgp_collapse_rate),
+                                                              ('CgpReplaceRate', len(cgp_replace_map) - cgp_collapse_rate))))),
+                                        ('PacBio', OrderedDict((('PacBioCollapseRate', g_collapse_rate),
+                                                                ('PacBioReplaceRate', len(g_replace_map) - g_collapse_rate))))))
+    metrics["NewIsoforms"] = OrderedDict((('CGP', len(cgp_new_isoforms)), ('PacBio', len(g_new_isoforms))))
     cgp_replace_map.update(g_replace_map)
     new_isoforms = g_new_isoforms + cgp_new_isoforms
     build_consensus(tmr_consensus_dict, cgp_replace_map, new_isoforms, consensus)
@@ -272,7 +272,7 @@ def deduplicate_cgp_consensus(cgp_consensus, metrics):
                 g_dup_count += 1
             else:
                 deduplicated_consensus.extend(tx_list)
-    metrics['CgpEqualsTMR'] = OrderedDict(('CgpEqualsTMR', cgp_dup_count), ('PacBioEqualsTMR', g_dup_count))
+    metrics['CgpEqualsTMR'] = OrderedDict((('CgpEqualsTMR', cgp_dup_count), ('PacBioEqualsTMR', g_dup_count)))
     return deduplicated_consensus
 
 
