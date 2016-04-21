@@ -253,7 +253,7 @@ class InFrameStop(utils.AbstractClassifier):
 
     def __call__(self, a, ref_fasta):
         bed_recs = []
-        cds = a.get_cds(ref_fasta)
+        cds = a.get_cds(ref_fasta, in_frame=False)
         offset = tx_lib.find_offset(a.exon_frames, a.strand)
         for i, codon in bio_lib.read_codons_with_position(cds, offset, skip_last=True):
             amino_acid = bio_lib.codon_to_amino_acid(codon)

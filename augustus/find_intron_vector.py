@@ -21,7 +21,7 @@ def build_intron_vector(aln, ref_aln, t, fuzz_distance):
     return result
 
 
-def find_intron_vector(args, fuzz_distance=10):
+def find_intron_vector(args, fuzz_distance=8):
     aln_dict = get_alignment_dict(args.psl)
     ref_aln_dict = get_alignment_dict(args.ref_psl)
     tx_dict = get_transcript_dict(args.gp)
