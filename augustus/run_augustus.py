@@ -29,7 +29,7 @@ hints_db_query = '''select source,typename,start,end,score,strand,frame,priority
 augustus_cmd = ("{augustus} {fasta} --predictionStart=-{start} --predictionEnd=-{start} --extrinsicCfgFile={cfg} "
                 "--hintsfile={hints} --UTR=on --alternatives-from-evidence=0 --species=human "
                 "--allow_hinted_splicesites=atac --protein=0 --/augustus/verbosity=1 --softmasking=1 "
-                "--outfile=/dev/stdout --/Constant/max_contra_supp_ratio=4")
+                "--outfile=/dev/stdout")
 
 
 def attach_database(path):
