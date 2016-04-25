@@ -72,6 +72,7 @@ class CgpConsensus(luigi.WrapperTask):
             # Alignment shared args
             tmp = HashableNamespace(**vars(self.params.jobTreeOptions))
             tmp.refGenome = self.params.refGenome
+            tmp.genome = genome
             tmp.refTranscriptFasta = self.params.refTranscriptFasta
             tmp.compDb = self.params.compDb
             tmp.cgpDb = args.cgp_db

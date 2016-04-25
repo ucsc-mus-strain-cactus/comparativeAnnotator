@@ -5,7 +5,7 @@ for genome in genomes:
     beds = [os.path.join(bed_dir, x) for x in listdir(bed_dir, suffix='.sj.bed')]
     assert len(beds) > 0
     cmd = ['python', 'submodules/comparativeAnnotator/scripts/validate_splice_junctions.py', '--consensus_gp',
-    'mouse_output/CGP_consensus/{}.CGP_consensus.gp'.format(genome), '--star_junctions']
+    'mouse_output_v3/CGP_consensus/{}.CGP_consensus.gp'.format(genome), '--star_junctions']
     cmd.extend(beds)
     cmd.extend(['--out', 'supported_data/{}.txt'.format(genome)])
     runProc(cmd)
@@ -20,19 +20,19 @@ import matplotlib.pyplot as plt
 
 
 for genome in genomes:
-    df = pd.read_csv('{}.txt'.format(genome), header=0, sep='\t')
+    df = pd.read_csv('supported_data/{}.txt'.format(genome), header=0, sep='\t')
     p = sns.pairplot(df, x_vars=['NumIntrons'], y_vars=['NumSupported'], hue='Source', size=10, kind='reg')
     ax = p.axes[0][0]
     ax.set_xlim(0, 120)
     ax.set_ylim(0, 120)
     plt.title("Splice support in {}".format(genome))
-    plt.savefig('{}_pair.png'.format(genome), format='png')
+    plt.savefig('supported_data/{}_pair.png'.format(genome), format='png')
     plt.close('all')
     p2 = sns.distplot(df.Ratio.dropna(), norm_hist=False, kde=False, bins=20)
     p2.set_xlabel('Percentage of splices supported by RNAseq')
     p2.set_ylabel('Number of transcripts')
     plt.title("Ratio of splice support in {}".format(genome))
-    plt.savefig('{}_hist.png'.format(genome), format='png')
+    plt.savefig('supported_data/{}_hist.png'.format(genome), format='png')
     plt.close('all')
     p3 = sns.pairplot(df, x_vars=['NumIntrons'], y_vars=['NumSupported'], size=10, plot_kws={'alpha':0.3})
     p3.map(sns.kdeplot, cmap="Blues_d", n_levels=50)
@@ -40,7 +40,7 @@ for genome in genomes:
     ax.set_xlim(0, 120)
     ax.set_ylim(0, 120)
     plt.title("Splice support in {}".format(genome))
-    plt.savefig('{}_pair_kde.png'.format(genome), format='png')
+    plt.savefig('supported_data/{}_pair_kde.png'.format(genome), format='png')
     plt.close('all')
     df_20 = df[df.NumIntrons <= 20]
     p4 = sns.pairplot(df_20, x_vars=['NumIntrons'], y_vars=['NumSupported'], size=10, plot_kws={'alpha':0.3})
@@ -49,14 +49,14 @@ for genome in genomes:
     ax.set_xlim(0, 20)
     ax.set_ylim(0, 20)
     plt.title("Splice support in {}".format(genome))
-    plt.savefig('{}_pair_kde_zoomed.png'.format(genome), format='png')
+    plt.savefig('supported_data/{}_pair_kde_zoomed.png'.format(genome), format='png')
     plt.close('all')
     df_50 = df[df.NumIntrons <= 50]
     p5 = sns.distplot(df_50.NumIntrons.dropna(), norm_hist=False, kde=False, bins=20)
     plt.title('Number of introns per transcript in {}'.format(genome))
     p5.set_xlabel('Number of introns')
     p5.set_ylabel('Number of transcripts')
-    plt.savefig('{}_num_introns.png'.format(genome), format='png')
+    plt.savefig('supported_data/{}_num_introns.png'.format(genome), format='png')
     plt.close('all')
 
 

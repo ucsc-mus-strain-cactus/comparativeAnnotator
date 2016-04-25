@@ -207,8 +207,8 @@ def execute_query(query, timeout=6000, interval=10):
             if 'locked' in e:
                 time.sleep(interval)
             else:
-                raise OperationalError('Error. Original message: {}'.format(e))
-    raise OperationalError('Error: database still locked after {} seconds'.format(timeout))
+                raise OperationalError('Original message: {}'.format(e))
+    raise OperationalError('database still locked after {} seconds'.format(timeout))
 
 
 def get_fail_pass_excel_ids(ref_genome, genome, db_path, biotype=None, filter_chroms=None):
@@ -383,10 +383,7 @@ def get_rows(ref_genome, genome, db_path, mode='transMap', biotype=None):
         raise Exception("bad programmer")
     if biotype is not None:
         r = add_biotype(r, ref, biotype)
-    try:
-        return execute_query(r.naive())
-    except Exception, e:
-        assert False, (mode, r, e)
+    return execute_query(r.naive())
 
 
 def get_row_dict(ref_genome, genome, db_path, mode, biotype=None):
