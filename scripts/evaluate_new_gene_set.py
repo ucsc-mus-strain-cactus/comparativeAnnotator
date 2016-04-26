@@ -8,9 +8,9 @@ from pycbio.bio.transcripts import get_transcript_dict
 from comparativeAnnotator.database_queries import get_gene_transcript_map, get_transcript_gene_map
 
 v1_dir = './mouse_output/CGP_consensus'
-v2_dir = './mouse_output_v3/CGP_consensus'
+v2_dir = './mouse_output_v3/CGP_consensus/'
 v1_gps = [os.path.join(v1_dir, x) for x in os.listdir(v1_dir) if x.endswith('.gp')]
-v2_gps = [os.path.join(v2_dir, x) for x in os.listdir(v2_dir) if x.endswith('.gp')]
+v2_gps = [os.path.join(v1_dir, x) for x in os.listdir(v2_dir) if x.endswith('.gp')]
 ordered_genomes = 'C57BL_6NJ NZO_HlLtJ NOD_ShiLtJ FVB_NJ LP_J 129S1_SvImJ AKR_J BALB_cJ A_J DBA_2J CBA_J C3H_HeJ WSB_EiJ CAST_EiJ PWK_PhJ SPRET_EiJ CAROLI_EiJ Pahari_EiJ'.split()
 comp_ann_db = './mouse_work/C57B6J/GencodeCompVM8/comparativeAnnotator/classification.db'
 transcript_gene_map = get_transcript_gene_map('C57B6J', comp_ann_db, biotype='protein_coding')
@@ -22,12 +22,24 @@ v2_txs = {os.path.basename(x).split('.')[0]: get_transcript_dict(x) for x in v2_
 
 def calculate_gene_delta(transcript_gene_map, tx_set_1, tx_set_2):
     # we ignore CGP predictions at first
-    gene_set_1 = set([transcript_gene_map[x] for x in genome_v1.iterkeys() if 'jg' not in x])
-    gene_set_2 = set([transcript_gene_map[x] for x in genome_v2.iterkeys() if 'jg' not in x])
+    gene_set_1 = set([transcript_gene_map[x] for x in tx_set_1.iterkeys() if 'jg' not in x])
+    gene_set_2 = set([transcript_gene_map[x] for x in tx_set_2.iterkeys() if 'jg' not in x])
     # bring in jg predictions
-    gene_set_1.update([x.split('.')[0] for x in genome_v1.iterkeys() if 'jg' in x])
-    gene_set_2.update([x.split('.')[0] for x in genome_v2.iterkeys() if 'jg' in x])
-    return len(gene_set_2 - gene_set_1)
+    gene_set_1.update([x.split('.')[0] for x in tx_set_1.iterkeys() if 'jg' in x])
+    gene_set_2.update([x.split('.')[0] for x in tx_set_2.iterkeys() if 'jg' in x])
+    return gene_set_2 - gene_set_1
+
+
+new_genes = {}
+for g in ordered_genomes:
+    genome_v1 = v1_txs[g]
+    genome_v2 = v2_txs[g]
+    new_genes[g] = sorted(calculate_gene_delta(transcript_gene_map, genome_v1, genome_v2))
+    with open(os.path.join('new_genes_v3', g + '.new_genes.txt'), 'w') as outf:
+        for l in new_genes[g]:
+            outf.write('{}\n'.format(l))
+
+
 
 
 def calculate_tx_per_gene(transcript_gene_map, tx_set, bins):
@@ -56,8 +68,8 @@ for genome in ordered_genomes:
     genome_v1 = v1_txs[genome]
     genome_v2 = v2_txs[genome]
     tx_delta = len(genome_v2) - len(genome_v1)
-    gene_delta = calculate_gene_delta(transcript_gene_map, genome_v1, genome_v2)
-    delta_sizes[genome]['Gene']= gene_delta
+    gene_delta = len(calculate_gene_delta(transcript_gene_map, genome_v1, genome_v2))
+    delta_sizes[genome]['Gene'] = gene_delta
     delta_sizes[genome]['Transcript'] = tx_delta
     transcripts_per_gene_v1[genome] = calculate_tx_per_gene(transcript_gene_map, genome_v1, tx_bins)
     transcripts_per_gene_v2[genome] = calculate_tx_per_gene(transcript_gene_map, genome_v2, tx_bins)

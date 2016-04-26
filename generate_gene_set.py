@@ -80,9 +80,9 @@ def find_best_alns(stats, tm_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutof
             cov = tm_stats.AlignmentCoverage
             ident = tm_stats.AlignmentIdentity
             if biotype == 'protein_coding':
-                has_gap = tm_stats.UtrGap + tm_stats.CdsGap + tm_stats.CdsMult3Gap != 0
+                has_gap = tm_stats.UtrGap + tm_stats.CdsGap + tm_stats.CdsMult3Gap + tm_stats.UnknownGap != 0
             else:
-                has_gap = False
+                has_gap = tm_stats.UtrGap + tm_stats.UnknownGap != 0
             too_long = bool(tm_stats.LongTranscript)
         elif mode_is_aug(mode):
             cov = stats[aln_id].AugustusAlignmentCoverage

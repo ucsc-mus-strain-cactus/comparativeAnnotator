@@ -24,7 +24,7 @@ def build_aln_dict(tx_dict, aug_tx_dict, paralogy_counts):
 
 
 args = loadp("v3_args.pickle")
-genome = 'PWK_PhJ'
+genome = 'BALB_cJ'
 args.mode = 'transMap'
 ref_genome = 'C57B6J'
 from pipeline.config import PipelineConfiguration
@@ -40,7 +40,7 @@ transcript_gene_map = get_transcript_gene_map(args.query_genome, args.db)
 transcript_biotype_map = get_transcript_biotype_map(args.query_genome, args.db)
 ref_gps = get_transcript_dict(args.annotation_gp)
 biotype_evals = {}
-biotype = 'miRNA'
+biotype = 'protein_coding'
 gp_path = args.geneset_gps[biotype]
 
 gene_transcript_map = get_gene_transcript_map(args.query_genome, args.db, biotype)
@@ -49,8 +49,8 @@ stats = get_db_rows(args.query_genome, args.target_genome, args.db, biotype, arg
 excel_ids, pass_specific_ids, fail_ids = get_fail_pass_excel_ids(ref_genome, genome, args.db, biotype,
                                                                      args.filter_chroms)
 aug_ids = augustus_eval(ref_genome, genome, args.db, biotype, args.filter_chroms)
-id_names = ["fail_ids", "pass_specific_ids", "excel_ids"]#, "aug_ids"]
-id_list = [fail_ids, pass_specific_ids, excel_ids]#, aug_ids]
+id_names = ["fail_ids", "pass_specific_ids", "excel_ids", "aug_ids"]
+id_list = [fail_ids, pass_specific_ids, excel_ids, aug_ids]
 data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
 binned_transcripts = find_best_transcripts(data_dict, stats, args.mode, biotype, gps)
 
@@ -387,3 +387,39 @@ outf_h = open('test.out', 'w')
 run_augustus(hint_f, seq_f, gp.name, start, cfg_version, cfg_path, outf_h, gp, args.augustus_bin)
 outf_h.close()
 
+
+tx_dict = get_transcript_dict(args.gp)
+ref_tx_dict = get_transcript_dict(args.annotation_gp)
+from pycbio.bio.psl import *
+psl_dict = get_alignment_dict(args.psl)
+from pycbio.bio.bio import *
+seq_dict = get_sequence_dict(args.fasta)
+ref_seq_dict = get_sequence_dict(args.ref_fasta)
+from comparativeAnnotator.comp_lib.annotation_utils import *
+for tx_id, t in tx_dict.iteritems():
+    aln = psl_dict[tx_id]
+    a = ref_tx_dict[strip_alignment_numbers(tx_id)]
+    q = list(codon_pair_iterator(a, t, aln, seq_dict, ref_seq_dict))
+
+
+target_seq_dict = seq_dict
+query_seq_dict = ref_seq_dict
+target_cds = t.get_cds(target_seq_dict, in_frame=False)  # OOF creates coordinate problems
+query_cds = a.get_cds(query_seq_dict, in_frame=False)
+a_frames = [x for x in a.exon_frames if x != -1]
+a_offset = find_offset(a_frames, a.strand)
+q = []
+for i in xrange(a_offset, a.cds_size - a.cds_size % 3, 3):
+    target_cds_positions = [t.chromosome_coordinate_to_cds(
+                            aln.query_coordinate_to_target(
+                            a.cds_coordinate_to_transcript(j)))
+                            for j in xrange(i, i + 3)]
+    if None in target_cds_positions:
+        continue
+    # sanity check - should probably remove. But should probably write tests too...
+    #assert all([target_cds_positions[2] - target_cds_positions[1] == 1, target_cds_positions[1] -
+    #            target_cds_positions[0] == 1, target_cds_positions[2] - target_cds_positions[0] == 2])
+    target_codon = target_cds[target_cds_positions[0]:target_cds_positions[0] + 3]
+    query_codon = query_cds[i:i + 3]
+    assert len(target_codon) == len(query_codon) == 3, a.name
+    q.append((target_codon, query_codon))

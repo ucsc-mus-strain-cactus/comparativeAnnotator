@@ -215,8 +215,9 @@ def parse_args():
     # munge parsed args, verify, make hashable
     file_map = {}
     for rec in csv.DictReader(open(args.config), delimiter='\t'):
-        file_map[rec['genome']] = (rec['consensusGenePred'], rec['cgpGenePred'], rec['genomeFasta'],
-                                   rec['cgpIntronBits'])
+        if rec['genome'] in args.targetGenomes:
+            file_map[rec['genome']] = (rec['consensusGenePred'], rec['cgpGenePred'], rec['genomeFasta'],
+                                       rec['cgpIntronBits'])
     args.file_map = frozendict(file_map)
     return args
 
