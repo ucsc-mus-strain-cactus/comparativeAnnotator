@@ -23,8 +23,8 @@ def build_aln_dict(tx_dict, aug_tx_dict, paralogy_counts):
     return r
 
 
-args = loadp("v3_args.pickle")
-genome = 'BALB_cJ'
+args = loadp("v31_args.pickle")
+genome = 'SPRET_EiJ'
 args.mode = 'transMap'
 ref_genome = 'C57B6J'
 from pipeline.config import PipelineConfiguration
@@ -423,3 +423,41 @@ for i in xrange(a_offset, a.cds_size - a.cds_size % 3, 3):
     query_codon = query_cds[i:i + 3]
     assert len(target_codon) == len(query_codon) == 3, a.name
     q.append((target_codon, query_codon))
+
+import comparativeAnnotator.comp_lib.annotation_utils as utils
+from pycbio.bio.bio import *
+from pycbio.bio.psl import *
+from pycbio.bio.transcripts import *
+tx_dict = get_transcript_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/transMap/SPRET_EiJ.gp')
+psl_dict = get_alignment_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/transMap/SPRET_EiJ.psl')
+ref_tx_dict = get_transcript_dict('/hive/users/ifiddes/ihategit/pipeline/gencode_vm8/C57B6J.gp')
+seq_dict = get_sequence_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/genome_files/SPRET_EiJ.fa')
+ref_seq_dict = get_sequence_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/genome_files/C57B6J.fa')
+mult3 = []
+not_mult3 = []
+unknown = []
+for t in tx_dict.itervalues():
+    for intron in t.intron_intervals:
+        if len(intron) == 0:
+            continue
+        if utils.short_intron(intron):
+            if len(intron) % 3 == 0 and utils.is_cds(intron, t) is True:
+                mult3.append(t)
+                break
+            elif len(intron) % 3 != 0 and utils.is_cds(intron, t) is True:
+                not_mult3.append(t)
+                break
+            elif "N" in intron.get_sequence(seq_dict):
+                unknown.append(t)
+
+
+for aln_id, t in tx_dict.iteritems():
+    a = ref_tx_dict[strip_alignment_numbers(aln_id)]
+    aln = psl_dict[aln_id]
+    q = list(utils.insertion_iterator(a, aln, mult3=True))
+
+
+for aln_id, t in tx_dict.iteritems():
+    a = ref_tx_dict[strip_alignment_numbers(aln_id)]
+    aln = psl_dict[aln_id]
+    q = list(utils.deletion_iterator(t, aln))

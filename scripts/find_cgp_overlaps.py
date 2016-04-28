@@ -9,7 +9,7 @@ os.environ['PYTHONPATH'] = './:./submodules:./submodules/pycbio:./submodules/com
 sys.path.extend(['./', './submodules', './submodules/pycbio', './submodules/comparativeAnnotator'])
 from pycbio.bio.transcripts import get_transcript_dict
 from pycbio.bio.intervals import ChromosomeInterval
-from comparativeAnnotator.database_queries import get_gene_biotype_map
+from comparativeAnnotator.database_queries import get_transcript_biotype_map
 
 
 def parse_args():
@@ -18,10 +18,14 @@ def parse_args():
     parser.add_argument('ref_genome')
     parser.add_argument('cgp')
     parser.add_argument('tmr')
+    parser.add_argument('--remove-multiple', action='store_true')
     return parser.parse_args()
 
 
 def create_chrom_dict(tx_dict):
+    """
+    Creates a dictionary mapping chromosome names to all transcripts on it
+    """
     chrom_dict = defaultdict(dict)
     for tx_id, tx in tx_dict.iteritems():
         chrom_dict[tx.chromosome][tx_id] = tx
@@ -29,31 +33,39 @@ def create_chrom_dict(tx_dict):
 
 
 def generate_intervals(tx_iter):
-    return [ChromosomeInterval(x.chromosome, x.start, x.stop, x.strand, x.name2) for x in tx_iter]
+    """
+    Uses the gene information for a iterable of transcript objects to produce a set of intervals.
+    """
+    return {ChromosomeInterval(tx.chromosome, tx.start, tx.stop, tx.strand, tx.name2) for tx in tx_iter}
 
 
-def evaluate_overlaps(tm_intervals, cgp_rec):
+def evaluate_overlaps(tm_intervals, cgp_rec, min_overlap=0.75):
+    """
+    Compares a cgp record to the transcript intervals for all transcripts on this chromosome.
+    Returns only the name of genes which have any transcripts with min_overlap overlap with the cgp_rec.
+    """
     cgp_interval = ChromosomeInterval(cgp_rec.chromosome, cgp_rec.start, cgp_rec.stop, cgp_rec.strand, cgp_rec.name)
-    return {x.name for x in tm_intervals if x.overlap(cgp_interval, stranded=True)}
+    intersections = [[tm_interval, tm_interval.intersection(cgp_interval)] for tm_interval in tm_intervals]
+    overlaps = [[tm_interval, 1.0 * len(intersection) / len(tm_interval)] for tm_interval, intersection in
+                intersections if intersection is not None]
+    return {tm_interval.name for tm_interval, overlap in overlaps if overlap >= min_overlap}
 
 
 def main():
     args = parse_args()
-    gene_biotype_map = get_gene_biotype_map(args.ref_genome, args.comp_db)
-    not_ok_txs = {gene_id for gene_id, biotype in gene_biotype_map.iteritems() if biotype not in ['protein_coding',
-                                                                                                  'processed_transcript']}
+    transcript_biotype_map = get_transcript_biotype_map(args.ref_genome, args.comp_db)
     tm_dict = get_transcript_dict(args.tmr)
+    tm_dict = {tx_id: tx for tx_id, tx in tm_dict.iteritems() if transcript_biotype_map[tx_id] == 'protein_coding'}
     cgp_dict = get_transcript_dict(args.cgp)
     tm_chrom_dict = create_chrom_dict(tm_dict)
     cgp_chrom_dict = create_chrom_dict(cgp_dict)
-    interesting = defaultdict(list)
     for chrom, tm_tx_dict in tm_chrom_dict.iteritems():
         tm_intervals = generate_intervals(tm_tx_dict.itervalues())
         for cgp_tx_id, cgp_rec in cgp_chrom_dict[chrom].iteritems():
             r = evaluate_overlaps(tm_intervals, cgp_rec)
-            r -= not_ok_txs
-            interesting[len(r)].append(cgp_rec)
-            if len(r) > 0:
+            if args.remove_multiple is True and len(r) > 1:
+                continue
+            elif len(r) > 0:
                 cgp_rec.name2 = ','.join(r)
             else:
                 cgp_rec.name2 = cgp_rec.name.split('.')[0]

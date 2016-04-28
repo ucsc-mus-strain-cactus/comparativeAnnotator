@@ -90,7 +90,7 @@ class AugustusClassify(Base):
     AugustusAlignmentId = TextField(primary_key=True)
     AlignmentId = TextField()
     TranscriptId = TextField()
-    AugustusParalogy = IntegerField(null=True)
+    AugustusMultipleTranscripts = IntegerField(null=True)
 
 
 class AugustusDetails(Base):

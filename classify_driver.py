@@ -139,7 +139,7 @@ class AugustusClassify(AbstractClassify):
         for aug_aln_id, (t, aug_t, paralogy_count) in self.chunk:
             rd = {'AlignmentId': remove_augustus_alignment_number(aug_aln_id),
                   'TranscriptId': strip_alignment_numbers(aug_aln_id),
-                  'AugustusParalogy': paralogy_count}
+                  'AugustusMultipleTranscripts': paralogy_count}
             for classify_fn in classifier_fns:
                 rd[classify_fn.name] = classify_fn(aug_t, t)
             r_details[aug_aln_id] = rd
@@ -224,7 +224,7 @@ def construct_tmp_dirs(target):
     return tmp_classify, tmp_attrs
 
 
-def run_ref_classifiers(target, args, chunk_size=5000):
+def run_ref_classifiers(target, args, chunk_size=10000):
     """
     Main loop for classification. Produces a classification job for chunk_size alignments.
     """
@@ -236,7 +236,7 @@ def run_ref_classifiers(target, args, chunk_size=5000):
     target.setFollowOnTargetFn(write_to_db, args=(args, args.ref_genome, tmp_classify, tmp_attrs, 'TranscriptId'))
 
 
-def run_tm_classifiers(target, args, chunk_size=250):
+def run_tm_classifiers(target, args, chunk_size=500):
     """
     Main loop for classification. Produces a classification job for chunk_size alignments.
     """
@@ -272,7 +272,7 @@ def run_tm_classifiers(target, args, chunk_size=250):
     target.setFollowOnTargetFn(write_to_db, args=(args, args.genome, tmp_classify, tmp_attrs, 'AlignmentId'))
 
 
-def run_aug_classifiers(target, args, chunk_size=5000):
+def run_aug_classifiers(target, args, chunk_size=10000):
     """
     Main loop for augustus classification. Produces a classification job for chunk_size alignments.
     """
