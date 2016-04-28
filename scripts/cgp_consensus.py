@@ -89,15 +89,14 @@ def determine_if_new_introns(cgp_tx, ens_ids, tmr_consensus_dict, intron_vector)
     return False
 
 
-def determine_if_better(cgp_stats, consensus_stats):
+def determine_if_better(cgp_stats, consensus_stats, cov_weight=0.25, ident_weight=0.75):
     """
     Determines if this CGP transcript is better than any of the consensus transcripts it may come from
     """
     ens_ids = []
     for ens_id, (consensus_cov, consensus_ident) in consensus_stats.iteritems():
         cgp_cov, cgp_ident = cgp_stats[ens_id]
-        if ((cgp_ident > consensus_ident and cgp_cov >= consensus_cov) or 
-                (cgp_cov > consensus_cov and cgp_ident >= consensus_ident)):
+        if (cov_weight * cgp_cov + ident_weight * cgp_ident) > (cov_weight * consensus_cov + ident_weight * consensus_ident):
             ens_ids.append(ens_id)
     return ens_ids
 

@@ -14,7 +14,7 @@ def main():
     args = parse_args()
     tx_dict = get_transcript_dict(args.cgp_consensus)
     for tx in tx_dict.itervalues():
-        if 'jg' in tx.name2:
+        if 'jg' in tx.name2 or tx.name2.startswith('g'):
             print '\t'.join(map(str, tx.get_gene_pred()))
 
 

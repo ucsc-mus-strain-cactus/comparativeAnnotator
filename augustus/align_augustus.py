@@ -74,7 +74,7 @@ def get_hierarchical_transcript_dict(gp):
 def align_augustus_wrapper(target, args):
     file_tree = TempFileTree(target.getGlobalTempDir())
     h_dict = get_hierarchical_transcript_dict(args.augustus_gp)
-    for chunk in grouper(h_dict.iteritems(), 50):
+    for chunk in grouper(h_dict.iteritems(), 200):
         target.addChildTargetFn(align, args=[args.fasta, chunk, args.ref_fasta, file_tree])
     target.setFollowOnTargetFn(cat, args=(args.genome, file_tree, args.db))
 

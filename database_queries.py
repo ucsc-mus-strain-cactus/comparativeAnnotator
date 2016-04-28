@@ -152,27 +152,33 @@ def noncoding_classify(r, tgt, ref, passing):
 def augustus_classify(r, aug, tgt, ref):
     """
     Constructs a query for augustus passing. Generally, allows Augustus to change things if things are wrong in
-    the transMap or the reference to begin with. Also has a catch-all that allows any transcript with >95% coverage
-    and >95% identity.
-    TODO: don't hardcode the identity/coverage cutoffs.
+    the transMap or the reference to begin with.
     """
-    # repeated requirements for both types of boundary movements
-    boundaries = (tgt.attrs.AlignmentCoverage < 95.0) | (tgt.classify.CdsUnknownSplice > 0) | (tgt.classify.UtrUnknownSplice > 0)
-    r = r.where((((aug.classify.NotSameStart == 0) | ((tgt.classify.HasOriginalStart != 0) |
-                                                      (tgt.classify.StartOutOfFrame != 0) | (tgt.classify.BadFrame != 0) |
-                                                      (ref.classify.BeginStart != 0))) &
-                ((aug.classify.NotSameStop == 0) | ((tgt.classify.HasOriginalStop != 0) | (tgt.classify.BadFrame != 0) |
-                                                    (ref.classify.EndStop != 0))) &
-                ((aug.classify.NotSimilarTerminalExonBoundaries == 0) | (boundaries | (tgt.classify.UtrGap > 1))) &
-                ((aug.classify.NotSimilarInternalExonBoundaries == 0) | (boundaries | (tgt.classify.CdsGap + tgt.classify.UtrGap > 2))) &
-                ((aug.classify.ExonLoss < 2) & (aug.classify.AugustusParalogy == 0))) |
-                ((aug.attrs.AugustusAlignmentCoverage >= 50.0) & (aug.attrs.AugustusAlignmentIdentity >= 95.0)))
+    # allow Augustus to move start when the parent has a bad start or bad frame
+    r = r.where(((aug.classify.NotSameStart == 0) | ((tgt.classify.HasOriginalStart != 0) |
+                                                     (tgt.classify.StartOutOfFrame != 0) |
+                                                     (tgt.classify.BadFrame != 0) |
+                                                     (ref.classify.BeginStart != 0))))
+
+    # allow Augustus to move stop when the parent has a bad stop or bad frame
+    r = r.where(((aug.classify.NotSameStop == 0) | ((tgt.classify.HasOriginalStop != 0) |
+                                                    (tgt.classify.BadFrame != 0) |
+                                                    (ref.classify.EndStop != 0))))
+
+    # allow Augustus to move exon boundaries if the parent has bad splices
+    bad_splice = (tgt.classify.CdsUnknownSplice + tgt.classify.UtrUnknownSplice > 0)
+    r = r.where((aug.classify.NotSimilarTerminalExonBoundaries == 0) | bad_splice)
+    r = r.where((aug.classify.NotSimilarInternalExonBoundaries == 0) | bad_splice)
 
     # no insanely long transcripts
     r = r.where(aug.classify.AugustusLongTranscript == 0)
 
-    # only best overall aln
-    r = r.where(tgt.attrs.BestOverallAln == 1)
+    # no augustus multiple transcripts
+    r = r.where(aug.classify.AugustusMultipleTranscripts == 0)
+
+    # don't lose or gain more than 2 exons
+    r = r.where(aug.classify.ExonLoss < 3)
+    r = r.where(aug.classify.ExonGain < 3)
 
     # prevent pseudogenes by disallowing very few introns if parent gene had introns
     r = r.where((ref.attrs.NumberIntrons - 3 < aug.attrs.AugustusNumberIntrons)

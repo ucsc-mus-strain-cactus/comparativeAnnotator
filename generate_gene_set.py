@@ -64,12 +64,17 @@ def build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
     return data_dict
 
 
-def find_best_alns(stats, tm_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutoff):
+def find_best_alns(stats, tm_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutoff, cov_weight=0.25, ident_weight=0.75,
+                   frameshift_fudge=0.9):
     """
     Takes the list of transcript Ids and finds the best alignment(s) by highest percent identity and coverage
     We sort by ID to favor Augustus transcripts going to the consensus set in the case of ties
+    This process also filters for two key features that are potentially transcript-specific.
+    The first is too long transcripts - we don't want anything that is over 3mb.
+    The second is frameshifts in transMap - transcripts which are frame-shifted should be given slightly lower
+    priority over Augustus transcripts that may have sacrificed accuracy to obtain a proper frame.
     """
-    def get_cov_ident(stats, aln_id, biotype, mode):
+    def get_cov_ident(aln_id, biotype, mode):
         """
         Extract coverage and identity from stats, round them. Also evaluates whether a transMap transcript has
         any short introns. If they do, they will not be allowed to be evaluated, but that does not necessarily mean
@@ -80,10 +85,14 @@ def find_best_alns(stats, tm_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutof
             cov = tm_stats.AlignmentCoverage
             ident = tm_stats.AlignmentIdentity
             if biotype == 'protein_coding':
-                has_gap = tm_stats.UtrGap + tm_stats.CdsGap + tm_stats.CdsMult3Gap != 0
+                has_gap = tm_stats.UtrGap + tm_stats.CdsGap + tm_stats.CdsMult3Gap + tm_stats.UnknownGap != 0
             else:
                 has_gap = False
+                #has_gap = tm_stats.UtrGap + tm_stats.UnknownGap != 0
             too_long = bool(tm_stats.LongTranscript)
+            if tm_stats.FrameShift > 0:
+                cov *= frameshift_fudge
+                ident *= frameshift_fudge
         elif mode_is_aug(mode):
             cov = stats[aln_id].AugustusAlignmentCoverage
             ident = stats[aln_id].AugustusAlignmentIdentity
@@ -106,7 +115,7 @@ def find_best_alns(stats, tm_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutof
         """return all ids which pass coverage cutoff"""
         s = []
         for aln_id in ids:
-            cov, ident, has_gap, too_long = get_cov_ident(stats, aln_id, biotype, mode)
+            cov, ident, has_gap, too_long = get_cov_ident(aln_id, biotype, mode)
             if has_gap is False and too_long is False:
                 s.append([aln_id, cov, ident])
         return filter(lambda (aln_id, cov, ident): cov >= cutoff, s)
@@ -117,7 +126,8 @@ def find_best_alns(stats, tm_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutof
     if len(cov_s) == 0:
         return None
     else:
-        best_ident = sorted(cov_s, key=lambda (aln_id, cov, ident): ident, reverse=True)[0][2]
+        best_ident = sorted(cov_s, key=lambda (aln_id, cov, ident): ident * ident_weight + cov * cov_weight,
+                            reverse=True)[0][2]
     best_overall = [aln_id for aln_id, cov, ident in cov_s if ident >= best_ident]
     return best_overall
 
@@ -224,17 +234,20 @@ def find_longest_for_gene(bins, stats, gps, biotype, ids_included, cov_cutoff=33
     for aln_id in aln_ids:
         if aln_id is None:
             continue
+        tm_stats = stats[aln_id]
+        if bool(tm_stats.LongTranscript):  # filter out too long transcripts
+            continue
         elif not aln_id_is_augustus(aln_id):
-            tm_stats = stats[aln_id]
             cov = tm_stats.AlignmentCoverage
             ident = tm_stats.AlignmentIdentity
             if biotype == 'protein_coding':
-                has_gap = tm_stats.UtrGap + tm_stats.CdsGap + tm_stats.CdsMult3Gap != 0
+                has_gap = tm_stats.UtrGap + tm_stats.CdsGap + tm_stats.CdsMult3Gap + tm_stats.UnknownGap != 0
             else:
                 has_gap = False
+                #has_gap = tm_stats.UtrGap + tm_stats.UnknownGap != 0
         elif aln_id_is_augustus(aln_id):
-            cov = stats[aln_id].AugustusAlignmentCoverage
-            ident = stats[aln_id].AugustusAlignmentIdentity
+            cov = tm_stats.AugustusAlignmentCoverage
+            ident = tm_stats.AugustusAlignmentIdentity
             has_gap = False
         else:
             raise NotImplementedError
