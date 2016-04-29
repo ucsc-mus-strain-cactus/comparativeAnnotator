@@ -64,7 +64,7 @@ def build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
     return data_dict
 
 
-def find_best_alns(stats, tm_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutoff, cov_weight=0.25, ident_weight=0.75,
+def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff, aug_cov_cutoff, cov_weight=0.25, ident_weight=0.75,
                    frameshift_fudge=0.9):
     """
     Takes the list of transcript Ids and finds the best alignment(s) by highest percent identity and coverage
@@ -74,7 +74,7 @@ def find_best_alns(stats, tm_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutof
     The second is frameshifts in transMap - transcripts which are frame-shifted should be given slightly lower
     priority over Augustus transcripts that may have sacrificed accuracy to obtain a proper frame.
     """
-    def get_cov_ident(aln_id, biotype, mode):
+    def get_cov_ident(aln_id, mode):
         """
         Extract coverage and identity from stats, round them. Also evaluates whether a transMap transcript has
         any short introns. If they do, they will not be allowed to be evaluated, but that does not necessarily mean
@@ -84,11 +84,6 @@ def find_best_alns(stats, tm_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutof
             tm_stats = stats[aln_id]
             cov = tm_stats.AlignmentCoverage
             ident = tm_stats.AlignmentIdentity
-            if biotype == 'protein_coding':
-                has_gap = tm_stats.UtrGap + tm_stats.CdsGap + tm_stats.CdsMult3Gap + tm_stats.UnknownGap != 0
-            else:
-                has_gap = False
-                #has_gap = tm_stats.UtrGap + tm_stats.UnknownGap != 0
             too_long = bool(tm_stats.LongTranscript)
             if tm_stats.FrameShift > 0:
                 cov *= frameshift_fudge
@@ -109,19 +104,19 @@ def find_best_alns(stats, tm_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutof
             ident = 0.0
         else:
             ident = round(ident, 6)
-        return cov, ident, has_gap, too_long
+        return cov, ident, too_long
 
-    def analyze_ids(ids, cutoff, stats, biotype, mode):
+    def analyze_ids(ids, cutoff, mode):
         """return all ids which pass coverage cutoff"""
         s = []
         for aln_id in ids:
-            cov, ident, has_gap, too_long = get_cov_ident(aln_id, biotype, mode)
-            if has_gap is False and too_long is False:
+            cov, ident, too_long = get_cov_ident(aln_id, mode)
+            if too_long is False:
                 s.append([aln_id, cov, ident])
         return filter(lambda (aln_id, cov, ident): cov >= cutoff, s)
 
-    aug_cov = analyze_ids(aug_ids, aug_cov_cutoff, stats, biotype, mode='augustus')
-    tm_cov = analyze_ids(tm_ids, tm_cov_cutoff, stats, biotype, mode='transMap')
+    aug_cov = analyze_ids(aug_ids, aug_cov_cutoff, mode='augustus')
+    tm_cov = analyze_ids(tm_ids, tm_cov_cutoff, mode='transMap')
     cov_s = aug_cov + tm_cov
     if len(cov_s) == 0:
         return None
@@ -132,19 +127,19 @@ def find_best_alns(stats, tm_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutof
     return best_overall
 
 
-def evaluate_ids(fail_ids, pass_specific_ids, excel_ids, aug_ids, stats, biotype, tm_cov_cutoff, aug_cov_cutoff):
+def evaluate_ids(fail_ids, pass_specific_ids, excel_ids, aug_ids, stats, tm_cov_cutoff, aug_cov_cutoff):
     """
     For a given ensembl ID, we have augustus/transMap ids in 3 categories. Based on the hierarchy Excellent>Pass>Fail,
     return the best transcript in the highest category with a transMap transcript.
     """
     if len(excel_ids) > 0:
-        best_alns = find_best_alns(stats, excel_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutoff)
+        best_alns = find_best_alns(stats, excel_ids, aug_ids, tm_cov_cutoff, aug_cov_cutoff)
         return best_alns, "Excellent"
     elif len(pass_specific_ids) > 0:
-        best_alns = find_best_alns(stats, pass_specific_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutoff)
+        best_alns = find_best_alns(stats, pass_specific_ids, aug_ids, tm_cov_cutoff, aug_cov_cutoff)
         return best_alns, "Pass"
     elif len(fail_ids) > 0:
-        best_alns = find_best_alns(stats, fail_ids, aug_ids, biotype, tm_cov_cutoff, aug_cov_cutoff)
+        best_alns = find_best_alns(stats, fail_ids, aug_ids, tm_cov_cutoff, aug_cov_cutoff)
         return best_alns, "Fail"
     else:
         return None, "NoTransMap"
@@ -213,7 +208,7 @@ def find_best_transcripts(data_dict, stats, mode, biotype, gps, tm_cov_cutoff=80
             else:
                 fail_ids, pass_specific_ids, excel_ids = tx_recs.values()
                 aug_ids = []
-            best_alns, category = evaluate_ids(fail_ids, pass_specific_ids, excel_ids, aug_ids, stats, biotype,
+            best_alns, category = evaluate_ids(fail_ids, pass_specific_ids, excel_ids, aug_ids, stats,
                                                tm_cov_cutoff, aug_cov_cutoff)
             if best_alns is None:
                 binned_transcripts[gene_id][ens_id] = [best_alns, category, None]
@@ -224,7 +219,7 @@ def find_best_transcripts(data_dict, stats, mode, biotype, gps, tm_cov_cutoff=80
     return binned_transcripts
 
 
-def find_longest_for_gene(bins, stats, gps, biotype, ids_included, cov_cutoff=33.3, ident_cutoff=80.0):
+def find_longest_for_gene(bins, stats, gps, ids_included, cov_cutoff=33.3, ident_cutoff=80.0):
     """
     Finds the longest transcript(s) for a gene. This is used when all transcripts failed, and has more relaxed cutoffs.
     """
@@ -240,18 +235,12 @@ def find_longest_for_gene(bins, stats, gps, biotype, ids_included, cov_cutoff=33
         elif not aln_id_is_augustus(aln_id):
             cov = tm_stats.AlignmentCoverage
             ident = tm_stats.AlignmentIdentity
-            if biotype == 'protein_coding':
-                has_gap = tm_stats.UtrGap + tm_stats.CdsGap + tm_stats.CdsMult3Gap + tm_stats.UnknownGap != 0
-            else:
-                has_gap = False
-                #has_gap = tm_stats.UtrGap + tm_stats.UnknownGap != 0
         elif aln_id_is_augustus(aln_id):
             cov = tm_stats.AugustusAlignmentCoverage
             ident = tm_stats.AugustusAlignmentIdentity
-            has_gap = False
         else:
             raise NotImplementedError
-        if cov >= cov_cutoff and ident >= ident_cutoff and has_gap is False:
+        if cov >= cov_cutoff and ident >= ident_cutoff:
             keep_ids.append(aln_id)
     if len(keep_ids) > 0:
         sizes = [[x, len(gps[x])] for x in keep_ids]
@@ -346,7 +335,7 @@ def generate_gene_set(binned_transcripts, stats, gps, transcript_biotype_map, re
         has_only_short_txs = has_only_short(ids_included, ref_gene_sizes[gene_id], gps)
         if has_only_short_txs is True and gene_in_consensus is True:
             # add the single longest transcript for this gene if it passes filters
-            longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, biotype, ids_included)
+            longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, ids_included)
             if longest_id in consensus:
                 continue
             elif longest_id is not None:
@@ -361,7 +350,7 @@ def generate_gene_set(binned_transcripts, stats, gps, transcript_biotype_map, re
             gene_evaluation[s] += 1
         else:
             # attempt to add one longest transcript for this failing gene
-            longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, biotype, ids_included)
+            longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, ids_included)
             if longest_id is None:
                 gene_evaluation['NoTransMap'] += 1
                 longest_rate['Rescue']["FailGeneRescue"] += 1
