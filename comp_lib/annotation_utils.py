@@ -187,10 +187,6 @@ def codon_pair_iterator(a, t, aln, target_seq_dict, query_seq_dict):
                                 for j in xrange(i, i + 3)]
         if None in target_cds_positions:
             continue
-        # sanity check - should probably remove. But should probably write tests too...
-        # not valid now with block merging
-        #assert all([target_cds_positions[2] - target_cds_positions[1] == 1, target_cds_positions[1] -
-        #            target_cds_positions[0] == 1, target_cds_positions[2] - target_cds_positions[0] == 2])
         target_codon = target_cds[target_cds_positions[0]:target_cds_positions[0] + 3]
         query_codon = query_cds[i:i + 3]
         assert len(target_codon) == len(query_codon) == 3, a.name
