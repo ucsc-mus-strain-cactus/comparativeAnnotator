@@ -9,15 +9,17 @@ os.environ['PYTHONPATH'] = './:./submodules:./submodules/pycbio:./submodules/com
 sys.path.extend(['./', './submodules', './submodules/pycbio', './submodules/comparativeAnnotator'])
 from pycbio.bio.transcripts import get_transcript_dict
 from pycbio.bio.intervals import ChromosomeInterval
-from comparativeAnnotator.database_queries import get_transcript_biotype_map
+from comparativeAnnotator.database_queries import get_aln_ids, get_transcript_gene_map
+from comparativeAnnotator.comp_lib.name_conversions import strip_alignment_numbers
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('comp_db')
     parser.add_argument('ref_genome')
+    parser.add_argument('genome')
     parser.add_argument('cgp')
-    parser.add_argument('tmr')
+    parser.add_argument('transmap')
     parser.add_argument('--remove-multiple', action='store_true')
     return parser.parse_args()
 
@@ -39,7 +41,7 @@ def generate_intervals(tx_iter):
     return {ChromosomeInterval(tx.chromosome, tx.start, tx.stop, tx.strand, tx.name2) for tx in tx_iter}
 
 
-def evaluate_overlaps(tm_intervals, cgp_rec, min_overlap=0.75):
+def evaluate_overlaps(tm_intervals, cgp_rec, min_overlap=0.8):
     """
     Compares a cgp record to the transcript intervals for all transcripts on this chromosome.
     Returns only the name of genes which have any transcripts with min_overlap overlap with the cgp_rec.
@@ -53,11 +55,16 @@ def evaluate_overlaps(tm_intervals, cgp_rec, min_overlap=0.75):
 
 def main():
     args = parse_args()
-    transcript_biotype_map = get_transcript_biotype_map(args.ref_genome, args.comp_db)
-    tm_dict = get_transcript_dict(args.tmr)
-    tm_dict = {tx_id: tx for tx_id, tx in tm_dict.iteritems() if transcript_biotype_map[tx_id] == 'protein_coding'}
+    transmap_dict = get_transcript_dict(args.transmap)
+    # pull out best alignment IDs for coding genes only
+    best_ids = get_aln_ids(args.ref_genome, args.genome, args.comp_db, biotype='protein_coding', best_only=True)
+    transmap_dict = {tx_id: tx for tx_id, tx in transmap_dict.iteritems() if tx_id in best_ids}
+    # rename these to the ENSMUSG naming scheme since transMap uses the common names
+    transcript_gene_map = get_transcript_gene_map(args.ref_genome, args.comp_db)
+    for tx_id, tx in transmap_dict.iteritems():
+        tx.name2 = transcript_gene_map[strip_alignment_numbers(tx_id)]
     cgp_dict = get_transcript_dict(args.cgp)
-    tm_chrom_dict = create_chrom_dict(tm_dict)
+    tm_chrom_dict = create_chrom_dict(transmap_dict)
     cgp_chrom_dict = create_chrom_dict(cgp_dict)
     for chrom, tm_tx_dict in tm_chrom_dict.iteritems():
         tm_intervals = generate_intervals(tm_tx_dict.itervalues())

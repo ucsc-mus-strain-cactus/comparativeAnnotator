@@ -76,9 +76,8 @@ def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff, aug_cov_cutoff, cov_we
     """
     def get_cov_ident(aln_id, mode):
         """
-        Extract coverage and identity from stats, round them. Also evaluates whether a transMap transcript has
-        any short introns. If they do, they will not be allowed to be evaluated, but that does not necessarily mean
-        that we need to collapse alternative isoforms in this gene.
+        Extract coverage and identity from stats, round them. Fudges transMap transcript stats when they have an
+        in frame stop.
         """
         if mode == 'transMap':
             tm_stats = stats[aln_id]
@@ -91,7 +90,6 @@ def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff, aug_cov_cutoff, cov_we
         elif mode_is_aug(mode):
             cov = stats[aln_id].AugustusAlignmentCoverage
             ident = stats[aln_id].AugustusAlignmentIdentity
-            has_gap = False  # augustus transcripts cannot have short gaps
             too_long = False
         else:
             raise NotImplementedError
@@ -161,8 +159,7 @@ def is_tie(best_alns):
 
 def remove_multiple_chromosomes(binned_transcripts, gps, stats):
     """
-    If the flag is set by the user, this will filter out all transcripts for a gene not present on the most common
-    chromosome/contig.
+    Filter out all transcripts for a gene not present on the most common chromosome/contig.
     """
     to_remove = set()
     for gene_id in binned_transcripts:
