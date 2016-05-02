@@ -9,6 +9,7 @@ os.environ['PYTHONPATH'] = './:./submodules:./submodules/pycbio:./submodules/com
 sys.path.extend(['./', './submodules', './submodules/pycbio', './submodules/comparativeAnnotator'])
 from pycbio.bio.transcripts import get_transcript_dict
 from pycbio.bio.intervals import ChromosomeInterval
+from comparativeAnnotator.comp_lib.name_conversions import strip_alignment_numbers
 from comparativeAnnotator.database_queries import get_transcript_biotype_map
 
 
@@ -55,7 +56,7 @@ def main():
     args = parse_args()
     transcript_biotype_map = get_transcript_biotype_map(args.ref_genome, args.comp_db)
     tm_dict = get_transcript_dict(args.tmr)
-    tm_dict = {tx_id: tx for tx_id, tx in tm_dict.iteritems() if transcript_biotype_map[tx_id] == 'protein_coding'}
+    tm_dict = {tx_id: tx for tx_id, tx in tm_dict.iteritems() if transcript_biotype_map[strip_alignment_numbers(tx_id)] == 'protein_coding'}
     cgp_dict = get_transcript_dict(args.cgp)
     tm_chrom_dict = create_chrom_dict(tm_dict)
     cgp_chrom_dict = create_chrom_dict(cgp_dict)
