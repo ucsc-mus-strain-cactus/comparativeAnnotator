@@ -41,7 +41,7 @@ def generate_intervals(tx_iter):
     return {ChromosomeInterval(tx.chromosome, tx.start, tx.stop, tx.strand, tx.name2) for tx in tx_iter}
 
 
-def evaluate_overlaps(tm_intervals, cgp_rec, min_overlap=0.8):
+def evaluate_overlaps(tm_intervals, cgp_rec, min_overlap=0.1):
     """
     Compares a cgp record to the transcript intervals for all transcripts on this chromosome.
     Returns only the name of genes which have any transcripts with min_overlap overlap with the cgp_rec.
