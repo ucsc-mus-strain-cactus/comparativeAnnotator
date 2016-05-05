@@ -313,6 +313,46 @@ r = noncoding_classify(r, tgt, ref, coverage=90.0, percent_unknown=5.0)
 
 
 
+genome = 'SPRET_EiJ'
+consensus_gp, cgp_gp, genome_fasta, cgp_intron_bits = original_args.file_map[genome]
+args = CgpConsensusNamespace()
+args.genome = genome
+args.ref_genome = original_args.refGenome
+args.norestart = original_args.norestart
+args.comp_db = original_args.compDb
+args.cgp_db = os.path.join(original_args.workDir, 'comparativeAnnotator', 'cgp_stats.db')
+args.consensus_gp = consensus_gp
+args.cgp_gp = cgp_gp
+args.cgp_intron_bits = cgp_intron_bits
+args.metrics_dir = os.path.join(original_args.workDir, 'CGP_consensus_metrics')
+# Alignment shared args
+tmp = HashableNamespace(**vars(original_args.jobTreeOptions))
+tmp.refGenome = original_args.refGenome
+tmp.genome = genome
+tmp.refTranscriptFasta = original_args.refTranscriptFasta
+tmp.compDb = original_args.compDb
+tmp.cgpDb = args.cgp_db
+tmp.targetGenomeFasta = genome_fasta
+tmp.defaultMemory = 8 * 1024 ** 3
+# align CGP
+args.align_cgp = AlignCgpNamespace(**vars(tmp))
+args.align_cgp.jobTree = os.path.join(original_args.jobTreeDir, 'alignCgp', genome)
+args.align_cgp.mode = 'cgp'
+args.align_cgp.gp = cgp_gp
+args.align_cgp.table = '_'.join([genome, args.align_cgp.mode])
+# align consensus CDS
+args.align_cds = AlignCdsNamespace(**vars(tmp))
+args.align_cds.jobTree = os.path.join(original_args.jobTreeDir, 'alignCds', genome)
+args.align_cds.mode = 'consensus'
+args.align_cds.gp = consensus_gp
+args.align_cds.table = '_'.join([genome, args.align_cds.mode])
+args.align_cds.genome = args.align_cgp.genome = genome
+# output
+args.output_gp = os.path.join(original_args.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gp')
+args.output_gtf = os.path.join(original_args.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gtf')
+args_holder[genome] = args
+
+
 os.environ['PYTHONPATH'] = './:./submodules:./submodules/pycbio:./submodules/comparativeAnnotator'
 sys.path.extend(['./', './submodules', './submodules/pycbio', './submodules/comparativeAnnotator'])
 import argparse
@@ -324,10 +364,9 @@ from pycbio.sys.fileOps import ensureFileDir
 from comparativeAnnotator.database_queries import get_gene_transcript_map, get_transcript_gene_map, get_transcript_biotype_map
 from pycbio.bio.transcripts import get_transcript_dict
 from comparativeAnnotator.scripts.cgp_consensus import *
-genome = 'PWK_PhJ'
+genome = 'C57BL_6NJ'
 ref_genome = 'C57B6J'
-plot_args, args_holder = loadp('cgp_args.pickle')
-args = args_holder[genome]
+args = loadp('cgp_nj.pickle')
 
 transcript_biotype_map = get_transcript_biotype_map(args.ref_genome, args.comp_db)
 gene_transcript_map = get_gene_transcript_map(args.ref_genome, args.comp_db, biotype="protein_coding")
@@ -347,6 +386,7 @@ intron_dict = load_intron_bits(args.cgp_intron_bits)
 # final dictionaries
 cgp_consensus = {}
 metrics = {}
+resolve_multiple_parents(cgp_stats_dict, cgp_dict, transcript_biotype_map, transcript_gene_map)
 # save all CGP transcripts which have no associated genes
 find_new_transcripts(cgp_dict, cgp_consensus, metrics)
 # save all CGP transcripts whose associated genes are not in the consensus

@@ -14,11 +14,35 @@ import cPickle as pickle
 from collections import OrderedDict, defaultdict
 from pycbio.sys.sqliteOps import open_database, get_multi_index_query_dict, get_query_dict
 from pycbio.sys.fileOps import ensureDir
-from comparativeAnnotator.database_queries import get_gene_transcript_map, get_transcript_gene_map,\
-    get_transcript_biotype_map
+from comparativeAnnotator.database_queries import get_transcript_gene_map, get_transcript_biotype_map
 from pycbio.bio.transcripts import get_transcript_dict, Transcript
 
 __author__ = "Ian Fiddes"
+
+
+def resolve_multiple_parents(cgp_stats_dict, cgp_dict, transcript_biotype_map, transcript_gene_map,
+                             cov_cutoff=0.35, ident_cutoff=0.90, cov_weight=0.25, ident_weight=0.75):
+    """
+    Resolves CGP transcripts which were assigned to more than one gene by picking a gene based on which transcripts
+    had the highest score.
+    """
+    for cgp_id, cgp_tx in cgp_dict.iteritems():
+        if ',' not in cgp_tx.name2:
+            continue
+        cgp_stats = cgp_stats_dict[cgp_id]
+        scores = {}
+        for ens_id, (cgp_cov, cgp_ident) in cgp_stats.iteritems():
+            if cgp_cov <= cov_cutoff or cgp_ident <= ident_cutoff:
+                continue
+            elif transcript_biotype_map[ens_id] != 'protein_coding':
+                continue
+            score = cgp_cov * cov_weight + cgp_ident * ident_weight
+            scores[ens_id] = score
+        if len(scores) == 0:
+            cgp_tx.name2 = cgp_id.split('.')[0]  # remove association with any gene
+        else:
+            best_tx = sorted(scores.iteritems(), key=lambda x: -x[1])[0][0]
+            cgp_tx.name2 = transcript_gene_map[best_tx]
 
 
 def load_intron_bits(intron_bits_path, cgp_dict):
@@ -124,13 +148,9 @@ def find_new_transcripts(cgp_dict, consensus, metrics):
     consensus.update(g_txs)
 
 
-def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, consensus, metrics, tmr_consensus_dict,
-                             gene_transcript_map, support_cutoff=80.0):
+def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, consensus, metrics, support_cutoff=80.0):
     """
-    If a CGP transcript is associated with genes that are all missing from the consensus, include it if it has at least
-    support_cutoff supported introns. Otherwise, remove it. 
-    Also, check whether this transcript does not at all overlap the consensus transcript(s) for the gene(s) it is
-    assigned. If this is true, also re-include it. This is generally the result of transMap mapping two places.
+    If a CGP transcript is associated with a gene missing from the consensus, include it.
     """
     jg_genes = set()
     g_genes = set()
@@ -144,32 +164,16 @@ def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, consensus, 
         if len(cgp_genes & consensus_genes) == 0:
             percent_support = 100.0 * sum(intron_dict[cgp_id]) / len(intron_dict[cgp_id])
             if percent_support >= support_cutoff:
-                consensus[cgp_id] = cgp_tx
-                jg_genes.add(cgp_id.split(".")[0])
-            # we want to exclude transcripts without support from further consensus finding
-            else:
-                to_remove.add(cgp_id)
-            continue
-        # does this transcript exist on a different chromosome from the consensus picked?
-        gps = []
-        for gene_id in cgp_genes:
-            # gene may not be in gene_transcript map if it is listed as protein_coding but none of its transcripts are
-            if gene_id not in gene_transcript_map:
-                continue
-            gps.extend([tmr_consensus_dict[x] for x in gene_transcript_map[gene_id] if x in tmr_consensus_dict])
-        full_intervals = build_full_gene_intervals(gps)
-        cgp_interval = cgp_tx.get_interval()
-        if not any([cgp_interval.overlap(x) for x in full_intervals]):
-            percent_support = 100.0 * sum(intron_dict[cgp_id]) / len(intron_dict[cgp_id])
-            if percent_support >= support_cutoff:
                 if cgp_id.startswith('g'):
                     g_genes.add(cgp_id.split(".")[0])
                     g_txs[cgp_id] = cgp_tx
                 else:
                     jg_genes.add(cgp_id.split(".")[0])
                     jg_txs[cgp_id] = cgp_tx
+            # we want to exclude transcripts without support from further consensus finding
             else:
                 to_remove.add(cgp_id)
+            continue
     metrics['CgpAddMissing'] = OrderedDict(((('CGP', OrderedDict((('CgpMissingGenes', len(jg_genes)),
                                                                 ('CgpMissingTranscripts', len(jg_txs))))),
                                            ('PacBio', OrderedDict((('PacBioMissingGenes', len(g_genes)),
@@ -303,7 +307,6 @@ def evaluate_cgp_consensus(consensus, metrics):
 
 def cgp_consensus(args):
     transcript_biotype_map = get_transcript_biotype_map(args.ref_genome, args.comp_db)
-    gene_transcript_map = get_gene_transcript_map(args.ref_genome, args.comp_db, biotype="protein_coding")
     transcript_gene_map = get_transcript_gene_map(args.ref_genome, args.comp_db, biotype="protein_coding")
     con, cur = open_database(args.cgp_db)
     # load both consensus and CGP into dictionaries
@@ -324,12 +327,13 @@ def cgp_consensus(args):
     # final dictionaries
     cgp_consensus = {}
     metrics = {}
+    # resolve transcripts assigned to multiple genes
+    resolve_multiple_parents(cgp_stats_dict, cgp_dict, transcript_biotype_map, transcript_gene_map)
     # save all CGP transcripts which have no associated genes
     find_new_transcripts(cgp_dict, cgp_consensus, metrics)
     # save all CGP transcripts whose associated genes are not in the consensus
     consensus_genes = {x.name2 for x in tmr_consensus_dict.itervalues()}
-    find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, cgp_consensus, metrics, tmr_consensus_dict,
-                             gene_transcript_map)
+    find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, cgp_consensus, metrics)
     # remove all such transcripts from the cgp dict before we evaluate for updating
     cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in cgp_consensus}
     update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron_dict, cgp_consensus, metrics,
