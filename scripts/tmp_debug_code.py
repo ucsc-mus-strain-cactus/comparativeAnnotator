@@ -23,8 +23,8 @@ def build_aln_dict(tx_dict, aug_tx_dict, paralogy_counts):
     return r
 
 
-args = loadp("v31_args.pickle")
-genome = 'SPRET_EiJ'
+args = loadp("v4_args.pickle")
+genome = 'C57BL_6NJ'
 args.mode = 'transMap'
 ref_genome = 'C57B6J'
 from pipeline.config import PipelineConfiguration
@@ -288,7 +288,6 @@ df2 = df[df['NumberIntrons'] <= 10]
 import matplotlib
 matplotlib.use('Agg')
 matplotlib.rcParams['pdf.fonttype'] = 42
-import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 p = sns.jointplot(x="NumberIntrons", y="NumberMissingOriginalIntrons", data=df, kind="kde")
@@ -296,13 +295,9 @@ p.savefig('intron_classifiers.png', format='png')
 plt.close('all')
 
 
-r = tgt_ref_join_aln_id(tgt, ref)
-r = intron_inequality(r, tgt, ref)
-r = noncoding_classify(r, tgt, ref, coverage=90.0, percent_unknown=5.0)
-
-
-
-genome = 'SPRET_EiJ'
+from comparativeAnnotator.scripts.cgp_consensus_driver import *
+original_args = loadp('cgp_args_v4.pickle')
+genome = 'C57BL_6NJ'
 consensus_gp, cgp_gp, genome_fasta, cgp_intron_bits = original_args.file_map[genome]
 args = CgpConsensusNamespace()
 args.genome = genome
@@ -380,8 +375,7 @@ resolve_multiple_parents(cgp_stats_dict, cgp_dict, transcript_biotype_map, trans
 find_new_transcripts(cgp_dict, cgp_consensus, metrics)
 # save all CGP transcripts whose associated genes are not in the consensus
 consensus_genes = {x.name2 for x in tmr_consensus_dict.itervalues()}
-find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, cgp_consensus, metrics, tmr_consensus_dict,
-                         gene_transcript_map)
+find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, cgp_consensus, metrics)
 # remove all such transcripts from the cgp dict before we evaluate for updating
 cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in cgp_consensus}
 update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron_dict, cgp_consensus, metrics,
@@ -468,11 +462,44 @@ import comparativeAnnotator.comp_lib.annotation_utils as utils
 from pycbio.bio.bio import *
 from pycbio.bio.psl import *
 from pycbio.bio.transcripts import *
-tx_dict = get_transcript_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/transMap/SPRET_EiJ.gp')
-psl_dict = get_alignment_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/transMap/SPRET_EiJ.psl')
+tx_dict = get_transcript_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/transMap/C57BL_6NJ.gp')
+psl_dict = get_alignment_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/transMap/C57BL_6NJ.psl')
 ref_tx_dict = get_transcript_dict('/hive/users/ifiddes/ihategit/pipeline/gencode_vm8/C57B6J.gp')
-seq_dict = get_sequence_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/genome_files/SPRET_EiJ.fa')
+seq_dict = get_sequence_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/genome_files/C57BL_6NJ.fa')
 ref_seq_dict = get_sequence_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/genome_files/C57B6J.fa')
+
+ens_id = 'ENSMUST00000102742.10-1'
+a = ref_tx_dict[ens_id[:-2]]
+t = tx_dict[ens_id]
+aln = psl_dict[ens_id]
+
+
+prev_target_i = None
+exon_starts = [x.start for x in a.exons]
+for query_i in xrange(len(a)):
+    if query_i in exon_starts:
+        # don't call a intron an insertion
+        prev_target_i = None
+        continue
+    target_i = aln.query_coordinate_to_target(query_i)
+    if target_i is None:
+        # deletion; ignore
+        prev_target_i = target_i
+        continue
+    if prev_target_i is not None and abs(target_i - prev_target_i) != 1:
+        # jumped over a insertion
+        insert_size = abs(target_i - prev_target_i) - 1
+        start = min(prev_target_i, target_i) + 1
+        stop = max(prev_target_i, target_i)
+        if mult3 is True and insert_size % 3 == 0:
+            assert False
+        elif mult3 is False and insert_size % 3 != 0:
+            assert False
+        elif mult3 is None:
+            assert False
+    prev_target_i = target_i
+
+
 mult3 = []
 not_mult3 = []
 unknown = []

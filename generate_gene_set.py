@@ -64,15 +64,11 @@ def build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
     return data_dict
 
 
-def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff, aug_cov_cutoff, cov_weight=0.25, ident_weight=0.75,
-                   frameshift_fudge=0.9):
+def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff, aug_cov_cutoff, cov_weight=0.25, ident_weight=0.75):
     """
     Takes the list of transcript Ids and finds the best alignment(s) by highest percent identity and coverage
-    We sort by ID to favor Augustus transcripts going to the consensus set in the case of ties
-    This process also filters for two key features that are potentially transcript-specific.
-    The first is too long transcripts - we don't want anything that is over 3mb.
-    The second is frameshifts in transMap - transcripts which are frame-shifted should be given slightly lower
-    priority over Augustus transcripts that may have sacrificed accuracy to obtain a proper frame.
+    We sort by ID to favor Augustus transcripts going to the consensus set in the case of ties.
+    This process also filters for excessively long transcripts.
     """
     def get_cov_ident(aln_id, mode):
         """
@@ -84,24 +80,16 @@ def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff, aug_cov_cutoff, cov_we
             cov = tm_stats.AlignmentCoverage
             ident = tm_stats.AlignmentIdentity
             too_long = bool(tm_stats.LongTranscript)
-            if tm_stats.FrameShift > 0:
-                cov *= frameshift_fudge
-                ident *= frameshift_fudge
         elif mode_is_aug(mode):
             cov = stats[aln_id].AugustusAlignmentCoverage
             ident = stats[aln_id].AugustusAlignmentIdentity
             too_long = False
         else:
             raise NotImplementedError
-        # round to avoid floating point issues when finding ties
         if cov is None:
             cov = 0.0
-        else:
-            cov = round(cov, 6)
         if ident is None:
             ident = 0.0
-        else:
-            ident = round(ident, 6)
         return cov, ident, too_long
 
     def analyze_ids(ids, cutoff, mode):
@@ -111,17 +99,19 @@ def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff, aug_cov_cutoff, cov_we
             cov, ident, too_long = get_cov_ident(aln_id, mode)
             if too_long is False:
                 s.append([aln_id, cov, ident])
-        return filter(lambda (aln_id, cov, ident): cov >= cutoff, s)
+        filtered = filter(lambda (aln_id, cov, ident): cov >= cutoff, s)
+        # round scores to avoid floating point arthmetic problems
+        scores = [[aln_id, round(ident * ident_weight + cov * cov_weight, 5)] for aln_id, cov, ident in filtered]
+        return scores
 
-    aug_cov = analyze_ids(aug_ids, aug_cov_cutoff, mode='augustus')
-    tm_cov = analyze_ids(tm_ids, tm_cov_cutoff, mode='transMap')
-    cov_s = aug_cov + tm_cov
-    if len(cov_s) == 0:
+    aug_scores = analyze_ids(aug_ids, aug_cov_cutoff, mode='augustus')
+    tm_scores = analyze_ids(tm_ids, tm_cov_cutoff, mode='transMap')
+    combined_scores = aug_scores + tm_scores
+    if len(combined_scores) == 0:
         return None
     else:
-        best_ident = sorted(cov_s, key=lambda (aln_id, cov, ident): ident * ident_weight + cov * cov_weight,
-                            reverse=True)[0][2]
-    best_overall = [aln_id for aln_id, cov, ident in cov_s if ident >= best_ident]
+        best_score = sorted(combined_scores, key=lambda (aln_id, score): -score)[0][1]
+    best_overall = [aln_id for aln_id, score in combined_scores if score >= best_score]
     return best_overall
 
 
@@ -479,6 +469,6 @@ def generate_gene_set_wrapper(args):
         overall_consensus.extend(deduplicated_consensus)
         metrics["duplication_rate"] = dup_count
         biotype_evals[biotype] = metrics
-    write_gps(overall_consensus, gps, args.combined_gp, transcript_biotype_map)
+    write_gps(overall_consensus, gps, args.combined_gp, transcript_gene_map)
     with open(args.pickled_metrics, 'w') as outf:
         pickle.dump(biotype_evals, outf)
