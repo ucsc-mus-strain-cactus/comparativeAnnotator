@@ -92,7 +92,7 @@ def coding_classify(r, tgt, ref, passing):
     """
     Query that defines passing/excellent for coding genes, adding on to the noncoding classifiers.
     """
-    coverage = 75.0 if passing is False else 50.0
+    coverage = 50.0 if passing is False else 25.0
     percent_unknown = 1.0 if passing is False else 5.0
     r = r.where((tgt.attrs.PercentUnknownBases <= percent_unknown),
                 (tgt.attrs.AlignmentCoverage >= coverage))
@@ -127,7 +127,7 @@ def noncoding_classify(r, tgt, ref, passing):
     Constructs a query for noncoding classifiers. Adjust coverage and percent_unknown to adjust the amount of coverage
     and unknown bases allowed.
     """
-    coverage = 75.0 if passing is False else 50.0
+    coverage = 50.0 if passing is False else 25.0
     percent_unknown = 1.0 if passing is False else 5.0
     r = r.where(((ref.classify.UtrUnknownSplice != 0) | (tgt.classify.UtrUnknownSplice == 0)),
                 (tgt.attrs.PercentUnknownBases <= percent_unknown),

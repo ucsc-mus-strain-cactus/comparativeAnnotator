@@ -181,7 +181,7 @@ def remove_multiple_chromosomes(binned_transcripts, gps, stats):
         binned_transcripts[gene_id] = {x: y for x, y in binned_transcripts[gene_id].iteritems() if y[0] not in to_remove}
 
 
-def find_best_transcripts(data_dict, stats, mode, biotype, gps, tm_cov_cutoff=80.0, aug_cov_cutoff=40.0):
+def find_best_transcripts(data_dict, stats, mode, biotype, gps, tm_cov_cutoff=40.0, aug_cov_cutoff=20.0):
     """
     For all of the transcripts categorized in data_dict, evaluate them and bin them.
     """
