@@ -50,7 +50,7 @@ def is_not_cds(intron, t):
 def analyze_splice(intron, t, seq_dict, cds_fn, splice_sites):
     if short_intron(intron) is True:
         return False
-    seq = intron.get_sequence(seq_dict, strand=True)
+    seq = intron.get_sequence(seq_dict, stranded=True)
     donor, acceptor = seq[:2], seq[-2:]
     if cds_fn(intron, t) is True:
         return False
@@ -187,9 +187,6 @@ def codon_pair_iterator(a, t, aln, target_seq_dict, query_seq_dict):
                                 for j in xrange(i, i + 3)]
         if None in target_cds_positions:
             continue
-        # sanity check - should probably remove. But should probably write tests too...
-        assert all([target_cds_positions[2] - target_cds_positions[1] == 1, target_cds_positions[1] -
-                    target_cds_positions[0] == 1, target_cds_positions[2] - target_cds_positions[0] == 2])
         target_codon = target_cds[target_cds_positions[0]:target_cds_positions[0] + 3]
         query_codon = query_cds[i:i + 3]
         assert len(target_codon) == len(query_codon) == 3, a.name

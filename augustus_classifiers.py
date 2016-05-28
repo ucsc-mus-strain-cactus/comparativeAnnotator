@@ -112,7 +112,8 @@ class NotSameStart(utils.AbstractClassifier):
 
     def __call__(self, aug_t, t):
         bed_recs = []
-        if t.thick_start != aug_t.thick_start:
+        if (t.strand is True and t.thick_start != aug_t.thick_start) or \
+                (t.strand is False and t.thick_stop != aug_t.thick_stop):
             bed_rec = tx_lib.cds_coordinate_to_bed(aug_t, 0, 3, self.rgb, self.name)
             bed_recs.append(bed_rec)
         return bed_recs
@@ -128,11 +129,27 @@ class NotSameStop(utils.AbstractClassifier):
 
     def __call__(self, aug_t, t):
         bed_recs = []
-        if t.thick_stop != aug_t.thick_stop:
+        if (t.strand is False and t.thick_start != aug_t.thick_start) or \
+                (t.strand is True and t.thick_stop != aug_t.thick_stop):
             s = aug_t.cds_size
             bed_rec = tx_lib.cds_coordinate_to_bed(aug_t, s - 3, s, self.rgb, self.name)
             bed_recs.append(bed_rec)
         return bed_recs
+
+
+class AugustusLongTranscript(utils.AbstractClassifier):
+    """
+    Is this transcript unbelievably long? Filters out poor alignments.
+    """
+    @property
+    def rgb(self):
+        return self.colors["alignment"]
+
+    def __call__(self, aug_t, t, size_cutoff=1 * 10 ** 6):
+        if len(aug_t) >= size_cutoff:
+            return [tx_lib.transcript_to_bed(aug_t, self.rgb, self.name)]
+        else:
+            return []
 
 
 def multiple_augustus_transcripts(aug_dict):

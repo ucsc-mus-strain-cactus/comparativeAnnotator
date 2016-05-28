@@ -27,7 +27,7 @@ def parse_args():
 def main():
     args = parse_args()
     ref_ids = get_ref_ids(args.ref_genome, args.db_path, args.biotype, args.filterChroms)
-    aln_ids = get_aln_ids(args.ref_genome, args.genome, args.db_path, args.biotype, best_cov_only=True)
+    aln_ids = get_aln_ids(args.ref_genome, args.genome, args.db_path, args.biotype)
     aln_ids = {strip_alignment_numbers(x) for x in aln_ids}
     gene_set_ids = set(get_transcript_dict(args.consensus_gp).keys())
     assert len(ref_ids & gene_set_ids) == len(gene_set_ids)

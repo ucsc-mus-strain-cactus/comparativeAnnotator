@@ -18,6 +18,7 @@ def load_evaluations(work_dir, genomes):
     new_isoforms = OrderedDict()
     cgp_missing = OrderedDict()
     consensus_stats = OrderedDict()
+    removed_cgp = OrderedDict()
     for genome in genomes:
         p = os.path.join(work_dir, genome + ".metrics.pickle")
         with open(p) as inf:
@@ -27,7 +28,8 @@ def load_evaluations(work_dir, genomes):
         new_isoforms[genome] = r["NewIsoforms"]
         cgp_missing[genome] = r["CgpAddMissing"]
         consensus_stats[genome] = r["ConsensusStats"]
-    return cgp_additions, cgp_replace, new_isoforms, cgp_missing, consensus_stats
+        removed_cgp[genome] = r['CgpEqualsTMR']
+    return cgp_additions, cgp_replace, new_isoforms, cgp_missing, consensus_stats, removed_cgp
 
 
 def addition_plot(cgp_additions, out_path):
@@ -64,12 +66,19 @@ def consensus_stats_plot(consensus_stats, out_tx, out_gene):
         plot_lib.stacked_unequal_barplot(results, categories, out_path, title, ylabel=ylabel)
 
 
+def match_tmr_plot(removedcgp, out_path):
+    results = list(removedcgp.iteritems())
+    title = 'Number of CGP predictions which end up having identical CDS to a TMR and are filtered out'
+    plot_lib.unequal_barplot(results, out_path, title)
+
+
 def generate_consensus_plots(args):
     ensureDir(args.plot_dir)
-    cgp_additions, cgp_replace, new_isoforms, cgp_missing, consensus_stats = load_evaluations(args.metrics_dir,
-                                                                                              args.genomes)
+    cgp_additions, cgp_replace, new_isoforms, cgp_missing, consensus_stats, removed_cgp = load_evaluations(args.metrics_dir,
+                                                                                                           args.genomes)
     addition_plot(cgp_additions, args.addition_plot)
     replace_plot(cgp_replace, args.replace_plot)
     new_isoforms_plot(new_isoforms, args.new_isoform_plot)
     missing_plot(cgp_missing, args.missing_plot)
     consensus_stats_plot(consensus_stats, args.consensus_tx_plot, args.consensus_gene_plot)
+    match_tmr_plot(removed_cgp, args.consensus_tx_plot)

@@ -18,6 +18,38 @@ from comparativeAnnotator.scripts.cgp_consensus import cgp_consensus
 from comparativeAnnotator.scripts.cgp_consensus_plots import generate_consensus_plots
 
 
+class CgpConsensusNamespace(HashableNamespace):
+    """
+    Add a repr to prevent spamming the luigi logfile
+    """
+    def __repr__(self):
+        return 'CgpConsensus-{}'.format(self.genome)
+
+
+class AlignCgpNamespace(HashableNamespace):
+    """
+    Add a repr to prevent spamming the luigi logfile
+    """
+    def __repr__(self):
+        return 'AlignCgp-{}'.format(self.genome)
+
+
+class AlignCdsNamespace(HashableNamespace):
+    """
+    Add a repr to prevent spamming the luigi logfile
+    """
+    def __repr__(self):
+        return 'AlignCds-{}'.format(self.genome)
+
+
+class CgpPlotNamespace(HashableNamespace):
+    """
+    Add a repr to prevent spamming the luigi logfile
+    """
+    def __repr__(self):
+        return 'CgpConsensusPlots-{}'.format(','.join(self.genomes))
+
+
 class CgpConsensus(luigi.WrapperTask):
     """
     Main driver class.
@@ -27,12 +59,12 @@ class CgpConsensus(luigi.WrapperTask):
     def create_args(self):
         args_holder = {}
         for genome, (consensus_gp, cgp_gp, genome_fasta, cgp_intron_bits) in self.params.file_map.iteritems():
-            args = HashableNamespace()
+            args = CgpConsensusNamespace()
             args.genome = genome
             args.ref_genome = self.params.refGenome
             args.norestart = self.params.norestart
             args.comp_db = self.params.compDb
-            args.cgp_db = os.path.join(self.params.workDir,'comparativeAnnotator', 'cgp_stats.db')
+            args.cgp_db = os.path.join(self.params.workDir, 'comparativeAnnotator', 'cgp_stats.db')
             args.consensus_gp = consensus_gp
             args.cgp_gp = cgp_gp
             args.cgp_intron_bits = cgp_intron_bits
@@ -40,31 +72,32 @@ class CgpConsensus(luigi.WrapperTask):
             # Alignment shared args
             tmp = HashableNamespace(**vars(self.params.jobTreeOptions))
             tmp.refGenome = self.params.refGenome
+            tmp.genome = genome
             tmp.refTranscriptFasta = self.params.refTranscriptFasta
             tmp.compDb = self.params.compDb
             tmp.cgpDb = args.cgp_db
             tmp.targetGenomeFasta = genome_fasta
             tmp.defaultMemory = 8 * 1024 ** 3
             # align CGP
-            args.align_cgp = HashableNamespace(**vars(tmp))
+            args.align_cgp = AlignCgpNamespace(**vars(tmp))
             args.align_cgp.jobTree = os.path.join(self.params.jobTreeDir, 'alignCgp', genome)
             args.align_cgp.mode = 'cgp'
             args.align_cgp.gp = cgp_gp
             args.align_cgp.table = '_'.join([genome, args.align_cgp.mode])
             # align consensus CDS
-            args.align_cds = HashableNamespace(**vars(tmp))
+            args.align_cds = AlignCdsNamespace(**vars(tmp))
             args.align_cds.jobTree = os.path.join(self.params.jobTreeDir, 'alignCds', genome)
             args.align_cds.mode = 'consensus'
             args.align_cds.gp = consensus_gp
             args.align_cds.table = '_'.join([genome, args.align_cds.mode])
             # output
             args.output_gp = os.path.join(self.params.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gp')
-            args.output_gtf = os.path.join(self.params.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gff')
+            args.output_gtf = os.path.join(self.params.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gtf')
             args_holder[genome] = args
         return args_holder
 
     def create_plot_args(self):
-        plot_args = HashableNamespace()
+        plot_args = CgpPlotNamespace()
         args_holder = self.create_args()
         plot_args.args_holder = frozendict(args_holder)
         plot_args.genomes = self.params.targetGenomes
@@ -76,8 +109,10 @@ class CgpConsensus(luigi.WrapperTask):
         plot_args.missing_plot = os.path.join(plot_args.plot_dir, 'missing_genes_rescued.pdf')
         plot_args.consensus_gene_plot = os.path.join(plot_args.plot_dir, 'consensus_gene_plot.pdf')
         plot_args.consensus_tx_plot = os.path.join(plot_args.plot_dir, 'consensus_tx_plot.pdf')
+        plot_args.consensus_tx_plot = os.path.join(plot_args.plot_dir, 'consensus_cgp_match_removed.pdf')
         plot_args.plots = (plot_args.addition_plot, plot_args.replace_plot, plot_args.new_isoform_plot,
-                           plot_args.missing_plot, plot_args.consensus_gene_plot, plot_args.consensus_tx_plot)
+                           plot_args.missing_plot, plot_args.consensus_gene_plot, plot_args.consensus_tx_plot,
+                           plot_args.consensus_tx_plot)
         return plot_args, args_holder
 
     def requires(self):
@@ -180,8 +215,9 @@ def parse_args():
     # munge parsed args, verify, make hashable
     file_map = {}
     for rec in csv.DictReader(open(args.config), delimiter='\t'):
-        file_map[rec['genome']] = (rec['consensusGenePred'], rec['cgpGenePred'], rec['genomeFasta'],
-                                   rec['cgpIntronBits'])
+        if rec['genome'] in args.targetGenomes:
+            file_map[rec['genome']] = (rec['consensusGenePred'], rec['cgpGenePred'], rec['genomeFasta'],
+                                       rec['cgpIntronBits'])
     args.file_map = frozendict(file_map)
     return args
 

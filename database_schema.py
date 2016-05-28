@@ -50,6 +50,8 @@ class AlignmentAttributes(Base):
     TranscriptId = TextField()
     Paralogy = IntegerField(null=True)
     HighestCovAln = BooleanField(null=True)
+    HighestIdentAln = BooleanField(null=True)
+    BestOverallAln = BooleanField(null=True)
 
 
 class GenomeClassify(Base):
@@ -77,6 +79,8 @@ class AugustusAttributes(Base):
     TranscriptId = TextField()
     AugustusAlignmentCoverage = FloatField(null=True)
     AugustusAlignmentIdentity = FloatField(null=True)
+    AugustusNumberIntrons = IntegerField(null=True)
+    AugustusBestOverallAln = BooleanField(null=True)
 
 
 class AugustusClassify(Base):
@@ -86,7 +90,7 @@ class AugustusClassify(Base):
     AugustusAlignmentId = TextField(primary_key=True)
     AlignmentId = TextField()
     TranscriptId = TextField()
-    AugustusParalogy = IntegerField(null=True)
+    AugustusMultipleTranscripts = IntegerField(null=True)
 
 
 class AugustusDetails(Base):

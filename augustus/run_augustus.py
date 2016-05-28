@@ -95,12 +95,13 @@ def write_augustus(r, name_map, outf_h):
     """
     Writes the results of AugustusTMR to a file.
     """
+    features = {"exon", "CDS", "start_codon", "stop_codon", "tts", "tss"}
     for x in r:
         if x.startswith("#"):
             continue
         if "AUGUSTUS" in x:
             x = x.split("\t")
-            if x[2] in ["exon", "CDS", "start_codon", "stop_codon", "tts", "tss"]:
+            if x[2] in features:
                 t = x[-1].split()
                 n = t[-3].split('"')[1]
                 if n not in name_map:

@@ -17,6 +17,7 @@ import comparativeAnnotator.classifiers as classifiers
 import comparativeAnnotator.alignment_classifiers as alignment_classifiers
 import comparativeAnnotator.augustus_classifiers as augustus_classifiers
 import comparativeAnnotator.alignment_attributes as alignment_attributes
+import comparativeAnnotator.comp_lib.annotation_utils as utils
 
 __author__ = "Ian Fiddes"
 
@@ -98,7 +99,7 @@ class AlignmentClassify(AbstractClassify):
         aln_classifier_fns = self._instantiate_classifiers(alignment_classifiers)
         classifier_fns = self._instantiate_classifiers(classifiers)
         r_details = {}
-        for aln_id, (a, t, aln, ref_aln, paralogy_count, is_best_cov) in self.chunk:
+        for aln_id, (a, t, aln, ref_aln, paralogy_count, is_best_cov, is_best_ident, is_best_overall) in self.chunk:
             rd = {'TranscriptId': a.name}
             for aln_classify_fn in aln_classifier_fns:
                 rd[aln_classify_fn.name] = aln_classify_fn(a, t, aln, ref_aln, ref_fasta, tgt_fasta)
@@ -119,8 +120,9 @@ class AlignmentAttributes(AbstractClassify):
         tgt_fasta = get_sequence_dict(self.args.fasta)
         attrs = self._instantiate_classifiers(alignment_attributes)
         r_attrs = {}
-        for aln_id, (a, t, aln, ref_aln, paralogy_count, is_best_cov) in self.chunk:
-            ra = {'TranscriptId': a.name, 'Paralogy': paralogy_count, 'HighestCovAln': is_best_cov}
+        for aln_id, (a, t, aln, ref_aln, paralogy_count, is_best_cov, is_best_ident, is_best_overall) in self.chunk:
+            ra = {'TranscriptId': a.name, 'Paralogy': paralogy_count, 'HighestCovAln': is_best_cov,
+                  'HighestIdentAln': is_best_ident, 'BestOverallAln': is_best_overall}
             for attr_fn in attrs:
                 ra[attr_fn.name] = attr_fn(a, t, aln, ref_aln, ref_fasta, tgt_fasta)
             r_attrs[aln_id] = ra
@@ -137,7 +139,7 @@ class AugustusClassify(AbstractClassify):
         for aug_aln_id, (t, aug_t, paralogy_count) in self.chunk:
             rd = {'AlignmentId': remove_augustus_alignment_number(aug_aln_id),
                   'TranscriptId': strip_alignment_numbers(aug_aln_id),
-                  'AugustusParalogy': paralogy_count}
+                  'AugustusMultipleTranscripts': paralogy_count}
             for classify_fn in classifier_fns:
                 rd[classify_fn.name] = classify_fn(aug_t, t)
             r_details[aug_aln_id] = rd
@@ -156,7 +158,7 @@ def build_attributes_table(target, args, ref_dict, tmp_attrs):
     d = {}
     for ens_id, a in ref_dict.iteritems():
         row = {}
-        row['NumberIntrons'] = len(a.intron_intervals)
+        row['NumberIntrons'] = len([x for x in a.intron_intervals if utils.short_intron(x) is False])
         row['SourceChrom'] = a.chromosome
         row['SourceStart'] = a.start
         row['SourceStop'] = a.stop
@@ -222,7 +224,7 @@ def construct_tmp_dirs(target):
     return tmp_classify, tmp_attrs
 
 
-def run_ref_classifiers(target, args, chunk_size=2000):
+def run_ref_classifiers(target, args, chunk_size=10000):
     """
     Main loop for classification. Produces a classification job for chunk_size alignments.
     """
@@ -234,12 +236,13 @@ def run_ref_classifiers(target, args, chunk_size=2000):
     target.setFollowOnTargetFn(write_to_db, args=(args, args.ref_genome, tmp_classify, tmp_attrs, 'TranscriptId'))
 
 
-def run_tm_classifiers(target, args, chunk_size=100):
+def run_tm_classifiers(target, args, chunk_size=500):
     """
     Main loop for classification. Produces a classification job for chunk_size alignments.
     """
     tmp_classify, tmp_attrs = construct_tmp_dirs(target)
-    def build_aln_dict(ref_dict, tx_dict, psl_dict, ref_psl_dict, paralogy_counts, coverage_recs):
+    def build_aln_dict(ref_dict, tx_dict, psl_dict, ref_psl_dict, paralogy_counts, coverage_recs, ident_recs,
+                       best_recs):
         """merge different data dicts"""
         r = {}
         for aln_id, aln in psl_dict.iteritems():
@@ -248,7 +251,9 @@ def run_tm_classifiers(target, args, chunk_size=100):
             ref_aln = ref_psl_dict[remove_alignment_number(aln_id)]
             c = paralogy_counts[aln_id]
             cov = coverage_recs[aln_id]
-            r[aln_id] = (a, t, aln, ref_aln, c, cov)
+            ident = ident_recs[aln_id]
+            best = best_recs[aln_id]
+            r[aln_id] = (a, t, aln, ref_aln, c, cov, ident, best)
         return r
     ref_dict = get_transcript_dict(args.annotation_gp)
     tx_dict = get_transcript_dict(args.target_gp)
@@ -257,14 +262,17 @@ def run_tm_classifiers(target, args, chunk_size=100):
     # we have to do paralogy/highest_cov separately, as it needs all the alignment names
     paralogy_counts = alignment_attributes.paralogy(psl_dict)
     coverage_recs = alignment_attributes.highest_cov_aln(psl_dict)
-    aln_dict = build_aln_dict(ref_dict, tx_dict, psl_dict, ref_psl_dict, paralogy_counts, coverage_recs)
+    ident_recs = alignment_attributes.highest_ident_aln(psl_dict)
+    best_recs = alignment_attributes.best_overall_aln(psl_dict)
+    aln_dict = build_aln_dict(ref_dict, tx_dict, psl_dict, ref_psl_dict, paralogy_counts, coverage_recs, ident_recs,
+                              best_recs)
     for chunk in grouper(aln_dict.iteritems(), chunk_size):
         target.addChildTarget(AlignmentClassify(args, chunk, tmp_classify))
         target.addChildTarget(AlignmentAttributes(args, chunk, tmp_attrs))
     target.setFollowOnTargetFn(write_to_db, args=(args, args.genome, tmp_classify, tmp_attrs, 'AlignmentId'))
 
 
-def run_aug_classifiers(target, args, chunk_size=2000):
+def run_aug_classifiers(target, args, chunk_size=10000):
     """
     Main loop for augustus classification. Produces a classification job for chunk_size alignments.
     """

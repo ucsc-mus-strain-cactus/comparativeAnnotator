@@ -23,8 +23,9 @@ def build_aln_dict(tx_dict, aug_tx_dict, paralogy_counts):
     return r
 
 
-args = loadp("mouse_args.pickle")
-genome = 'CAST_EiJ'
+args = loadp("v4_args.pickle")
+genome = 'C57BL_6NJ'
+args.mode = 'transMap'
 ref_genome = 'C57B6J'
 from pipeline.config import PipelineConfiguration
 cfg = PipelineConfiguration(args, args.geneSets[0])
@@ -46,16 +47,15 @@ gene_transcript_map = get_gene_transcript_map(args.query_genome, args.db, biotyp
 ref_gene_sizes = build_gene_sizes(ref_gps, gene_transcript_map, biotype, transcript_biotype_map)
 stats = get_db_rows(args.query_genome, args.target_genome, args.db, biotype, args.mode)
 excel_ids, pass_specific_ids, fail_ids = get_fail_pass_excel_ids(ref_genome, genome, args.db, biotype,
-                                                                     args.filter_chroms, best_cov_only=True)
+                                                                     args.filter_chroms)
 aug_ids = augustus_eval(ref_genome, genome, args.db, biotype, args.filter_chroms)
 id_names = ["fail_ids", "pass_specific_ids", "excel_ids", "aug_ids"]
 id_list = [fail_ids, pass_specific_ids, excel_ids, aug_ids]
 data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
-mode = args.mode
-binned_transcripts = find_best_transcripts(data_dict, stats, mode, biotype)
+binned_transcripts = find_best_transcripts(data_dict, stats, args.mode, biotype, gps)
 
 
-if mode_is_aug(mode) and biotype == "protein_coding":
+if mode_is_aug(args.mode) and biotype == "protein_coding":
     is_consensus = True
     transcript_evaluation = OrderedDict((x, 0) for x in ["ExcellentTM", "ExcellentAug", "ExcellentTie",
                                                          "PassTM", "PassAug", "PassTie",
@@ -65,8 +65,6 @@ else:
     transcript_evaluation = OrderedDict((x, 0) for x in ["Excellent", "Pass", "Fail"])
 
 
-
-interesting_ids = defaultdict(list)
 gene_evaluation = OrderedDict((x, 0) for x in ["Excellent", "Pass", "Fail", "NoTransMap"])
 longest_rate = OrderedDict((('Longest', OrderedDict((('AddLongest', 0), ('FailAddLongest', 0)))),
                             ('Rescue', OrderedDict((('GeneRescue', 0), ('FailGeneRescue', 0))))))
@@ -88,18 +86,21 @@ for gene_id in binned_transcripts:
     # have we included this gene yet? only count if the transcripts included match the gene biotype.
     # this prevents good mappings of retained introns and such being the only transcript.
     biotype_ids_included = {x for x in ids_included if transcript_biotype_map[strip_alignment_numbers(x)] == biotype}
-    gene_in_consensus = True if len(biotype_ids_included) > 0 else False
+    # there exists Gencode genes where no transcripts have the parent biotype
+    gene_in_consensus = True if len(biotype_ids_included) > 0 or \
+                                len(ids_included) == len(binned_transcripts[gene_id]) else False
     # if we have, have we included only short transcripts?
     has_only_short_txs = has_only_short(ids_included, ref_gene_sizes[gene_id], gps)
     if has_only_short_txs is True and gene_in_consensus is True:
         # add the single longest transcript for this gene if it passes filters
-        longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, biotype)
-        if longest_id is not None and longest_id not in consensus:
+        longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, biotype, ids_included)
+        if longest_id in consensus:
+            continue
+        elif longest_id is not None:
             consensus.append(longest_id)
             transcript_evaluation['Fail'] += 1
             longest_rate['Longest']["AddLongest"] += 1
         else:
-            interesting_ids['failaddlongest'].append(gene_id)
             longest_rate['Longest']["FailAddLongest"] += 1
     if gene_in_consensus is True:
         # gene is in consensus, evaluate and move on
@@ -107,9 +108,8 @@ for gene_id in binned_transcripts:
         gene_evaluation[s] += 1
     else:
         # attempt to add one longest transcript for this failing gene
-        longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, biotype)
+        longest_id, tie = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, biotype, ids_included)
         if longest_id is None:
-            interesting_ids['failrescue'].append(gene_id)
             gene_evaluation['NoTransMap'] += 1
             longest_rate['Rescue']["FailGeneRescue"] += 1
         else:
@@ -119,16 +119,6 @@ for gene_id in binned_transcripts:
             gene_evaluation[category] += 1
             longest_rate['Rescue']["GeneRescue"] += 1
 
-
-import random
-failrescue = [random.choice(interesting_ids['failrescue']) for _ in range(10)]
-gene_id = failrescue[9]
-bins = binned_transcripts[gene_id]
-
-
-failadd = [random.choice(interesting_ids['failaddlongest']) for _ in range(10)]
-gene_id = failadd[0]
-bins = binned_transcripts[gene_id]
 
 
 select AlignmentId,AlignmentCoverage,AlignmentIdentity from CAROLI_EiJ_Attributes where TranscriptId = 'ENSMUST00000165289.7';
@@ -232,7 +222,7 @@ import comparativeAnnotator.augustus_classifiers as augustus_classifiers
 import comparativeAnnotator.alignment_attributes as alignment_attributes
 
 args = loadp("mouse_args.pickle")
-genome = 'BALB_cJ'
+genome = '129S1_SvImJ'
 ref_genome = 'C57B6J'
 from pipeline.config import PipelineConfiguration
 cfg = PipelineConfiguration(args, args.geneSets[0])
@@ -262,15 +252,15 @@ paralogy_counts = alignment_attributes.paralogy(psl_dict)
 coverage_recs = alignment_attributes.highest_cov_aln(psl_dict)
 aln_dict = build_aln_dict(ref_dict, tx_dict, psl_dict, ref_psl_dict, paralogy_counts, coverage_recs)
 
-ref_fasta = get_sequence_dict(args.ref_fasta)
-tgt_fasta = get_sequence_dict(args.fasta)
+ref_fasta = query_seq_dict = get_sequence_dict(args.ref_fasta)
+tgt_fasta = ref_seq_dict = get_sequence_dict(args.fasta)
 aln_classifier_fns = [x() for x in classes_in_module(alignment_classifiers)]
 classifier_fns = [x() for x in  classes_in_module(classifiers)]
 r_details = {}
 
 
-tx_id = 'ENSMUST00000117592.1'
-aln_id = 'ENSMUST00000117592.1-1'
+tx_id = 'ENSMUST00000034934.14'
+aln_id = 'ENSMUST00000034934.14-1'
 
 cds_filter_fn=lambda intron, t: True
 mult3=None
@@ -298,7 +288,6 @@ df2 = df[df['NumberIntrons'] <= 10]
 import matplotlib
 matplotlib.use('Agg')
 matplotlib.rcParams['pdf.fonttype'] = 42
-import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 p = sns.jointplot(x="NumberIntrons", y="NumberMissingOriginalIntrons", data=df, kind="kde")
@@ -306,10 +295,46 @@ p.savefig('intron_classifiers.png', format='png')
 plt.close('all')
 
 
-r = tgt_ref_join_aln_id(tgt, ref)
-r = intron_inequality(r, tgt, ref)
-r = noncoding_classify(r, tgt, ref, coverage=90.0, percent_unknown=5.0)
-
+from comparativeAnnotator.scripts.cgp_consensus_driver import *
+original_args = loadp('cgp_args_v4.pickle')
+genome = 'C57BL_6NJ'
+consensus_gp, cgp_gp, genome_fasta, cgp_intron_bits = original_args.file_map[genome]
+args = CgpConsensusNamespace()
+args.genome = genome
+args.ref_genome = original_args.refGenome
+args.norestart = original_args.norestart
+args.comp_db = original_args.compDb
+args.cgp_db = os.path.join(original_args.workDir, 'comparativeAnnotator', 'cgp_stats.db')
+args.consensus_gp = consensus_gp
+args.cgp_gp = cgp_gp
+args.cgp_intron_bits = cgp_intron_bits
+args.metrics_dir = os.path.join(original_args.workDir, 'CGP_consensus_metrics')
+# Alignment shared args
+tmp = HashableNamespace(**vars(original_args.jobTreeOptions))
+tmp.refGenome = original_args.refGenome
+tmp.genome = genome
+tmp.refTranscriptFasta = original_args.refTranscriptFasta
+tmp.compDb = original_args.compDb
+tmp.cgpDb = args.cgp_db
+tmp.targetGenomeFasta = genome_fasta
+tmp.defaultMemory = 8 * 1024 ** 3
+# align CGP
+args.align_cgp = AlignCgpNamespace(**vars(tmp))
+args.align_cgp.jobTree = os.path.join(original_args.jobTreeDir, 'alignCgp', genome)
+args.align_cgp.mode = 'cgp'
+args.align_cgp.gp = cgp_gp
+args.align_cgp.table = '_'.join([genome, args.align_cgp.mode])
+# align consensus CDS
+args.align_cds = AlignCdsNamespace(**vars(tmp))
+args.align_cds.jobTree = os.path.join(original_args.jobTreeDir, 'alignCds', genome)
+args.align_cds.mode = 'consensus'
+args.align_cds.gp = consensus_gp
+args.align_cds.table = '_'.join([genome, args.align_cds.mode])
+args.align_cds.genome = args.align_cgp.genome = genome
+# output
+args.output_gp = os.path.join(original_args.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gp')
+args.output_gtf = os.path.join(original_args.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gtf')
+args_holder[genome] = args
 
 
 os.environ['PYTHONPATH'] = './:./submodules:./submodules/pycbio:./submodules/comparativeAnnotator'
@@ -325,16 +350,14 @@ from pycbio.bio.transcripts import get_transcript_dict
 from comparativeAnnotator.scripts.cgp_consensus import *
 genome = 'C57BL_6NJ'
 ref_genome = 'C57B6J'
-plot_args, args_holder = loadp('cgp_args.pickle')
-args = args_holder[genome]
+args = loadp('cgp_nj.pickle')
 
+transcript_biotype_map = get_transcript_biotype_map(args.ref_genome, args.comp_db)
 gene_transcript_map = get_gene_transcript_map(args.ref_genome, args.comp_db, biotype="protein_coding")
 transcript_gene_map = get_transcript_gene_map(args.ref_genome, args.comp_db, biotype="protein_coding")
-ref_dict = get_ref_records(args.ref_genome, args.comp_db, biotype='protein_coding')
-# open CGP database -- we don't need comparativeAnnotator databases anymore
 con, cur = open_database(args.cgp_db)
 # load both consensus and CGP into dictionaries
-consensus_dict = get_transcript_dict(args.consensus_gp)
+tmr_consensus_dict = get_transcript_dict(args.consensus_gp)
 cgp_dict = get_transcript_dict(args.cgp_gp)
 # load the BLAT results from the sqlite database
 cgp_stats_query = "SELECT CgpId,EnsId,AlignmentCoverage,AlignmentIdentity FROM '{}_cgp'".format(args.genome)
@@ -345,30 +368,20 @@ consensus_stats_dict = get_query_dict(cur, consensus_stats_query)
 # load the intron bits
 intron_dict = load_intron_bits(args.cgp_intron_bits)
 # final dictionaries
-final_consensus = {}
+cgp_consensus = {}
 metrics = {}
-find_new_transcripts(cgp_dict, final_consensus, metrics)
+resolve_multiple_parents(cgp_stats_dict, cgp_dict, transcript_biotype_map, transcript_gene_map)
+# save all CGP transcripts which have no associated genes
+find_new_transcripts(cgp_dict, cgp_consensus, metrics)
 # save all CGP transcripts whose associated genes are not in the consensus
-consensus_genes = {x.name2 for x in consensus_dict.itervalues()}
-find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, final_consensus, metrics, consensus_dict,
-                             gene_transcript_map)
-cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in final_consensus}
-
-replace_map = {}  # will store a mapping between consensus IDs and the CGP transcripts that will replace them
-new_isoforms = []  # will store cgp transcripts which represent new potential isoforms of a gene
-for cgp_id, cgp_tx in cgp_dict.iteritems():
-    cgp_stats = cgp_stats_dict[cgp_id]
-    ens_ids = {x for x in cgp_stats.keys() if transcript_biotype_map[x] == 'protein_coding'}
-    consensus_stats = {x: consensus_stats_dict[x] for x in ens_ids if x in consensus_stats_dict}
-    to_replace_ids = determine_if_better(cgp_stats, consensus_stats)
-    intron_vector = intron_dict[cgp_id]
-    if len(to_replace_ids) > 0:
-        for to_replace_id in to_replace_ids:
-            gene_id = transcript_gene_map[to_replace_id]
-            replace_map[to_replace_id] = [cgp_tx, gene_id]
-    elif determine_if_new_introns(cgp_tx, ens_ids, consensus_dict, intron_vector) is True:
-        new_isoforms.append(cgp_tx)
-
+consensus_genes = {x.name2 for x in tmr_consensus_dict.itervalues()}
+find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, cgp_consensus, metrics)
+# remove all such transcripts from the cgp dict before we evaluate for updating
+cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in cgp_consensus}
+update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron_dict, cgp_consensus, metrics,
+                   cgp_stats_dict, consensus_stats_dict, transcript_biotype_map)
+deduplicated_consensus = deduplicate_cgp_consensus(cgp_consensus, metrics)
+evaluate_cgp_consensus(deduplicated_consensus, metrics)
 
 
 from pyfasta import Fasta
@@ -377,3 +390,141 @@ ref_transcript_fasta = Fasta(args.align_cds.refTranscriptFasta)
 target_genome_fasta = Fasta(args.align_cds.targetGenomeFasta)
 gp = consensus_dict[aln_id]
 cds = gp.get_cds(target_genome_fasta)
+
+
+args = args.tmr
+from comparativeAnnotator.augustus.run_augustus import *
+ens_id = 'ENSMUST00000074051.5-10'
+ens_id = 'ENSMUST00000179314.2-1'
+args.hints_db = 'mouse_v3.db'
+
+fasta = Fasta(args.fasta)
+chrom_sizes = {x.split()[0]: x.split()[1] for x in open(args.chrom_sizes)}
+
+for gp_string in open(args.input_gp):
+    assert ens_id not in gp_string
+
+
+gp = GenePredTranscript(gp_string.rstrip().split("\t"))
+chrom = gp.chromosome
+start = max(gp.start - args.padding, 0)
+stop = min(gp.stop + args.padding, chrom_sizes[chrom])
+tm_hint = get_transmap_hints(gp_string, args.tm_2_hints_cmd)
+
+rnaseq_hint = get_rnaseq_hints(args.genome, chrom, start, stop, args.hints_db)
+hint = "".join([tm_hint, rnaseq_hint])
+
+seq = fasta[chrom][start:stop]
+hint_f, seq_f = write_hint_fasta(hint, seq, chrom, './')
+cfg_version, cfg_path = args.cfgs.items()[0]
+outf_h = open('test.out', 'w')
+run_augustus(hint_f, seq_f, gp.name, start, cfg_version, cfg_path, outf_h, gp, args.augustus_bin)
+outf_h.close()
+
+
+tx_dict = get_transcript_dict(args.gp)
+ref_tx_dict = get_transcript_dict(args.annotation_gp)
+from pycbio.bio.psl import *
+psl_dict = get_alignment_dict(args.psl)
+from pycbio.bio.bio import *
+seq_dict = get_sequence_dict(args.fasta)
+ref_seq_dict = get_sequence_dict(args.ref_fasta)
+from comparativeAnnotator.comp_lib.annotation_utils import *
+for tx_id, t in tx_dict.iteritems():
+    aln = psl_dict[tx_id]
+    a = ref_tx_dict[strip_alignment_numbers(tx_id)]
+    q = list(codon_pair_iterator(a, t, aln, seq_dict, ref_seq_dict))
+
+
+target_seq_dict = seq_dict
+query_seq_dict = ref_seq_dict
+target_cds = t.get_cds(target_seq_dict, in_frame=False)  # OOF creates coordinate problems
+query_cds = a.get_cds(query_seq_dict, in_frame=False)
+a_frames = [x for x in a.exon_frames if x != -1]
+a_offset = find_offset(a_frames, a.strand)
+q = []
+for i in xrange(a_offset, a.cds_size - a.cds_size % 3, 3):
+    target_cds_positions = [t.chromosome_coordinate_to_cds(
+                            aln.query_coordinate_to_target(
+                            a.cds_coordinate_to_transcript(j)))
+                            for j in xrange(i, i + 3)]
+    if None in target_cds_positions:
+        continue
+    # sanity check - should probably remove. But should probably write tests too...
+    #assert all([target_cds_positions[2] - target_cds_positions[1] == 1, target_cds_positions[1] -
+    #            target_cds_positions[0] == 1, target_cds_positions[2] - target_cds_positions[0] == 2])
+    target_codon = target_cds[target_cds_positions[0]:target_cds_positions[0] + 3]
+    query_codon = query_cds[i:i + 3]
+    assert len(target_codon) == len(query_codon) == 3, a.name
+    q.append((target_codon, query_codon))
+
+import comparativeAnnotator.comp_lib.annotation_utils as utils
+from pycbio.bio.bio import *
+from pycbio.bio.psl import *
+from pycbio.bio.transcripts import *
+tx_dict = get_transcript_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/transMap/C57BL_6NJ.gp')
+psl_dict = get_alignment_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/transMap/C57BL_6NJ.psl')
+ref_tx_dict = get_transcript_dict('/hive/users/ifiddes/ihategit/pipeline/gencode_vm8/C57B6J.gp')
+seq_dict = get_sequence_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/genome_files/C57BL_6NJ.fa')
+ref_seq_dict = get_sequence_dict('/hive/users/ifiddes/ihategit/pipeline/mouse_work_v4/C57B6J/GencodeCompVM8/genome_files/C57B6J.fa')
+
+ens_id = 'ENSMUST00000102742.10-1'
+a = ref_tx_dict[ens_id[:-2]]
+t = tx_dict[ens_id]
+aln = psl_dict[ens_id]
+
+
+prev_target_i = None
+exon_starts = [x.start for x in a.exons]
+for query_i in xrange(len(a)):
+    if query_i in exon_starts:
+        # don't call a intron an insertion
+        prev_target_i = None
+        continue
+    target_i = aln.query_coordinate_to_target(query_i)
+    if target_i is None:
+        # deletion; ignore
+        prev_target_i = target_i
+        continue
+    if prev_target_i is not None and abs(target_i - prev_target_i) != 1:
+        # jumped over a insertion
+        insert_size = abs(target_i - prev_target_i) - 1
+        start = min(prev_target_i, target_i) + 1
+        stop = max(prev_target_i, target_i)
+        if mult3 is True and insert_size % 3 == 0:
+            assert False
+        elif mult3 is False and insert_size % 3 != 0:
+            assert False
+        elif mult3 is None:
+            assert False
+    prev_target_i = target_i
+
+
+mult3 = []
+not_mult3 = []
+unknown = []
+for t in tx_dict.itervalues():
+    for intron in t.intron_intervals:
+        if len(intron) == 0:
+            continue
+        if utils.short_intron(intron):
+            if len(intron) % 3 == 0 and utils.is_cds(intron, t) is True:
+                mult3.append(t)
+                break
+            elif len(intron) % 3 != 0 and utils.is_cds(intron, t) is True:
+                not_mult3.append(t)
+                break
+            elif "N" in intron.get_sequence(seq_dict):
+                unknown.append(t)
+
+
+for aln_id, t in tx_dict.iteritems():
+    a = ref_tx_dict[strip_alignment_numbers(aln_id)]
+    aln = psl_dict[aln_id]
+    q = list(utils.insertion_iterator(a, aln, mult3=True))
+
+
+for aln_id, t in tx_dict.iteritems():
+    a = ref_tx_dict[strip_alignment_numbers(aln_id)]
+    aln = psl_dict[aln_id]
+    q = list(utils.deletion_iterator(t, aln))

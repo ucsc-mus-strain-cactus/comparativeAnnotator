@@ -231,7 +231,7 @@ class SpliceContainsUnknownBases(utils.AbstractClassifier):
         bed_recs = []
         for intron in a.intron_intervals:
             if utils.short_intron(intron) is False:
-                seq = intron.get_sequence(ref_fasta, strand=True)
+                seq = intron.get_sequence(ref_fasta, stranded=True)
                 donor, acceptor = seq[:2], seq[-2:]
                 if "N" in donor or "N" in acceptor:
                     bed_rec = tx_lib.splice_intron_interval_to_bed(a, intron, self.rgb, self.name)
@@ -253,7 +253,7 @@ class InFrameStop(utils.AbstractClassifier):
 
     def __call__(self, a, ref_fasta):
         bed_recs = []
-        cds = a.get_cds(ref_fasta)
+        cds = a.get_cds(ref_fasta, in_frame=False)
         offset = tx_lib.find_offset(a.exon_frames, a.strand)
         for i, codon in bio_lib.read_codons_with_position(cds, offset, skip_last=True):
             amino_acid = bio_lib.codon_to_amino_acid(codon)
@@ -307,3 +307,18 @@ class UnknownBases(utils.AbstractClassifier):
 class UnknownCdsBases(UnknownBases):
     def __call__(self, a, ref_fasta, cds=True):
         return UnknownBases.__call__(self, a, ref_fasta, cds)
+
+
+class LongTranscript(utils.AbstractClassifier):
+    """
+    Is this transcript unbelievably long? Filters out poor alignments.
+    """
+    @property
+    def rgb(self):
+        return self.colors["alignment"]
+
+    def __call__(self, a, ref_fasta, size_cutoff=3 * 10 ** 6):
+        if a.stop - a.start >= size_cutoff:
+            return [tx_lib.transcript_to_bed(a, self.rgb, self.name)]
+        else:
+            return []

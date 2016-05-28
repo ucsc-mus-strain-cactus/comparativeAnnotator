@@ -3,7 +3,7 @@ Uses the database schema to produce queries.
 """
 from peewee import OperationalError
 import time
-from collections import Counter, defaultdict
+from collections import defaultdict
 from comparativeAnnotator.database_schema import ref_tables, tgt_tables, aug_tables, fetch_database
 
 
@@ -92,7 +92,6 @@ def coding_classify(r, tgt, ref, passing):
     """
     Query that defines passing/excellent for coding genes, adding on to the noncoding classifiers.
     """
-    # coverage/percent unknown hard coded cutoffs
     coverage = 75.0 if passing is False else 50.0
     percent_unknown = 1.0 if passing is False else 5.0
     r = r.where((tgt.attrs.PercentUnknownBases <= percent_unknown),
@@ -101,6 +100,12 @@ def coding_classify(r, tgt, ref, passing):
     # intron inequality
     r = r.where(((2 * tgt.attrs.NumberMissingOriginalIntrons) <= (ref.attrs.NumberIntrons - 1))
                    | (ref.attrs.NumberIntrons < 2))
+
+    # no insanely long transcripts
+    r = r.where(tgt.classify.LongTranscript == 0)
+
+    # only best overall aln
+    r = r.where(tgt.attrs.BestOverallAln == 1)
 
     if passing is False:
         r = r.where(((ref.classify.BeginStart != 0) | (tgt.classify.BeginStart == 0)),
@@ -127,9 +132,17 @@ def noncoding_classify(r, tgt, ref, passing):
     r = r.where(((ref.classify.UtrUnknownSplice != 0) | (tgt.classify.UtrUnknownSplice == 0)),
                 (tgt.attrs.PercentUnknownBases <= percent_unknown),
                 (tgt.attrs.AlignmentCoverage >= coverage))
+
     # intron inequality
     r = r.where(((2 * tgt.attrs.NumberMissingOriginalIntrons) <= (ref.attrs.NumberIntrons - 1))
                    | (ref.attrs.NumberIntrons < 2))
+
+    # no insanely long transcripts
+    r = r.where(tgt.classify.LongTranscript == 0)
+
+    # only best overall aln
+    r = r.where(tgt.attrs.BestOverallAln == 1)
+
     if passing is False:
         r = r.where((ref.classify.UtrUnknownSplice != 0) | (tgt.classify.UtrUnknownSplice == 0))
     return r
@@ -138,21 +151,40 @@ def noncoding_classify(r, tgt, ref, passing):
 def augustus_classify(r, aug, tgt, ref):
     """
     Constructs a query for augustus passing. Generally, allows Augustus to change things if things are wrong in
-    the transMap or the reference to begin with. Also has a catch-all that allows any transcript with >95% coverage
-    and >95% identity.
-    TODO: don't hardcode the identity/coverage cutoffs.
+    the transMap or the reference to begin with.
     """
-    # repeated requirements for both types of boundary movements
-    boundaries = (tgt.attrs.AlignmentCoverage < 50.0) | (tgt.classify.CdsUnknownSplice > 0) | (tgt.classify.UtrUnknownSplice > 0)
-    r = r.where((((aug.classify.NotSameStart == 0) | ((tgt.classify.HasOriginalStart != 0) |
-                                                      (tgt.classify.StartOutOfFrame != 0) | (tgt.classify.BadFrame != 0) |
-                                                      (ref.classify.BeginStart != 0))) &
-                ((aug.classify.NotSameStop == 0) | ((tgt.classify.HasOriginalStop != 0) | (tgt.classify.BadFrame != 0) |
-                                                    (ref.classify.EndStop != 0))) &
-                ((aug.classify.NotSimilarTerminalExonBoundaries == 0) | (boundaries | (tgt.classify.UtrGap > 1))) &
-                ((aug.classify.NotSimilarInternalExonBoundaries == 0) | (boundaries | (tgt.classify.CdsGap + tgt.classify.UtrGap > 2))) &
-                ((aug.classify.ExonLoss < 2) & (aug.classify.AugustusParalogy == 0))) |
-                ((aug.attrs.AugustusAlignmentCoverage >= 35.0) & (aug.attrs.AugustusAlignmentIdentity >= 80.0)))
+    # allow Augustus to move start when the parent has a bad start or bad frame
+    r = r.where(((aug.classify.NotSameStart == 0) | ((tgt.classify.HasOriginalStart != 0) |
+                                                     (tgt.classify.StartOutOfFrame != 0) |
+                                                     (tgt.classify.BadFrame != 0) |
+                                                     (ref.classify.BeginStart != 0) |
+                                                     (tgt.classify.FrameShift != 0))))
+
+    # allow Augustus to move stop when the parent has a bad stop or bad frame
+    r = r.where(((aug.classify.NotSameStop == 0) | ((tgt.classify.HasOriginalStop != 0) |
+                                                    (tgt.classify.BadFrame != 0) |
+                                                    (ref.classify.EndStop != 0) |
+                                                    (tgt.classify.FrameShift != 0))))
+
+    # allow Augustus to move exon boundaries if the parent has bad splices
+    bad_splice = (tgt.classify.CdsUnknownSplice + tgt.classify.UtrUnknownSplice > 0)
+    r = r.where((aug.classify.NotSimilarTerminalExonBoundaries == 0) | bad_splice)
+    r = r.where((aug.classify.NotSimilarInternalExonBoundaries == 0) | bad_splice)
+
+    # no insanely long transcripts
+    r = r.where(aug.classify.AugustusLongTranscript == 0)
+
+    # no augustus multiple transcripts
+    r = r.where(aug.classify.AugustusMultipleTranscripts == 0)
+
+    # don't lose or gain more than 2 exons
+    r = r.where(aug.classify.ExonLoss < 3)
+    r = r.where(aug.classify.ExonGain < 3)
+
+    # minimize pseudogenes by disallowing very few introns if parent gene had introns
+    r = r.where((ref.attrs.NumberIntrons - 3 < aug.attrs.AugustusNumberIntrons)
+                & (aug.attrs.AugustusNumberIntrons < ref.attrs.NumberIntrons + 3)
+                | (ref.attrs.NumberIntrons < 2))
     return r
 
 
@@ -163,13 +195,6 @@ def add_filter_chroms(r, ref, filter_chroms):
     for c in filter_chroms:
         r = r.where(ref.attrs.SourceChrom != c)
     return r
-
-
-def add_best_cov(r, tgt):
-    """
-    Adds the bestcoverage requirement to a query.
-    """
-    return r.where(tgt.attrs.HighestCovAln == True)
 
 
 ########################################################################################################################
@@ -189,23 +214,22 @@ def execute_query(query, timeout=6000, interval=10):
             if 'locked' in e:
                 time.sleep(interval)
             else:
-                raise OperationalError('Error. Original message: {}'.format(e))
-    raise OperationalError('Error: database still locked after {} seconds'.format(timeout))
+                raise OperationalError('Original message: {}'.format(e))
+    raise OperationalError('database still locked after {} seconds'.format(timeout))
 
 
-def get_fail_pass_excel_ids(ref_genome, genome, db_path, biotype=None, filter_chroms=None, best_cov_only=False):
-    all_ids = get_aln_ids(ref_genome, genome, db_path, biotype, best_cov_only)
-    pass_ids = trans_map_eval(ref_genome, genome, db_path, biotype=biotype, filter_chroms=filter_chroms, passing=True,
-                              best_cov_only=best_cov_only)
-    excel_ids = trans_map_eval(ref_genome, genome, db_path, biotype=biotype, filter_chroms=filter_chroms, passing=False,
-                               best_cov_only=best_cov_only)
+def get_fail_pass_excel_ids(ref_genome, genome, db_path, biotype=None, filter_chroms=None):
+    all_ids = get_aln_ids(ref_genome, genome, db_path, biotype)
+    pass_ids = trans_map_eval(ref_genome, genome, db_path, biotype=biotype, filter_chroms=filter_chroms, passing=True)
+    excel_ids = trans_map_eval(ref_genome, genome, db_path, biotype=biotype, filter_chroms=filter_chroms,
+                               passing=False)
     pass_specific_ids = pass_ids - excel_ids
     fail_ids = all_ids - pass_ids
     assert len(fail_ids) + len(pass_specific_ids) + len(excel_ids) == len(all_ids)
     return excel_ids, pass_specific_ids, fail_ids
 
 
-def trans_map_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None, passing=False, best_cov_only=False):
+def trans_map_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None, passing=False):
     """
     Returns the set of AlignmentIds that pass the classifiers.
     """
@@ -219,8 +243,6 @@ def trans_map_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None
         r = add_biotype(r, ref, biotype)
     if filter_chroms is not None:
         r = add_filter_chroms(r, ref, filter_chroms)
-    if best_cov_only is True:
-        r = add_best_cov(r, tgt)
     return set([x[0] for x in execute_query(r.tuples())])
 
 
@@ -238,16 +260,16 @@ def augustus_eval(ref_genome, genome, db_path, biotype=None, filter_chroms=None)
     return set([x[0] for x in execute_query(r.tuples())])
 
 
-def get_aln_ids(ref_genome, genome, db_path, biotype=None, best_cov_only=False):
+def get_aln_ids(ref_genome, genome, db_path, biotype=None, best_only=True):
     """
-    Gets the alignment IDs in the database. Filters on biotype if set.
+    Gets the best alignment IDs in the database. Filters on biotype if set.
     """
     tgt, ref = initialize_tm_session(ref_genome, genome, db_path)
     r = tgt_ref_join_aln_id(tgt, ref)
     if biotype is not None:
         r = add_biotype(r, ref, biotype)
-    if best_cov_only is True:
-        r = add_best_cov(r, tgt)
+    if best_only is True:
+        r = r.where(tgt.attrs.BestOverallAln == 1)
     return set([x[0] for x in execute_query(r.tuples())])
 
 
@@ -270,23 +292,26 @@ def get_ref_records(ref_genome, db_path, biotype=None):
     return {x.TranscriptId: x for x in execute_query(r.naive())}
 
 
-def get_column(genome, ref_genome, db_path, col, biotype=None, best_cov_only=True):
+def get_column(genome, ref_genome, db_path, col, biotype=None, best_only=True):
     tgt, ref = initialize_tm_session(ref_genome, genome, db_path)
     r = tgt_ref_join(tgt, ref)
     r = r.select(eval(col))
     if biotype is not None:
         r = add_biotype(r, ref, biotype)
-    if best_cov_only is True:
-        r = add_best_cov(r, tgt)
+    if best_only is True:
+        r = r.where(tgt.attrs.BestOverallAln == 1)
     return [x[0] for x in execute_query(r.tuples())]
 
 
-def paralogy(genome, db_path, biotype=None):
+def paralogy(genome, ref_genome, db_path, biotype=None):
     """
     Returns a counter of paralogy.
     """
-    tgt = initialize_session(genome, db_path, tgt_tables)
-    r = tgt.attrs.select(tgt.attrs.Paralogy)
+    tgt, ref = initialize_tm_session(ref_genome, genome, db_path)
+    r = tgt_ref_join(tgt, ref)
+    r = r.select(tgt.attrs.Paralogy)
+    if biotype is not None:
+        r = add_biotype(r, ref, biotype)
     return [x[0] for x in execute_query(r.tuples())]
 
 
@@ -310,6 +335,18 @@ def get_transcript_biotype_map(ref_genome, db_path):
     """
     ref = initialize_session(ref_genome, db_path, ref_tables)
     r = ref.attrs.select(ref.attrs.TranscriptId, ref.attrs.TranscriptType)
+    result = {}
+    for tx_id, biotype in execute_query(r.tuples()):
+        result[tx_id] = biotype
+    return result
+
+
+def get_gene_biotype_map(ref_genome, db_path):
+    """
+    Returns a dictionary mapping gene IDs to gene biotypes.
+    """
+    ref = initialize_session(ref_genome, db_path, ref_tables)
+    r = ref.attrs.select(ref.attrs.GeneId, ref.attrs.GeneType)
     result = {}
     for tx_id, biotype in execute_query(r.tuples()):
         result[tx_id] = biotype
@@ -353,10 +390,7 @@ def get_rows(ref_genome, genome, db_path, mode='transMap', biotype=None):
         raise Exception("bad programmer")
     if biotype is not None:
         r = add_biotype(r, ref, biotype)
-    try:
-        return execute_query(r.naive())
-    except Exception, e:
-        assert False, (mode, r, e)
+    return execute_query(r.naive())
 
 
 def get_row_dict(ref_genome, genome, db_path, mode, biotype=None):
