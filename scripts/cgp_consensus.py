@@ -10,6 +10,7 @@ supported splice junctions not present in any of the transcripts for this gene. 
 
 """
 import os
+import copy
 import cPickle as pickle
 from collections import OrderedDict, defaultdict
 from pycbio.sys.sqliteOps import open_database, get_multi_index_query_dict, get_query_dict
@@ -27,6 +28,7 @@ def resolve_multiple_parents(cgp_stats_dict, cgp_dict, transcript_biotype_map, t
     had the highest score.
     """
     for cgp_id, cgp_tx in cgp_dict.iteritems():
+        cgp_tx.id = cgp_id  # in cases where the id field was not properly set
         if ',' not in cgp_tx.name2:
             continue
         cgp_stats = cgp_stats_dict[cgp_id]
@@ -42,7 +44,14 @@ def resolve_multiple_parents(cgp_stats_dict, cgp_dict, transcript_biotype_map, t
             cgp_tx.name2 = cgp_id.split('.')[0]  # remove association with any gene
         else:
             best_tx = sorted(scores.iteritems(), key=lambda x: -x[1])[0][0]
-            cgp_tx.name2 = transcript_gene_map[best_tx]
+            gene_id = transcript_gene_map[best_tx]
+            cgp_tx.name2 = gene_id
+            # remove other stats so we don't assign this transcript to another gene later
+            new_stats = {}
+            for ens_id, stats in cgp_stats.iteritems():
+                if transcript_gene_map[ens_id] == gene_id:
+                    new_stats[ens_id] = stats
+            cgp_stats_dict[cgp_id] = new_stats
 
 
 def load_intron_bits(intron_bits_path, cgp_dict):
@@ -113,14 +122,14 @@ def determine_if_new_introns(cgp_tx, ens_ids, tmr_consensus_dict, intron_vector)
     return False
 
 
-def determine_if_better(cgp_stats, consensus_stats, cov_weight=0.25, ident_weight=0.75):
+def determine_if_better(cgp_stats, consensus_stats):
     """
     Determines if this CGP transcript is better than any of the consensus transcripts it may come from
     """
     ens_ids = []
     for ens_id, (consensus_cov, consensus_ident) in consensus_stats.iteritems():
         cgp_cov, cgp_ident = cgp_stats[ens_id]
-        if (cov_weight * cgp_cov + ident_weight * cgp_ident) > (cov_weight * consensus_cov + ident_weight * consensus_ident):
+        if (cgp_cov > consensus_cov and cgp_ident >= consensus_ident) or (cgp_cov >= consensus_cov and cgp_ident > consensus_ident):
             ens_ids.append(ens_id)
     return ens_ids
 
@@ -148,7 +157,7 @@ def find_new_transcripts(cgp_dict, consensus, metrics):
     consensus.update(g_txs)
 
 
-def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, consensus, metrics, support_cutoff=80.0):
+def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, consensus, metrics, support_cutoff=50.0):
     """
     If a CGP transcript is associated with a gene missing from the consensus, include it.
     """
@@ -187,12 +196,10 @@ def find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, consensus, 
 
 def build_consensus(tmr_consensus_dict, replace_map, new_isoforms, consensus):
     """
-    Builds the final consensus gene set given the replace map as well as the new isoforms. Deduplicates based on id.
+    Builds the final consensus gene set given the replace map as well as the new isoforms.
     """
-    seen_ids = set()  # used to deduplicate the results
     for consensus_id, consensus_tx in tmr_consensus_dict.iteritems():
-        if consensus_id in replace_map and consensus_id not in seen_ids:
-            seen_ids.add(consensus_id)
+        if consensus_id in replace_map:
             cgp_tx, gene_id = replace_map[consensus_id]
             cgp_tx.id = cgp_tx.name
             cgp_tx.name = consensus_id
@@ -218,7 +225,7 @@ def update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron
     for cgp_id, cgp_tx in cgp_dict.iteritems():
         cgp_stats = cgp_stats_dict[cgp_id]
         # we don't want to try and replace non-coding transcripts with CGP predictions
-        ens_ids = {x for x in cgp_stats.keys() if transcript_biotype_map[x] == 'protein_coding'}
+        ens_ids = {x for x in cgp_stats.iterkeys() if transcript_biotype_map[x] == 'protein_coding'}
         consensus_stats = {x: consensus_stats_dict[x] for x in ens_ids if x in consensus_stats_dict}
         to_replace_ids = determine_if_better(cgp_stats, consensus_stats)
         intron_vector = intron_dict[cgp_id]
@@ -271,8 +278,10 @@ def deduplicate_cgp_consensus(cgp_consensus, metrics):
             g_txs = [tx for tx in tx_list if tx.id.startswith('g')]
             if len(cgp_txs) > 0:
                 cgp_dup_count += 1
+                deduplicated_consensus.append(cgp_txs[0])
             elif len(g_txs) > 0:
                 g_dup_count += 1
+                deduplicated_consensus.append(g_txs[0])
             else:
                 deduplicated_consensus.extend(tx_list)
     metrics['CgpEqualsTMR'] = OrderedDict((('CgpEqualsTMR', cgp_dup_count), ('PacBioEqualsTMR', g_dup_count)))

@@ -112,7 +112,8 @@ class NotSameStart(utils.AbstractClassifier):
 
     def __call__(self, aug_t, t):
         bed_recs = []
-        if t.thick_start != aug_t.thick_start:
+        if (t.strand is True and t.thick_start != aug_t.thick_start) or \
+                (t.strand is False and t.thick_stop != aug_t.thick_stop):
             bed_rec = tx_lib.cds_coordinate_to_bed(aug_t, 0, 3, self.rgb, self.name)
             bed_recs.append(bed_rec)
         return bed_recs
@@ -128,7 +129,8 @@ class NotSameStop(utils.AbstractClassifier):
 
     def __call__(self, aug_t, t):
         bed_recs = []
-        if t.thick_stop != aug_t.thick_stop:
+        if (t.strand is False and t.thick_start != aug_t.thick_start) or \
+                (t.strand is True and t.thick_stop != aug_t.thick_stop):
             s = aug_t.cds_size
             bed_rec = tx_lib.cds_coordinate_to_bed(aug_t, s - 3, s, self.rgb, self.name)
             bed_recs.append(bed_rec)

@@ -93,7 +93,7 @@ def coding_classify(r, tgt, ref, passing):
     Query that defines passing/excellent for coding genes, adding on to the noncoding classifiers.
     """
     # coverage/percent unknown hard coded cutoffs
-    coverage = 99.0 if passing is False else 95.0
+    coverage = 99.0 if passing is False else 80.0
     percent_unknown = 1.0 if passing is False else 5.0
     r = r.where((tgt.attrs.PercentUnknownBases <= percent_unknown),
                 (tgt.attrs.AlignmentCoverage >= coverage))
@@ -128,7 +128,7 @@ def noncoding_classify(r, tgt, ref, passing):
     Constructs a query for noncoding classifiers. Adjust coverage and percent_unknown to adjust the amount of coverage
     and unknown bases allowed.
     """
-    coverage = 95.0 if passing is False else 90.0
+    coverage = 95.0 if passing is False else 80.0
     percent_unknown = 1.0 if passing is False else 5.0
     r = r.where(((ref.classify.UtrUnknownSplice != 0) | (tgt.classify.UtrUnknownSplice == 0)),
                 (tgt.attrs.PercentUnknownBases <= percent_unknown),
@@ -158,12 +158,14 @@ def augustus_classify(r, aug, tgt, ref):
     r = r.where(((aug.classify.NotSameStart == 0) | ((tgt.classify.HasOriginalStart != 0) |
                                                      (tgt.classify.StartOutOfFrame != 0) |
                                                      (tgt.classify.BadFrame != 0) |
-                                                     (ref.classify.BeginStart != 0))))
+                                                     (ref.classify.BeginStart != 0) |
+                                                     (tgt.classify.FrameShift != 0))))
 
     # allow Augustus to move stop when the parent has a bad stop or bad frame
     r = r.where(((aug.classify.NotSameStop == 0) | ((tgt.classify.HasOriginalStop != 0) |
                                                     (tgt.classify.BadFrame != 0) |
-                                                    (ref.classify.EndStop != 0))))
+                                                    (ref.classify.EndStop != 0) |
+                                                    (tgt.classify.FrameShift != 0))))
 
     # allow Augustus to move exon boundaries if the parent has bad splices
     bad_splice = (tgt.classify.CdsUnknownSplice + tgt.classify.UtrUnknownSplice > 0)
@@ -180,7 +182,7 @@ def augustus_classify(r, aug, tgt, ref):
     r = r.where(aug.classify.ExonLoss < 3)
     r = r.where(aug.classify.ExonGain < 3)
 
-    # prevent pseudogenes by disallowing very few introns if parent gene had introns
+    # minimize pseudogenes by disallowing very few introns if parent gene had introns
     r = r.where((ref.attrs.NumberIntrons - 3 < aug.attrs.AugustusNumberIntrons)
                 & (aug.attrs.AugustusNumberIntrons < ref.attrs.NumberIntrons + 3)
                 | (ref.attrs.NumberIntrons < 2))
