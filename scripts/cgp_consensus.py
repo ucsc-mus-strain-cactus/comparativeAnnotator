@@ -205,8 +205,10 @@ def build_consensus(tmr_consensus_dict, replace_map, new_isoforms, consensus):
             cgp_tx.name = consensus_id
             cgp_tx.name2 = gene_id
             consensus[consensus_id] = cgp_tx
+            assert cgp_tx.name == consensus_id
         else:
             consensus[consensus_id] = consensus_tx
+            assert consensus_tx.name == consensus_id
     for cgp_tx in new_isoforms:
         consensus[cgp_tx.name] = cgp_tx
 
@@ -232,15 +234,16 @@ def update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron
         if len(to_replace_ids) > 0:
             for to_replace_id in to_replace_ids:
                 gene_id = transcript_gene_map[to_replace_id]
+                # we have to copy the transcript in order to prevent iterative renaming from messing things up in next step
                 if 'jg' in cgp_id:
-                    cgp_replace_map[to_replace_id] = [cgp_tx, gene_id]
+                    cgp_replace_map[to_replace_id] = [copy.deepcopy(cgp_tx), gene_id]
                 else:
-                    g_replace_map[to_replace_id] = [cgp_tx, gene_id]
+                    g_replace_map[to_replace_id] = [copy.deepcopy(cgp_tx), gene_id]
         elif determine_if_new_introns(cgp_tx, ens_ids, tmr_consensus_dict, intron_vector) is True:
             if 'jg' in cgp_id:
-                cgp_new_isoforms.append(cgp_tx)
+                cgp_new_isoforms.append(copy.deepcopy(cgp_tx))
             else:
-                g_new_isoforms.append(cgp_tx)
+                g_new_isoforms.append(copy.deepcopy(cgp_tx))
     # calculate some metrics for plots once all genomes are analyzed
     cgp_collapse_rate = len(set(zip(*cgp_replace_map.values())[0]))
     g_collapse_rate = len(set(zip(*g_replace_map.values())[0]))
@@ -347,6 +350,7 @@ def cgp_consensus(args):
     cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in cgp_consensus}
     update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron_dict, cgp_consensus, metrics,
                        cgp_stats_dict, consensus_stats_dict, transcript_biotype_map)
+    assert all([y.name == x for x, y in cgp_consensus.iteritems()])
     deduplicated_consensus = deduplicate_cgp_consensus(cgp_consensus, metrics)
     evaluate_cgp_consensus(deduplicated_consensus, metrics)
     # write results out to disk

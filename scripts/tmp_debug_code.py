@@ -539,3 +539,149 @@ for aln_id, t in tx_dict.iteritems():
     a = ref_tx_dict[strip_alignment_numbers(aln_id)]
     aln = psl_dict[aln_id]
     q = list(utils.deletion_iterator(t, aln))
+
+
+original_args = loadp('cgp_pacbio_args.pickle')
+for x, y in vars(args).iteritems():
+    try:
+        args.__dict__[x] = y.replace('v3','v4')
+    except:
+        pass
+
+
+genome = 'CAST_EiJ'
+from comparativeAnnotator.scripts.cgp_consensus_driver import *
+consensus_gp, cgp_gp, genome_fasta, cgp_intron_bits = original_args.file_map[genome]
+args = CgpConsensusNamespace()
+args.genome = genome
+args.ref_genome = original_args.refGenome
+args.norestart = original_args.norestart
+args.comp_db = original_args.compDb
+args.cgp_db = os.path.join(original_args.workDir, 'comparativeAnnotator', 'cgp_stats.db')
+args.consensus_gp = consensus_gp
+args.cgp_gp = cgp_gp
+args.cgp_intron_bits = cgp_intron_bits
+args.metrics_dir = os.path.join(original_args.workDir, 'CGP_consensus_metrics')
+# Alignment shared args
+tmp = HashableNamespace(**vars(original_args.jobTreeOptions))
+tmp.refGenome = original_args.refGenome
+tmp.genome = genome
+tmp.refTranscriptFasta = original_args.refTranscriptFasta
+tmp.compDb = original_args.compDb
+tmp.cgpDb = args.cgp_db
+tmp.targetGenomeFasta = genome_fasta
+tmp.defaultMemory = 8 * 1024 ** 3
+# align CGP
+args.align_cgp = AlignCgpNamespace(**vars(tmp))
+args.align_cgp.jobTree = os.path.join(original_args.jobTreeDir, 'alignCgp', genome)
+args.align_cgp.mode = 'cgp'
+args.align_cgp.gp = cgp_gp
+args.align_cgp.table = '_'.join([genome, args.align_cgp.mode])
+# align consensus CDS
+args.align_cds = AlignCdsNamespace(**vars(tmp))
+args.align_cds.jobTree = os.path.join(original_args.jobTreeDir, 'alignCds', genome)
+args.align_cds.mode = 'consensus'
+args.align_cds.gp = consensus_gp
+args.align_cds.table = '_'.join([genome, args.align_cds.mode])
+args.align_cds.genome = args.align_cgp.genome = genome
+# output
+args.output_gp = os.path.join(original_args.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gp')
+args.output_gtf = os.path.join(original_args.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gtf')
+
+import os
+import copy
+import cPickle as pickle
+from collections import OrderedDict, defaultdict
+from pycbio.sys.sqliteOps import open_database, get_multi_index_query_dict, get_query_dict
+from pycbio.sys.fileOps import ensureDir
+from comparativeAnnotator.database_queries import get_transcript_gene_map, get_transcript_biotype_map, get_gene_transcript_map
+from pycbio.bio.transcripts import get_transcript_dict, Transcript
+from comparativeAnnotator.scripts.cgp_consensus import *
+
+transcript_biotype_map = get_transcript_biotype_map(args.ref_genome, args.comp_db)
+gene_transcript_map = get_gene_transcript_map(args.ref_genome, args.comp_db, biotype="protein_coding")
+transcript_gene_map = get_transcript_gene_map(args.ref_genome, args.comp_db, biotype="protein_coding")
+con, cur = open_database(args.cgp_db)
+# load both consensus and CGP into dictionaries
+tmr_consensus_dict = get_transcript_dict(args.consensus_gp)
+cgp_dict = get_transcript_dict(args.cgp_gp)
+# load the BLAT results from the sqlite database
+cgp_stats_query = "SELECT CgpId,EnsId,AlignmentCoverage,AlignmentIdentity FROM '{}_cgp'".format(args.genome)
+cgp_stats_dict = get_multi_index_query_dict(cur, cgp_stats_query, num_indices=2)
+consensus_stats_query = ("SELECT EnsId,AlignmentCoverage,AlignmentIdentity FROM "
+                         "'{}_consensus'".format(args.genome))
+consensus_stats_dict = get_query_dict(cur, consensus_stats_query)
+# load the intron bits
+intron_dict = load_intron_bits(args.cgp_intron_bits, cgp_dict)
+# final dictionaries
+cgp_consensus = {}
+metrics = {}
+resolve_multiple_parents(cgp_stats_dict, cgp_dict, transcript_biotype_map, transcript_gene_map)
+# save all CGP transcripts which have no associated genes
+find_new_transcripts(cgp_dict, cgp_consensus, metrics)
+# save all CGP transcripts whose associated genes are not in the consensus
+consensus_genes = {x.name2 for x in tmr_consensus_dict.itervalues()}
+find_missing_transcripts(cgp_dict, consensus_genes, intron_dict, cgp_consensus, metrics)
+# remove all such transcripts from the cgp dict before we evaluate for updating
+cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in cgp_consensus}
+update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron_dict, cgp_consensus, metrics,
+                   cgp_stats_dict, consensus_stats_dict, transcript_biotype_map)
+deduplicated_consensus = deduplicate_cgp_consensus(cgp_consensus, metrics)
+evaluate_cgp_consensus(deduplicated_consensus, metrics)
+
+
+cgp_replace_map = {}  # will store a mapping between consensus IDs and the CGP transcripts that will replace them
+g_replace_map = {}
+cgp_new_isoforms = []  # will store cgp transcripts which represent new potential isoforms of a gene
+g_new_isoforms = []
+for cgp_id, cgp_tx in cgp_dict.iteritems():
+    #assert cgp_id != 'jg19701.t1'
+    cgp_stats = cgp_stats_dict[cgp_id]
+    # we don't want to try and replace non-coding transcripts with CGP predictions
+    ens_ids = {x for x in cgp_stats.iterkeys() if transcript_biotype_map[x] == 'protein_coding'}
+    consensus_stats = {x: consensus_stats_dict[x] for x in ens_ids if x in consensus_stats_dict}
+    to_replace_ids = determine_if_better(cgp_stats, consensus_stats)
+    intron_vector = intron_dict[cgp_id]
+    if len(to_replace_ids) > 0:
+        for to_replace_id in to_replace_ids:
+            gene_id = transcript_gene_map[to_replace_id]
+            if 'jg' in cgp_id:
+                cgp_replace_map[to_replace_id] = [copy.deepcopy(cgp_tx), gene_id]
+            else:
+                g_replace_map[to_replace_id] = [copy.deepcopy(cgp_tx), gene_id]
+    elif determine_if_new_introns(cgp_tx, ens_ids, tmr_consensus_dict, intron_vector) is True:
+        if 'jg' in cgp_id:
+            cgp_new_isoforms.append(copy.deepcopy(cgp_tx))
+        else:
+            g_new_isoforms.append(copy.deepcopy(cgp_tx))
+
+
+# calculate some metrics for plots once all genomes are analyzed
+cgp_collapse_rate = len(set(zip(*cgp_replace_map.values())[0]))
+g_collapse_rate = len(set(zip(*g_replace_map.values())[0]))
+metrics['CgpReplace'] = OrderedDict(((('CGP', OrderedDict((('CgpCollapseRate', cgp_collapse_rate),
+                                                          ('CgpReplaceRate', len(cgp_replace_map) - cgp_collapse_rate))))),
+                                    ('PacBio', OrderedDict((('PacBioCollapseRate', g_collapse_rate),
+                                                            ('PacBioReplaceRate', len(g_replace_map) - g_collapse_rate))))))
+metrics["NewIsoforms"] = OrderedDict((('CGP', len(cgp_new_isoforms)), ('PacBio', len(g_new_isoforms))))
+cgp_replace_map.update(g_replace_map)
+new_isoforms = g_new_isoforms + cgp_new_isoforms
+
+replace_map = cgp_replace_map
+consensus = cgp_consensus.copy()
+
+for consensus_id, consensus_tx in tmr_consensus_dict.iteritems():
+    if consensus_id in replace_map:
+        cgp_tx, gene_id = replace_map[consensus_id]
+        cgp_tx.id = cgp_tx.name
+        cgp_tx.name = consensus_id
+        cgp_tx.name2 = gene_id
+        consensus[consensus_id] = cgp_tx
+        assert cgp_tx.name == consensus_id
+    else:
+        consensus[consensus_id] = consensus_tx
+        assert consensus_tx.name == consensus_id
+
+
+for cgp_tx in new_isoforms:
+    consensus[cgp_tx.name] = cgp_tx
