@@ -542,12 +542,6 @@ for aln_id, t in tx_dict.iteritems():
 
 
 original_args = loadp('cgp_pacbio_args.pickle')
-for x, y in vars(args).iteritems():
-    try:
-        args.__dict__[x] = y.replace('v3','v4')
-    except:
-        pass
-
 
 genome = 'CAST_EiJ'
 from comparativeAnnotator.scripts.cgp_consensus_driver import *
@@ -588,6 +582,13 @@ args.align_cds.genome = args.align_cgp.genome = genome
 args.output_gp = os.path.join(original_args.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gp')
 args.output_gtf = os.path.join(original_args.outputDir, 'CGP_consensus', genome + '.CGP_consensus.gtf')
 
+for x, y in vars(args).iteritems():
+    try:
+        args.__dict__[x] = y.replace('v3','v4')
+    except:
+        pass
+
+
 import os
 import copy
 import cPickle as pickle
@@ -627,7 +628,7 @@ cgp_dict = {x: y for x, y in cgp_dict.iteritems() if x not in cgp_consensus}
 update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron_dict, cgp_consensus, metrics,
                    cgp_stats_dict, consensus_stats_dict, transcript_biotype_map)
 deduplicated_consensus = deduplicate_cgp_consensus(cgp_consensus, metrics)
-evaluate_cgp_consensus(deduplicated_consensus, metrics)
+q = [x for x in deduplicated_consensus if x.name in ['ENSMUST00000172809.1', 'ENSMUST00000116305.7']]
 
 
 cgp_replace_map = {}  # will store a mapping between consensus IDs and the CGP transcripts that will replace them
@@ -635,12 +636,12 @@ g_replace_map = {}
 cgp_new_isoforms = []  # will store cgp transcripts which represent new potential isoforms of a gene
 g_new_isoforms = []
 for cgp_id, cgp_tx in cgp_dict.iteritems():
-    #assert cgp_id != 'jg19701.t1'
     cgp_stats = cgp_stats_dict[cgp_id]
     # we don't want to try and replace non-coding transcripts with CGP predictions
     ens_ids = {x for x in cgp_stats.iterkeys() if transcript_biotype_map[x] == 'protein_coding'}
     consensus_stats = {x: consensus_stats_dict[x] for x in ens_ids if x in consensus_stats_dict}
     to_replace_ids = determine_if_better(cgp_stats, consensus_stats)
+    assert cgp_id != 'jg19701.t1'
     intron_vector = intron_dict[cgp_id]
     if len(to_replace_ids) > 0:
         for to_replace_id in to_replace_ids:
@@ -671,6 +672,7 @@ replace_map = cgp_replace_map
 consensus = cgp_consensus.copy()
 
 for consensus_id, consensus_tx in tmr_consensus_dict.iteritems():
+    #assert consensus_id != 'ENSMUST00000116305.7'
     if consensus_id in replace_map:
         cgp_tx, gene_id = replace_map[consensus_id]
         cgp_tx.id = cgp_tx.name

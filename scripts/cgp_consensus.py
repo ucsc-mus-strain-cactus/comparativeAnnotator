@@ -199,6 +199,7 @@ def build_consensus(tmr_consensus_dict, replace_map, new_isoforms, consensus):
     Builds the final consensus gene set given the replace map as well as the new isoforms.
     """
     for consensus_id, consensus_tx in tmr_consensus_dict.iteritems():
+        assert consensus_id not in consensus
         if consensus_id in replace_map:
             cgp_tx, gene_id = replace_map[consensus_id]
             cgp_tx.id = cgp_tx.name
@@ -244,7 +245,6 @@ def update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron
                 cgp_new_isoforms.append(copy.deepcopy(cgp_tx))
             else:
                 g_new_isoforms.append(copy.deepcopy(cgp_tx))
-    # calculate some metrics for plots once all genomes are analyzed
     cgp_collapse_rate = len(set(zip(*cgp_replace_map.values())[0]))
     g_collapse_rate = len(set(zip(*g_replace_map.values())[0]))
     metrics['CgpReplace'] = OrderedDict(((('CGP', OrderedDict((('CgpCollapseRate', cgp_collapse_rate),
