@@ -207,7 +207,7 @@ def update_transcripts(cgp_dict, tmr_consensus_dict, transcript_gene_map, intron
                 # we need to copy these transcripts to prevent iterate over-writing when we are collapsing
                 replace_map[to_replace_id] = [copy.deepcopy(cgp_tx), gene_id]
         elif determine_if_new_introns(cgp_tx, ens_ids, tmr_consensus_dict, intron_vector) is True:
-            new_isoforms.append(cgp_tx)
+            new_isoforms.append(copy.deepcopy(cgp_tx))
     # calculate some metrics for plots once all genomes are analyzed
     collapse_rate = len(set(zip(*replace_map.values())[0]))
     metrics["CgpReplace"] = {"CgpReplaceRate": len(replace_map), "CgpCollapseRate": collapse_rate}
