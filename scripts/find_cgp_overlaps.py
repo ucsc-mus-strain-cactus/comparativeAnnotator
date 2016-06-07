@@ -21,8 +21,9 @@ def parse_args():
     parser.add_argument('genome')
     parser.add_argument('cgp')
     parser.add_argument('transmap')
-    parser.add_argument('--remove-multiple', action='store_true')
-    parser.add_argument('--do-not-attempt-to-resolve-multiple', action='store_false')
+    res = parser.add_mutually_exclusive_group()
+    res.add_argument('--remove-multiple', action='store_true')
+    res.add_argument('--resolve-multiple', action='store_true')
     return parser.parse_args()
 
 
@@ -50,7 +51,7 @@ def resolve_multiple(tm_txs, cgp_rec):
     """
     cgp = pybedtools.BedTool('\t'.join(map(str, cgp_rec.get_bed())), from_string=True)
     tm = pybedtools.BedTool('\n'.join(['\t'.join(map(str, x.get_bed(name=x.name2))) for x in tm_txs]), from_string=True)
-    i = tm.intersect(cgp)
+    i = tm.intersect(cgp, nonamecheck=True)
     best = sorted([[x.name, len(x)] for x in i], key=lambda (n, l): -l)[0][0].split('/')[0]
     # because pybedtools sucks
     pybedtools.cleanup()
@@ -91,7 +92,7 @@ def main():
     for chrom, tm_tx_dict in tm_chrom_dict.iteritems():
         tm_intervals = generate_intervals(tm_tx_dict.itervalues())
         for cgp_tx_id, cgp_rec in cgp_chrom_dict[chrom].iteritems():
-            r = evaluate_overlaps(tm_intervals, transmap_dict, cgp_rec, resolve=args.do_not_attempt_to_resolve_multiple)
+            r = evaluate_overlaps(tm_intervals, transmap_dict, cgp_rec, resolve=args.resolve_multiple)
             if args.remove_multiple is True and len(r) > 1:
                 continue
             elif len(r) > 0:
