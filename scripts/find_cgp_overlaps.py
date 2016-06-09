@@ -1,9 +1,12 @@
 """
 Find CGP overlaps, looking only at transcripts which are tagged as best
+This version is optimized for the PacBio Augustus predictions which have a very high incidence of false fusion genes
+that must be filtered for. To do this, I look at reciprocal coverage.
 """
 import argparse
 import sys
 import os
+import pybedtools
 from collections import defaultdict
 os.environ['PYTHONPATH'] = './:./submodules:./submodules/pycbio:./submodules/comparativeAnnotator'
 sys.path.extend(['./', './submodules', './submodules/pycbio', './submodules/comparativeAnnotator'])
@@ -20,7 +23,9 @@ def parse_args():
     parser.add_argument('genome')
     parser.add_argument('cgp')
     parser.add_argument('transmap')
-    parser.add_argument('--remove-multiple', action='store_true')
+    res = parser.add_mutually_exclusive_group()
+    res.add_argument('--remove-multiple', action='store_true')
+    res.add_argument('--resolve-multiple', action='store_true')
     return parser.parse_args()
 
 
@@ -41,24 +46,49 @@ def generate_intervals(tx_iter):
     return {ChromosomeInterval(tx.chromosome, tx.start, tx.stop, tx.strand, tx.name2) for tx in tx_iter}
 
 
-def evaluate_overlaps(tm_intervals, cgp_rec, min_overlap=0.1):
+def resolve_multiple(tm_txs, cgp_rec):
+    """
+    In some cases, we may have multiple assignments. We can try to resolve this by looking at exon overlaps.
+    For this, I will use pybedtools.
+    """
+    cgp = pybedtools.BedTool('\t'.join(map(str, cgp_rec.get_bed())), from_string=True)
+    tm = pybedtools.BedTool('\n'.join(['\t'.join(map(str, x.get_bed(name=x.name2))) for x in tm_txs]), from_string=True)
+    i = tm.intersect(cgp, nonamecheck=True)
+    best = sorted([[x.name, len(x)] for x in i], key=lambda (n, l): -l)[0][0].split('/')[0]
+    # because pybedtools sucks
+    pybedtools.cleanup()
+    return [best]
+
+
+def evaluate_overlaps(tm_intervals, transmap_dict, cgp_rec, resolve=True, min_cgp_overlap=0.1, min_tm_overlap=0.1):
     """
     Compares a cgp record to the transcript intervals for all transcripts on this chromosome.
     Returns only the name of genes which have any transcripts with min_overlap overlap with the cgp_rec.
     """
     cgp_interval = ChromosomeInterval(cgp_rec.chromosome, cgp_rec.start, cgp_rec.stop, cgp_rec.strand, cgp_rec.name)
     intersections = [[tm_interval, tm_interval.intersection(cgp_interval)] for tm_interval in tm_intervals]
-    overlaps = [[tm_interval, 1.0 * len(intersection) / len(tm_interval)] for tm_interval, intersection in
-                intersections if intersection is not None]
-    return {tm_interval.name for tm_interval, overlap in overlaps if overlap >= min_overlap}
+    overlap_names = set()
+    for tm_interval, intersection in intersections:
+        if intersection is None:
+            continue
+        cgp_overlap = 1.0 * len(intersection) / len(cgp_interval)
+        tm_overlap = 1.0 * len(intersection) / len(tm_interval)
+        if cgp_overlap >= min_cgp_overlap or tm_overlap >= min_tm_overlap:
+            overlap_names.add(tm_interval.name)
+    if resolve is True and len(overlap_names) > 1:
+        tm_txs = [x for x in transmap_dict.itervalues() if x.name2 in overlap_names]
+        overlap_names = resolve_multiple(tm_txs, cgp_rec)
+    return overlap_names
 
 
 def main():
     args = parse_args()
     transmap_dict = get_transcript_dict(args.transmap)
-    # pull out best alignment IDs for coding genes only
-    best_ids = get_aln_ids(args.ref_genome, args.genome, args.comp_db, biotype='protein_coding', best_only=True)
-    transmap_dict = {tx_id: tx for tx_id, tx in transmap_dict.iteritems() if tx_id in best_ids}
+    # pull out best alignment IDs
+    best_ids = get_aln_ids(args.ref_genome, args.genome, args.comp_db, best_only=True)
+    # filter transMap for large sized transcripts that will mess this up
+    transmap_dict = {tx_id: tx for tx_id, tx in transmap_dict.iteritems() if tx_id in best_ids if
+                     tx.stop - tx.start <= 10 ** 6}
     # rename these to the ENSMUSG naming scheme since transMap uses the common names
     transcript_gene_map = get_transcript_gene_map(args.ref_genome, args.comp_db)
     for tx_id, tx in transmap_dict.iteritems():
@@ -69,7 +99,7 @@ def main():
     for chrom, tm_tx_dict in tm_chrom_dict.iteritems():
         tm_intervals = generate_intervals(tm_tx_dict.itervalues())
         for cgp_tx_id, cgp_rec in cgp_chrom_dict[chrom].iteritems():
-            r = evaluate_overlaps(tm_intervals, cgp_rec)
+            r = evaluate_overlaps(tm_intervals, transmap_dict, cgp_rec, resolve=args.resolve_multiple)
             if args.remove_multiple is True and len(r) > 1:
                 continue
             elif len(r) > 0:
