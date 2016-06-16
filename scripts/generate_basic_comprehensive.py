@@ -378,7 +378,7 @@ def main():
     psl_dict = get_alignment_dict(args.transMapPsl)
     ref_tm_dict = get_transcript_dict(args.refGp)
     complete_tm_ids = find_complete_transmap(tm_dict, psl_dict, ref_tm_dict, transcript_biotype_map)
-    complete_aug_ids = extract_aug_completeness(args.augustusGtf)
+    complete_aug_ids, all_aug_ids = extract_aug_completeness(args.augustusGtf)
     #complete_cgp_ids = extract_aug_completeness(args.cgpGtf)  # we don't have CGP GTF
     complete_cgp_ids = set(get_transcript_dict(args.cgpGp).keys())
     for tx_id in complete_cgp_ids:
