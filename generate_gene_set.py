@@ -68,7 +68,7 @@ def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff, aug_cov_cutoff, cov_we
     """
     Takes the list of transcript Ids and finds the best alignment(s) by highest percent identity and coverage
     We sort by ID to favor Augustus transcripts going to the consensus set in the case of ties.
-    This process also filters for excessively long transcripts.
+    This process also filters for both excessively long transcripts and small gaps.
     """
     def get_cov_ident(aln_id, mode):
         """
@@ -80,27 +80,29 @@ def find_best_alns(stats, tm_ids, aug_ids, tm_cov_cutoff, aug_cov_cutoff, cov_we
             cov = tm_stats.AlignmentCoverage
             ident = tm_stats.AlignmentIdentity
             too_long = bool(tm_stats.LongTranscript)
+            has_gap = bool(tm_stats.CdsGap)
         elif mode_is_aug(mode):
             cov = stats[aln_id].AugustusAlignmentCoverage
             ident = stats[aln_id].AugustusAlignmentIdentity
             too_long = False
+            has_gap = False
         else:
             raise NotImplementedError
         if cov is None:
             cov = 0.0
         if ident is None:
             ident = 0.0
-        return cov, ident, too_long
+        return cov, ident, too_long, has_gap
 
     def analyze_ids(ids, cutoff, mode):
         """return all ids which pass coverage cutoff"""
         s = []
         for aln_id in ids:
-            cov, ident, too_long = get_cov_ident(aln_id, mode)
-            if too_long is False:
+            cov, ident, too_long, has_gap = get_cov_ident(aln_id, mode)
+            if too_long is False and has_gap is False:
                 s.append([aln_id, cov, ident])
         filtered = filter(lambda (aln_id, cov, ident): cov >= cutoff, s)
-        # round scores to avoid floating point arthmetic problems
+        # round scores to avoid floating point arithmetic problems
         scores = [[aln_id, round(ident * ident_weight + cov * cov_weight, 5)] for aln_id, cov, ident in filtered]
         return scores
 
