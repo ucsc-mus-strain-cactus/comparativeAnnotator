@@ -53,8 +53,8 @@ aug_ids = augustus_eval(ref_genome, genome, args.db, biotype, args.filter_chroms
 id_names = ["fail_ids", "pass_specific_ids", "excel_ids", "aug_ids"]
 id_list = [fail_ids, pass_specific_ids, excel_ids, aug_ids]
 data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
-binned_transcripts = find_best_transcripts(data_dict, stats, args.mode, biotype, gps)
-
+#binned_transcripts = find_best_transcripts(data_dict, stats, args.mode, biotype, gps)
+binned_transcripts = find_best_transcripts(data_dict, stats, args.mode, biotype, gps, args.args.augustusHints, args.target_genome)
 
 if mode_is_aug(args.mode) and biotype == "protein_coding":
     is_consensus = True

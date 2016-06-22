@@ -74,6 +74,7 @@ from comparativeAnnotator.database_queries import get_transcript_biotype_map
 from pycbio.bio.transcripts import get_transcript_dict
 from pycbio.bio.psl import get_alignment_dict
 from pycbio.sys.mathOps import format_ratio
+from pycbio.sys.fileOps import ensureFileDir
 from comparativeAnnotator.comp_lib.gff3 import Gff3Parser
 from comparativeAnnotator.comp_lib.name_conversions import strip_alignment_numbers
 
@@ -408,6 +409,7 @@ def main():
             basic.extend(basic_pseudo)
             continue
         basic.append(sorted(tx_list, key=len, reverse=True)[0])
+    ensureFileDir(args.outBasic)
     with open(args.outBasic, 'w') as outf:
         for tx in basic:
             outf.write('\t'.join(map(str, tx.get_gene_pred())) + '\n')
