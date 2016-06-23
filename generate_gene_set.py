@@ -40,38 +40,27 @@ def reflect_hints_db(db_path):
     return speciesnames, seqnames, hints, featuretypes, session
 
 
-def get_intron_hints(genome, chromosome, start, stop, speciesnames, seqnames, hints, featuretypes, session):
+def get_intron_hints(genome, db_path):
     """
     Extracts intron RNAseq hints from RNAseq hints database.
     :param genome: genome (table) to query
-    :param chromosome: Chromosome to extract information from
-    :param start: start position on chromosome
-    :param stop: stop position in chromosome
-    :param speciesnames: speciesnames Table from reflect_hints_db
-    :param seqnames: seqnames Table from reflect_hints_db
-    :param hints: hints Table from reflect_hints_db
-    :param featuretypes: featuretypes Table from reflect_hints_db
-    :param session: Session object from reflect_hints_db
-    :return: BED formatted string.
+    :param db_path: path to augustus hints database
+    :return: dict of chromosome arranged intron intervals
     """
+    speciesnames, seqnames, hints, featuretypes, session = reflect_hints_db(db_path)
     speciesid = session.query(speciesnames.speciesid).filter_by(speciesname=genome)
-    seqnr = session.query(seqnames.seqnr).filter(
-        sqlalchemy.and_(
-            seqnames.speciesid.in_(speciesid),
-            (seqnames.seqname == chromosome)))
+    seqs = session.query(seqnames.seqnr, seqnames.seqname).filter(seqnames.speciesid.in_(speciesid))
+    seq_dict = dict(seqs)
     query = session.query(hints).filter(
             sqlalchemy.and_(
                 hints.speciesid.in_(speciesid),
-                hints.seqnr.in_(seqnr),
-                hints.start >= start,
-                hints.end <= stop,
                 featuretypes.typeid == hints.type,
                 featuretypes.typename == 'intron'))
-    hints = []
+    intron_intervals = defaultdict(set)
     for h in query:
-        c = ChromosomeInterval(chromosome, h.start, h.end + 1, '.')
-        hints.append(c)
-    return hints
+        c = ChromosomeInterval(seq_dict[h.seqnr], h.start, h.end + 1, '.')
+        intron_intervals[c.chromosome].add(c)
+    return intron_intervals
 
 
 def mode_is_aug(mode):
@@ -248,26 +237,26 @@ def find_best_transcripts(data_dict, stats, mode, biotype, gps, db, genome, tm_c
     For all of the transcripts categorized in data_dict, evaluate them and bin them.
     Hacked in the intron support stuff here.
     """
-    def calculate_rnaseq_support(genome, tx, speciesnames, seqnames, hints, featuretypes, session):
+    def calculate_rnaseq_support(tx, hint_intron_intervals):
         if len(tx.intron_intervals) == 0:
             return 0
-        hint_intron_intervals = get_intron_hints(genome, tx.chromosome, tx.start, tx.stop, speciesnames, seqnames, hints, featuretypes, session)
         #  need to lose strand information
         tx_intron_intervals = [ChromosomeInterval(i.chromosome, i.start, i.stop, '.') for i in tx.intron_intervals]
-        supported = [x for x in tx_intron_intervals if x in hint_intron_intervals]
+        supported = [x for x in tx_intron_intervals if x in hint_intron_intervals[tx.chromosome]]
         r = format_ratio(len(supported), len(tx_intron_intervals))
         assert r >= 0
         return r
-    #  unpack db so we don't pass around all of these things, and don't unpack each time we call calculate_rnasesq_support. This is so ugly!
     if db is not None:
-        speciesnames, seqnames, hints, featuretypes, session = db
+        hint_intron_intervals = get_intron_hints(genome, db)
+    else:
+        hint_intron_intervals = None
     binned_transcripts = {}
     for gene_id in data_dict:
         binned_transcripts[gene_id] = {}
         for ens_id in data_dict[gene_id]:
             tx_recs = data_dict[gene_id][ens_id]
-            if db is not None:
-                intron_stats = {tx_rec: calculate_rnaseq_support(genome, gps[tx_rec], speciesnames, seqnames, hints, featuretypes, session)
+            if hint_intron_intervals is not None:
+                intron_stats = {tx_rec: calculate_rnaseq_support(gps[tx_rec], hint_intron_intervals)
                                 for tx_list in tx_recs.itervalues() for tx_rec in tx_list}
             else:
                 intron_stats = {tx_rec: 1.0 for tx_list in tx_recs.itervalues() for tx_rec in tx_list}
@@ -434,7 +423,7 @@ def generate_gene_set(binned_transcripts, stats, gps, transcript_biotype_map, re
 
 
 def consensus_by_biotype(db_path, ref_genome, genome, biotype, gps, transcript_gene_map, gene_transcript_map,
-                         transcript_biotype_map, stats, mode, ref_gene_sizes, db, filter_chroms):
+                         transcript_biotype_map, stats, mode, ref_gene_sizes, hints_db, filter_chroms):
     """
     Main consensus finding function.
     """
@@ -449,7 +438,7 @@ def consensus_by_biotype(db_path, ref_genome, genome, biotype, gps, transcript_g
         id_names = ["fail_ids", "pass_specific_ids", "excel_ids"]
         id_list = [fail_ids, pass_specific_ids, excel_ids]
     data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
-    binned_transcripts = find_best_transcripts(data_dict, stats, mode, biotype, gps, db, genome)
+    binned_transcripts = find_best_transcripts(data_dict, stats, mode, biotype, gps, hints_db, genome)
     consensus, metrics = generate_gene_set(binned_transcripts, stats, gps, transcript_biotype_map, ref_gene_sizes,
                                            mode, biotype)
     return consensus, metrics
@@ -531,10 +520,10 @@ def generate_gene_set_wrapper(args):
     assert args.mode in ['AugustusTMR', 'AugustusTM', 'transMap']
     if mode_is_aug(args.mode):
         gps = load_gps([args.gp, args.augustus_gp])
-        db = reflect_hints_db(args.args.augustusHints)
+        hints_db = args.args.augustusHints
     else:
         gps = load_gps([args.gp])
-        db = None
+        hints_db = None
     transcript_gene_map = get_transcript_gene_map(args.query_genome, args.db)
     transcript_biotype_map = get_transcript_biotype_map(args.query_genome, args.db)
     ref_gps = get_transcript_dict(args.annotation_gp)
@@ -546,7 +535,7 @@ def generate_gene_set_wrapper(args):
         stats = get_db_rows(args.query_genome, args.target_genome, args.db, biotype, args.mode)
         consensus, metrics = consensus_by_biotype(args.db, args.query_genome, args.target_genome, biotype, gps,
                                                   transcript_gene_map, gene_transcript_map, transcript_biotype_map,
-                                                  stats, args.mode, ref_gene_sizes, db, args.filter_chroms)
+                                                  stats, args.mode, ref_gene_sizes, hints_db, args.filter_chroms)
         deduplicated_consensus, dup_count = deduplicate_consensus(consensus, gps, stats)
         write_gps(deduplicated_consensus, gps, gp_path, transcript_gene_map)
         overall_consensus.extend(deduplicated_consensus)
