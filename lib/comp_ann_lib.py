@@ -216,7 +216,7 @@ def query_contains_intron(q_gap_start, q_gap_end, ref_starts):
 
 def fix_ref_q_starts(ref_aln):
     if ref_aln.strand == "-":
-        ref_starts = [ref_aln.q_size - (ref_aln.q_starts[i] + ref_aln.block_sizes[i]) for i in 
+        ref_starts = [ref_aln.q_size - (ref_aln.q_starts[i] + ref_aln.block_sizes[i]) for i in
                       xrange(len(ref_aln.q_starts))]
     else:
         ref_starts = ref_aln.q_starts

@@ -34,7 +34,7 @@ def extract_maf(target, hal, chromosome, ref_genome, target_genomes, maf_path):
     """
     Extracts one chromosome from a MAF.
     """
-    base_cmd = 'hal2maf --refSequence {} --refGenome {} --targetGenomes {} --noAncestors {} {}'
+    base_cmd = 'hal2maf --refSequence {} --refGenome {} --targetGenomes {} {} {}'
     cmd = base_cmd.format(chromosome, ref_genome, ','.join(target_genomes), hal, maf_path)
     system(cmd)
 

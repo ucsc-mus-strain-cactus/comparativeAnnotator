@@ -10,8 +10,9 @@ import shutil
 import string
 import subprocess
 import unittest
-import seq_lib
-import psl_lib
+from pycbio.bio.transcripts import Transcript
+from pycbio.bio.bio import get_sequence_dict
+from pycbio.bio.psl import PslRow
 import random
 
 __author__ = "Ian Fiddes"
@@ -162,7 +163,7 @@ def createAlignmentFile(alignments, tmpDir):
         for a in alignments:
             if isinstance(a, str):
                 f.write('%s\n' % a)
-            elif isinstance(a, psl_lib.PslRow):
+            elif isinstance(a, PslRow):
                 f.write('%s\n' % a.psl_string())
     return alnfile
 
@@ -207,7 +208,7 @@ def simplePsl(strand, qSize, qStart, qEnd, tSize, tStart, tEnd,
             ','.join([str(b) for b in qStarts]),
             ','.join([str(b) for b in tStarts]),
             ))
-    return psl_lib.PslRow(line)
+    return PslRow(line)
 
 
 ##############################################################################
@@ -223,7 +224,7 @@ class UpperCaseTest(unittest.TestCase):
     def setUp(self):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1": "GTATTagtcACCTAA"}, tmp)
-        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
+        self.chrom_seq = get_sequence_dict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
 
     def test_case(self):
@@ -246,7 +247,7 @@ class NegativeStrandTranscriptTests(unittest.TestCase):
     """
 
     def setUp(self):
-        self.t = seq_lib.Transcript(['chr1', '2', '15', 'A', '0', '-', '4', '13',
+        self.t = Transcript(['chr1', '2', '15', 'A', '0', '-', '4', '13',
                 '0,128,0', '3', '4,3,3', '0,5,10'])
         self.transcript_seq = "TAGCCAGAAT"
         self.cds_seq = "GCCAGA"
@@ -255,7 +256,7 @@ class NegativeStrandTranscriptTests(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1": "GTATTCTTGGACCTAA"}, tmp)
 
-        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
+        self.chrom_seq = get_sequence_dict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -407,7 +408,7 @@ class PositiveStrandTranscriptTests(unittest.TestCase):
     """
 
     def setUp(self):
-        self.t = seq_lib.Transcript(['chr1', '2', '15', 'A', '0', '+', '4', '13',
+        self.t = Transcript(['chr1', '2', '15', 'A', '0', '+', '4', '13',
                 '0,128,0', '3', '4,3,3', '0,5,10'])
         self.transcript_seq = "ATTCTGGCTA"
         self.cds_seq = "TCTGGC"
@@ -416,7 +417,7 @@ class PositiveStrandTranscriptTests(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
 
-        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
+        self.chrom_seq = get_sequence_dict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -568,7 +569,7 @@ class SingleExonTranscript1(unittest.TestCase):
     """
 
     def setUp(self):
-        self.t = seq_lib.Transcript(['chr1', '0', '6', 'A', '0', '+', '1', '4', '0,128,0', '1', '6', '0'])
+        self.t = Transcript(['chr1', '0', '6', 'A', '0', '+', '1', '4', '0,128,0', '1', '6', '0'])
         self.transcript_seq = "GTATTC"
         self.cds_seq = "TAT"
         self.amino_acid = "Y"
@@ -576,7 +577,7 @@ class SingleExonTranscript1(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
 
-        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
+        self.chrom_seq = get_sequence_dict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -717,7 +718,7 @@ class SingleExonTranscript2(unittest.TestCase):
     """
 
     def setUp(self):
-        self.t = seq_lib.Transcript(['chr1', '0', '6', 'A', '0', '+', '0', '6', '0,128,0', '1', '6', '0'])
+        self.t = Transcript(['chr1', '0', '6', 'A', '0', '+', '0', '6', '0,128,0', '1', '6', '0'])
         self.transcript_seq = "GTATTC"
         self.cds_seq = self.transcript_seq
         self.amino_acid = "VF"
@@ -725,7 +726,7 @@ class SingleExonTranscript2(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
 
-        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
+        self.chrom_seq = get_sequence_dict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -829,7 +830,7 @@ class SingleExonTranscript3(unittest.TestCase):
     """
 
     def setUp(self):
-        self.t = seq_lib.Transcript(['chr1', '0', '6', 'A', '0', '-', '0', '5', '0,128,0', '1', '6', '0'])
+        self.t = Transcript(['chr1', '0', '6', 'A', '0', '-', '0', '5', '0,128,0', '1', '6', '0'])
         self.transcript_seq = "GAATAC"
         self.cds_seq = "AATAC"
         self.amino_acid = "NT"  # ACN is unambiguously Threonine 
@@ -837,7 +838,7 @@ class SingleExonTranscript3(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
 
-        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
+        self.chrom_seq = get_sequence_dict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -944,13 +945,13 @@ class SingleExonTranscript4(unittest.TestCase):
     """
 
     def setUp(self):
-        self.t = seq_lib.Transcript(['chr1', '0', '11', 'A', '0', '-', '0', '6', '0,128,0', '1', '11', '0'])
+        self.t = Transcript(['chr1', '0', '11', 'A', '0', '-', '0', '6', '0,128,0', '1', '11', '0'])
         self.transcript_seq = "TCCAAGAATAC"
         self.cds_seq = "GAATAC"
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
 
-        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
+        self.chrom_seq = get_sequence_dict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
 
     def test_cds_coordinate_translations(self):
@@ -978,7 +979,7 @@ class NoncodingTranscript(unittest.TestCase):
     """
 
     def setUp(self):
-        self.t = seq_lib.Transcript(['chr1', '0', '11', 'A', '0', '+', '0', '0', '0,128,0', '3', '4,1,3', '0,6,8'])
+        self.t = Transcript(['chr1', '0', '11', 'A', '0', '+', '0', '0', '0,128,0', '3', '4,1,3', '0,6,8'])
         self.transcript_seq = "GTATTGGA"
         self.cds_seq = ""
         self.amino_acid = ""
@@ -986,7 +987,7 @@ class NoncodingTranscript(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
 
-        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
+        self.chrom_seq = get_sequence_dict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -1092,7 +1093,7 @@ class ComplicatedTranscript1(unittest.TestCase):
     """
 
     def setUp(self):
-        self.t = seq_lib.Transcript(['chr1', '1', '20', 'A', '0', '+', '8', '16', '0,128,0', '4', '3,4,3,3', '0,5,12,16'])
+        self.t = Transcript(['chr1', '1', '20', 'A', '0', '+', '8', '16', '0,128,0', '4', '3,4,3,3', '0,5,12,16'])
         self.transcript_seq = "TATTTGGTAACCT"
         self.cds_seq = "GGTAA"
         self.amino_acid = "G"
@@ -1100,7 +1101,7 @@ class ComplicatedTranscript1(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAAGCCTG"}, tmp)
 
-        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
+        self.chrom_seq = get_sequence_dict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -1207,7 +1208,7 @@ class ComplicatedTranscript2(unittest.TestCase):
     """
 
     def setUp(self):
-        self.t = seq_lib.Transcript(['chr1', '1', '20', 'A', '0', '-', '7', '16', '0,128,0', '4', '3,4,3,3', '0,5,12,16'])
+        self.t = Transcript(['chr1', '1', '20', 'A', '0', '-', '7', '16', '0,128,0', '4', '3,4,3,3', '0,5,12,16'])
         self.transcript_seq = "AGGTTACCAAATA"
         self.cds_seq = "TTACCA"
         self.amino_acid = "LP"
@@ -1215,7 +1216,7 @@ class ComplicatedTranscript2(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAAGCCTG"}, tmp)
 
-        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
+        self.chrom_seq = get_sequence_dict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
 
     def test_sizes(self):
@@ -1323,7 +1324,7 @@ class PositiveStrandGenePredTranscript(PositiveStrandTranscriptTests):
     """
 
     def setUp(self):
-        self.t = seq_lib.GenePredTranscript(['A', 'chr1', '+', '2', '15', '4', '13', '3', '2,7,12', '6,10,15', '1',
+        self.t = GenePredTranscript(['A', 'chr1', '+', '2', '15', '4', '13', '3', '2,7,12', '6,10,15', '1',
                                              'q2', 'cmpl', 'cmpl', '2,0,0'])
         self.transcript_seq = "ATTCTGGCTA"
         self.cds_seq = "TCTGGC"
@@ -1332,7 +1333,7 @@ class PositiveStrandGenePredTranscript(PositiveStrandTranscriptTests):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
 
-        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
+        self.chrom_seq = get_sequence_dict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
 
     def test_sequences(self):
@@ -1360,7 +1361,7 @@ class NegativeStrandGenePredTranscript(NegativeStrandTranscriptTests):
     """
 
     def setUp(self):
-        self.t = seq_lib.GenePredTranscript(['A', 'chr1', '-', '2', '15', '4', '13', '3', '2,7,12', '6,10,15', '1',
+        self.t = GenePredTranscript(['A', 'chr1', '-', '2', '15', '4', '13', '3', '2,7,12', '6,10,15', '1',
                                              'q2', 'cmpl', 'cmpl', '0,0,1'])
         self.transcript_seq = "TAGCCAGAAT"
         self.cds_seq = "GCCAGA"
@@ -1369,7 +1370,7 @@ class NegativeStrandGenePredTranscript(NegativeStrandTranscriptTests):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAA"}, tmp)
 
-        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
+        self.chrom_seq = get_sequence_dict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
 
     def test_sequences(self):
@@ -1397,7 +1398,7 @@ class ZeroBasepairIntron(unittest.TestCase):
     """
 
     def setUp(self):
-        self.t = seq_lib.Transcript(['chr1', '1', '14', 'A', '0', '+', '7', '14', '0,128,0', '3', '5,4,1', '0,5,12'])
+        self.t = Transcript(['chr1', '1', '14', 'A', '0', '+', '7', '14', '0,128,0', '3', '5,4,1', '0,5,12'])
         self.transcript_seq = "TATTCTTGGT"
         self.cds_seq = "TGGT"
         self.amino_acid = "W"
@@ -1405,7 +1406,7 @@ class ZeroBasepairIntron(unittest.TestCase):
         tmp = os.path.abspath(makeTempDir())
         createSequenceFile({"chr1":"GTATTCTTGGACCTAAGCCTG"}, tmp)
 
-        self.chrom_seq = seq_lib.get_sequence_dict(os.path.join(tmp, "seq.fa"))
+        self.chrom_seq = get_sequence_dict(os.path.join(tmp, "seq.fa"))
         self.addCleanup(removeDir, tmp)
 
     def test_sequences(self):

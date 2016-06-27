@@ -155,10 +155,10 @@ class Transcript(object):
 
         if start_offset is not None and start_offset > start:
             start, block_count, block_starts, block_sizes = _move_start(self.exon_intervals, block_count, block_starts,
-                                                                    block_sizes, start, start_offset)
+                                                                        block_sizes, start, start_offset)
         if stop_offset is not None and stop_offset < stop:
             stop, block_count, block_starts, block_sizes = _move_stop(self.exon_intervals, block_count, block_starts,
-                                                                  block_sizes, stop, start, stop_offset)
+                                                                      block_sizes, stop, start, stop_offset)
         if start > thick_start:
             thick_start = start
         if stop < thick_stop:
@@ -623,7 +623,6 @@ class GenePredTranscript(Transcript):
             return ""
         return translate_sequence(cds[offset:].upper())
 
-
     def get_gene_pred(self, name=None, start_offset=None, stop_offset=None, name2=None, uid=None):
         """
         Returns this transcript as a genePred transcript.
@@ -646,7 +645,6 @@ class GenePredTranscript(Transcript):
         uid = self.id if uid is None else uid
         return [name, chrom, strand, start, stop, thick_start, thick_stop, len(self.exons), exon_starts, exon_ends,
                 uid, name2, self.cds_start_stat, self.cds_end_stat, exon_frames]
-
 
 
 class Exon(object):

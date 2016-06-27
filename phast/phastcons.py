@@ -15,6 +15,7 @@ import shutil
 import random
 import cPickle as pickle
 from ete3 import Tree
+from collections import OrderedDict
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, popenCatch
@@ -36,6 +37,7 @@ def parse_args():
     parser.add_argument('--pre-extracted', default=None,
                         help=('Path to pre-extracted alignments from phast_subset.'
                               ' Will start the pipeline past that point.'))
+    parser.add_argument('--target-genomes', default=None, help='target genomes')
     parser.add_argument('--ref-fasta-path', default=None,
                         help='Path to reference genome FASTA. If not provided, it will be extracted from the HAL.')
     parser.add_argument('--target-coverage', default='0.05',
@@ -56,6 +58,8 @@ def phastcons_pipeline_wrapper(target, args):
     """
     Main pipeline wrapper. Calls out to phast_subset commands, which finally will return to the function passed.
     """
+    if args.target_genomes is None:
+        args.target_genomes = extract_model_tree(args.model)
     if args.ref_fasta_path is None:
         args.ref_fasta_path = get_ref_genome_fasta(args.hal, args.ref_genome, target.getGlobalTempDir())
     if args.pre_extracted is None:
@@ -76,7 +80,10 @@ def phastcons_estimate_models_wrapper(target, args, split_ss_dict, num_samples=2
     output_model_tmp_dir = os.path.join(target.getGlobalTempDir(), 'model_tmp_dir')
     os.mkdir(output_model_tmp_dir)
     split_ss_list = []
-    nseqs = len(extract_model_tree(args.model))
+    if args.target_genomes is None:
+        nseqs = len(extract_model_tree(args.model))
+    else:
+        nseqs = len(args.target_genomes) + 1
     for split_ss_path in split_ss_dict.itervalues():
         if extract_nseqs(split_ss_path) == nseqs:
             split_ss_list.append(split_ss_path)
@@ -102,8 +109,8 @@ def merge_conserved_nonconserved_models(target, args, split_ss_dict, output_mode
     """
     Merged conserved and nonconserved models using phyloBoot
     """
-    out_cons = args.output_conserved_model if args.output_conserved_model is not None else target.getGlobalTempDir()
-    out_noncons = args.output_nonconserved_model if args.output_nonconserved_model is not None else target.getGlobalTempDir()
+    out_cons = args.output_conserved_model if args.output_conserved_model is not None else os.path.join(target.getGlobalTempDir(), 'cons.mod')
+    out_noncons = args.output_nonconserved_model if args.output_nonconserved_model is not None else os.path.join(target.getGlobalTempDir(), 'noncons.mod')
     models = {'cons.mod': out_cons, 'noncons.mod': out_noncons}
     for mode, outf in models.iteritems():
         files = [os.path.join(output_model_tmp_dir, f) for f in os.listdir(output_model_tmp_dir) if '.' + mode in f]
@@ -122,7 +129,9 @@ def phastcons_wrapper(target, args, split_ss_dict, models_str):
     Wrapper for phastcons function.
     """
     output_bed_dir = os.path.join(target.getGlobalTempDir(), 'most_conserved_beds')
+    os.mkdir(output_bed_dir)
     output_wig_dir = os.path.join(target.getGlobalTempDir(), 'conservation_wiggles')
+    os.mkdir(output_wig_dir)
     path_dict = OrderedDict()
     ordered_paths = sorted(split_ss_dict.iteritems(), key=lambda ((chrom, start, end), val): (chrom, start))
     for (chrom, start, end), split_ss_path in ordered_paths:
@@ -142,16 +151,16 @@ def phastcons(target, split_ss_path, bed_path, wig_path, models_str, phastcons_o
     system(cmd)
 
 
-def cat_phastcons(target, args, output_bed_tree, output_wig_tree):
+def cat_phastcons(target, args, path_dict):
     """
     Concatenates final phastcons output into one gff file.
     TODO: make this less hacky - we should really be using real file names throughout this exercise.
     """
     bed_files, wig_files = zip(*path_dict.itervalues())
-    for p, t in zip(*[[args.output_bed, args.output_wig], [bed_files, wig_files]]):
+    for p, file_list in zip(*[[args.output_bed, args.output_wig], [bed_files, wig_files]]):
         fofn = os.path.join(target.getGlobalTempDir(), '{}_fofn'.format(os.path.basename(p)))
         with open(fofn, 'w') as outf:
-            for x in all_files:
+            for x in file_list:
                 outf.write(x + '\n')
         tmp_p = os.path.join(target.getGlobalTempDir(), os.path.basename(p) + '.tmp')
         cat_cmd = 'cat {} | xargs -n 50 cat > {}'.format(fofn, tmp_p)
@@ -161,7 +170,8 @@ def cat_phastcons(target, args, output_bed_tree, output_wig_tree):
 
 def main():
     args = parse_args()
-    args.target_genomes = extract_model_tree(args.model) - set([args.ref_genome])
+    if args.target_genomes is None:
+        args.target_genomes = extract_model_tree(args.model) - set([args.ref_genome])
     args.msa_split_options = " ".join(['--windows', args.windows, '--between-blocks', args.between_blocks,
                                        '--min-informative', args.min_informative])
     args.phastcons_options = " ".join(['--target-coverage', args.target_coverage, '--expected-length',

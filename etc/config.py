@@ -58,9 +58,9 @@ noncoding_excel_classifiers = ref_noncoding_classifiers = ["UtrUnknownSplice"]
 noncoding_passing_classifiers = ["UtrUnknownSplice", "UtrGap"]
 
 
-clustering_classifiers = tm_excel_classifiers + ["AlnExtendsOffContig", "CodingMult3Deletions", "Paralogy", 
-                                                "AlnAbutsUnknownBases", "CodingMult3Insertions", "CdsMult3Gap", 
-                                                "SpliceContainsUnknownBases", "UnknownGap", "UnknownBases", 
+clustering_classifiers = tm_excel_classifiers + ["AlnExtendsOffContig", "CodingMult3Deletions", "Paralogy",
+                                                "AlnAbutsUnknownBases", "CodingMult3Insertions", "CdsMult3Gap",
+                                                "SpliceContainsUnknownBases", "UnknownGap", "UnknownBases",
                                                 "UnknownCdsBases", "UtrGap", "AlignmentPartialMap"]
 
 

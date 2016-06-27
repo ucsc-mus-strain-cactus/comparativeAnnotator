@@ -40,8 +40,11 @@ def extract_gc_content(model_file):
     Extracts GC content from a model file.
     """
     lines = open(model_file).readlines()
-    l = lines[3].split()
-    return float(l[2]) + float(l[3])
+    for l in lines:
+        if 'BACKGROUND' in l:
+            l = l.split()
+            return float(l[2]) + float(l[3])
+    assert False
 
 
 def extract_nseqs(ss_file):

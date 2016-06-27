@@ -42,18 +42,18 @@ def dless_pipeline_wrapper(target, args):
     if args.ref_fasta_path is None:
         args.ref_fasta_path = get_ref_genome_fasta(args.hal, args.ref_genome, target.getGlobalTempDir())
     if args.pre_extracted is None:
-        tmp_ss_path = os.path.join(args.getGlobalTempDir(), 'extracted_sub_alignments')
-        target.addChildTargetFn(subset_hal_pipeline, args=(args, tmp_ss_path))
-        split_ss_dict = read_subalignment_dir(tmp_ss_path)
+        split_ss_path = os.path.join(target.getGlobalTempDir(), 'extracted_sub_alignments')
+        target.addChildTargetFn(subset_hal_pipeline, args=(args, split_ss_path))
     else:
-        split_ss_dict = read_subalignment_dir(args.pre_extracted)
-    target.setFollowOnTargetFn(dless_wrapper, args=(args, split_ss_dict))
+        split_ss_path = read_subalignment_dir(args.pre_extracted)
+    target.setFollowOnTargetFn(dless_wrapper, args=(args, split_ss_path))
 
 
 def dless_wrapper(target, args, split_ss_dict):
     """
     Wrapper for dless function.
     """
+    split_ss_dict = read_subalignment_dir(split_ss_path)
     output_gff_tree = TempFileTree(os.path.join(target.getGlobalTempDir(), 'output_gff'))
     for chromosome, split_ss_dir in split_ss_dict.iteritems():
         for split_ss in os.listdir(split_ss_dir):

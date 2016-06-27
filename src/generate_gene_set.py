@@ -155,9 +155,10 @@ def find_best_transcripts(data_dict, stats, mode, biotype):
     return binned_transcripts
 
 
-def find_longest_for_gene(bins, stats, gps, cov_cutoff=60.0, ident_cutoff=80.0):
+def find_longest_for_gene(bins, stats, gps, mode, cov_cutoff=60.0, ident_cutoff=80.0):
     """
     Finds the longest transcript(s) for a gene. This is used when all transcripts failed, and has more relaxed cutoffs.
+    If this is in Augustus mode, will only consider Augustus transcripts.
     """
     aln_ids = zip(*bins.itervalues())[0]
     keep_ids = []
@@ -167,6 +168,8 @@ def find_longest_for_gene(bins, stats, gps, cov_cutoff=60.0, ident_cutoff=80.0):
         cov, ident = stats[aln_id]
         if cov >= cov_cutoff and ident >= ident_cutoff:
             keep_ids.append(aln_id)
+    if mode == 'augustus':
+        keep_ids = [x for x in keep_ids if 'aug' in x]
     if len(keep_ids) > 0:
         sizes = [[x, len(gps[x])] for x in keep_ids]
         longest_size = max(zip(*sizes)[1])
@@ -184,7 +187,7 @@ def has_only_short(bins, ids_included, ref_interval, tgt_intervals, percentage_o
     return all([100 * format_ratio(tgt_size, source_size) < percentage_of_ref for tgt_size in tgt_sizes])
 
 
-def find_consensus(binned_transcripts, stats, gps, ref_intervals, tgt_intervals):
+def find_consensus(binned_transcripts, stats, gps, ref_intervals, tgt_intervals, mode):
     """
     Takes the binned transcripts and builds a consensus gene set.
     """
@@ -206,7 +209,7 @@ def find_consensus(binned_transcripts, stats, gps, ref_intervals, tgt_intervals)
                                                 tgt_intervals)
         if gene_in_consensus is False or has_only_short_txs is True:
             # find the single longest transcript for this gene
-            best_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps)
+            best_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, mode)
             if best_for_gene is not None:
                 consensus.append(best_for_gene[0])
     return consensus
@@ -230,7 +233,7 @@ def consensus_by_biotype(cur, ref_genome, genome, biotype, gps, transcript_gene_
         id_list = [fail_ids, pass_specific_ids, excel_ids]
     data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
     binned_transcripts = find_best_transcripts(data_dict, stats, mode, biotype)
-    consensus = find_consensus(binned_transcripts, stats, gps, ref_intervals, tgt_intervals)
+    consensus = find_consensus(binned_transcripts, stats, gps, ref_intervals, tgt_intervals, mode)
     return binned_transcripts, consensus
 
 
@@ -273,7 +276,7 @@ def evaluate_best_for_gene(tx_ids):
     return "NoTransMap" if tx_ids is None else "Fail"
 
 
-def evaluate_coding_consensus(binned_transcripts, stats, gps, mode):
+def evaluate_coding_consensus(binned_transcripts, stats, ref_gene_intervals, gps, mode):
     """
     Evaluates the coding consensus for plots. Reproduces a lot of code from find_consensus()
     TODO: split out duplicated code.
@@ -284,7 +287,7 @@ def evaluate_coding_consensus(binned_transcripts, stats, gps, mode):
     """
     if mode == "augustus":
         transcript_evaluation = OrderedDict((x, 0) for x in ["ExcellentTM", "ExcellentAug", "ExcellentTie", "PassTM", "PassAug",
-                                                             "PassTie", "FailTM", "FailAug", "FailTie", "NoTransMap"])
+                                                             "PassTie", "FailTM", "FailAug", "FailTie", "NotInConsensus"])
         gene_evaluation = OrderedDict((x, 0) for x in ["Excellent", "Pass", "Fail", "NoTransMap"])
     else:
         transcript_evaluation = OrderedDict((x, 0) for x in ["Excellent", "Pass", "Fail", "NoTransMap"])
@@ -298,12 +301,12 @@ def evaluate_coding_consensus(binned_transcripts, stats, gps, mode):
             if best_id is not None:
                 s = evaluate_transcript(best_id, category, tie) if mode == "augustus" else category
             else:
-                s = "FailTM"
+                s = 'NotInConsensus'
             transcript_evaluation[s] += 1
         s = evaluate_gene(categories)
         gene_evaluation[s] += 1
         if s == "Fail":
-            best_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps)
+            best_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, mode)
             s = evaluate_best_for_gene(best_for_gene)
             gene_fail_evaluation[s] += 1
     r = {"transcript": transcript_evaluation, "gene": gene_evaluation, "gene_fail": gene_fail_evaluation}
@@ -327,7 +330,7 @@ def evaluate_noncoding_consensus(binned_transcripts, stats, gps):
         s = evaluate_gene(categories)
         gene_evaluation[s] += 1
         if s == "Fail":
-            best_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps)
+            best_for_gene = find_longest_for_gene(binned_transcripts[gene_id], stats, gps, 'transMap')
             s = evaluate_best_for_gene(best_for_gene)
             gene_fail_evaluation[s] += 1
     r = {"transcript": transcript_evaluation, "gene": gene_evaluation, "gene_fail": gene_fail_evaluation}
@@ -449,7 +452,7 @@ def main():
             num_genes, num_txs = write_gps(deduplicated_consensus, gps, consensus_base_path, biotype,
                                            transcript_gene_map, args.mode)
             if biotype == "protein_coding":
-                gene_transcript_evals = evaluate_coding_consensus(binned_transcripts, stats, gps, args.mode)
+                gene_transcript_evals = evaluate_coding_consensus(binned_transcripts, stats, ref_gene_intervals, gps, args.mode)
             else:
                 gene_transcript_evals = evaluate_noncoding_consensus(binned_transcripts, stats, gps)
             p = os.path.join(args.workDir, "_".join([args.genome, biotype]))
