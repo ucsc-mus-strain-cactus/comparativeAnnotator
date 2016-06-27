@@ -232,31 +232,19 @@ def remove_multiple_chromosomes(binned_transcripts, gps, stats):
         binned_transcripts[gene_id] = {x: y for x, y in binned_transcripts[gene_id].iteritems() if y[0] not in to_remove}
 
 
-def find_best_transcripts(data_dict, stats, mode, biotype, gps, db, genome, tm_cov_cutoff=80.0, aug_cov_cutoff=40.0):
+def find_best_transcripts(data_dict, stats, mode, biotype, gps, hints_intron_intervals,
+                          tm_cov_cutoff=80.0, aug_cov_cutoff=40.0):
     """
     For all of the transcripts categorized in data_dict, evaluate them and bin them.
     Hacked in the intron support stuff here.
     """
-    def calculate_rnaseq_support(tx, hint_intron_intervals):
-        if len(tx.intron_intervals) == 0:
-            return 0
-        #  need to lose strand information
-        tx_intron_intervals = [ChromosomeInterval(i.chromosome, i.start, i.stop, '.') for i in tx.intron_intervals]
-        supported = [x for x in tx_intron_intervals if x in hint_intron_intervals[tx.chromosome]]
-        r = format_ratio(len(supported), len(tx_intron_intervals))
-        assert r >= 0
-        return r
-    if db is not None:
-        hint_intron_intervals = get_intron_hints(genome, db)
-    else:
-        hint_intron_intervals = None
     binned_transcripts = {}
     for gene_id in data_dict:
         binned_transcripts[gene_id] = {}
         for ens_id in data_dict[gene_id]:
             tx_recs = data_dict[gene_id][ens_id]
-            if hint_intron_intervals is not None:
-                intron_stats = {tx_rec: calculate_rnaseq_support(gps[tx_rec], hint_intron_intervals)
+            if hints_intron_intervals is not None:
+                intron_stats = {tx_rec: calculate_rnaseq_support(gps[tx_rec], hints_intron_intervals)
                                 for tx_list in tx_recs.itervalues() for tx_rec in tx_list}
             else:
                 intron_stats = {tx_rec: 1.0 for tx_list in tx_recs.itervalues() for tx_rec in tx_list}
@@ -423,7 +411,7 @@ def generate_gene_set(binned_transcripts, stats, gps, transcript_biotype_map, re
 
 
 def consensus_by_biotype(db_path, ref_genome, genome, biotype, gps, transcript_gene_map, gene_transcript_map,
-                         transcript_biotype_map, stats, mode, ref_gene_sizes, hints_db, filter_chroms):
+                         transcript_biotype_map, stats, mode, ref_gene_sizes, hints_intron_intervals, filter_chroms):
     """
     Main consensus finding function.
     """
@@ -438,7 +426,7 @@ def consensus_by_biotype(db_path, ref_genome, genome, biotype, gps, transcript_g
         id_names = ["fail_ids", "pass_specific_ids", "excel_ids"]
         id_list = [fail_ids, pass_specific_ids, excel_ids]
     data_dict = build_data_dict(id_names, id_list, transcript_gene_map, gene_transcript_map)
-    binned_transcripts = find_best_transcripts(data_dict, stats, mode, biotype, gps, hints_db, genome)
+    binned_transcripts = find_best_transcripts(data_dict, stats, mode, biotype, gps, hints_intron_intervals)
     consensus, metrics = generate_gene_set(binned_transcripts, stats, gps, transcript_biotype_map, ref_gene_sizes,
                                            mode, biotype)
     return consensus, metrics
@@ -516,14 +504,26 @@ def build_gene_sizes(tx_dict, gene_transcript_map, biotype, transcript_biotype_m
     return r
 
 
+def calculate_rnaseq_support(tx, hint_intron_intervals):
+    if len(tx.intron_intervals) == 0:
+        return 0
+    #  need to lose strand information
+    tx_intron_intervals = [ChromosomeInterval(i.chromosome, i.start, i.stop, '.') for i in tx.intron_intervals]
+    supported = [x for x in tx_intron_intervals if x in hint_intron_intervals[tx.chromosome]]
+    r = format_ratio(len(supported), len(tx_intron_intervals))
+    assert r >= 0
+    return r
+
+
 def generate_gene_set_wrapper(args):
     assert args.mode in ['AugustusTMR', 'AugustusTM', 'transMap']
     if mode_is_aug(args.mode):
         gps = load_gps([args.gp, args.augustus_gp])
         hints_db = args.args.augustusHints
+        hint_intron_intervals = get_intron_hints(args.target_genome, hints_db)
     else:
         gps = load_gps([args.gp])
-        hints_db = None
+        hint_intron_intervals = None
     transcript_gene_map = get_transcript_gene_map(args.query_genome, args.db)
     transcript_biotype_map = get_transcript_biotype_map(args.query_genome, args.db)
     ref_gps = get_transcript_dict(args.annotation_gp)
@@ -535,7 +535,8 @@ def generate_gene_set_wrapper(args):
         stats = get_db_rows(args.query_genome, args.target_genome, args.db, biotype, args.mode)
         consensus, metrics = consensus_by_biotype(args.db, args.query_genome, args.target_genome, biotype, gps,
                                                   transcript_gene_map, gene_transcript_map, transcript_biotype_map,
-                                                  stats, args.mode, ref_gene_sizes, hints_db, args.filter_chroms)
+                                                  stats, args.mode, ref_gene_sizes, hint_intron_intervals,
+                                                  args.filter_chroms)
         deduplicated_consensus, dup_count = deduplicate_consensus(consensus, gps, stats)
         write_gps(deduplicated_consensus, gps, gp_path, transcript_gene_map)
         overall_consensus.extend(deduplicated_consensus)
