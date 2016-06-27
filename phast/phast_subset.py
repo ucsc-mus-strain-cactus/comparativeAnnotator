@@ -18,6 +18,8 @@ def parse_args():
     parser.add_argument('ref_genome', help='Reference genome.')
     parser.add_argument('model', help='Model file produced by phyloFit/halPhyloPTrain.py.')
     parser.add_argument('output_dir', help='Location to write the split up files to.')
+    parser.add_argument('--target-genomes', default=None, nargs='+',
+                        help='genomes to target. If not set, targets all.')
     parser.add_argument('--ref-fasta-path', default=None,
                         help='Path to reference genome FASTA. If not provided, it will be extracted from the HAL.')
     parser.add_argument('--windows', default='1000000,0',
@@ -107,7 +109,8 @@ def split_ss_wrapper(target, args, ss_dict):
 
 def main():
     args = parse_args()
-    args.target_genomes = extract_model_tree(args.model) - set([args.ref_genome])
+    if args.target_genomes is None:
+        args.target_genomes = extract_model_tree(args.model) - set([args.ref_genome])
     args.msa_split_options = ' '.join(['--windows', args.windows, '--between-blocks', args.between_blocks,
                                        '--min-informative', args.min_informative])
     s = Stack(Target.makeTargetFn(subset_hal_pipeline, args=(args,)))
