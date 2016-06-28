@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument('--pre-extracted', default=None,
                         help=('Path to pre-extracted alignments from phast_subset.'
                               ' Will start the pipeline past that point.'))
-    parser.add_argument('--target-genomes', default=None, help='target genomes')
+    parser.add_argument('--target-genomes', default=None, nargs='+', help='target genomes')
     parser.add_argument('--ref-fasta-path', default=None,
                         help='Path to reference genome FASTA. If not provided, it will be extracted from the HAL.')
     parser.add_argument('--target-coverage', default='0.05',
@@ -172,6 +172,8 @@ def main():
     args = parse_args()
     if args.target_genomes is None:
         args.target_genomes = extract_model_tree(args.model) - set([args.ref_genome])
+    else:
+        args.target_genomes = set(args.target_genomes) - set([args.ref_genome])
     args.msa_split_options = " ".join(['--windows', args.windows, '--between-blocks', args.between_blocks,
                                        '--min-informative', args.min_informative])
     args.phastcons_options = " ".join(['--target-coverage', args.target_coverage, '--expected-length',
