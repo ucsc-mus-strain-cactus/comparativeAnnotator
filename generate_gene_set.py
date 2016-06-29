@@ -505,11 +505,11 @@ def build_gene_sizes(tx_dict, gene_transcript_map, biotype, transcript_biotype_m
 
 
 def calculate_rnaseq_support(tx, hint_intron_intervals):
-    if len(tx.intron_intervals) == 0:
+    introns = [i for i in tx.intron_intervals if len(i) > 0]
+    if len(introns) == 0:
         return 0
     #  need to lose strand information
-    tx_intron_intervals = [ChromosomeInterval(i.chromosome, i.start, i.stop, '.') for i in tx.intron_intervals
-                           if len(i) > 0]
+    tx_intron_intervals = [ChromosomeInterval(i.chromosome, i.start, i.stop, '.') for i in introns]
     supported = [x for x in tx_intron_intervals if x in hint_intron_intervals[tx.chromosome]]
     r = 100.0 * format_ratio(len(supported), len(tx_intron_intervals))
     assert r >= 0
