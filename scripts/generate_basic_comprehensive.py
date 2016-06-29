@@ -349,10 +349,7 @@ def get_basic_pseudogenes(tx_list, transcript_biotype_map):
         return transcribed_pseudogenes
     else:
         pseudogenes = [tx for tx in tx_list if 'pseudogene' in known_biotypes[transcript_biotype_map[tx.name]]]
-        if len(pseudogenes) == 0:
-            return []
-        assert len(pseudogenes) == 1
-        return pseudogenes[0]
+        return pseudogenes[:1]
 
 
 def parse_args():
