@@ -40,9 +40,9 @@ def parse_args():
     parser.add_argument('--target-genomes', default=None, nargs='+', help='target genomes')
     parser.add_argument('--ref-fasta-path', default=None,
                         help='Path to reference genome FASTA. If not provided, it will be extracted from the HAL.')
-    parser.add_argument('--target-coverage', default='0.05',
+    parser.add_argument('--target-coverage', default='0.3',
                         help='target coverage parameter for phastCons. (default: %(default)s)')
-    parser.add_argument('--expected-length', default='15',
+    parser.add_argument('--expected-length', default='45',
                         help='expected length parameter for phastCons. (default: %(default)s)')
     parser.add_argument('--windows', default='1000000,0',
                         help='windows parameter to pass on to msa_view (default: %(default)s)')
