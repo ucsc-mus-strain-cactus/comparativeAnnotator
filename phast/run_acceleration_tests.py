@@ -1,6 +1,5 @@
 """
-jobTree wrapper for extracting MAF blocks. Extracts each block in the reference that is conserved.
-Meant to be used downstream of the main phastCons pipeline in the process of detecting accelerated regions.
+Run acceleration tests on each region in the conserved_bed.
 """
 
 import os
