@@ -1,10 +1,6 @@
 """
-Run phastCons on a series of sub-alignments that represent conserved regions. Run these with the existing
-conserved/nonconserved model and also with a modified pair of models which extend the branch lengths for the
-nonconserved model.
-
-The final result will be a BED file with the LRT test performed (2 * [alternative likelihood - likelihood]) on each
-input site.
+jobTree wrapper for extracting MAF blocks. Extracts each block in the reference that is conserved.
+Meant to be used downstream of the main phastCons pipeline in the process of detecting accelerated regions.
 """
 
 import os
@@ -24,68 +20,75 @@ from phast.phast_subset import subset_hal_pipeline
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('mafDir', help='Directory containing MAFs split by extract_maf_blocks.')
-    parser.add_argument('ref_genome', help='Reference genome.')
-    parser.add_argument('conserved_model', help='Original conserved model')
-    parser.add_argument('non_conserved_model', help='Original nonconserved model.')
-    parser.add_argument('modified_non_conserved_model', help='nonconserved model that was modified.')
-    parser.add_argument('out_bed', help='output BED')
-    parser.add_argument('--target-coverage', default='0.3',
-                        help='target coverage parameter for phastCons. (default: %(default)s)')
-    parser.add_argument('--expected-length', default='45',
-                        help='expected length parameter for phastCons. (default: %(default)s)')
+    parser.add_argument('--hal', help='HAL alignment file.', required=True)
+    parser.add_argument('--ref_genome', help='Reference genome.', required=True)
+    parser.add_argument('--conserved_bed', help='Conserved BED file.', required=True)
+    parser.add_argument('--conserved_model', help='Original conserved model', required=True)
+    parser.add_argument('--non_conserved_model', help='Original nonconserved model.', required=True)
+    parser.add_argument('--out_bed', help='output BED', required=True)
+    parser.add_argument('--target_genomes', nargs='+', required=True, help='target genomes')
+    parser.add_argument('--accelerated_genomes', nargs='+', required=True, help='target genomes')
     Stack.addJobTreeOptions(parser)
     return parser.parse_args()
 
 
-def phastcons_acceleration_wrapper(target, args):
+def extract_maf_wrapper(target, args):
     """
-    Main pipeline wrapper.
+    Main pipeline wrapper. Calls out to hal2maf once for each region in args.conserved_bed
     """
-    # walk the output dir to find all of the files
-    files = []
-    for root, dirnames, filenames in os.walk(args.mafDir):
-        if filenames:
-            files.extend([os.path.join(root, x) for x in filenames if x.startswith('tmp') and
-                          os.path.getsize(os.path.join(root, x)) > 0])
+    bed_recs = [x.split()[:3] for x in open(args.conserved_bed)]
     result_dir = target.getGlobalTempDir()
     result_tree = TempFileTree(result_dir)
-    assert len(files) > 0
-    for f in files:
-        genome_loc = os.path.basename(f).split('_', 2)[-1]
-        chrom, start, stop = genome_loc.split('_')
-        r = result_tree.getTempFile(suffix='_' + genome_loc)
-        target.addChildTargetFn(phastcons_accel, args=(args, f, r, chrom, start, stop))
-    target.setFollowOnTargetFn(cat_accel, args=(args, result_tree.listFiles()))
+    for chrom, start, stop in bed_recs:
+        result_path = result_tree.getTempFile(suffix='_' + '_'.join([chrom, start, stop]))
+        target.addChildTargetFn(extract_and_calculate, args=(args, chrom, start, stop, result_path))
+    target.setFollowOnTargetFn(cat_results, args=(args, result_tree.listFiles()))
 
 
-def parse_lnl(lnl):
-    """parses lnl file"""
-    l = open(lnl).next()
-    v = l.split(' = ')[-1]
-    return float(v)
+def rename_model(model, accelerated_genomes):
+    """rename the ancestor of accelerated_genomes. Necessary to do 2nd fitting"""
+    lines = open(model).readlines()
+    t = Tree(lines[-1].split('TREE: ')[1], format=1)
+    anc = t.get_common_ancestor(accelerated_genomes)
+    anc.name = 'Anc'
+    with open(model, 'w') as outf:
+        for l in lines[:-1]:
+            outf.write(l)
+        outf.write('TREE: ' + t.write(format=1) + '\n')
 
 
-def phastcons_accel(target, args, f, r, chrom, start, stop):
+def extract_and_calculate(target, args, chrom, start, stop, result_path):
     """
-    Runs phastcons twice, once with the original model pair and once with the new one. Reports a BED of the location
-    with the final score, which is (2 * [alternative likelihood - likelihood])
+    Runs the fitting.
     """
-    lnl = os.path.join(target.getLocalTempDir(), 'lnl')
-    cmd = 'phastCons {} {},{} --lnl {} --target-coverage {} --expected-length {}'
-    cmd = cmd.format(f, args.conserved_model, args.non_conserved_model, lnl, args.target_coverage, args.expected_length)
+    # extract region MAF
+    maf_path = os.path.join(target.getLocalTempDir(), 'region.maf')
+    size = int(stop) - int(start)
+    cmd = 'hal2maf --noAncestors --targetGenomes {} --refGenome {} --refSequence {} --start {} --length {} {} {}'
+    cmd = cmd.format(','.join(args.target_genomes), args.ref_genome, chrom, start, size, args.hal, maf_path)
     system(cmd)
-    cons_likelihood = parse_lnl(lnl)
-    cmd = 'phastCons {} {},{} --lnl {} --target-coverage {} --expected-length {}'
-    cmd = cmd.format(f, args.conserved_model, args.modified_non_conserved_model, lnl, args.target_coverage, args.expected_length)
+    # phyloFit writes to the file *.mod in whatever the path set by --out-root is
+    region_specific_conserved = os.path.join(target.getLocalTempDir(), 'region_specific_conserved')
+    cmd = 'phyloFit --init-model {} --scale-only --out-root {} {}'.format(args.conserved_model,
+                                                                          region_specific_conserved, maf_path)
     system(cmd)
-    accel_likelihood = parse_lnl(lnl)
-    retval = 2 * (accel_likelihood - cons_likelihood)
-    with open(r, 'w') as outf:
-        outf.write('\t'.join([chrom, start, stop, str(retval)]) + '\n')
+    region_specific_conserved += '.mod'
+    rename_model(region_specific_conserved, args.accelerated_genomes)
+    region_specific_accelerated = os.path.join(target.getLocalTempDir(), 'region_specific_accelerated')
+    cmd = 'phyloFit --init-model {} --scale-subtree Anc:gain --out-root {} {}'.format(region_specific_conserved,
+                                                                                      region_specific_accelerated,
+                                                                                      maf_path)
+    region_specific_accelerated += '.mod'
+    system(cmd)
+    region_bed = os.path.join(target.getLocalTempDir(), 'region.bed')
+    with open(region_bed, 'w') as outf:
+        outf.write('\t'.join([chrom, start, stop]) + '\n')
+    cmd = 'phastOdds --output-bed --features {} --background-mods {} --feature-mods {} {} > {}'
+    cmd = cmd.format(region_bed, region_specific_conserved, region_specific_accelerated, maf_path, result_path)
+    system(cmd)
 
 
-def cat_accel(target, args, paths):
+def cat_results(target, args, paths):
     """
     Concatenates final phastcons output into one gff file.
     """
@@ -102,7 +105,7 @@ def cat_accel(target, args, paths):
 if __name__ == '__main__':
     from phast.run_acceleration_tests import *
     args = parse_args()
-    s = Stack(Target.makeTargetFn(phastcons_acceleration_wrapper, args=(args,)))
+    s = Stack(Target.makeTargetFn(extract_maf_wrapper, args=(args,)))
     i = s.startJobTree(args)
     if i != 0:
         raise RuntimeError("Got failed jobs")
