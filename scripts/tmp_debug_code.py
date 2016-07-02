@@ -365,7 +365,7 @@ plt.close('all')
 
 from comparativeAnnotator.scripts.cgp_consensus_driver import *
 original_args = loadp('cgp_args_v4.pickle')
-genome = 'C57BL_6NJ'
+genome = '12S19_SvImJ'
 consensus_gp, cgp_gp, genome_fasta, cgp_intron_bits = original_args.file_map[genome]
 args = CgpConsensusNamespace()
 args.genome = genome
@@ -416,7 +416,7 @@ from pycbio.sys.fileOps import ensureFileDir
 from comparativeAnnotator.database_queries import get_gene_transcript_map, get_transcript_gene_map, get_transcript_biotype_map
 from pycbio.bio.transcripts import get_transcript_dict
 from comparativeAnnotator.scripts.cgp_consensus import *
-genome = 'C57BL_6NJ'
+genome = '129S1_SvImJ'
 ref_genome = 'C57B6J'
 args = loadp('cgp_nj.pickle')
 
