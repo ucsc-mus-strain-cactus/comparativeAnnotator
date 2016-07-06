@@ -11,7 +11,7 @@ from pycbio.bio.transcripts import get_transcript_dict
 from pycbio.bio.intervals import ChromosomeInterval
 from pycbio.sys.fileOps import TemporaryFilePath
 from pycbio.sys.procOps import callProcLines
-from comparativeAnnotator.database_queries import get_aln_ids, get_transcript_gene_map
+from comparativeAnnotator.database_queries import get_aln_ids, get_transcript_gene_map, get_gene_biotype_map
 from comparativeAnnotator.comp_lib.name_conversions import strip_alignment_numbers
 
 
@@ -31,7 +31,7 @@ def parse_args():
 
 def create_chrom_dict(tx_dict):
     """
-    For all transcripts on a chromosome, create a BED record of it
+    Split up a dictionary of Transcript objects by chromosome, converting each object into a BED record
     """
     chrom_dict = defaultdict(dict)
     for tx_id, tx in tx_dict.iteritems():
@@ -50,7 +50,27 @@ def filter_tm_txs(cgp_tx, tm_tx_dict):
     return r
 
 
-def calculate_jaccard(cgp_bed_rec, filtered_tm_txs, min_jaccard, resolve_multiple):
+def resolve_multiple_genes(results, gene_biotype_map, min_distance=0.2):
+    """
+    Resolve multiple assignments based on the following rules:
+    If a CGP has multiple assignments, see if only 1 is not a pseudogene. If so, assign it.
+    If the difference in Jaccard scores is >=min_distance, assign it to the higher score.
+    If neither of these are satisfiable, discard the transcript.
+    """
+    filtered = {gene_id: score for gene_id, score in results.iteritems() if gene_biotype_map[gene_id] == 'protein_coding'}
+    if len(filtered) < 2:
+        return filtered
+    scores = results.values()
+    high_score = max(scores)
+    if all(high_score - x >= min_distance for x in scores if x != high_score):
+        best = sorted(results.iteritems(), key=lambda (gene_id, score): score)[-1]
+        results = dict((best,))
+    else:
+        results = {}
+    return results
+
+
+def calculate_jaccard(cgp_bed_rec, filtered_tm_txs, gene_biotype_map, min_jaccard, resolve_multiple):
     """calculates jaccard distance. the pybedtools wrapper can't do stranded"""
     results = defaultdict(float)
     with TemporaryFilePath() as cgp, TemporaryFilePath() as tm:
@@ -59,13 +79,13 @@ def calculate_jaccard(cgp_bed_rec, filtered_tm_txs, min_jaccard, resolve_multipl
                 outf.write(cgp_bed_rec)
             with open(tm, 'w') as outf:
                 outf.write(tm_bed_rec)
-            cmd = ['bedtools', 'jaccard', '-s', '-a', cgp, '-b', tm]
+            cmd = ['bedtools', 'jaccard', '-s', '-f', '0.5', '-a', cgp, '-b', tm]
             r = callProcLines(cmd)
             j = float(r[-1].split()[-2])
             if j >= min_jaccard:
                 results[tm_tx.name2] = max(results[tm_tx.name2], j)
     if resolve_multiple is True and len(results) > 1:
-        results = dict(sorted(results.iteritems(), key=lambda (gene_id, score): score)[-1])
+        results = resolve_multiple_genes(results, gene_biotype_map)
     return results
 
 
@@ -78,17 +98,17 @@ def main():
     transmap_dict = {tx_id: tx for tx_id, tx in transmap_dict.iteritems() if tx_id in best_ids}
     # rename these to the ENSMUSG naming scheme since transMap uses the common names
     transcript_gene_map = get_transcript_gene_map(args.ref_genome, args.comp_db)
+    gene_biotype_map = get_gene_biotype_map(args.ref_genome, args.comp_db)
     for tx_id, tx in transmap_dict.iteritems():
         tx.name2 = transcript_gene_map[strip_alignment_numbers(tx_id)]
     cgp_dict = get_transcript_dict(args.cgp)
     tm_chrom_dict = create_chrom_dict(transmap_dict)
     cgp_chrom_dict = create_chrom_dict(cgp_dict)
-    results_dict = {}
     for chrom, tm_tx_dict in tm_chrom_dict.iteritems():
         for cgp_tx_id, (cgp_tx, cgp_bed_rec) in cgp_chrom_dict[chrom].iteritems():
             filtered_tm_txs = filter_tm_txs(cgp_tx, tm_tx_dict)
-            j = calculate_jaccard(cgp_bed_rec, filtered_tm_txs, args.min_jaccard, args.resolve_multiple)
-            results_dict[cgp_tx_id] = j
+            j = calculate_jaccard(cgp_bed_rec, filtered_tm_txs, gene_biotype_map,
+                                  args.min_jaccard, args.resolve_multiple)
             if args.remove_multiple is True and len(j) > 1:
                 continue
             elif len(j) > 0:
