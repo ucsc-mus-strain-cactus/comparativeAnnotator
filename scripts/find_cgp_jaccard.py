@@ -79,7 +79,7 @@ def calculate_jaccard(cgp_bed_rec, filtered_tm_txs, gene_biotype_map, min_jaccar
                 outf.write(cgp_bed_rec)
             with open(tm, 'w') as outf:
                 outf.write(tm_bed_rec)
-            cmd = ['bedtools', 'jaccard', '-s', '-f', '0.5', '-a', cgp, '-b', tm]
+            cmd = ['bedtools', 'jaccard', '-s', '-a', cgp, '-b', tm]
             r = callProcLines(cmd)
             j = float(r[-1].split()[-2])
             if j >= min_jaccard:

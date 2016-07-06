@@ -386,7 +386,6 @@ def main():
         complete_cgp_ids.update(complete_pacbio_ids)
         for tx_id in all_pacbio_ids:
             transcript_biotype_map[tx_id] = 'protein_coding'
-        # add in code to extract pacbio IDs here and add them to transcript biotype map
     consensus_dict = get_transcript_dict(args.consensus)
     consensus_gene_dict = get_gene_dict(consensus_dict)
     complete_reference_ids = extract_reference_completeness(args.refGff3)
