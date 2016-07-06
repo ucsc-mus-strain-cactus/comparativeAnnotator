@@ -7,7 +7,7 @@ Modifies a basic/comprehensive GTF to have the following properties:
 2) transcript_id -> parent_transcript_id
 3) add biotype tag
 4) creates a strain specific gene/transcript ID in the following format:
-MGP_<strain_id>_<G/T/E><8 digit number>.version (which will be 1 for now)
+MGP_<strain_id>_<G/T/E><7 digit number>.version (which will be 1 for now)
 strain IDs are truncated at 10 characters, and have no underscores, but the last character is retained
 
 """
@@ -19,7 +19,7 @@ sys.path.extend(['./', './submodules', './submodules/pycbio', './submodules/comp
 from comparativeAnnotator.database_queries import get_transcript_biotype_map
 
 
-id_template = 'MGP_{strain_id:.9}{strain_suffix}_{tag_type}{unique_id:010d}.1'
+id_template = 'MGP_{strain_id:.9}{strain_suffix}_{tag_type}{unique_id:07d}.1'
 
 
 def parse_args():

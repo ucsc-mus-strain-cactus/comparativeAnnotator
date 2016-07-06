@@ -22,7 +22,6 @@ def parse_args():
     parser.add_argument('genome')
     parser.add_argument('cgp')
     parser.add_argument('transmap')
-    parser.add_argument('--min_jaccard', help='Minimum jaccard score to count', default=0.4, type=float)
     res = parser.add_mutually_exclusive_group()
     res.add_argument('--remove-multiple', action='store_true')
     res.add_argument('--resolve-multiple', action='store_true')
@@ -58,19 +57,21 @@ def resolve_multiple_genes(results, gene_biotype_map, min_distance=0.2):
     If neither of these are satisfiable, discard the transcript.
     """
     filtered = {gene_id: score for gene_id, score in results.iteritems() if gene_biotype_map[gene_id] == 'protein_coding'}
-    if len(filtered) < 2:
-        return filtered
+    if len(filtered) == 0:
+        return None
+    elif len(filtered) == 1:
+        return filtered.keys()[0]
     scores = results.values()
     high_score = max(scores)
     if all(high_score - x >= min_distance for x in scores if x != high_score):
         best = sorted(results.iteritems(), key=lambda (gene_id, score): score)[-1]
-        results = dict((best,))
+        results = best[0]
     else:
-        results = {}
+        results = None
     return results
 
 
-def calculate_jaccard(cgp_bed_rec, filtered_tm_txs, gene_biotype_map, min_jaccard, resolve_multiple):
+def calculate_jaccard(cgp_bed_rec, filtered_tm_txs, gene_biotype_map):
     """calculates jaccard distance. the pybedtools wrapper can't do stranded"""
     results = defaultdict(float)
     with TemporaryFilePath() as cgp, TemporaryFilePath() as tm:
@@ -82,11 +83,17 @@ def calculate_jaccard(cgp_bed_rec, filtered_tm_txs, gene_biotype_map, min_jaccar
             cmd = ['bedtools', 'jaccard', '-s', '-a', cgp, '-b', tm]
             r = callProcLines(cmd)
             j = float(r[-1].split()[-2])
-            if j >= min_jaccard:
-                results[tm_tx.name2] = max(results[tm_tx.name2], j)
-    if resolve_multiple is True and len(results) > 1:
-        results = resolve_multiple_genes(results, gene_biotype_map)
+            results[tm_tx.name2] = max(results[tm_tx.name2], j)
+    results = resolve_multiple_genes(results, gene_biotype_map)
     return results
+
+
+def find_overlapping_genes(filtered_tm_txs):
+    """
+    Determine if transMap overlaps lead to only one gene assocation
+    """
+    gene_ids = {tx.name2 for tx, bed_rec in filtered_tm_txs}
+    return gene_ids
 
 
 def main():
@@ -107,14 +114,20 @@ def main():
     for chrom, tm_tx_dict in tm_chrom_dict.iteritems():
         for cgp_tx_id, (cgp_tx, cgp_bed_rec) in cgp_chrom_dict[chrom].iteritems():
             filtered_tm_txs = filter_tm_txs(cgp_tx, tm_tx_dict)
-            j = calculate_jaccard(cgp_bed_rec, filtered_tm_txs, gene_biotype_map,
-                                  args.min_jaccard, args.resolve_multiple)
-            if args.remove_multiple is True and len(j) > 1:
-                continue
-            elif len(j) > 0:
-                cgp_tx.name2 = ','.join(j.keys())
-            else:
+            gene_ids = find_overlapping_genes(filtered_tm_txs)
+            if len(gene_ids) == 0:
                 cgp_tx.name2 = cgp_tx.name.split('.')[0]
+            elif len(gene_ids) == 1:
+                cgp_tx.name2 = list(gene_ids)[0]
+            elif args.remove_multiple is True:
+                continue
+            elif args.resolve_multiple is True:
+                gene_id = calculate_jaccard(cgp_bed_rec, filtered_tm_txs, gene_biotype_map)
+                if gene_id is None:  # we cannot resolve this transcript
+                    continue
+                cgp_tx.name2 = gene_id
+            else:
+                cgp_tx.name2 = ','.join(gene_ids)
             print '\t'.join(map(str, cgp_tx.get_gene_pred()))
 
 

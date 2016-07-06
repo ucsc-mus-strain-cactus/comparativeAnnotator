@@ -407,7 +407,7 @@ def main():
         basic.append(sorted(tx_list, key=len, reverse=True)[0])
     ensureFileDir(args.outBasic)
     with open(args.outBasic, 'w') as outf:
-        for tx in basic:
+        for tx in sorted(basic, key=lambda x: (x.chromosome, x.start)):
             outf.write('\t'.join(map(str, tx.get_gene_pred())) + '\n')
 
 
