@@ -9,15 +9,14 @@ import argparse
 import itertools
 import subprocess
 from collections import defaultdict
-from pyfasta import Fasta
 os.environ['PYTHONPATH'] = './:./submodules:./submodules/pycbio:./submodules/comparativeAnnotator'
 sys.path.extend(['./', './submodules', './submodules/pycbio', './submodules/comparativeAnnotator'])
 from pycbio.sys.mathOps import format_ratio
-from pycbio.sys.fileOps import tmpFileGet, ensureDir, atomicInstall
-from pycbio.sys.procOps import runProcCode
+from pycbio.sys.fileOps import tmpFileGet, ensureDir, ensureFileDir, atomicInstall
+from pycbio.sys.procOps import runProc, runProcCode
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
-from sonLib.bioio import system, popenCatch, getRandomAlphaNumericString, catFiles, TempFileTree
+from sonLib.bioio import getRandomAlphaNumericString, catFiles, TempFileTree
 
 
 def get_tmp(target, global_dir=False, name=None):
@@ -82,7 +81,7 @@ def main_hints_fn(target, bam_paths, db, genome, genome_fasta, hints_file):
     sam_handle = pysam.Samfile(bam_paths[0])
     references = list(group_references(sam_handle))
     for bam_path in bam_paths:
-        paired = "--paired --pairwiseAlignments" if bam_is_paired(bam_path) is True else ""
+        paired = ["--paired", "--pairwiseAlignments"] if bam_is_paired(bam_path) is True else []
         for group in references:
             out_filter = filtered_bam_tree.getTempFile(suffix=".bam")
             chrom_file_map[tuple(group)].append(out_filter)
@@ -95,14 +94,22 @@ def sort_by_name(target, bam_path, references, out_filter, paired):
     Slices out a chromosome from a BAM, re-sorts by name, filters the reads, then re-sorts by position.
     filterBam does weird things when piped to stdout, so I don't do that.
     """
-    references = " ".join(references)
     tmp_filtered = get_tmp(target, name=".filtered.bam")
-    cmd = "samtools view -b {} {} | samtools sort -O bam -T {} -n - | filterBam --uniq {} --in /dev/stdin --out {}"
-    cmd = cmd.format(bam_path, references, get_tmp(target), paired, tmp_filtered)
-    system(cmd)
-    cmd2 = "samtools sort -O bam -T {} {} > {}".format(get_tmp(target), tmp_filtered, out_filter)
-    system(cmd2)
-    system("samtools index {}".format(out_filter))
+    cmd = [['samtools', 'view', '-b', bam_path],
+           ['samtools', 'sort', '-O', 'bam', '-T', get_tmp(target), '-n', '-'],
+           ['filterBam', '--uniq', '--in', '/dev/stdin', '--out', tmp_filtered]]
+    cmd[-1].extend(paired)
+    cmd[0].extend(references)
+    runProc(cmd)
+    #cmd = "samtools view -b {} {} | samtools sort -O bam -T {} -n - | filterBam --uniq {} --in /dev/stdin --out {}"
+    #cmd = cmd.format(bam_path, references, get_tmp(target), paired, tmp_filtered)
+    #system(cmd)
+    cmd2 = ['samtools', 'sort', '-O', 'bam', '-T', get_tmp(target), tmp_filtered]
+    runProc(cmd2, stdout=out_filter)
+    #cmd2 = "samtools sort -O bam -T {} {} > {}".format(get_tmp(target), tmp_filtered, out_filter)
+    #system(cmd2)
+    runProc(['samtools', 'index', out_filter])
+    #system("samtools index {}".format(out_filter))
 
 
 def merge_bam_wrapper(target, chrom_file_map, genome, db, genome_fasta, hints_file):
@@ -122,8 +129,10 @@ def merge_bams(target, bam_files, merged_path):
     with open(fofn, 'w') as outf:
         for x in bam_files:
             outf.write(x + "\n")
-    cmd = 'samtools merge -b {} {}'.format(fofn, merged_path)
-    system(cmd)
+    cmd = ['samtools', 'merge', '-b', fofn, merged_path]
+    runProc(cmd)
+    #cmd = 'samtools merge -b {} {}'.format(fofn, merged_path)
+    #system(cmd)
 
 
 def build_hints(target, merged_bams, genome, db, genome_fasta, hints_file):
@@ -148,19 +157,25 @@ def build_exon_hints(target, bam_file, exon_gff_path):
     """
     Exon hints are built from peaks of coverage, using bam2wig and wig2hints.pl in the Augustus repo.
     """
-    cmd = ('bam2wig {} | wig2hints.pl --width=10 --margin=10 --minthresh=2 --minscore=4 --prune=0.1 --src=W --type=ep '
-           '--UCSC=/dev/null --radius=4.5 --pri=4 --strand="." > {}')
-    cmd = cmd.format(bam_file, exon_gff_path)
-    system(cmd)
+    cmd = [['bam2wig', bam_file],
+           ['wig2hints.pl', '--width=10', '--margin=10', '--minthresh=2', '--minscore=4', '--prune=0.1', '--src=W',
+            '--type=ep', '--UCSC=/dev/null', '--radius=4.5', '--pri=4', '--strand="."']]
+    runProc(cmd, stdout=exon_gff_path)
+    #cmd = ('bam2wig {} | wig2hints.pl --width=10 --margin=10 --minthresh=2 --minscore=4 --prune=0.1 --src=W --type=ep '
+    #       '--UCSC=/dev/null --radius=4.5 --pri=4 --strand="." > {}')
+    #cmd = cmd.format(bam_file, exon_gff_path)
+    #system(cmd)
 
 
 def build_intron_hints(target, bam_file, intron_hints_path):
     """
     Intron hints look for splice junctions in BAM files
     """
-    cmd = "bam2hints --intronsonly --in {} --out {}"
-    cmd = cmd.format(bam_file, intron_hints_path)
-    system(cmd)
+    cmd = ['bam2hints', '--intronsonly', '--in', bam_file, '--out', intron_hints_path]
+    runProc(cmd)
+    #cmd = "bam2hints --intronsonly --in {} --out {}"
+    #cmd = cmd.format(bam_file, intron_hints_path)
+    #system(cmd)
 
 
 def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db, genome_fasta, hints_file):
@@ -170,19 +185,22 @@ def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db, genome_fas
     if os.path.dirname(hints_file) != '':
         ensureDir(os.path.dirname(hints_file))
     all_gffs = intron_hints_tree.listFiles() + exon_hints_tree.listFiles()
-    # we use a fofn to side-step cat's inability to handle long input strings
-    gff_fofn = get_tmp(target, name="gff_fofn")
-    with open(gff_fofn, "w") as outf:
-        for x in all_gffs:
-            outf.write(x + "\n")
     concat_hints = get_tmp(target, name="concat_hints")
-    cat_cmd = "cat {} | xargs -n 50 cat >> {}".format(gff_fofn, concat_hints)
-    system(cat_cmd)
+    with open(concat_hints, 'w') as outf:
+        for f in all_gffs:
+            for l in open(f):
+                outf.write(l)
     hints_tmp = tmpFileGet()
     # TODO: this takes forever. Surely this can be merged into one better sort command
-    cmd = "cat {} | sort -n -k4,4 | sort -s -n -k5,5 | sort -s -n -k3,3 | sort -s -k1,1 | join_mult_hints.pl > {}"
-    cmd = cmd.format(concat_hints, hints_tmp)
-    system(cmd)
+    cmd = [['sort', '-n', '-k4,4', concat_hints],
+           ['sort', '-s', '-n', '-k5,5'],
+           ['sort', '-s', '-n', '-k3,3'],
+           ['sort', '-s', '-k1,1'],
+           ['join_mult_hints.pl']]
+    runProc(cmd, stdout=hints_tmp)
+    #cmd = "cat {} | sort -n -k4,4 | sort -s -n -k5,5 | sort -s -n -k3,3 | sort -s -k1,1 | join_mult_hints.pl > {}"
+    #cmd = cmd.format(concat_hints, hints_tmp)
+    #system(cmd)
     atomicInstall(hints_tmp, hints_file)
     target.setFollowOnTargetFn(load_db, args=[hints_file, db, genome, genome_fasta])
 
@@ -193,15 +211,12 @@ def load_db(target, hints_file, db, genome, genome_fasta, timeout=6000, interval
     NOTE: Once done on all genomes, you want to run load2sqlitedb --makeIdx --dbaccess ${db}
     TODO: this times out sometimes. Rewrite to not be recursive.
     """
-    cmd = "load2sqlitedb --noIdx --species={} --dbaccess={} {}"
-    fa_cmd = cmd.format(genome, db, genome_fasta)
-    hints_cmd = cmd.format(genome, db, hints_file)
     def handle_concurrency(cmd, timeout, intervals, start_time=None):
         if start_time is None:
             start_time = time.time()
         elif time.time() - start_time >= timeout:
             raise RuntimeError("hints database still locked after {} seconds".format(timeout))
-        p = subprocess.Popen(cmd, shell=True, bufsize=-1, stderr=subprocess.PIPE)
+        p = subprocess.Popen(cmd, bufsize=-1, stderr=subprocess.PIPE)
         _, ret = p.communicate()
         if p.returncode == 0:
             return 1
@@ -210,9 +225,9 @@ def load_db(target, hints_file, db, genome, genome_fasta, timeout=6000, interval
             handle_concurrency(cmd, timeout, intervals, start_time)
         else:
             raise RuntimeError(ret)
-    if os.path.dirname(db) != '':
-        ensureDir(os.path.dirname(db))
-    for cmd in [fa_cmd, hints_cmd]:
+    ensureFileDir(db)
+    for f in [genome_fasta, hints_file]:
+        cmd = ['load2sqlitedb', '--noIdx', '--species={}'.format(genome), '--dbaccess={}'.format(db), f]
         ret = handle_concurrency(cmd, timeout, intervals)
 
 
@@ -247,6 +262,8 @@ def main():
         args.bams = bams
     else:
         args.bams = set(args.bams)
+    for bam in args.bams:
+        assert os.path.exists(bam + 'bai'), 'Bam {} not indexed'.format(bam)
     args.defaultMemory = 8 * 1024 ** 3
     s = Stack(Target.makeTargetFn(main_hints_fn, args=[args.bams, args.database, args.genome, args.fasta,
                                                        args.hintsFile]))
