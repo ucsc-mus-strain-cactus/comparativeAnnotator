@@ -86,7 +86,6 @@ def extract_maf_wrapper(target, args):
     bed_recs = [x.split()[:3] for x in open(args.conserved_bed)]
     result_dir = target.getGlobalTempDir()
     result_tree = TempFileTree(result_dir)
-    bed_recs = bed_recs[:5]
     for chrom, start, stop in bed_recs:
         result_path = result_tree.getTempFile(suffix='_' + '_'.join([chrom, start, stop]))
         target.addChildTargetFn(extract_and_calculate, args=(args, chrom, start, stop, result_path))
