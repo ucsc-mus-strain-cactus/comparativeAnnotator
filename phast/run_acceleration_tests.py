@@ -5,16 +5,11 @@ Run acceleration tests on each region in the conserved_bed.
 import os
 import argparse
 import itertools
-import shutil
-import random
-import cPickle as pickle
 from ete3 import Tree
 from collections import OrderedDict
 from jobTree.scriptTree.target import Target
 from jobTree.scriptTree.stack import Stack
 from sonLib.bioio import system, TempFileTree, popenCatch
-from phast.phast_functions import *
-from phast.phast_subset import subset_hal_pipeline
 
 
 def parse_args():
@@ -27,6 +22,8 @@ def parse_args():
     parser.add_argument('--out_bed', help='output BED', required=True)
     parser.add_argument('--target_genomes', nargs='+', required=True, help='target genomes')
     parser.add_argument('--accelerated_genomes', nargs='+', required=True, help='target genomes')
+    parser.add_argument('--single_copy_percent_cutoff', default=0.98, type=float,
+                        help='Percent of region that must be single copy before we test it for acceleration')
     Stack.addJobTreeOptions(parser)
     return parser.parse_args()
 
@@ -83,10 +80,12 @@ def extract_maf_wrapper(target, args):
     """
     Main pipeline wrapper. Calls out to hal2maf once for each region in args.conserved_bed
     """
-    bed_recs = [x.split()[:3] for x in open(args.conserved_bed)]
+    bed_recs = [x.split() for x in open(args.conserved_bed)]
     result_dir = target.getGlobalTempDir()
     result_tree = TempFileTree(result_dir)
-    for chrom, start, stop in bed_recs:
+    for chrom, start, stop, score in bed_recs:
+        if float(score) <= args.single_copy_percent_cutoff:
+            continue
         result_path = result_tree.getTempFile(suffix='_' + '_'.join([chrom, start, stop]))
         target.addChildTargetFn(extract_and_calculate, args=(args, chrom, start, stop, result_path))
     target.setFollowOnTargetFn(cat_results, args=(args, result_tree.listFiles()))
