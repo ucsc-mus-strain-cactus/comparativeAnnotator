@@ -101,7 +101,6 @@ def main():
     transmap_dict = get_transcript_dict(args.transmap)
     # pull out best alignment IDs
     best_ids = get_aln_ids(args.ref_genome, args.genome, args.comp_db, best_only=True)
-    # filter transMap for large sized transcripts that will mess this up
     transmap_dict = {tx_id: tx for tx_id, tx in transmap_dict.iteritems() if tx_id in best_ids}
     # rename these to the ENSMUSG naming scheme since transMap uses the common names
     transcript_gene_map = get_transcript_gene_map(args.ref_genome, args.comp_db)
