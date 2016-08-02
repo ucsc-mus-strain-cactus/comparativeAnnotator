@@ -4,6 +4,7 @@ This program takes a series of BAM files and converts them to a Augustus hints d
 import sys
 import os
 import pysam
+import pyfasta
 import time
 import argparse
 import itertools
@@ -50,6 +51,27 @@ def bam_is_paired(path, num_reads=100000, paired_cutoff=0.75):
         raise RuntimeError("Unable to infer pairing from bamfile {}".format(path))
 
 
+def index_fasta(fasta):
+    """if fasta index exists, return path, otherwise generate and return path"""
+    if not os.path.exists(fasta + '.fai'):
+        cmd = ['samtools', 'faidx', fasta]
+        runProc(cmd)
+    return fasta + '.fai'
+
+
+def validate_bam_fasta_pairs(bam_paths, fasta_index):
+    """
+    Make sure that this BAM is actually aligned to this fasta
+    """
+    fasta_sequences = {x.split()[0] for x in open(fasta_index)}
+    for bam in bam_paths:
+        handle = pysam.Samfile(bam)
+        if set(handle.references) != fasta_sequences:
+            base_err = 'Error: BAM {} does not have the same sequences as the genome FASTA {}'
+            err = base_err.format(bam, fasta_index.replace('.fai', ''))
+            raise RuntimeError(err)
+
+
 def group_references(sam_handle, num_bases=10 ** 6, max_seqs=100):
     """
     Group up references by num_bases, unless that exceeds max_seqs.
@@ -77,6 +99,8 @@ def main_hints_fn(target, bam_paths, db, genome, genome_fasta, hints_file):
     for filtering. Maintains a chromosome based map of bams so that they can be merged prior to hint construction.
     """
     filtered_bam_tree = TempFileTree(get_tmp(target, global_dir=True, name="filter_file_tree"))
+    fasta_index = index_fasta(genome_fasta)
+    validate_bam_fasta_pairs(bam_paths, fasta_index)
     chrom_file_map = defaultdict(list)
     sam_handle = pysam.Samfile(bam_paths[0])
     references = list(group_references(sam_handle))
@@ -101,15 +125,9 @@ def sort_by_name(target, bam_path, references, out_filter, paired):
     cmd[-1].extend(paired)
     cmd[0].extend(references)
     runProc(cmd)
-    #cmd = "samtools view -b {} {} | samtools sort -O bam -T {} -n - | filterBam --uniq {} --in /dev/stdin --out {}"
-    #cmd = cmd.format(bam_path, references, get_tmp(target), paired, tmp_filtered)
-    #system(cmd)
     cmd2 = ['samtools', 'sort', '-O', 'bam', '-T', get_tmp(target), tmp_filtered]
     runProc(cmd2, stdout=out_filter)
-    #cmd2 = "samtools sort -O bam -T {} {} > {}".format(get_tmp(target), tmp_filtered, out_filter)
-    #system(cmd2)
     runProc(['samtools', 'index', out_filter])
-    #system("samtools index {}".format(out_filter))
 
 
 def merge_bam_wrapper(target, chrom_file_map, genome, db, genome_fasta, hints_file):
@@ -131,8 +149,6 @@ def merge_bams(target, bam_files, merged_path):
             outf.write(x + "\n")
     cmd = ['samtools', 'merge', '-b', fofn, merged_path]
     runProc(cmd)
-    #cmd = 'samtools merge -b {} {}'.format(fofn, merged_path)
-    #system(cmd)
 
 
 def build_hints(target, merged_bams, genome, db, genome_fasta, hints_file):
@@ -161,10 +177,6 @@ def build_exon_hints(target, bam_file, exon_gff_path):
            ['wig2hints.pl', '--width=10', '--margin=10', '--minthresh=2', '--minscore=4', '--prune=0.1', '--src=W',
             '--type=ep', '--UCSC=/dev/null', '--radius=4.5', '--pri=4', '--strand="."']]
     runProc(cmd, stdout=exon_gff_path)
-    #cmd = ('bam2wig {} | wig2hints.pl --width=10 --margin=10 --minthresh=2 --minscore=4 --prune=0.1 --src=W --type=ep '
-    #       '--UCSC=/dev/null --radius=4.5 --pri=4 --strand="." > {}')
-    #cmd = cmd.format(bam_file, exon_gff_path)
-    #system(cmd)
 
 
 def build_intron_hints(target, bam_file, intron_hints_path):
@@ -173,9 +185,6 @@ def build_intron_hints(target, bam_file, intron_hints_path):
     """
     cmd = ['bam2hints', '--intronsonly', '--in', bam_file, '--out', intron_hints_path]
     runProc(cmd)
-    #cmd = "bam2hints --intronsonly --in {} --out {}"
-    #cmd = cmd.format(bam_file, intron_hints_path)
-    #system(cmd)
 
 
 def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db, genome_fasta, hints_file):
@@ -198,9 +207,6 @@ def cat_hints(target, intron_hints_tree, exon_hints_tree, genome, db, genome_fas
            ['sort', '-s', '-k1,1'],
            ['join_mult_hints.pl']]
     runProc(cmd, stdout=hints_tmp)
-    #cmd = "cat {} | sort -n -k4,4 | sort -s -n -k5,5 | sort -s -n -k3,3 | sort -s -k1,1 | join_mult_hints.pl > {}"
-    #cmd = cmd.format(concat_hints, hints_tmp)
-    #system(cmd)
     atomicInstall(hints_tmp, hints_file)
     target.setFollowOnTargetFn(load_db, args=[hints_file, db, genome, genome_fasta])
 
