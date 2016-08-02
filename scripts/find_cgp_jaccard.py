@@ -4,6 +4,7 @@ Find CGP overlaps, looking only at transcripts which are tagged as best
 import argparse
 import sys
 import os
+import pybedtools
 from collections import defaultdict
 os.environ['PYTHONPATH'] = './:./submodules:./submodules/pycbio:./submodules/comparativeAnnotator'
 sys.path.extend(['./', './submodules', './submodules/pycbio', './submodules/comparativeAnnotator'])
@@ -38,14 +39,25 @@ def create_chrom_dict(tx_dict):
     return chrom_dict
 
 
-def filter_tm_txs(cgp_tx, tm_tx_dict):
+def ensure_exon_overlap(tm_bed_rec, cgp_bed_rec):
+    """ensure that at least some bases actually overlap in the transcripts"""
+    tm_bedtool = pybedtools.BedTool(tm_bed_rec, from_string=True)
+    cgp_bedtool = pybedtools.BedTool(cgp_bed_rec, from_string=True)
+    intersection = tm_bedtool.intersect(cgp_bedtool, split=True, wo=True)
+    recs = list(intersection)
+    return len(recs) != 0
+
+
+def filter_tm_txs(cgp_tx, cgp_bed_rec, tm_tx_dict):
     """reduce transcripts to those who intersect the cgp_tx"""
     cgp_interval = ChromosomeInterval(cgp_tx.chromosome, cgp_tx.start, cgp_tx.stop, cgp_tx.strand)
     r = []
     for tx, bed_rec in tm_tx_dict.itervalues():
         tx_interval = ChromosomeInterval(tx.chromosome, tx.start, tx.stop, tx.strand)
         if tx_interval.intersection(cgp_interval) is not None:
-            r.append([tx, bed_rec])
+            # make sure that we have exon overlap
+            if ensure_exon_overlap(bed_rec, cgp_bed_rec) is True:
+                r.append([tx, bed_rec])
     return r
 
 
@@ -112,7 +124,7 @@ def main():
     cgp_chrom_dict = create_chrom_dict(cgp_dict)
     for chrom, tm_tx_dict in tm_chrom_dict.iteritems():
         for cgp_tx_id, (cgp_tx, cgp_bed_rec) in cgp_chrom_dict[chrom].iteritems():
-            filtered_tm_txs = filter_tm_txs(cgp_tx, tm_tx_dict)
+            filtered_tm_txs = filter_tm_txs(cgp_tx, cgp_bed_rec, tm_tx_dict)
             gene_ids = find_overlapping_genes(filtered_tm_txs)
             if len(gene_ids) == 0:
                 cgp_tx.name2 = cgp_tx.name.split('.')[0]
@@ -128,6 +140,7 @@ def main():
             else:
                 cgp_tx.name2 = ','.join(gene_ids)
             print '\t'.join(map(str, cgp_tx.get_gene_pred()))
+    pybedtools.cleanup()
 
 
 if __name__ == '__main__':
